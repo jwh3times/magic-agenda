@@ -81,16 +81,14 @@ export function useTasks(userId: string): UseTasks {
         }
       }
       if (instances.length === 0) return
+      // missingInstanceDates already excludes existing days, so these are all new; a plain insert
+      // avoids ON CONFLICT (which can't target the partial unique index). The index still blocks
+      // true duplicates at the DB level.
       setTasks((prev) => {
         const present = new Set(prev.filter((t) => t.recurParentId).map(instanceKey))
         return [...prev, ...instances.filter((i) => !present.has(instanceKey(i)))]
       })
-      const { error: err } = await supabase
-        .from('tasks')
-        .upsert(
-          instances.map((t) => taskToRow(t, userId)),
-          { onConflict: 'recur_parent_id,day', ignoreDuplicates: true },
-        )
+      const { error: err } = await supabase.from('tasks').insert(instances.map((t) => taskToRow(t, userId)))
       if (err) setError(err.message)
     },
     [setTasks, userId],
