@@ -1,0 +1,57 @@
+# Contributing to Magic Agenda
+
+Thanks for your interest! This guide covers how to set up, make changes, and submit them.
+
+By participating, you agree to abide by our [Code of Conduct](./CODE_OF_CONDUCT.md).
+
+## Getting set up
+
+Follow the [Getting started](./README.md#getting-started) section of the README (Node 20+, a Supabase
+project, `.env.local`). Then:
+
+```bash
+npm install
+npm run dev
+```
+
+## Workflow
+
+1. **Open an issue first** for non‑trivial changes so we can agree on the approach.
+2. Fork the repo and create a branch from `main` (e.g. `feat/week-view-keyboard-nav`).
+3. Make your change with tests (see below).
+4. Ensure everything is green locally:
+   ```bash
+   npm run lint
+   npm test
+   npm run build
+   ```
+5. Open a Pull Request against `main` and fill in the template. CI must pass.
+
+## Standards
+
+- **Tests are required.** Pure logic (`src/data`, `src/dnd`, `src/theme`) is unit‑tested with Vitest;
+  prefer **test‑first** for new behaviour and bug fixes (write a failing test, then make it pass).
+  Reproduce bugs with a failing test before fixing.
+- **TypeScript strict** — no `any` escape hatches without good reason; `npm run build` type‑checks.
+- **Formatting & linting** — Prettier + ESLint. Run `npm run format` before committing; `npm run lint`
+  must pass.
+- **Styling model** — the UI uses per‑theme inline style objects (ported from the prototype), not a CSS
+  framework. Match the surrounding code; keep theme branching in `src/theme`.
+- **Commits** — clear, imperative messages ("Add week keyboard navigation"). Keep PRs focused.
+
+## Conventions to honour
+
+- **`'inbox'` ↔ `NULL`** — the `'inbox'` sentinel stays in app/DnD logic; map it to a `NULL` `day` only
+  in the DB mappers (`src/data/mappers.ts`).
+- **`order` is reserved SQL** → the column is `order_index`; `done` is derived from `status`, never
+  stored. Reindex both source and destination on cross‑container moves.
+- **`design/` is reference only** — the original prototype. Don't edit it or let formatters touch it
+  (it's in `.prettierignore`).
+- **Schema changes** go through a new file in `supabase/migrations/` (CLI‑managed); regenerate
+  `src/types/database.types.ts` with `npx supabase gen types`.
+
+## Project layout
+
+See [Project structure](./README.md#project-structure) in the README.
+
+Questions? Open a [discussion or issue](https://github.com/jwh3times/magic-agenda/issues). Thank you!

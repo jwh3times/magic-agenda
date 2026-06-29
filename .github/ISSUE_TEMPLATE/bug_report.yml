@@ -1,0 +1,39 @@
+name: Bug report
+description: Something isn't working as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for the report! Please don't include passwords, tokens, or other secrets.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to …
+        2. Click …
+        3. See …
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: e.g. magicagenda.app, Chrome 124, Windows 11 — or local dev
+    validations:
+      required: false
+  - type: textarea
+    id: console
+    attributes:
+      label: Console / network errors
+      description: Paste any relevant browser console or network errors (redact tokens).
+      render: text
+    validations:
+      required: false
