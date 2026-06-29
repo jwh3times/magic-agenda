@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { notesForDay, tasksForStatus, buildMonthGrid, applyToggleDone } from './selectors'
+import {
+  notesForDay,
+  tasksForStatus,
+  buildMonthGrid,
+  buildWeekCells,
+  agendaGroups,
+  applyToggleDone,
+} from './selectors'
 import type { Task } from '../types/task'
 
 function t(id: string, over: Partial<Task> = {}): Task {
@@ -56,6 +63,30 @@ describe('buildMonthGrid', () => {
     const today = cells.find((c) => c.dateStr === '2026-06-29')
     expect(today?.isToday).toBe(true)
     expect(today?.inMonth).toBe(true)
+  })
+})
+
+describe('buildWeekCells', () => {
+  it('returns 7 days from the given Sunday and flags today', () => {
+    const cells = buildWeekCells(new Date(2026, 5, 28), '2026-06-29') // Sun Jun 28 2026
+    expect(cells).toHaveLength(7)
+    expect(cells[0].dateStr).toBe('2026-06-28')
+    expect(cells[6].dateStr).toBe('2026-07-04')
+    expect(cells.find((c) => c.dateStr === '2026-06-29')?.isToday).toBe(true)
+  })
+})
+
+describe('agendaGroups', () => {
+  it('groups scheduled tasks by day ascending, excluding inbox', () => {
+    const tasks = [
+      t('a', { day: '2026-07-02', order: 1 }),
+      t('b', { day: '2026-07-01', order: 0 }),
+      t('c', { day: '2026-07-02', order: 0 }),
+      t('d', { day: 'inbox' }),
+    ]
+    const groups = agendaGroups(tasks)
+    expect(groups.map((g) => g.day)).toEqual(['2026-07-01', '2026-07-02'])
+    expect(groups[1].tasks.map((x) => x.id)).toEqual(['c', 'a']) // sorted by order
   })
 })
 

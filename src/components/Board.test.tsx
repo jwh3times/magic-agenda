@@ -49,6 +49,19 @@ test('switches between Calendar and Board (kanban) views', async () => {
   expect(screen.getByText('Inbox')).toBeInTheDocument()
 })
 
+test('Week and Agenda views render', async () => {
+  const user = userEvent.setup()
+  renderBoard()
+
+  await user.click(screen.getByRole('button', { name: 'Week' }))
+  expect(screen.getByText('Finish Q3 deck')).toBeInTheDocument() // today falls in the current week
+  expect(screen.getByText('Inbox')).toBeInTheDocument() // sidebar still present
+
+  await user.click(screen.getByRole('button', { name: 'Agenda' }))
+  expect(screen.getByText('Unscheduled · Inbox')).toBeInTheDocument()
+  expect(screen.getByText('Finish Q3 deck')).toBeInTheDocument()
+})
+
 test('+ New task creates a task via the editor', async () => {
   const user = userEvent.setup()
   renderBoard()

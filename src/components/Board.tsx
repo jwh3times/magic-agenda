@@ -2,13 +2,15 @@ import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 
 import { DndContext, DragOverlay } from '@dnd-kit/core'
 import { useTheme } from '../theme/ThemeProvider'
 import { rootStyle, blobStyles } from '../theme/chrome'
-import { MONTHS_LONG } from '../lib/dates'
+import { MONTHS_LONG, addDays, addMonths, formatWeekRange, startOfWeek } from '../lib/dates'
 import { useBoardDnd } from '../dnd/useBoardDnd'
 import { CardOverlay } from '../dnd/CardOverlay'
 import type { Mode } from '../dnd/reorder'
 import { newId } from '../lib/id'
 import { Toolbar } from './Toolbar'
 import { CalendarView } from './CalendarView'
+import { WeekView } from './WeekView'
+import { AgendaView } from './AgendaView'
 import { Inbox } from './Inbox'
 import { KanbanView } from './KanbanView'
 import { TaskEditor } from './TaskEditor'
@@ -37,6 +39,8 @@ export interface BoardProps {
 
 const VIEWS: ViewOption[] = [
   { key: 'calendar', label: 'Calendar' },
+  { key: 'week', label: 'Week' },
+  { key: 'agenda', label: 'Agenda' },
   { key: 'kanban', label: 'Board' },
 ]
 
@@ -70,9 +74,7 @@ export function Board({
 }: BoardProps) {
   const { theme, conf } = useTheme()
   const [view, setView] = useState<ViewName>(initialView ?? 'calendar')
-  const now = new Date()
-  const [viewY, setViewY] = useState(now.getFullYear())
-  const [viewM, setViewM] = useState(now.getMonth())
+  const [anchor, setAnchor] = useState(() => new Date())
   const [pop, setPop] = useState<PopId>(null)
   const [editing, setEditing] = useState<Editing | null>(null)
   const popTimer = useRef<number | undefined>(undefined)
@@ -115,28 +117,15 @@ export function Board({
     onAddStatus: (status) => setEditing({ task: newTaskTemplate('inbox', status), isNew: true }),
   }
 
-  const isCalendar = view === 'calendar'
-  const onPrev = () =>
-    setViewM((m) => {
-      if (m === 0) {
-        setViewY((y) => y - 1)
-        return 11
-      }
-      return m - 1
-    })
-  const onNext = () =>
-    setViewM((m) => {
-      if (m === 11) {
-        setViewY((y) => y + 1)
-        return 0
-      }
-      return m + 1
-    })
-  const onToday = () => {
-    const d = new Date()
-    setViewM(d.getMonth())
-    setViewY(d.getFullYear())
-  }
+  const year = anchor.getFullYear()
+  const month = anchor.getMonth()
+  const weekStart = startOfWeek(anchor)
+  const showNav = view === 'calendar' || view === 'week'
+  const navLabel = view === 'week' ? formatWeekRange(weekStart) : `${MONTHS_LONG[month]} ${year}`
+
+  const onPrev = () => setAnchor((a) => (view === 'week' ? addDays(a, -7) : addMonths(a, -1)))
+  const onNext = () => setAnchor((a) => (view === 'week' ? addDays(a, 7) : addMonths(a, 1)))
+  const onToday = () => setAnchor(new Date())
 
   return (
     <div style={rootStyle(conf)}>
@@ -146,9 +135,8 @@ export function Board({
         views={VIEWS}
         view={view}
         onChangeView={changeView}
-        isCalendar={isCalendar}
-        monthName={MONTHS_LONG[viewM]}
-        year={viewY}
+        showNav={showNav}
+        navLabel={navLabel}
         onPrev={onPrev}
         onNext={onNext}
         onToday={onToday}
@@ -177,9 +165,15 @@ export function Board({
         >
           {view === 'kanban' ? (
             <KanbanView tasks={tasks} handlers={handlers} pop={pop} />
+          ) : view === 'agenda' ? (
+            <AgendaView tasks={tasks} handlers={handlers} pop={pop} />
           ) : (
             <div style={{ display: 'flex', gap: 18, flex: 1, minHeight: 0, width: '100%' }}>
-              <CalendarView viewY={viewY} viewM={viewM} tasks={tasks} handlers={handlers} pop={pop} />
+              {view === 'week' ? (
+                <WeekView weekStart={weekStart} tasks={tasks} handlers={handlers} pop={pop} />
+              ) : (
+                <CalendarView viewY={year} viewM={month} tasks={tasks} handlers={handlers} pop={pop} />
+              )}
               <Inbox tasks={tasks} handlers={handlers} pop={pop} />
             </div>
           )}

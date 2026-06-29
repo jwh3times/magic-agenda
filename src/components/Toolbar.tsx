@@ -8,9 +8,8 @@ export interface ToolbarProps {
   views: ViewOption[]
   view: ViewName
   onChangeView: (v: ViewName) => void
-  isCalendar: boolean
-  monthName: string
-  year: number
+  showNav: boolean
+  navLabel: string
   onPrev: () => void
   onNext: () => void
   onToday: () => void
@@ -22,9 +21,8 @@ export function Toolbar({
   views,
   view,
   onChangeView,
-  isCalendar,
-  monthName,
-  year,
+  showNav,
+  navLabel,
   onPrev,
   onNext,
   onToday,
@@ -38,14 +36,12 @@ export function Toolbar({
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 }}>
         <div style={c.brand}>{conf.appName}</div>
         <ViewSwitcher views={views} view={view} onChange={onChangeView} />
-        {isCalendar && (
+        {showNav && (
           <div style={c.navGroup}>
             <button type="button" onClick={onPrev} style={c.navBtn}>
               ‹
             </button>
-            <div style={c.monthLabel}>
-              {monthName} <span style={c.yearLabel}>{year}</span>
-            </div>
+            <div style={c.monthLabel}>{navLabel}</div>
             <button type="button" onClick={onNext} style={c.navBtn}>
               ›
             </button>
