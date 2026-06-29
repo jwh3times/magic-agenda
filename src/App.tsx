@@ -1,9 +1,14 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthProvider'
 import { ProtectedRoute } from './auth/ProtectedRoute'
+import { Spinner } from './components/Spinner'
 import { Login } from './pages/Login'
 import { AuthCallback } from './pages/AuthCallback'
-import { BoardPage } from './pages/BoardPage'
+
+// The board pulls in dnd-kit, every view, the editor, and the Supabase data layer —
+// lazy-load it so the login/auth path stays a small initial bundle.
+const BoardPage = lazy(() => import('./pages/BoardPage').then((m) => ({ default: m.BoardPage })))
 
 export default function App() {
   return (
@@ -16,7 +21,9 @@ export default function App() {
             path="/"
             element={
               <ProtectedRoute>
-                <BoardPage />
+                <Suspense fallback={<Spinner label="Loading…" />}>
+                  <BoardPage />
+                </Suspense>
               </ProtectedRoute>
             }
           />

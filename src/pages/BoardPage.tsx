@@ -3,6 +3,7 @@ import { ThemeProvider } from '../theme/ThemeProvider'
 import { Board } from '../components/Board'
 import { Spinner } from '../components/Spinner'
 import { ErrorScreen } from '../components/ErrorScreen'
+import { Toast } from '../components/Toast'
 import { useTasks } from '../data/useTasks'
 import { useSettings } from '../data/useSettings'
 
@@ -22,22 +23,25 @@ export function BoardPage() {
       ) : t.loading && t.tasks.length === 0 ? (
         <Spinner label="Loading your board…" />
       ) : (
-        <Board
-          tasks={t.tasks}
-          setTasks={t.setTasks}
-          onCreate={t.createTask}
-          onUpdate={t.updateTask}
-          onDelete={t.removeTask}
-          onToggleDone={t.toggleDone}
-          persistReorder={t.persistReorder}
-          getTemplate={t.getTemplate}
-          updateSeries={t.updateSeries}
-          deleteOccurrence={t.deleteOccurrence}
-          deleteSeriesFuture={t.deleteSeriesFuture}
-          initialView={settings.defaultView}
-          onViewChange={saveView}
-          onSignOut={signOut}
-        />
+        <>
+          <Board
+            tasks={t.tasks}
+            setTasks={t.setTasks}
+            onCreate={t.createTask}
+            onUpdate={t.updateTask}
+            onDelete={t.removeTask}
+            onToggleDone={t.toggleDone}
+            persistReorder={t.persistReorder}
+            getTemplate={t.getTemplate}
+            updateSeries={t.updateSeries}
+            deleteOccurrence={t.deleteOccurrence}
+            deleteSeriesFuture={t.deleteSeriesFuture}
+            initialView={settings.defaultView}
+            onViewChange={saveView}
+            onSignOut={signOut}
+          />
+          {t.error && <Toast message={t.error} onDismiss={t.clearError} />}
+        </>
       )}
     </ThemeProvider>
   )

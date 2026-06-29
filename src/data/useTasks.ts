@@ -13,6 +13,7 @@ export interface UseTasks {
   tasks: Task[]
   loading: boolean
   error: string | null
+  clearError: () => void
   reload: () => void
   setTasks: Dispatch<SetStateAction<Task[]>>
   createTask: (task: Task) => Promise<void>
@@ -230,6 +231,8 @@ export function useTasks(userId: string): UseTasks {
     [setTasks, userId, reload],
   )
 
+  const clearError = useCallback(() => setError(null), [])
+
   const getTemplate = useCallback(
     (parentId: string) => templatesRef.current.find((t) => t.id === parentId),
     [],
@@ -348,6 +351,7 @@ export function useTasks(userId: string): UseTasks {
     tasks,
     loading,
     error,
+    clearError,
     reload,
     setTasks,
     createTask,
