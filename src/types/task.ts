@@ -1,6 +1,7 @@
 export type Category = 'work' | 'personal' | 'errands' | 'ideas' | 'health'
 export type Color = 'yellow' | 'pink' | 'blue' | 'mint' | 'lilac' | 'orange'
 export type Status = 'todo' | 'doing' | 'done'
+export type RecurFreq = 'none' | 'daily' | 'weekly' | 'monthly'
 export type ThemeName = 'cork' | 'brutal' | 'glass'
 export type ViewName = 'calendar' | 'week' | 'agenda' | 'kanban'
 
