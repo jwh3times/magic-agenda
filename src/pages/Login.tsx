@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
 
@@ -185,6 +185,16 @@ export function Login() {
           >
             {mode === 'signin' ? 'Sign up' : 'Sign in'}
           </button>
+        </div>
+
+        <div style={{ marginTop: 14, fontSize: 12, opacity: 0.4, textAlign: 'center' }}>
+          <Link to="/privacy" style={{ color: 'inherit' }}>
+            Privacy
+          </Link>{' '}
+          ·{' '}
+          <Link to="/terms" style={{ color: 'inherit' }}>
+            Terms
+          </Link>
         </div>
       </div>
     </div>
