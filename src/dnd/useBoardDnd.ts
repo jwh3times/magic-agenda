@@ -1,4 +1,4 @@
-import { useState, type Dispatch, type SetStateAction } from 'react'
+import { useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import {
   KeyboardSensor,
   PointerSensor,
@@ -36,13 +36,18 @@ export interface BoardDnd {
   onDragCancel: () => void
 }
 
+/** Persists the lanes that a drag reindexed (passed to useTasks.persistReorder). */
+type PersistReorder = (next: Task[], containers: string[], mode: Mode) => void
+
 export function useBoardDnd(
   view: ViewName,
   tasks: Task[],
   setTasks: Dispatch<SetStateAction<Task[]>>,
+  persistReorder: PersistReorder,
 ): BoardDnd {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [activeWidth, setActiveWidth] = useState<number | undefined>(undefined)
+  const touched = useRef<Set<string>>(new Set())
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -52,14 +57,12 @@ export function useBoardDnd(
   const mode: Mode = view === 'kanban' ? 'status' : 'day'
   const activeTask = tasks.find((t) => t.id === activeId) ?? null
 
-  /** The container an id belongs to: a task's day/status, or the id itself if it's a container. */
   const containerOf = (id: string): string => {
     const task = tasks.find((t) => t.id === id)
     if (task) return mode === 'day' ? task.day : task.status
     return id
   }
 
-  /** Insertion index within a container given the over target. Excludes the active task. */
   const insertionIndex = (container: string, overId: string, below: boolean): number => {
     const list =
       mode === 'day'
@@ -71,20 +74,17 @@ export function useBoardDnd(
     return below ? idx + 1 : idx
   }
 
-  const applyMove = (id: string, container: string, index: number) => {
-    setTasks((prev) =>
-      mode === 'day'
-        ? moveToDay(prev, id, container, index)
-        : moveToStatus(prev, id, container as Status, index),
-    )
-  }
+  const move = (id: string, to: string, index: number): Task[] =>
+    mode === 'day' ? moveToDay(tasks, id, to, index) : moveToStatus(tasks, id, to as Status, index)
 
   const onDragStart = (e: DragStartEvent) => {
-    setActiveId(String(e.active.id))
+    const id = String(e.active.id)
+    setActiveId(id)
     setActiveWidth(e.active.rect.current.initial?.width)
+    touched.current = new Set([containerOf(id)])
   }
 
-  // Cross-container relocation happens live as you hover a different lane.
+  // Cross-lane relocation happens live as you hover a different lane.
   const onDragOver = (e: DragOverEvent) => {
     const { active, over } = e
     if (!over) return
@@ -93,16 +93,22 @@ export function useBoardDnd(
     if (overId === activeIdStr) return
     const from = containerOf(activeIdStr)
     const to = containerOf(overId)
-    if (to !== from) applyMove(activeIdStr, to, insertionIndex(to, overId, isBelowOver(active, over)))
+    if (to !== from) {
+      touched.current.add(from)
+      touched.current.add(to)
+      setTasks(move(activeIdStr, to, insertionIndex(to, overId, isBelowOver(active, over))))
+    }
   }
 
-  // Final placement (within-lane ordering) settles on drop.
+  // Final placement settles and persists the touched lanes.
   const onDragEnd = (e: DragEndEvent) => {
     const { active, over } = e
     const activeIdStr = String(active.id)
     if (over && String(over.id) !== activeIdStr) {
       const to = containerOf(String(over.id))
-      applyMove(activeIdStr, to, insertionIndex(to, String(over.id), isBelowOver(active, over)))
+      touched.current.add(to)
+      const next = move(activeIdStr, to, insertionIndex(to, String(over.id), isBelowOver(active, over)))
+      persistReorder(next, [...touched.current], mode)
     }
     setActiveId(null)
     setActiveWidth(undefined)

@@ -1,7 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthProvider'
 import { ProtectedRoute } from './auth/ProtectedRoute'
-import { ThemeProvider } from './theme/ThemeProvider'
 import { Login } from './pages/Login'
 import { AuthCallback } from './pages/AuthCallback'
 import { BoardPage } from './pages/BoardPage'
@@ -17,9 +16,7 @@ export default function App() {
             path="/"
             element={
               <ProtectedRoute>
-                <ThemeProvider>
-                  <BoardPage />
-                </ThemeProvider>
+                <BoardPage />
               </ProtectedRoute>
             }
           />

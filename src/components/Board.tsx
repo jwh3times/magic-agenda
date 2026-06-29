@@ -1,12 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { DndContext, DragOverlay } from '@dnd-kit/core'
 import { useTheme } from '../theme/ThemeProvider'
 import { rootStyle, blobStyles } from '../theme/chrome'
 import { MONTHS_LONG } from '../lib/dates'
-import { applyToggleDone } from '../data/selectors'
-import { makeMockTasks } from '../data/mockTasks'
 import { useBoardDnd } from '../dnd/useBoardDnd'
 import { CardOverlay } from '../dnd/CardOverlay'
+import type { Mode } from '../dnd/reorder'
 import { newId } from '../lib/id'
 import { Toolbar } from './Toolbar'
 import { CalendarView } from './CalendarView'
@@ -21,6 +20,25 @@ interface Editing {
   task: Task
   isNew: boolean
 }
+
+export interface BoardProps {
+  tasks: Task[]
+  /** Optimistic local setter (drag-over live moves). */
+  setTasks: Dispatch<SetStateAction<Task[]>>
+  onCreate: (task: Task) => void
+  onUpdate: (task: Task) => void
+  onDelete: (id: string) => void
+  onToggleDone: (id: string) => void
+  persistReorder: (next: Task[], containers: string[], mode: Mode) => void
+  initialView?: ViewName
+  onViewChange?: (v: ViewName) => void
+  onSignOut?: () => void
+}
+
+const VIEWS: ViewOption[] = [
+  { key: 'calendar', label: 'Calendar' },
+  { key: 'kanban', label: 'Board' },
+]
 
 function newTaskTemplate(day: string, status: Status): Task {
   return {
@@ -38,15 +56,20 @@ function newTaskTemplate(day: string, status: Status): Task {
   }
 }
 
-const VIEWS: ViewOption[] = [
-  { key: 'calendar', label: 'Calendar' },
-  { key: 'kanban', label: 'Board' },
-]
-
-export function Board({ onSignOut }: { onSignOut?: () => void }) {
+export function Board({
+  tasks,
+  setTasks,
+  onCreate,
+  onUpdate,
+  onDelete,
+  onToggleDone,
+  persistReorder,
+  initialView,
+  onViewChange,
+  onSignOut,
+}: BoardProps) {
   const { theme, conf } = useTheme()
-  const [tasks, setTasks] = useState(makeMockTasks)
-  const [view, setView] = useState<ViewName>('calendar')
+  const [view, setView] = useState<ViewName>(initialView ?? 'calendar')
   const now = new Date()
   const [viewY, setViewY] = useState(now.getFullYear())
   const [viewM, setViewM] = useState(now.getMonth())
@@ -54,42 +77,39 @@ export function Board({ onSignOut }: { onSignOut?: () => void }) {
   const [editing, setEditing] = useState<Editing | null>(null)
   const popTimer = useRef<number | undefined>(undefined)
 
-  const dnd = useBoardDnd(view, tasks, setTasks)
+  const dnd = useBoardDnd(view, tasks, setTasks, persistReorder)
 
   useEffect(() => () => window.clearTimeout(popTimer.current), [])
 
-  const toggleDone = (id: string) => {
-    setTasks((prev) => {
-      const { tasks: next, justDone } = applyToggleDone(prev, id)
-      if (justDone) {
-        setPop(id)
-        window.clearTimeout(popTimer.current)
-        popTimer.current = window.setTimeout(() => setPop(null), 520)
-      }
-      return next
-    })
+  const changeView = (v: ViewName) => {
+    setView(v)
+    onViewChange?.(v)
   }
 
-  const saveTask = (task: Task) => {
-    setTasks((prev) => {
-      const exists = prev.some((t) => t.id === task.id)
-      if (exists) return prev.map((t) => (t.id === task.id ? task : t))
-      const order = prev.filter((t) => t.day === task.day).reduce((m, t) => Math.max(m, t.order), -1) + 1
-      const korder =
-        prev.filter((t) => t.status === task.status).reduce((m, t) => Math.max(m, t.korder), -1) + 1
-      return [...prev, { ...task, order, korder }]
-    })
+  const handleToggle = (id: string) => {
+    const t = tasks.find((x) => x.id === id)
+    if (t && !t.done) {
+      setPop(id)
+      window.clearTimeout(popTimer.current)
+      popTimer.current = window.setTimeout(() => setPop(null), 520)
+    }
+    onToggleDone(id)
+  }
+
+  const handleSave = (task: Task) => {
+    if (editing?.isNew) onCreate(task)
+    else onUpdate(task)
     setEditing(null)
   }
 
-  const deleteTask = (id: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id))
+  const handleDelete = (id: string) => {
+    onDelete(id)
     setEditing(null)
   }
 
   const handlers: BoardHandlers = {
     onOpen: (task) => setEditing({ task, isNew: false }),
-    onToggleDone: toggleDone,
+    onToggleDone: handleToggle,
     onAddDay: (dateStr) => setEditing({ task: newTaskTemplate(dateStr, 'todo'), isNew: true }),
     onAddInbox: () => setEditing({ task: newTaskTemplate('inbox', 'todo'), isNew: true }),
     onAddStatus: (status) => setEditing({ task: newTaskTemplate('inbox', status), isNew: true }),
@@ -120,13 +140,12 @@ export function Board({ onSignOut }: { onSignOut?: () => void }) {
 
   return (
     <div style={rootStyle(conf)}>
-      {theme === 'glass' &&
-        blobStyles().map((b, i) => <div key={i} style={b} />)}
+      {theme === 'glass' && blobStyles().map((b, i) => <div key={i} style={b} />)}
 
       <Toolbar
         views={VIEWS}
         view={view}
-        onChangeView={setView}
+        onChangeView={changeView}
         isCalendar={isCalendar}
         monthName={MONTHS_LONG[viewM]}
         year={viewY}
@@ -176,8 +195,8 @@ export function Board({ onSignOut }: { onSignOut?: () => void }) {
           key={editing.task.id}
           initial={editing.task}
           isNew={editing.isNew}
-          onSave={saveTask}
-          onDelete={deleteTask}
+          onSave={handleSave}
+          onDelete={handleDelete}
           onClose={() => setEditing(null)}
         />
       )}
