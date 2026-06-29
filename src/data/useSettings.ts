@@ -48,12 +48,17 @@ export function useSettings(userId: string): UseSettings {
     (next: Settings) => {
       ref.current = next
       setSettings(next)
+      // Must call `.then()` — a Supabase builder is a lazy thenable that only sends
+      // its request when awaited/then'd. `void <builder>` would never fire it.
       void supabase
         .from('user_settings')
         .upsert(
           { user_id: userId, theme: next.theme, default_view: next.defaultView },
           { onConflict: 'user_id' },
         )
+        .then(({ error }) => {
+          if (error) console.error('Failed to save settings', error)
+        })
     },
     [userId],
   )
