@@ -38,7 +38,7 @@ export function Toolbar({
         <img
           src={logoDark}
           alt="Magic Agenda"
-          style={{ height: 30, display: 'block', flex: 'none' }}
+          style={{ height: 80, display: 'block', flex: 'none' }}
         />
         <ViewSwitcher views={views} view={view} onChange={onChangeView} />
         {showNav && (
