@@ -59,6 +59,7 @@ export function useTasks(userId: string): UseTasks {
   const [error, setError] = useState<string | null>(null)
   const tasksRef = useRef<Task[]>([])
   const templatesRef = useRef<Task[]>([])
+  const inFlight = useRef(false)
 
   const setTasks = useCallback<Dispatch<SetStateAction<Task[]>>>((update) => {
     _setTasks((prev) => {
@@ -95,19 +96,26 @@ export function useTasks(userId: string): UseTasks {
   )
 
   const reload = useCallback(async () => {
+    // Guard against concurrent loads (notably React StrictMode's double-invoked effect),
+    // which would materialize the same instances twice and hit the unique index.
+    if (inFlight.current) return
+    inFlight.current = true
     setLoading(true)
     setError(null)
-    const { data, error: err } = await supabase.from('tasks').select('*')
-    if (err) {
-      setError(err.message)
+    try {
+      const { data, error: err } = await supabase.from('tasks').select('*')
+      if (err) {
+        setError(err.message)
+        return
+      }
+      const all = (data ?? []).map(rowToTask)
+      templatesRef.current = all.filter(isTemplate)
+      setTasks(all.filter((t) => !isTemplate(t)))
+      await materialize(templatesRef.current)
+    } finally {
       setLoading(false)
-      return
+      inFlight.current = false
     }
-    const all = (data ?? []).map(rowToTask)
-    templatesRef.current = all.filter(isTemplate)
-    setTasks(all.filter((t) => !isTemplate(t)))
-    setLoading(false)
-    void materialize(templatesRef.current)
   }, [setTasks, materialize])
 
   useEffect(() => {
