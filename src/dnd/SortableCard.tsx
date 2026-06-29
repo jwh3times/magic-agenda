@@ -1,5 +1,7 @@
+import { useContext } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { TaskCard } from '../components/TaskCard'
+import { DragDisabledContext } from './dragContext'
 import type { Task } from '../types/task'
 import type { CardVariant } from '../theme/cardStyles'
 
@@ -17,7 +19,8 @@ export interface SortableCardProps {
  * than shuffling neighbours. The dragged card dims via TaskCard's `dragging` flag.
  */
 export function SortableCard({ task, variant, pop, onOpen, onToggleDone }: SortableCardProps) {
-  const { setNodeRef, attributes, listeners, isDragging } = useSortable({ id: task.id })
+  const disabled = useContext(DragDisabledContext)
+  const { setNodeRef, attributes, listeners, isDragging } = useSortable({ id: task.id, disabled })
   return (
     <div ref={setNodeRef} style={{ touchAction: 'none' }} {...attributes} {...listeners}>
       <TaskCard

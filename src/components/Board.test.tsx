@@ -38,12 +38,13 @@ test('switches between Calendar and Board (kanban) views', async () => {
   const user = userEvent.setup()
   renderBoard()
 
-  expect(screen.queryByText('In Progress')).not.toBeInTheDocument()
+  // Status words also appear in the filter dropdown <option>s, so scope to the column <span>s.
+  expect(screen.queryByText('In Progress', { selector: 'span' })).not.toBeInTheDocument()
 
   await user.click(screen.getByRole('button', { name: 'Board' }))
-  expect(screen.getByText('To Do')).toBeInTheDocument()
-  expect(screen.getByText('In Progress')).toBeInTheDocument()
-  expect(screen.getByText('Completed')).toBeInTheDocument()
+  expect(screen.getByText('To Do', { selector: 'span' })).toBeInTheDocument()
+  expect(screen.getByText('In Progress', { selector: 'span' })).toBeInTheDocument()
+  expect(screen.getByText('Completed', { selector: 'span' })).toBeInTheDocument()
 
   await user.click(screen.getByRole('button', { name: 'Calendar' }))
   expect(screen.getByText('Inbox')).toBeInTheDocument()
@@ -81,4 +82,14 @@ test('clicking a card opens the editor prefilled', async () => {
   await user.click(screen.getByText('Finish Q3 deck'))
   expect(screen.getByDisplayValue('Finish Q3 deck')).toBeInTheDocument()
   expect(screen.getByText('Edit task')).toBeInTheDocument()
+})
+
+test('search hides non-matching tasks live', async () => {
+  const user = userEvent.setup()
+  renderBoard()
+
+  expect(screen.getByText('Renew passport')).toBeInTheDocument()
+  await user.type(screen.getByPlaceholderText('Search tasks…'), 'Finish')
+  expect(screen.getByText('Finish Q3 deck')).toBeInTheDocument()
+  expect(screen.queryByText('Renew passport')).not.toBeInTheDocument()
 })

@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { DndContext, DragOverlay } from '@dnd-kit/core'
 import { useTheme } from '../theme/ThemeProvider'
+import { DragDisabledContext } from '../dnd/dragContext'
 import { rootStyle, blobStyles } from '../theme/chrome'
 import { MONTHS_LONG, addDays, addMonths, formatWeekRange, startOfWeek } from '../lib/dates'
 import { useBoardDnd } from '../dnd/useBoardDnd'
@@ -14,6 +15,8 @@ import { AgendaView } from './AgendaView'
 import { Inbox } from './Inbox'
 import { KanbanView } from './KanbanView'
 import { TaskEditor } from './TaskEditor'
+import { SearchFilterBar } from './SearchFilterBar'
+import { applyFilters, isFilterActive, EMPTY_FILTER, type FilterQuery } from '../data/filters'
 import type { ViewOption } from './ViewSwitcher'
 import type { BoardHandlers, PopId } from './boardHandlers'
 import type { Status, Task, ViewName } from '../types/task'
@@ -77,7 +80,11 @@ export function Board({
   const [anchor, setAnchor] = useState(() => new Date())
   const [pop, setPop] = useState<PopId>(null)
   const [editing, setEditing] = useState<Editing | null>(null)
+  const [filter, setFilter] = useState<FilterQuery>(EMPTY_FILTER)
   const popTimer = useRef<number | undefined>(undefined)
+
+  const filterActive = isFilterActive(filter)
+  const visibleTasks = useMemo(() => applyFilters(tasks, filter), [tasks, filter])
 
   const dnd = useBoardDnd(view, tasks, setTasks, persistReorder)
 
@@ -144,6 +151,8 @@ export function Board({
         onSignOut={onSignOut}
       />
 
+      <SearchFilterBar query={filter} onChange={setFilter} />
+
       <DndContext
         sensors={dnd.sensors}
         collisionDetection={dnd.collisionDetection}
@@ -152,6 +161,7 @@ export function Board({
         onDragEnd={dnd.onDragEnd}
         onDragCancel={dnd.onDragCancel}
       >
+        <DragDisabledContext.Provider value={filterActive}>
         <div
           style={{
             display: 'flex',
@@ -164,20 +174,21 @@ export function Board({
           }}
         >
           {view === 'kanban' ? (
-            <KanbanView tasks={tasks} handlers={handlers} pop={pop} />
+            <KanbanView tasks={visibleTasks} handlers={handlers} pop={pop} />
           ) : view === 'agenda' ? (
-            <AgendaView tasks={tasks} handlers={handlers} pop={pop} />
+            <AgendaView tasks={visibleTasks} handlers={handlers} pop={pop} />
           ) : (
             <div style={{ display: 'flex', gap: 18, flex: 1, minHeight: 0, width: '100%' }}>
               {view === 'week' ? (
-                <WeekView weekStart={weekStart} tasks={tasks} handlers={handlers} pop={pop} />
+                <WeekView weekStart={weekStart} tasks={visibleTasks} handlers={handlers} pop={pop} />
               ) : (
-                <CalendarView viewY={year} viewM={month} tasks={tasks} handlers={handlers} pop={pop} />
+                <CalendarView viewY={year} viewM={month} tasks={visibleTasks} handlers={handlers} pop={pop} />
               )}
-              <Inbox tasks={tasks} handlers={handlers} pop={pop} />
+              <Inbox tasks={visibleTasks} handlers={handlers} pop={pop} />
             </div>
           )}
         </div>
+        </DragDisabledContext.Provider>
 
         <DragOverlay>
           {dnd.activeTask ? <CardOverlay task={dnd.activeTask} width={dnd.activeWidth} /> : null}
