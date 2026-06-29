@@ -15,6 +15,7 @@ export interface ToolbarProps {
   onNext: () => void
   onToday: () => void
   onAddInbox: () => void
+  onSignOut?: () => void
 }
 
 export function Toolbar({
@@ -28,6 +29,7 @@ export function Toolbar({
   onNext,
   onToday,
   onAddInbox,
+  onSignOut,
 }: ToolbarProps) {
   const { theme, conf } = useTheme()
   const c = toolbarChrome(theme, conf)
@@ -58,6 +60,11 @@ export function Toolbar({
         <button type="button" onClick={onAddInbox} style={c.addBtn}>
           + New task
         </button>
+        {onSignOut && (
+          <button type="button" onClick={onSignOut} style={c.todayBtn} title="Sign out">
+            Sign out
+          </button>
+        )}
       </div>
     </div>
   )

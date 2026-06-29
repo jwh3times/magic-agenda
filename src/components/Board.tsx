@@ -43,7 +43,7 @@ const VIEWS: ViewOption[] = [
   { key: 'kanban', label: 'Board' },
 ]
 
-export function Board() {
+export function Board({ onSignOut }: { onSignOut?: () => void }) {
   const { theme, conf } = useTheme()
   const [tasks, setTasks] = useState(makeMockTasks)
   const [view, setView] = useState<ViewName>('calendar')
@@ -134,6 +134,7 @@ export function Board() {
         onNext={onNext}
         onToday={onToday}
         onAddInbox={handlers.onAddInbox}
+        onSignOut={onSignOut}
       />
 
       <DndContext
