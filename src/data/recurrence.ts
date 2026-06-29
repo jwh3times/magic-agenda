@@ -35,7 +35,12 @@ export function occurrenceDates(
     const ds = ymd(d)
     if (ds > end) break
     if (!skipSet.has(ds)) dates.push(ds)
-    d = freq === 'daily' ? addDays(d, step) : freq === 'weekly' ? addDays(d, 7 * step) : addMonths(d, step)
+    d =
+      freq === 'daily'
+        ? addDays(d, step)
+        : freq === 'weekly'
+          ? addDays(d, 7 * step)
+          : addMonths(d, step)
   }
   return dates
 }

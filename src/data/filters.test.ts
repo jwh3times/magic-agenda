@@ -21,7 +21,12 @@ function t(id: string, over: Partial<Task> = {}): Task {
 }
 
 const tasks = [
-  t('a', { title: 'Finish Q3 deck', description: 'pull numbers', category: 'work', status: 'doing' }),
+  t('a', {
+    title: 'Finish Q3 deck',
+    description: 'pull numbers',
+    category: 'work',
+    status: 'doing',
+  }),
   t('b', { title: 'Call plumber', category: 'errands', status: 'todo' }),
   t('c', { title: 'Gym', category: 'health', status: 'done' }),
 ]
@@ -43,7 +48,9 @@ describe('applyFilters', () => {
   })
   it('matches text in title or description, case-insensitive', () => {
     expect(applyFilters(tasks, { ...EMPTY_FILTER, text: 'FINISH' }).map((x) => x.id)).toEqual(['a'])
-    expect(applyFilters(tasks, { ...EMPTY_FILTER, text: 'numbers' }).map((x) => x.id)).toEqual(['a'])
+    expect(applyFilters(tasks, { ...EMPTY_FILTER, text: 'numbers' }).map((x) => x.id)).toEqual([
+      'a',
+    ])
   })
   it('filters by category', () => {
     expect(applyFilters(tasks, { ...EMPTY_FILTER, category: 'errands' }).map((x) => x.id)).toEqual([
@@ -54,7 +61,9 @@ describe('applyFilters', () => {
     expect(applyFilters(tasks, { ...EMPTY_FILTER, status: 'done' }).map((x) => x.id)).toEqual(['c'])
   })
   it('combines facets with AND', () => {
-    expect(applyFilters(tasks, { text: 'call', category: 'errands', status: 'todo' }).map((x) => x.id)).toEqual(['b'])
+    expect(
+      applyFilters(tasks, { text: 'call', category: 'errands', status: 'todo' }).map((x) => x.id),
+    ).toEqual(['b'])
     expect(applyFilters(tasks, { text: 'call', category: 'work', status: 'todo' })).toHaveLength(0)
   })
 })

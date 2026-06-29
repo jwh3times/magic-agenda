@@ -71,10 +71,7 @@ describe('reindex', () => {
     expect(next.find((x) => x.id === 'z')!.order).toBe(9) // untouched
   })
   it('reindexes a status by korder', () => {
-    const tasks = [
-      t('a', { status: 'done', korder: 3 }),
-      t('b', { status: 'done', korder: 1 }),
-    ]
+    const tasks = [t('a', { status: 'done', korder: 3 }), t('b', { status: 'done', korder: 1 })]
     const next = reindex(tasks, 'done', 'status')
     expect(statusIds(next, 'done')).toEqual(['b', 'a'])
     expect(statusKorders(next, 'done')).toEqual([0, 1])

@@ -203,32 +203,43 @@ export function Board({
         onDragCancel={dnd.onDragCancel}
       >
         <DragDisabledContext.Provider value={filterActive}>
-        <div
-          style={{
-            display: 'flex',
-            gap: 18,
-            flex: 1,
-            minHeight: 0,
-            padding: '18px 22px 22px',
-            position: 'relative',
-            zIndex: 1,
-          }}
-        >
-          {view === 'kanban' ? (
-            <KanbanView tasks={visibleTasks} handlers={handlers} pop={pop} />
-          ) : view === 'agenda' ? (
-            <AgendaView tasks={visibleTasks} handlers={handlers} pop={pop} />
-          ) : (
-            <div style={{ display: 'flex', gap: 18, flex: 1, minHeight: 0, width: '100%' }}>
-              {view === 'week' ? (
-                <WeekView weekStart={weekStart} tasks={visibleTasks} handlers={handlers} pop={pop} />
-              ) : (
-                <CalendarView viewY={year} viewM={month} tasks={visibleTasks} handlers={handlers} pop={pop} />
-              )}
-              <Inbox tasks={visibleTasks} handlers={handlers} pop={pop} />
-            </div>
-          )}
-        </div>
+          <div
+            style={{
+              display: 'flex',
+              gap: 18,
+              flex: 1,
+              minHeight: 0,
+              padding: '18px 22px 22px',
+              position: 'relative',
+              zIndex: 1,
+            }}
+          >
+            {view === 'kanban' ? (
+              <KanbanView tasks={visibleTasks} handlers={handlers} pop={pop} />
+            ) : view === 'agenda' ? (
+              <AgendaView tasks={visibleTasks} handlers={handlers} pop={pop} />
+            ) : (
+              <div style={{ display: 'flex', gap: 18, flex: 1, minHeight: 0, width: '100%' }}>
+                {view === 'week' ? (
+                  <WeekView
+                    weekStart={weekStart}
+                    tasks={visibleTasks}
+                    handlers={handlers}
+                    pop={pop}
+                  />
+                ) : (
+                  <CalendarView
+                    viewY={year}
+                    viewM={month}
+                    tasks={visibleTasks}
+                    handlers={handlers}
+                    pop={pop}
+                  />
+                )}
+                <Inbox tasks={visibleTasks} handlers={handlers} pop={pop} />
+              </div>
+            )}
+          </div>
         </DragDisabledContext.Provider>
 
         <DragOverlay>

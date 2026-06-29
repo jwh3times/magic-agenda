@@ -73,7 +73,13 @@ export function SearchFilterBar({ query, onChange }: SearchFilterBarProps) {
         <button
           type="button"
           onClick={() => onChange(EMPTY_FILTER)}
-          style={{ ...control, cursor: 'pointer', fontWeight: 700, color: conf.accent, borderColor: conf.accent }}
+          style={{
+            ...control,
+            cursor: 'pointer',
+            fontWeight: 700,
+            color: conf.accent,
+            borderColor: conf.accent,
+          }}
         >
           Clear
         </button>

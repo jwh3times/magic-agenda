@@ -67,7 +67,8 @@ export function Login() {
         display: 'grid',
         placeItems: 'center',
         padding: 20,
-        background: 'radial-gradient(1200px 600px at 70% -10%, rgba(124,92,255,.25), transparent 60%), #0b0f1f',
+        background:
+          'radial-gradient(1200px 600px at 70% -10%, rgba(124,92,255,.25), transparent 60%), #0b0f1f',
         fontFamily: 'system-ui, sans-serif',
         color: '#eaf0ff',
       }}
@@ -138,9 +139,7 @@ export function Login() {
             style={field}
           />
 
-          {error && (
-            <div style={{ color: '#ff8b8b', fontSize: 13, lineHeight: 1.4 }}>{error}</div>
-          )}
+          {error && <div style={{ color: '#ff8b8b', fontSize: 13, lineHeight: 1.4 }}>{error}</div>}
           {notice && (
             <div style={{ color: '#86efac', fontSize: 13, lineHeight: 1.4 }}>{notice}</div>
           )}

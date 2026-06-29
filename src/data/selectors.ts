@@ -3,9 +3,7 @@ import { addDays, isScheduled, ymd, WEEKDAYS_SHORT } from '../lib/dates'
 
 /** Tasks on a given day (or 'inbox'), sorted by their calendar order. Ported from `notesForDay`. */
 export function notesForDay(tasks: Task[], day: string, excludeId?: string): Task[] {
-  return tasks
-    .filter((t) => t.day === day && t.id !== excludeId)
-    .sort((a, b) => a.order - b.order)
+  return tasks.filter((t) => t.day === day && t.id !== excludeId).sort((a, b) => a.order - b.order)
 }
 
 /** Tasks in a given status, sorted by their kanban order. Ported from `tasksForStatus`. */

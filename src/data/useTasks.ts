@@ -90,7 +90,9 @@ export function useTasks(userId: string): UseTasks {
         const present = new Set(prev.filter((t) => t.recurParentId).map(instanceKey))
         return [...prev, ...instances.filter((i) => !present.has(instanceKey(i)))]
       })
-      const { error: err } = await supabase.from('tasks').insert(instances.map((t) => taskToRow(t, userId)))
+      const { error: err } = await supabase
+        .from('tasks')
+        .insert(instances.map((t) => taskToRow(t, userId)))
       if (err) setError(err.message)
     },
     [setTasks, userId],
@@ -284,9 +286,7 @@ export function useTasks(userId: string): UseTasks {
       // If the rule shortened, drop now-out-of-range instances; then fill any new dates.
       if (next.recurUntil) {
         const until = next.recurUntil
-        setTasks((prev) =>
-          prev.filter((t) => !(t.recurParentId === template.id && t.day > until)),
-        )
+        setTasks((prev) => prev.filter((t) => !(t.recurParentId === template.id && t.day > until)))
         await supabase.from('tasks').delete().eq('recur_parent_id', template.id).gt('day', until)
       }
       await materialize([next])

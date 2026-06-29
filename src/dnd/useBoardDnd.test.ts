@@ -21,7 +21,14 @@ function inboxTask(): Task {
   }
 }
 
-const rect = (top: number) => ({ top, left: 0, right: 100, bottom: top + 20, width: 100, height: 20 })
+const rect = (top: number) => ({
+  top,
+  left: 0,
+  right: 100,
+  bottom: top + 20,
+  width: 100,
+  height: 20,
+})
 const startEvt = {
   active: { id: 't1', rect: { current: { initial: { width: 100 }, translated: null } } },
 } as unknown as DragStartEvent
@@ -46,7 +53,12 @@ describe('useBoardDnd persistence', () => {
 
     const { result, rerender } = renderHook(
       ({ tasks }: { tasks: Task[] }) =>
-        useBoardDnd('calendar', tasks, setTasks as React.Dispatch<React.SetStateAction<Task[]>>, persistReorder),
+        useBoardDnd(
+          'calendar',
+          tasks,
+          setTasks as React.Dispatch<React.SetStateAction<Task[]>>,
+          persistReorder,
+        ),
       { initialProps: { tasks } },
     )
 

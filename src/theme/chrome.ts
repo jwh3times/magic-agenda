@@ -319,11 +319,7 @@ export function cellChrome(theme: ThemeName, conf: ThemeConf, meta: CellMeta, is
       border: conf.cellBorder,
       borderRadius: conf.cellRadius,
       overflow: 'hidden',
-      boxShadow: isDrop
-        ? `inset 0 0 0 2px ${conf.accent}`
-        : isToday
-          ? conf.cellTodayRing
-          : 'none',
+      boxShadow: isDrop ? `inset 0 0 0 2px ${conf.accent}` : isToday ? conf.cellTodayRing : 'none',
       transition: 'box-shadow .12s',
     },
     head: {
