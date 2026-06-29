@@ -48,6 +48,7 @@ export function useBoardDnd(
   const [activeId, setActiveId] = useState<string | null>(null)
   const [activeWidth, setActiveWidth] = useState<number | undefined>(undefined)
   const touched = useRef<Set<string>>(new Set())
+  const didMove = useRef(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -82,6 +83,7 @@ export function useBoardDnd(
     setActiveId(id)
     setActiveWidth(e.active.rect.current.initial?.width)
     touched.current = new Set([containerOf(id)])
+    didMove.current = false
   }
 
   // Cross-lane relocation happens live as you hover a different lane.
@@ -96,27 +98,36 @@ export function useBoardDnd(
     if (to !== from) {
       touched.current.add(from)
       touched.current.add(to)
-      setTasks(move(activeIdStr, to, insertionIndex(to, overId, isBelowOver(active, over))))
+      didMove.current = true
+      setTasks(move(activeIdStr, to, insertionIndex(to, overId, isBelowOver(active, over)))) // optimistic
     }
   }
 
-  // Final placement settles and persists the touched lanes.
+  // Settle on drop. A within-lane reorder happens here; cross-lane moves already happened on
+  // drag-over. Persist whenever ANY move occurred — even if the final over-target is the dragged
+  // item's own slot (a common case, since the optimistic move parks it under the cursor).
   const onDragEnd = (e: DragEndEvent) => {
     const { active, over } = e
     const activeIdStr = String(active.id)
+    let next = tasks
     if (over && String(over.id) !== activeIdStr) {
       const to = containerOf(String(over.id))
       touched.current.add(to)
-      const next = move(activeIdStr, to, insertionIndex(to, String(over.id), isBelowOver(active, over)))
-      persistReorder(next, [...touched.current], mode)
+      next = move(activeIdStr, to, insertionIndex(to, String(over.id), isBelowOver(active, over)))
+      didMove.current = true
     }
+    if (didMove.current) persistReorder(next, [...touched.current], mode)
     setActiveId(null)
     setActiveWidth(undefined)
+    touched.current = new Set()
+    didMove.current = false
   }
 
   const onDragCancel = () => {
     setActiveId(null)
     setActiveWidth(undefined)
+    touched.current = new Set()
+    didMove.current = false
   }
 
   return {
