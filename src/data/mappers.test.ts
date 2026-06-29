@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { rowToTask, taskToRow, parseChecklist } from './mappers'
-import type { Task } from '../types/task'
+import { NO_RECUR, type Task } from '../types/task'
 import type { Database } from '../types/database.types'
 
 type TaskRow = Database['public']['Tables']['tasks']['Row']
@@ -22,6 +22,7 @@ function row(over: Partial<TaskRow> = {}): TaskRow {
     recur_interval: 1,
     recur_until: null,
     recur_parent_id: null,
+    recur_skip: [],
     created_at: '2026-06-29T00:00:00Z',
     updated_at: '2026-06-29T00:00:00Z',
     ...over,
@@ -41,6 +42,7 @@ function task(over: Partial<Task> = {}): Task {
     day: 'inbox',
     order: 0,
     korder: 0,
+    ...NO_RECUR,
     ...over,
   }
 }

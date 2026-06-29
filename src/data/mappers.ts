@@ -1,4 +1,12 @@
-import { INBOX, type Category, type ChecklistItem, type Color, type Status, type Task } from '../types/task'
+import {
+  INBOX,
+  type Category,
+  type ChecklistItem,
+  type Color,
+  type RecurFreq,
+  type Status,
+  type Task,
+} from '../types/task'
 import { isScheduled } from '../lib/dates'
 import type { Database, Json } from '../types/database.types'
 
@@ -32,6 +40,11 @@ export function rowToTask(row: TaskRow): Task {
     day: row.day ?? INBOX,
     order: row.order_index,
     korder: row.korder,
+    recurFreq: row.recur_freq as RecurFreq,
+    recurInterval: row.recur_interval,
+    recurUntil: row.recur_until,
+    recurParentId: row.recur_parent_id,
+    recurSkip: Array.isArray(row.recur_skip) ? (row.recur_skip as string[]) : [],
   }
 }
 
@@ -49,5 +62,10 @@ export function taskToRow(task: Task, userId: string): TaskInsert {
     day: isScheduled(task.day) ? task.day : null,
     order_index: task.order,
     korder: task.korder,
+    recur_freq: task.recurFreq,
+    recur_interval: task.recurInterval,
+    recur_until: task.recurUntil,
+    recur_parent_id: task.recurParentId,
+    recur_skip: task.recurSkip as unknown as Json,
   }
 }

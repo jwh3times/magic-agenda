@@ -30,6 +30,10 @@ export function BoardPage() {
           onDelete={t.removeTask}
           onToggleDone={t.toggleDone}
           persistReorder={t.persistReorder}
+          getTemplate={t.getTemplate}
+          updateSeries={t.updateSeries}
+          deleteOccurrence={t.deleteOccurrence}
+          deleteSeriesFuture={t.deleteSeriesFuture}
           initialView={settings.defaultView}
           onViewChange={saveView}
           onSignOut={signOut}

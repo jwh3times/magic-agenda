@@ -3,13 +3,16 @@ import { useTheme } from '../theme/ThemeProvider'
 import { CAT, COLORS, PAPER, STATUS } from '../theme/constants'
 import { newId } from '../lib/id'
 import { isScheduled } from '../lib/dates'
-import type { Category, Color, Status, Task } from '../types/task'
+import type { Category, Color, RecurFreq, Status, Task } from '../types/task'
+
+/** Which occurrences a save/delete applies to, for a recurring series. */
+export type RecurScope = 'this' | 'future'
 
 export interface TaskEditorProps {
   initial: Task
   isNew: boolean
-  onSave: (task: Task) => void
-  onDelete: (id: string) => void
+  onSave: (task: Task, scope?: RecurScope) => void
+  onDelete: (task: Task, scope?: RecurScope) => void
   onClose: () => void
 }
 
@@ -18,6 +21,8 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
   const { theme, conf } = useTheme()
   const [draft, setDraft] = useState<Task>(initial)
   const [newItem, setNewItem] = useState('')
+  const [scopePrompt, setScopePrompt] = useState<null | 'save' | 'delete'>(null)
+  const isRecurringInstance = !isNew && !!draft.recurParentId
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -76,21 +81,29 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
     setNewItem('')
   }
 
-  const save = () => {
+  const clean = (): Task => ({
+    ...draft,
+    title: draft.title.trim(),
+    day: isScheduled(draft.day) ? draft.day : 'inbox',
+    done: draft.status === 'done',
+    checklist: draft.checklist.map((c) => ({ id: c.id, text: c.text, done: c.done })),
+  })
+
+  const attemptSave = () => {
     if (!titleOk) return
-    const day = isScheduled(draft.day) ? draft.day : 'inbox'
-    const status = draft.status
-    onSave({
-      ...draft,
-      title: draft.title.trim(),
-      day,
-      status,
-      done: status === 'done',
-      checklist: draft.checklist.map((c) => ({ id: c.id, text: c.text, done: c.done })),
-    })
+    if (isRecurringInstance) setScopePrompt('save')
+    else onSave(clean())
+  }
+  const attemptDelete = () => {
+    if (isRecurringInstance) setScopePrompt('delete')
+    else onDelete(initial)
   }
 
+  const recurUnit =
+    draft.recurFreq === 'daily' ? 'day(s)' : draft.recurFreq === 'weekly' ? 'week(s)' : 'month(s)'
+
   return (
+    <>
     <div
       style={{
         position: 'fixed',
@@ -435,6 +448,73 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
           </button>
         </div>
 
+        <div style={fieldLabel}>Repeat</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <select
+            value={draft.recurFreq}
+            onChange={(e) => patch({ recurFreq: e.target.value as RecurFreq })}
+            style={{
+              padding: '9px 12px',
+              borderRadius: '9px',
+              border: `1px solid ${border}`,
+              background: fieldBg,
+              color: fg,
+              fontFamily: conf.ui,
+              fontSize: '13px',
+              fontWeight: 600,
+              colorScheme: dark ? 'dark' : 'light',
+            }}
+          >
+            <option value="none">Does not repeat</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+          {draft.recurFreq !== 'none' && (
+            <>
+              <span style={{ fontSize: 13, color: sub }}>every</span>
+              <input
+                type="number"
+                min={1}
+                value={draft.recurInterval}
+                onChange={(e) =>
+                  patch({ recurInterval: Math.max(1, Number(e.target.value) || 1) })
+                }
+                style={{ ...inputBase, width: 60, padding: '8px 10px' }}
+              />
+              <span style={{ fontSize: 13, color: sub }}>{recurUnit}</span>
+              <span style={{ fontSize: 13, color: sub }}>until</span>
+              <input
+                type="date"
+                value={draft.recurUntil ?? ''}
+                onChange={(e) => patch({ recurUntil: e.target.value || null })}
+                style={{
+                  padding: '9px 12px',
+                  borderRadius: '9px',
+                  border: `1px solid ${border}`,
+                  background: fieldBg,
+                  color: fg,
+                  fontFamily: conf.ui,
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  colorScheme: dark ? 'dark' : 'light',
+                }}
+              />
+            </>
+          )}
+        </div>
+        {draft.recurFreq !== 'none' && !isScheduled(draft.day) && (
+          <div style={{ fontSize: 12, color: '#d98c3a', marginTop: 8 }}>
+            Pick a start date above — repeats need a scheduled day to generate occurrences.
+          </div>
+        )}
+        {isRecurringInstance && (
+          <div style={{ fontSize: 12, color: sub, marginTop: 8 }}>
+            Part of a repeating series — saving or deleting will ask about this occurrence vs. all
+            future.
+          </div>
+        )}
+
         <div
           style={{
             display: 'flex',
@@ -448,7 +528,7 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
           {!isNew && (
             <button
               type="button"
-              onClick={() => onDelete(draft.id)}
+              onClick={attemptDelete}
               style={btn('transparent', '#e0524a', { border: `1px solid ${border}` })}
             >
               Delete
@@ -460,7 +540,7 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
           </button>
           <button
             type="button"
-            onClick={save}
+            onClick={attemptSave}
             disabled={!titleOk}
             style={btn(conf.accent, conf.accentFg, { opacity: titleOk ? 1 : 0.5 })}
           >
@@ -469,5 +549,72 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
         </div>
       </div>
     </div>
+
+    {scopePrompt && (
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(10,8,4,.5)',
+          backdropFilter: 'blur(2px)',
+          WebkitBackdropFilter: 'blur(2px)',
+          display: 'grid',
+          placeItems: 'center',
+          zIndex: 9100,
+          padding: 20,
+        }}
+        onClick={() => setScopePrompt(null)}
+      >
+        <div
+          style={{
+            width: 'min(360px, 100%)',
+            background: panelBg,
+            color: fg,
+            border: `1px solid ${border}`,
+            borderRadius: 16,
+            padding: 20,
+            boxShadow: '0 40px 100px rgba(0,0,0,.5)',
+            fontFamily: conf.ui,
+            animation: 'modalIn .18s cubic-bezier(.2,.8,.2,1)',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 6 }}>
+            {scopePrompt === 'save' ? 'Save repeating task' : 'Delete repeating task'}
+          </div>
+          <div style={{ fontSize: 13, color: sub, marginBottom: 16, lineHeight: 1.45 }}>
+            This task repeats. Apply to this occurrence only, or this and all future occurrences?
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <button
+              type="button"
+              onClick={() =>
+                scopePrompt === 'save' ? onSave(clean(), 'this') : onDelete(initial, 'this')
+              }
+              style={btn(fieldBg, fg)}
+            >
+              This occurrence
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                scopePrompt === 'save' ? onSave(clean(), 'future') : onDelete(initial, 'future')
+              }
+              style={
+                scopePrompt === 'save'
+                  ? btn(conf.accent, conf.accentFg)
+                  : btn('transparent', '#e0524a', { border: `1px solid ${border}` })
+              }
+            >
+              This and all future
+            </button>
+            <button type="button" onClick={() => setScopePrompt(null)} style={btn(fieldBg, sub)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }

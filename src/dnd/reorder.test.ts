@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { findContainer, moveToDay, moveToStatus, reindex } from './reorder'
-import type { Status, Task } from '../types/task'
+import { NO_RECUR, type Status, type Task } from '../types/task'
 
 function t(id: string, over: Partial<Task> = {}): Task {
   return {
@@ -15,6 +15,7 @@ function t(id: string, over: Partial<Task> = {}): Task {
     day: 'inbox',
     order: 0,
     korder: 0,
+    ...NO_RECUR,
     ...over,
   }
 }

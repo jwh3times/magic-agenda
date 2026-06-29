@@ -53,6 +53,7 @@ export type Database = {
           recur_freq: string
           recur_interval: number
           recur_parent_id: string | null
+          recur_skip: Json
           recur_until: string | null
           status: string
           title: string
@@ -72,6 +73,7 @@ export type Database = {
           recur_freq?: string
           recur_interval?: number
           recur_parent_id?: string | null
+          recur_skip?: Json
           recur_until?: string | null
           status?: string
           title?: string
@@ -91,6 +93,7 @@ export type Database = {
           recur_freq?: string
           recur_interval?: number
           recur_parent_id?: string | null
+          recur_skip?: Json
           recur_until?: string | null
           status?: string
           title?: string

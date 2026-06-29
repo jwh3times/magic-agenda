@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { CAT, COLORS, STATUS, PAPER } from './constants'
 import { themeConf } from './themeConf'
 import { rotOf, cardStyles } from './cardStyles'
-import type { Task, ThemeName } from '../types/task'
+import { NO_RECUR, type Task, type ThemeName } from '../types/task'
 
 const THEMES: ThemeName[] = ['cork', 'brutal', 'glass']
 
@@ -19,6 +19,7 @@ function task(overrides: Partial<Task> = {}): Task {
     day: 'inbox',
     order: 0,
     korder: 0,
+    ...NO_RECUR,
     ...overrides,
   }
 }

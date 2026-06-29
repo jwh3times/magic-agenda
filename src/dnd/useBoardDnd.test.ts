@@ -1,7 +1,7 @@
 import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { useBoardDnd } from './useBoardDnd'
-import type { Task } from '../types/task'
+import { NO_RECUR, type Task } from '../types/task'
 import type { DragEndEvent, DragOverEvent, DragStartEvent } from '@dnd-kit/core'
 
 function inboxTask(): Task {
@@ -17,6 +17,7 @@ function inboxTask(): Task {
     day: 'inbox',
     order: 0,
     korder: 0,
+    ...NO_RECUR,
   }
 }
 

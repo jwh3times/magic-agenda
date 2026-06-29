@@ -1,821 +1,1047 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="./support.js"></script>
-</head>
-<body>
-<x-dc>
-<helmet>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Caveat:wght@600;700&family=Libre+Franklin:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-<style>
-  * { box-sizing: border-box; }
-  body { margin: 0; }
-  ::-webkit-scrollbar { width: 9px; height: 9px; }
-  ::-webkit-scrollbar-thumb { background: rgba(120,120,120,.45); border-radius: 6px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  @keyframes blobFloat { 0%{transform:translate(0,0) scale(1);} 50%{transform:translate(40px,-30px) scale(1.12);} 100%{transform:translate(0,0) scale(1);} }
-  @keyframes notePop { 0%{transform:scale(1) rotate(var(--rot,0deg));} 35%{transform:scale(1.14) rotate(0deg);} 100%{transform:scale(1) rotate(var(--rot,0deg));} }
-  @keyframes modalIn { from{opacity:0; transform:translateY(14px) scale(.98);} to{opacity:1; transform:translateY(0) scale(1);} }
-  @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
-  input:focus, textarea:focus { outline: none; }
-</style>
-</helmet>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Caveat:wght@600;700&family=Libre+Franklin:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap"
+          rel="stylesheet"
+        />
+        <style>
+          * {
+            box-sizing: border-box;
+          }
+          body {
+            margin: 0;
+          }
+          ::-webkit-scrollbar {
+            width: 9px;
+            height: 9px;
+          }
+          ::-webkit-scrollbar-thumb {
+            background: rgba(120, 120, 120, 0.45);
+            border-radius: 6px;
+          }
+          ::-webkit-scrollbar-track {
+            background: transparent;
+          }
+          @keyframes blobFloat {
+            0% {
+              transform: translate(0, 0) scale(1);
+            }
+            50% {
+              transform: translate(40px, -30px) scale(1.12);
+            }
+            100% {
+              transform: translate(0, 0) scale(1);
+            }
+          }
+          @keyframes notePop {
+            0% {
+              transform: scale(1) rotate(var(--rot, 0deg));
+            }
+            35% {
+              transform: scale(1.14) rotate(0deg);
+            }
+            100% {
+              transform: scale(1) rotate(var(--rot, 0deg));
+            }
+          }
+          @keyframes modalIn {
+            from {
+              opacity: 0;
+              transform: translateY(14px) scale(0.98);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
+          }
+          @keyframes fadeIn {
+            from {
+              opacity: 0;
+            }
+            to {
+              opacity: 1;
+            }
+          }
+          input:focus,
+          textarea:focus {
+            outline: none;
+          }
+        </style>
+      </helmet>
 
-<div style="position:relative; width:100%; height:100vh; overflow:hidden; background:#13151c; font-family:system-ui,sans-serif;">
-  <div style="{{ ui.root }}">
+      <div
+        style="
+          position: relative;
+          width: 100%;
+          height: 100vh;
+          overflow: hidden;
+          background: #13151c;
+          font-family: system-ui, sans-serif;
+        "
+      >
+        <div style="{{ ui.root }}">
+          <sc-if value="{{ ui.showBlobs }}" hint-placeholder-val="{{ false }}">
+            <div style="{{ ui.blobA }}"></div>
+            <div style="{{ ui.blobB }}"></div>
+            <div style="{{ ui.blobC }}"></div>
+          </sc-if>
 
-    <sc-if value="{{ ui.showBlobs }}" hint-placeholder-val="{{ false }}">
-      <div style="{{ ui.blobA }}"></div>
-      <div style="{{ ui.blobB }}"></div>
-      <div style="{{ ui.blobC }}"></div>
-    </sc-if>
-
-    <!-- TOOLBAR -->
-    <div style="{{ ui.toolbar }}">
-      <div style="display:flex; align-items:center; gap:16px; min-width:0;">
-        <div style="{{ ui.brand }}">{{ ui.appName }}</div>
-        <div style="{{ ui.segWrap }}">
-          <sc-for list="{{ ui.views }}" as="vw" hint-placeholder-count="2">
-            <button data-no-drag onClick="{{ vw.onClick }}" style="{{ vw.style }}">{{ vw.label }}</button>
-          </sc-for>
-        </div>
-        <sc-if value="{{ ui.isCalendar }}" hint-placeholder-val="{{ true }}">
-          <div style="{{ ui.navGroup }}">
-            <button data-no-drag onClick="{{ onPrev }}" style="{{ ui.navBtn }}">‹</button>
-            <div style="{{ ui.monthLabel }}">{{ ui.monthName }} <span style="{{ ui.yearLabel }}">{{ ui.year }}</span></div>
-            <button data-no-drag onClick="{{ onNext }}" style="{{ ui.navBtn }}">›</button>
-            <button data-no-drag onClick="{{ onToday }}" style="{{ ui.todayBtn }}">Today</button>
-          </div>
-        </sc-if>
-      </div>
-      <div style="display:flex; align-items:center; gap:14px;">
-        <div style="{{ ui.segWrap }}">
-          <sc-for list="{{ ui.themes }}" as="th" hint-placeholder-count="3">
-            <button data-no-drag onClick="{{ th.onClick }}" style="{{ th.style }}">
-              <span style="{{ th.swatch }}"></span>{{ th.label }}
-            </button>
-          </sc-for>
-        </div>
-        <button data-no-drag onClick="{{ onAddInbox }}" style="{{ ui.addBtn }}">+ New task</button>
-      </div>
-    </div>
-
-    <!-- MAIN ROW -->
-    <div style="display:flex; gap:18px; flex:1; min-height:0; padding:18px 22px 22px; position:relative; z-index:1;">
-
-      <sc-if value="{{ ui.isCalendar }}" hint-placeholder-val="{{ true }}">
-      <div style="display:flex; gap:18px; flex:1; min-height:0; width:100%;">
-
-      <!-- BOARD -->
-      <div style="{{ ui.boardWrap }}">
-        <div style="{{ ui.weekRow }}">
-          <sc-for list="{{ weekdays }}" as="wd" hint-placeholder-count="7">
-            <div style="{{ wd.style }}">{{ wd.label }}</div>
-          </sc-for>
-        </div>
-        <div style="{{ ui.grid }}">
-          <sc-for list="{{ cells }}" as="cell" hint-placeholder-count="35">
-            <div style="{{ cell.style }}" data-drop-day="{{ cell.dateStr }}">
-              <div style="{{ cell.head }}">
-                <span style="{{ cell.numStyle }}">{{ cell.dayNum }}</span>
-                <button data-no-drag onClick="{{ cell.onAdd }}" style="{{ cell.addStyle }}">+</button>
+          <!-- TOOLBAR -->
+          <div style="{{ ui.toolbar }}">
+            <div style="display: flex; align-items: center; gap: 16px; min-width: 0">
+              <div style="{{ ui.brand }}">{{ ui.appName }}</div>
+              <div style="{{ ui.segWrap }}">
+                <sc-for list="{{ ui.views }}" as="vw" hint-placeholder-count="2">
+                  <button data-no-drag onClick="{{ vw.onClick }}" style="{{ vw.style }}">
+                    {{ vw.label }}
+                  </button>
+                </sc-for>
               </div>
-              <div style="{{ cell.notesWrap }}">
-                <sc-for list="{{ cell.notes }}" as="note" hint-placeholder-count="0">
-                  <sc-if value="{{ note.gapBefore }}" hint-placeholder-val="{{ false }}"><div style="{{ ui.gap }}"></div></sc-if>
-                  <div style="{{ note.wrap }}" data-note-id="{{ note.id }}" data-drop-day="{{ cell.dateStr }}" onPointerDown="{{ note.onDown }}">
-                    <sc-if value="{{ note.pin }}" hint-placeholder-val="{{ false }}"><div style="{{ note.pinStyle }}"></div></sc-if>
-                    <sc-if value="{{ note.stamp }}" hint-placeholder-val="{{ false }}"><div style="{{ note.stampStyle }}">DONE</div></sc-if>
-                    <div style="{{ note.titleStyle }}">{{ note.title }}</div>
-                    <div style="{{ note.meta }}">
-                      <span style="{{ note.dot }}"></span>
-                      <span style="{{ note.catStyle }}">{{ note.catLabel }}</span>
-                      <sc-if value="{{ note.hasList }}" hint-placeholder-val="{{ false }}"><span style="{{ note.progStyle }}">{{ note.progress }}</span></sc-if>
-                      <button data-no-drag onClick="{{ note.onToggle }}" style="{{ note.check }}">{{ note.checkMark }}</button>
+              <sc-if value="{{ ui.isCalendar }}" hint-placeholder-val="{{ true }}">
+                <div style="{{ ui.navGroup }}">
+                  <button data-no-drag onClick="{{ onPrev }}" style="{{ ui.navBtn }}">‹</button>
+                  <div style="{{ ui.monthLabel }}">
+                    {{ ui.monthName }} <span style="{{ ui.yearLabel }}">{{ ui.year }}</span>
+                  </div>
+                  <button data-no-drag onClick="{{ onNext }}" style="{{ ui.navBtn }}">›</button>
+                  <button data-no-drag onClick="{{ onToday }}" style="{{ ui.todayBtn }}">
+                    Today
+                  </button>
+                </div>
+              </sc-if>
+            </div>
+            <div style="display: flex; align-items: center; gap: 14px">
+              <div style="{{ ui.segWrap }}">
+                <sc-for list="{{ ui.themes }}" as="th" hint-placeholder-count="3">
+                  <button data-no-drag onClick="{{ th.onClick }}" style="{{ th.style }}">
+                    <span style="{{ th.swatch }}"></span>{{ th.label }}
+                  </button>
+                </sc-for>
+              </div>
+              <button data-no-drag onClick="{{ onAddInbox }}" style="{{ ui.addBtn }}">
+                + New task
+              </button>
+            </div>
+          </div>
+
+          <!-- MAIN ROW -->
+          <div
+            style="
+              display: flex;
+              gap: 18px;
+              flex: 1;
+              min-height: 0;
+              padding: 18px 22px 22px;
+              position: relative;
+              z-index: 1;
+            "
+          >
+            <sc-if value="{{ ui.isCalendar }}" hint-placeholder-val="{{ true }}">
+              <div style="display: flex; gap: 18px; flex: 1; min-height: 0; width: 100%">
+                <!-- BOARD -->
+                <div style="{{ ui.boardWrap }}">
+                  <div style="{{ ui.weekRow }}">
+                    <sc-for list="{{ weekdays }}" as="wd" hint-placeholder-count="7">
+                      <div style="{{ wd.style }}">{{ wd.label }}</div>
+                    </sc-for>
+                  </div>
+                  <div style="{{ ui.grid }}">
+                    <sc-for list="{{ cells }}" as="cell" hint-placeholder-count="35">
+                      <div style="{{ cell.style }}" data-drop-day="{{ cell.dateStr }}">
+                        <div style="{{ cell.head }}">
+                          <span style="{{ cell.numStyle }}">{{ cell.dayNum }}</span>
+                          <button
+                            data-no-drag
+                            onClick="{{ cell.onAdd }}"
+                            style="{{ cell.addStyle }}"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <div style="{{ cell.notesWrap }}">
+                          <sc-for list="{{ cell.notes }}" as="note" hint-placeholder-count="0">
+                            <sc-if value="{{ note.gapBefore }}" hint-placeholder-val="{{ false }}"
+                              ><div style="{{ ui.gap }}"></div
+                            ></sc-if>
+                            <div
+                              style="{{ note.wrap }}"
+                              data-note-id="{{ note.id }}"
+                              data-drop-day="{{ cell.dateStr }}"
+                              onPointerDown="{{ note.onDown }}"
+                            >
+                              <sc-if value="{{ note.pin }}" hint-placeholder-val="{{ false }}"
+                                ><div style="{{ note.pinStyle }}"></div
+                              ></sc-if>
+                              <sc-if value="{{ note.stamp }}" hint-placeholder-val="{{ false }}"
+                                ><div style="{{ note.stampStyle }}">DONE</div></sc-if
+                              >
+                              <div style="{{ note.titleStyle }}">{{ note.title }}</div>
+                              <div style="{{ note.meta }}">
+                                <span style="{{ note.dot }}"></span>
+                                <span style="{{ note.catStyle }}">{{ note.catLabel }}</span>
+                                <sc-if value="{{ note.hasList }}" hint-placeholder-val="{{ false }}"
+                                  ><span style="{{ note.progStyle }}"
+                                    >{{ note.progress }}</span
+                                  ></sc-if
+                                >
+                                <button
+                                  data-no-drag
+                                  onClick="{{ note.onToggle }}"
+                                  style="{{ note.check }}"
+                                >
+                                  {{ note.checkMark }}
+                                </button>
+                              </div>
+                              <sc-if value="{{ note.hasList }}" hint-placeholder-val="{{ false }}"
+                                ><div style="{{ note.barTrack }}">
+                                  <div style="{{ note.barFill }}"></div></div
+                              ></sc-if>
+                            </div>
+                          </sc-for>
+                          <sc-if value="{{ cell.gapEnd }}" hint-placeholder-val="{{ false }}"
+                            ><div style="{{ ui.gap }}"></div
+                          ></sc-if>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+
+                <!-- INBOX -->
+                <div style="{{ ui.inbox }}" data-drop-day="inbox">
+                  <div style="{{ ui.inboxHead }}">
+                    <span>Inbox</span>
+                    <span style="{{ ui.inboxCount }}">{{ inbox.count }}</span>
+                  </div>
+                  <div style="{{ ui.inboxHint }}">Unscheduled · drag onto a day</div>
+                  <div style="{{ ui.inboxList }}">
+                    <sc-for list="{{ inbox.notes }}" as="note" hint-placeholder-count="3">
+                      <div
+                        style="{{ note.wrap }}"
+                        data-note-id="{{ note.id }}"
+                        data-drop-day="inbox"
+                        onPointerDown="{{ note.onDown }}"
+                      >
+                        <sc-if value="{{ note.pin }}" hint-placeholder-val="{{ false }}"
+                          ><div style="{{ note.pinStyle }}"></div
+                        ></sc-if>
+                        <sc-if value="{{ note.stamp }}" hint-placeholder-val="{{ false }}"
+                          ><div style="{{ note.stampStyle }}">DONE</div></sc-if
+                        >
+                        <div style="{{ note.titleStyle }}">{{ note.title }}</div>
+                        <sc-if value="{{ note.hasDesc }}" hint-placeholder-val="{{ false }}"
+                          ><div style="{{ note.descStyle }}">{{ note.desc }}</div></sc-if
+                        >
+                        <div style="{{ note.meta }}">
+                          <span style="{{ note.dot }}"></span>
+                          <span style="{{ note.catStyle }}">{{ note.catLabel }}</span>
+                          <sc-if value="{{ note.hasList }}" hint-placeholder-val="{{ false }}"
+                            ><span style="{{ note.progStyle }}">{{ note.progress }}</span></sc-if
+                          >
+                          <button
+                            data-no-drag
+                            onClick="{{ note.onToggle }}"
+                            style="{{ note.check }}"
+                          >
+                            {{ note.checkMark }}
+                          </button>
+                        </div>
+                        <sc-if value="{{ note.hasList }}" hint-placeholder-val="{{ false }}"
+                          ><div style="{{ note.barTrack }}">
+                            <div style="{{ note.barFill }}"></div></div
+                        ></sc-if>
+                      </div>
+                    </sc-for>
+                    <sc-if value="{{ inbox.empty }}" hint-placeholder-val="{{ false }}">
+                      <div style="{{ ui.inboxEmpty }}">
+                        Nothing here. Drag a note in to park it, or hit “+ New task”.
+                      </div>
+                    </sc-if>
+                  </div>
+                  <button data-no-drag onClick="{{ onAddInbox }}" style="{{ ui.inboxAdd }}">
+                    + Add to inbox
+                  </button>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ ui.isKanban }}" hint-placeholder-val="{{ false }}">
+              <div style="{{ ui.kanbanWrap }}">
+                <sc-for list="{{ columns }}" as="col" hint-placeholder-count="3">
+                  <div style="{{ col.style }}" data-drop-status="{{ col.key }}">
+                    <div style="{{ col.accentBar }}"></div>
+                    <div style="{{ col.head }}">
+                      <span style="{{ col.dotStyle }}"></span>
+                      <span style="{{ col.labelStyle }}">{{ col.label }}</span>
+                      <span style="{{ col.countStyle }}">{{ col.count }}</span>
+                      <button data-no-drag onClick="{{ col.onAdd }}" style="{{ col.addStyle }}">
+                        +
+                      </button>
                     </div>
-                    <sc-if value="{{ note.hasList }}" hint-placeholder-val="{{ false }}"><div style="{{ note.barTrack }}"><div style="{{ note.barFill }}"></div></div></sc-if>
+                    <div style="{{ col.listStyle }}">
+                      <sc-for list="{{ col.notes }}" as="note" hint-placeholder-count="0">
+                        <sc-if value="{{ note.gapBefore }}" hint-placeholder-val="{{ false }}"
+                          ><div style="{{ ui.gap }}"></div
+                        ></sc-if>
+                        <div
+                          style="{{ note.wrap }}"
+                          data-note-id="{{ note.id }}"
+                          data-drop-status="{{ col.key }}"
+                          onPointerDown="{{ note.onDown }}"
+                        >
+                          <sc-if value="{{ note.pin }}" hint-placeholder-val="{{ false }}"
+                            ><div style="{{ note.pinStyle }}"></div
+                          ></sc-if>
+                          <sc-if value="{{ note.stamp }}" hint-placeholder-val="{{ false }}"
+                            ><div style="{{ note.stampStyle }}">DONE</div></sc-if
+                          >
+                          <div style="{{ note.titleStyle }}">{{ note.title }}</div>
+                          <sc-if value="{{ note.hasDesc }}" hint-placeholder-val="{{ false }}"
+                            ><div style="{{ note.descStyle }}">{{ note.desc }}</div></sc-if
+                          >
+                          <div style="{{ note.meta }}">
+                            <span style="{{ note.dot }}"></span>
+                            <span style="{{ note.catStyle }}">{{ note.catLabel }}</span>
+                            <sc-if value="{{ note.hasChip }}" hint-placeholder-val="{{ false }}"
+                              ><span style="{{ note.chipStyle }}">{{ note.chipLabel }}</span></sc-if
+                            >
+                            <sc-if value="{{ note.hasList }}" hint-placeholder-val="{{ false }}"
+                              ><span style="{{ note.progStyle }}">{{ note.progress }}</span></sc-if
+                            >
+                            <button
+                              data-no-drag
+                              onClick="{{ note.onToggle }}"
+                              style="{{ note.check }}"
+                            >
+                              {{ note.checkMark }}
+                            </button>
+                          </div>
+                          <sc-if value="{{ note.hasList }}" hint-placeholder-val="{{ false }}"
+                            ><div style="{{ note.barTrack }}">
+                              <div style="{{ note.barFill }}"></div></div
+                          ></sc-if>
+                        </div>
+                      </sc-for>
+                      <sc-if value="{{ col.gapEnd }}" hint-placeholder-val="{{ false }}"
+                        ><div style="{{ ui.gap }}"></div
+                      ></sc-if>
+                      <sc-if value="{{ col.empty }}" hint-placeholder-val="{{ false }}"
+                        ><div style="{{ col.emptyStyle }}">Drop tasks here</div></sc-if
+                      >
+                    </div>
                   </div>
                 </sc-for>
-                <sc-if value="{{ cell.gapEnd }}" hint-placeholder-val="{{ false }}"><div style="{{ ui.gap }}"></div></sc-if>
               </div>
-            </div>
-          </sc-for>
-        </div>
-      </div>
+            </sc-if>
+          </div>
 
-      <!-- INBOX -->
-      <div style="{{ ui.inbox }}" data-drop-day="inbox">
-        <div style="{{ ui.inboxHead }}">
-          <span>Inbox</span>
-          <span style="{{ ui.inboxCount }}">{{ inbox.count }}</span>
-        </div>
-        <div style="{{ ui.inboxHint }}">Unscheduled · drag onto a day</div>
-        <div style="{{ ui.inboxList }}">
-          <sc-for list="{{ inbox.notes }}" as="note" hint-placeholder-count="3">
-            <div style="{{ note.wrap }}" data-note-id="{{ note.id }}" data-drop-day="inbox" onPointerDown="{{ note.onDown }}">
-              <sc-if value="{{ note.pin }}" hint-placeholder-val="{{ false }}"><div style="{{ note.pinStyle }}"></div></sc-if>
-              <sc-if value="{{ note.stamp }}" hint-placeholder-val="{{ false }}"><div style="{{ note.stampStyle }}">DONE</div></sc-if>
-              <div style="{{ note.titleStyle }}">{{ note.title }}</div>
-              <sc-if value="{{ note.hasDesc }}" hint-placeholder-val="{{ false }}"><div style="{{ note.descStyle }}">{{ note.desc }}</div></sc-if>
-              <div style="{{ note.meta }}">
-                <span style="{{ note.dot }}"></span>
-                <span style="{{ note.catStyle }}">{{ note.catLabel }}</span>
-                <sc-if value="{{ note.hasList }}" hint-placeholder-val="{{ false }}"><span style="{{ note.progStyle }}">{{ note.progress }}</span></sc-if>
-                <button data-no-drag onClick="{{ note.onToggle }}" style="{{ note.check }}">{{ note.checkMark }}</button>
+          <!-- DRAG GHOST -->
+          <sc-if value="{{ ghost }}" hint-placeholder-val="{{ false }}">
+            <div style="{{ ghost.wrap }}">
+              <div style="{{ ghost.titleStyle }}">{{ ghost.title }}</div>
+              <div style="{{ ghost.meta }}">
+                <span style="{{ ghost.dot }}"></span>
+                <span style="{{ ghost.catStyle }}">{{ ghost.catLabel }}</span>
               </div>
-              <sc-if value="{{ note.hasList }}" hint-placeholder-val="{{ false }}"><div style="{{ note.barTrack }}"><div style="{{ note.barFill }}"></div></div></sc-if>
             </div>
-          </sc-for>
-          <sc-if value="{{ inbox.empty }}" hint-placeholder-val="{{ false }}">
-            <div style="{{ ui.inboxEmpty }}">Nothing here. Drag a note in to park it, or hit “+ New task”.</div>
+          </sc-if>
+
+          <!-- EDITOR MODAL -->
+          <sc-if value="{{ editor }}" hint-placeholder-val="{{ false }}">
+            <div style="{{ editor.overlay }}" onClick="{{ editor.onBg }}">
+              <div style="{{ editor.panel }}" onClick="{{ editor.stop }}">
+                <div style="{{ editor.headRow }}">
+                  <div style="{{ editor.kicker }}">{{ editor.kicker }}</div>
+                  <button data-no-drag onClick="{{ editor.onClose }}" style="{{ editor.closeBtn }}">
+                    ✕
+                  </button>
+                </div>
+
+                <input
+                  value="{{ editor.title }}"
+                  onChange="{{ editor.onTitle }}"
+                  placeholder="Task title…"
+                  style="{{ editor.titleInput }}"
+                />
+                <textarea
+                  value="{{ editor.desc }}"
+                  onChange="{{ editor.onDesc }}"
+                  placeholder="Add a short description…"
+                  style="{{ editor.descInput }}"
+                ></textarea>
+
+                <div style="{{ editor.fieldLabel }}">Note color</div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap">
+                  <sc-for list="{{ editor.colors }}" as="c" hint-placeholder-count="6">
+                    <button data-no-drag onClick="{{ c.onClick }}" style="{{ c.style }}"></button>
+                  </sc-for>
+                </div>
+
+                <div style="{{ editor.fieldLabel }}">Category</div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap">
+                  <sc-for list="{{ editor.cats }}" as="c" hint-placeholder-count="5">
+                    <button data-no-drag onClick="{{ c.onClick }}" style="{{ c.style }}">
+                      <span style="{{ c.dot }}"></span>{{ c.label }}
+                    </button>
+                  </sc-for>
+                </div>
+
+                <div style="{{ editor.fieldLabel }}">Checklist</div>
+                <div style="display: flex; flex-direction: column; gap: 7px">
+                  <sc-for list="{{ editor.checklist }}" as="it" hint-placeholder-count="0">
+                    <div style="display: flex; align-items: center; gap: 9px">
+                      <button data-no-drag onClick="{{ it.onToggle }}" style="{{ it.box }}">
+                        {{ it.mark }}
+                      </button>
+                      <input
+                        value="{{ it.text }}"
+                        onChange="{{ it.onText }}"
+                        style="{{ it.input }}"
+                      />
+                      <button
+                        data-no-drag
+                        onClick="{{ it.onRemove }}"
+                        style="{{ editor.itemRemove }}"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </sc-for>
+                  <div style="display: flex; align-items: center; gap: 9px">
+                    <span style="{{ editor.addBox }}">+</span>
+                    <input
+                      value="{{ editor.newItem }}"
+                      onChange="{{ editor.onNewItem }}"
+                      onKeyDown="{{ editor.onNewKey }}"
+                      placeholder="Add a subtask and press Enter…"
+                      style="{{ editor.newInput }}"
+                    />
+                  </div>
+                </div>
+
+                <div style="{{ editor.fieldLabel }}">Status</div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap">
+                  <sc-for list="{{ editor.statuses }}" as="s" hint-placeholder-count="3">
+                    <button data-no-drag onClick="{{ s.onClick }}" style="{{ s.style }}">
+                      <span style="{{ s.dot }}"></span>{{ s.label }}
+                    </button>
+                  </sc-for>
+                </div>
+
+                <div style="{{ editor.fieldLabel }}">Schedule</div>
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
+                  <input
+                    type="date"
+                    value="{{ editor.day }}"
+                    onChange="{{ editor.onDay }}"
+                    style="{{ editor.dateInput }}"
+                  />
+                  <button data-no-drag onClick="{{ editor.onInbox }}" style="{{ editor.inboxBtn }}">
+                    {{ editor.inboxLabel }}
+                  </button>
+                </div>
+
+                <div style="{{ editor.footer }}">
+                  <sc-if value="{{ editor.canDelete }}" hint-placeholder-val="{{ false }}">
+                    <button
+                      data-no-drag
+                      onClick="{{ editor.onDelete }}"
+                      style="{{ editor.deleteBtn }}"
+                    >
+                      Delete
+                    </button>
+                  </sc-if>
+                  <div style="flex: 1"></div>
+                  <button
+                    data-no-drag
+                    onClick="{{ editor.onClose }}"
+                    style="{{ editor.cancelBtn }}"
+                  >
+                    Cancel
+                  </button>
+                  <button data-no-drag onClick="{{ editor.onSave }}" style="{{ editor.saveBtn }}">
+                    {{ editor.saveLabel }}
+                  </button>
+                </div>
+              </div>
+            </div>
           </sc-if>
         </div>
-        <button data-no-drag onClick="{{ onAddInbox }}" style="{{ ui.inboxAdd }}">+ Add to inbox</button>
       </div>
-      </div>
-      </sc-if>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{"$preview":{"width":"100%","height":"100%"}}'
+    >
+      class Component extends DCLogic {
+        constructor(props){
+          super(props);
+          this._id = 1000;
+          const today = new Date();
+          const ymd = (d)=>{ const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), da=String(d.getDate()).padStart(2,'0'); return y+'-'+m+'-'+da; };
+          const off = (n)=>{ const d=new Date(today); d.setDate(d.getDate()+n); return ymd(d); };
+          this.ymd = ymd;
+          const mk = (o)=>({ id:'t'+(this._id++), title:o.t, desc:o.d||'', category:o.c, color:o.k, checklist:(o.l||[]).map((x,i)=>({id:'c'+(this._id++), text:x.t, done:!!x.d})), status:o.s||'todo', done:(o.s||'todo')==='done', day:o.day, order:o.o||0, korder:(o.ko!=null?o.ko:(o.o||0)) });
 
-      <sc-if value="{{ ui.isKanban }}" hint-placeholder-val="{{ false }}">
-        <div style="{{ ui.kanbanWrap }}">
-          <sc-for list="{{ columns }}" as="col" hint-placeholder-count="3">
-            <div style="{{ col.style }}" data-drop-status="{{ col.key }}">
-              <div style="{{ col.accentBar }}"></div>
-              <div style="{{ col.head }}">
-                <span style="{{ col.dotStyle }}"></span>
-                <span style="{{ col.labelStyle }}">{{ col.label }}</span>
-                <span style="{{ col.countStyle }}">{{ col.count }}</span>
-                <button data-no-drag onClick="{{ col.onAdd }}" style="{{ col.addStyle }}">+</button>
-              </div>
-              <div style="{{ col.listStyle }}">
-                <sc-for list="{{ col.notes }}" as="note" hint-placeholder-count="0">
-                  <sc-if value="{{ note.gapBefore }}" hint-placeholder-val="{{ false }}"><div style="{{ ui.gap }}"></div></sc-if>
-                  <div style="{{ note.wrap }}" data-note-id="{{ note.id }}" data-drop-status="{{ col.key }}" onPointerDown="{{ note.onDown }}">
-                    <sc-if value="{{ note.pin }}" hint-placeholder-val="{{ false }}"><div style="{{ note.pinStyle }}"></div></sc-if>
-                    <sc-if value="{{ note.stamp }}" hint-placeholder-val="{{ false }}"><div style="{{ note.stampStyle }}">DONE</div></sc-if>
-                    <div style="{{ note.titleStyle }}">{{ note.title }}</div>
-                    <sc-if value="{{ note.hasDesc }}" hint-placeholder-val="{{ false }}"><div style="{{ note.descStyle }}">{{ note.desc }}</div></sc-if>
-                    <div style="{{ note.meta }}">
-                      <span style="{{ note.dot }}"></span>
-                      <span style="{{ note.catStyle }}">{{ note.catLabel }}</span>
-                      <sc-if value="{{ note.hasChip }}" hint-placeholder-val="{{ false }}"><span style="{{ note.chipStyle }}">{{ note.chipLabel }}</span></sc-if>
-                      <sc-if value="{{ note.hasList }}" hint-placeholder-val="{{ false }}"><span style="{{ note.progStyle }}">{{ note.progress }}</span></sc-if>
-                      <button data-no-drag onClick="{{ note.onToggle }}" style="{{ note.check }}">{{ note.checkMark }}</button>
-                    </div>
-                    <sc-if value="{{ note.hasList }}" hint-placeholder-val="{{ false }}"><div style="{{ note.barTrack }}"><div style="{{ note.barFill }}"></div></div></sc-if>
-                  </div>
-                </sc-for>
-                <sc-if value="{{ col.gapEnd }}" hint-placeholder-val="{{ false }}"><div style="{{ ui.gap }}"></div></sc-if>
-                <sc-if value="{{ col.empty }}" hint-placeholder-val="{{ false }}"><div style="{{ col.emptyStyle }}">Drop tasks here</div></sc-if>
-              </div>
-            </div>
-          </sc-for>
-        </div>
-      </sc-if>
-    </div>
+          this.CAT = {
+            work:{label:'Work', dot:'#2563eb'},
+            personal:{label:'Personal', dot:'#db2777'},
+            errands:{label:'Errands', dot:'#d97706'},
+            ideas:{label:'Ideas', dot:'#7c3aed'},
+            health:{label:'Health', dot:'#059669'}
+          };
+          this.COLORS = ['yellow','pink','blue','mint','lilac','orange'];
+          this.STATUS = [
+            {key:'todo', label:'To Do', accent:'#94a3b8'},
+            {key:'doing', label:'In Progress', accent:'#3b82f6'},
+            {key:'done', label:'Completed', accent:'#22c55e'}
+          ];
 
-    <!-- DRAG GHOST -->
-    <sc-if value="{{ ghost }}" hint-placeholder-val="{{ false }}">
-      <div style="{{ ghost.wrap }}">
-        <div style="{{ ghost.titleStyle }}">{{ ghost.title }}</div>
-        <div style="{{ ghost.meta }}">
-          <span style="{{ ghost.dot }}"></span>
-          <span style="{{ ghost.catStyle }}">{{ ghost.catLabel }}</span>
-        </div>
-      </div>
-    </sc-if>
+          this.PAPER = {
+            cork:{
+              yellow:{bg:'#FCE98B',edge:'#E9D055',ink:'#5a521e'}, pink:{bg:'#F8B6C8',edge:'#EE9BB2',ink:'#6e2740'},
+              blue:{bg:'#AAD4F2',edge:'#86BEE8',ink:'#1d3f5b'}, mint:{bg:'#B4E3BE',edge:'#92D4A0',ink:'#1f5733'},
+              lilac:{bg:'#CFC0EC',edge:'#B6A2E1',ink:'#402f6b'}, orange:{bg:'#FBC78A',edge:'#F2B062',ink:'#6b3e1a'}
+            },
+            brutal:{
+              yellow:{bg:'#FFE600',ink:'#111'}, pink:{bg:'#FF5DA8',ink:'#111'}, blue:{bg:'#4D7CFF',ink:'#fff'},
+              mint:{bg:'#00E0A4',ink:'#08231b'}, lilac:{bg:'#B388FF',ink:'#160a2e'}, orange:{bg:'#FF7A2F',ink:'#1a0c02'}
+            },
+            glass:{
+              yellow:{bg:'rgba(250,210,80,.14)',edge:'rgba(250,210,80,.42)',ink:'#FBEFC4'}, pink:{bg:'rgba(244,114,182,.15)',edge:'rgba(244,114,182,.45)',ink:'#FAD3E6'},
+              blue:{bg:'rgba(96,165,250,.15)',edge:'rgba(96,165,250,.45)',ink:'#CFE3FF'}, mint:{bg:'rgba(52,211,153,.15)',edge:'rgba(52,211,153,.45)',ink:'#C5F3E1'},
+              lilac:{bg:'rgba(167,139,250,.16)',edge:'rgba(167,139,250,.46)',ink:'#E2D7FF'}, orange:{bg:'rgba(251,146,60,.15)',edge:'rgba(251,146,60,.45)',ink:'#FBDFC0'}
+            }
+          };
 
-    <!-- EDITOR MODAL -->
-    <sc-if value="{{ editor }}" hint-placeholder-val="{{ false }}">
-      <div style="{{ editor.overlay }}" onClick="{{ editor.onBg }}">
-        <div style="{{ editor.panel }}" onClick="{{ editor.stop }}">
-          <div style="{{ editor.headRow }}">
-            <div style="{{ editor.kicker }}">{{ editor.kicker }}</div>
-            <button data-no-drag onClick="{{ editor.onClose }}" style="{{ editor.closeBtn }}">✕</button>
-          </div>
+          this.state = {
+            theme:'cork',
+            view:'calendar',
+            viewY: today.getFullYear(),
+            viewM: today.getMonth(),
+            tasks: [
+              mk({t:'Finish Q3 deck', d:'Pull latest numbers, tighten the story.', c:'work', k:'yellow', day:off(0), o:0, s:'doing', ko:0, l:[{t:'Outline',d:1},{t:'Charts',d:1},{t:'Rehearse',d:0}]}),
+              mk({t:'Call plumber', c:'errands', k:'pink', day:off(0), o:1, s:'todo', ko:0}),
+              mk({t:'Gym — leg day', c:'health', k:'mint', day:off(1), o:0, s:'done', ko:0}),
+              mk({t:'Review pull requests', d:'Two from Sam, one from Dee.', c:'work', k:'blue', day:off(1), o:1, s:'doing', ko:1, l:[{t:'auth-refactor',d:1},{t:'cal-grid',d:0}]}),
+              mk({t:'Date night 🍝', c:'personal', k:'pink', day:off(2), o:0, s:'todo', ko:1}),
+              mk({t:'Pay rent', c:'errands', k:'orange', day:off(2), o:1, s:'done', ko:1}),
+              mk({t:'Sketch app idea', d:'The thing about offline notes.', c:'ideas', k:'lilac', day:off(4), o:0, s:'todo', ko:2, l:[{t:'Moodboard',d:0},{t:'User flow',d:0},{t:'Name it',d:0}]}),
+              mk({t:'Dentist 9:00', c:'health', k:'blue', day:off(5), o:0, s:'done', ko:2}),
+              mk({t:'Birthday gift for Mom', c:'personal', k:'yellow', day:off(7), o:0, s:'todo', ko:3}),
+              mk({t:'Read “Shape Up”', c:'ideas', k:'mint', day:'inbox', o:0, s:'doing', ko:2, l:[{t:'Part 1',d:1},{t:'Part 2',d:0}]}),
+              mk({t:'Renew passport', d:'Expires in 4 months.', c:'errands', k:'orange', day:'inbox', o:1, s:'todo', ko:4}),
+              mk({t:'Plan weekend trip', c:'personal', k:'lilac', day:'inbox', o:2, s:'todo', ko:5})
+            ],
+            editing:null,
+            drag:null,
+            dropTarget:null,
+            pop:null
+          };
 
-          <input value="{{ editor.title }}" onChange="{{ editor.onTitle }}" placeholder="Task title…" style="{{ editor.titleInput }}" />
-          <textarea value="{{ editor.desc }}" onChange="{{ editor.onDesc }}" placeholder="Add a short description…" style="{{ editor.descInput }}"></textarea>
+          this.onMove = this.onMove.bind(this);
+          this.onUp = this.onUp.bind(this);
+        }
 
-          <div style="{{ editor.fieldLabel }}">Note color</div>
-          <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <sc-for list="{{ editor.colors }}" as="c" hint-placeholder-count="6">
-              <button data-no-drag onClick="{{ c.onClick }}" style="{{ c.style }}"></button>
-            </sc-for>
-          </div>
+        componentDidMount(){
+          document.addEventListener('pointermove', this.onMove);
+          document.addEventListener('pointerup', this.onUp);
+        }
+        componentWillUnmount(){
+          document.removeEventListener('pointermove', this.onMove);
+          document.removeEventListener('pointerup', this.onUp);
+        }
 
-          <div style="{{ editor.fieldLabel }}">Category</div>
-          <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <sc-for list="{{ editor.cats }}" as="c" hint-placeholder-count="5">
-              <button data-no-drag onClick="{{ c.onClick }}" style="{{ c.style }}"><span style="{{ c.dot }}"></span>{{ c.label }}</button>
-            </sc-for>
-          </div>
+        uid(p){ return (p||'t')+(this._id++); }
+        paperOf(k){ return this.PAPER[this.state.theme][k] || this.PAPER[this.state.theme].yellow; }
+        catOf(k){ return this.CAT[k] || this.CAT.work; }
+        notesForDay(day, excludeId){ return this.state.tasks.filter(t=>t.day===day && t.id!==excludeId).sort((a,b)=>a.order-b.order); }
+        tasksForStatus(st, excludeId){ return this.state.tasks.filter(t=>t.status===st && t.id!==excludeId).sort((a,b)=>a.korder-b.korder); }
+        chipLabel(task){ if(!task.day || task.day==='inbox') return 'Inbox'; const p=task.day.split('-'); const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][(+p[1])-1]; return mo+' '+(+p[2]); }
+        rotOf(id){ let h=0; for(let i=0;i<id.length;i++) h=(h*31+id.charCodeAt(i))|0; return ((Math.abs(h)%7)-3); }
 
-          <div style="{{ editor.fieldLabel }}">Checklist</div>
-          <div style="display:flex; flex-direction:column; gap:7px;">
-            <sc-for list="{{ editor.checklist }}" as="it" hint-placeholder-count="0">
-              <div style="display:flex; align-items:center; gap:9px;">
-                <button data-no-drag onClick="{{ it.onToggle }}" style="{{ it.box }}">{{ it.mark }}</button>
-                <input value="{{ it.text }}" onChange="{{ it.onText }}" style="{{ it.input }}" />
-                <button data-no-drag onClick="{{ it.onRemove }}" style="{{ editor.itemRemove }}">✕</button>
-              </div>
-            </sc-for>
-            <div style="display:flex; align-items:center; gap:9px;">
-              <span style="{{ editor.addBox }}">+</span>
-              <input value="{{ editor.newItem }}" onChange="{{ editor.onNewItem }}" onKeyDown="{{ editor.onNewKey }}" placeholder="Add a subtask and press Enter…" style="{{ editor.newInput }}" />
-            </div>
-          </div>
+        /* ---------- drag ---------- */
+        startDrag(e, task){
+          if(e.button!==undefined && e.button!==0) return;
+          if(e.target.closest && e.target.closest('[data-no-drag]')) return;
+          const el = e.currentTarget;
+          const r = el.getBoundingClientRect();
+          this._pending = { task, sx:e.clientX, sy:e.clientY, ox:e.clientX-r.left, oy:e.clientY-r.top, w:r.width, h:r.height };
+        }
+        onMove(e){
+          const p = this._pending; if(!p) return;
+          if(!this.state.drag){
+            if(Math.hypot(e.clientX-p.sx, e.clientY-p.sy) < 6) return;
+            document.body.style.userSelect='none';
+            this.setState({ drag:{ task:p.task, x:e.clientX, y:e.clientY, ox:p.ox, oy:p.oy, w:p.w, h:p.h } });
+          }
+          this._pt = { x:e.clientX, y:e.clientY };
+          if(!this._raf){
+            this._raf = requestAnimationFrame(()=>{
+              this._raf = null;
+              if(!this.state.drag || !this._pt) return;
+              const target = this.computeDrop(this._pt.x, this._pt.y);
+              this.setState(s=> s.drag ? { drag:{...s.drag, x:this._pt.x, y:this._pt.y}, dropTarget:target } : {});
+            });
+          }
+        }
+        computeDrop(x,y){
+          const el = document.elementFromPoint(x,y);
+          if(!el) return null;
+          const drag = this.state.drag;
+          if(this.state.view==='kanban'){
+            const colEl = el.closest && el.closest('[data-drop-status]');
+            if(!colEl) return null;
+            const st = colEl.getAttribute('data-drop-status');
+            const list = this.tasksForStatus(st, drag ? drag.task.id : null);
+            let index = list.length;
+            const noteEl = el.closest('[data-note-id]');
+            if(noteEl){ const id=noteEl.getAttribute('data-note-id'); const i=list.findIndex(t=>t.id===id); if(i>=0){ const r=noteEl.getBoundingClientRect(); index=(y < r.top+r.height/2)?i:i+1; } }
+            return { status:st, index };
+          }
+          const dayEl = el.closest && el.closest('[data-drop-day]');
+          if(!dayEl) return null;
+          const day = dayEl.getAttribute('data-drop-day');
+          if(day==='inbox') return { day:'inbox', index:99999 };
+          const list = this.notesForDay(day, drag ? drag.task.id : null);
+          let index = list.length;
+          const noteEl = el.closest('[data-note-id]');
+          if(noteEl){
+            const id = noteEl.getAttribute('data-note-id');
+            const i = list.findIndex(t=>t.id===id);
+            if(i>=0){ const r=noteEl.getBoundingClientRect(); index = (y < r.top+r.height/2) ? i : i+1; }
+          }
+          return { day, index };
+        }
+        onUp(e){
+          const p = this._pending;
+          if(p && this.state.drag){
+            const t = this.state.dropTarget;
+            if(t){ if(t.status!==undefined) this.moveStatus(p.task.id, t.status, t.index); else this.moveTask(p.task.id, t.day, t.index); }
+            document.body.style.userSelect='';
+            this.setState({ drag:null, dropTarget:null });
+          } else if(p){
+            if(Math.hypot(e.clientX-p.sx, e.clientY-p.sy) < 6) this.openEdit(p.task);
+          }
+          this._pending = null;
+        }
+        moveTask(id, day, index){
+          this.setState(s=>{
+            const tasks = s.tasks.map(t=>({...t}));
+            const moving = tasks.find(t=>t.id===id); if(!moving) return {};
+            moving.day = day;
+            const others = tasks.filter(t=>t.day===day && t.id!==id).sort((a,b)=>a.order-b.order);
+            const at = Math.max(0, Math.min(index, others.length));
+            others.splice(at, 0, moving);
+            others.forEach((t,i)=> t.order=i);
+            return { tasks };
+          });
+        }
+        moveStatus(id, status, index){
+          this.setState(s=>{
+            const tasks = s.tasks.map(t=>({...t}));
+            const moving = tasks.find(t=>t.id===id); if(!moving) return {};
+            moving.status = status; moving.done = status==='done';
+            const others = tasks.filter(t=>t.status===status && t.id!==id).sort((a,b)=>a.korder-b.korder);
+            const at = Math.max(0, Math.min(index, others.length));
+            others.splice(at,0,moving);
+            others.forEach((t,i)=> t.korder=i);
+            return { tasks };
+          });
+        }
 
-          <div style="{{ editor.fieldLabel }}">Status</div>
-          <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <sc-for list="{{ editor.statuses }}" as="s" hint-placeholder-count="3">
-              <button data-no-drag onClick="{{ s.onClick }}" style="{{ s.style }}"><span style="{{ s.dot }}"></span>{{ s.label }}</button>
-            </sc-for>
-          </div>
+        /* ---------- task ops ---------- */
+        toggleDone(id){
+          this.setState(s=>{
+            const tasks = s.tasks.map(t=>{
+              if(t.id!==id) return {...t};
+              const done = !t.done;
+              return {...t, done, status: done?'done':'todo'};
+            });
+            const moved = tasks.find(t=>t.id===id);
+            if(moved){ const col = tasks.filter(t=>t.status===moved.status && t.id!==id); moved.korder = col.reduce((m,t)=>Math.max(m,t.korder),-1)+1; }
+            const justDone = moved && moved.done;
+            return { tasks, pop: justDone ? id : s.pop };
+          }, ()=>{ if(this.state.pop===id){ clearTimeout(this._popT); this._popT=setTimeout(()=> this.setState({pop:null}), 520); } });
+        }
+        openEdit(task){ this.setState({ editing:{ ...task, checklist: task.checklist.map(c=>({...c})), _new:'' } }); }
+        openNew(day, status){ this.setState({ editing:{ id:this.uid('t'), title:'', desc:'', category:'work', color:'yellow', checklist:[], status:status||'todo', done:(status||'todo')==='done', day:day||'inbox', order:9999, korder:9999, _new:'' } }); }
+        setEd(patch){ this.setState(s=> ({ editing:{...s.editing, ...patch} })); }
+        saveEdit(){
+          const ed = this.state.editing; if(!ed) return;
+          const title=(ed.title||'').trim(); if(!title){ return; }
+          this.setState(s=>{
+            let tasks = s.tasks.map(t=>({...t}));
+            const day = (ed.day && ed.day.indexOf('-')>=0) ? ed.day : 'inbox';
+            const status = ed.status||'todo';
+            const clean = { id:ed.id, title, desc:ed.desc||'', category:ed.category||'work', color:ed.color||'yellow', checklist:(ed.checklist||[]).map(c=>({id:c.id,text:c.text,done:!!c.done})), status, done:status==='done', day, order: ed.order, korder: (ed.korder!=null?ed.korder:9999) };
+            const ex = tasks.find(t=>t.id===ed.id);
+            if(ex){ Object.assign(ex, clean); }
+            else { const mo = tasks.filter(t=>t.day===day).reduce((m,t)=>Math.max(m,t.order),-1); clean.order=mo+1; const mko = tasks.filter(t=>t.status===status).reduce((m,t)=>Math.max(m,t.korder),-1); clean.korder=mko+1; tasks.push(clean); }
+            return { tasks, editing:null };
+          });
+        }
+        deleteTask(){ const ed=this.state.editing; if(!ed) return; this.setState(s=>({ tasks:s.tasks.filter(t=>t.id!==ed.id), editing:null })); }
 
-          <div style="{{ editor.fieldLabel }}">Schedule</div>
-          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-            <input type="date" value="{{ editor.day }}" onChange="{{ editor.onDay }}" style="{{ editor.dateInput }}" />
-            <button data-no-drag onClick="{{ editor.onInbox }}" style="{{ editor.inboxBtn }}">{{ editor.inboxLabel }}</button>
-          </div>
+        /* ---------- theming ---------- */
+        themeConf(){
+          const th = this.state.theme;
+          if(th==='cork') return {
+            appName:'Corkboard', ui:"'Libre Franklin',sans-serif", title:"'Caveat',cursive",
+            pageBg:'#caa46b',
+            pageImg:'radial-gradient(circle at 18% 30%, rgba(110,78,38,.30) 0 1.6px, transparent 2.6px), radial-gradient(circle at 67% 58%, rgba(110,78,38,.24) 0 1.6px, transparent 2.6px), radial-gradient(circle at 42% 82%, rgba(140,100,55,.22) 0 1.3px, transparent 2.2px)',
+            pageSize:'24px 24px, 31px 31px, 17px 17px',
+            toolbarBg:'#6b4a2b', toolbarFg:'#fbf3e6', toolbarSub:'rgba(251,243,230,.6)', toolbarBorder:'1px solid rgba(0,0,0,.25)',
+            accent:'#b8472e', accentFg:'#fff',
+            boardBg:'transparent', boardBorder:'none', boardPad:'0', boardShadow:'none',
+            weekFg:'rgba(46,30,12,.8)', weekBg:'transparent',
+            cellBg:'rgba(255,250,240,.10)', cellBorder:'1px solid rgba(74,50,22,.32)', cellRadius:'3px',
+            cellToday:'rgba(255,247,225,.22)', cellTodayRing:'inset 0 0 0 2px rgba(184,71,46,.85)',
+            cellOut:'rgba(120,90,55,.12)', numFg:'#3a2611', weekendBg:'rgba(120,90,55,.06)'
+          };
+          if(th==='brutal') return {
+            appName:'TASKS//', ui:"'Space Grotesk',sans-serif", title:"'Archivo Black',sans-serif",
+            pageBg:'#F2EEDF',
+            pageImg:'linear-gradient(rgba(0,0,0,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,.05) 1px, transparent 1px)',
+            pageSize:'26px 26px, 26px 26px',
+            toolbarBg:'#111', toolbarFg:'#fff', toolbarSub:'rgba(255,255,255,.55)', toolbarBorder:'3px solid #111',
+            accent:'#FF4D2E', accentFg:'#fff',
+            boardBg:'#fff', boardBorder:'3px solid #111', boardPad:'0', boardShadow:'8px 8px 0 #111',
+            weekFg:'#111', weekBg:'#111',
+            cellBg:'#fff', cellBorder:'2px solid #111', cellRadius:'0',
+            cellToday:'#FFF6C2', cellTodayRing:'inset 0 0 0 3px #111',
+            cellOut:'#EDE9DA', numFg:'#111', weekendBg:'#FBF7E4'
+          };
+          return {
+            appName:'Aurora', ui:"'Manrope',sans-serif", title:"'Manrope',sans-serif",
+            pageBg:'#0b0f1f',
+            pageImg:'none', pageSize:'auto',
+            toolbarBg:'rgba(255,255,255,.04)', toolbarFg:'#eaf0ff', toolbarSub:'rgba(234,240,255,.5)', toolbarBorder:'1px solid rgba(255,255,255,.10)',
+            accent:'#7c5cff', accentFg:'#fff',
+            boardBg:'rgba(255,255,255,.03)', boardBorder:'1px solid rgba(255,255,255,.09)', boardPad:'0', boardShadow:'0 30px 80px rgba(0,0,0,.45)',
+            weekFg:'rgba(234,240,255,.55)', weekBg:'transparent',
+            cellBg:'rgba(255,255,255,.035)', cellBorder:'1px solid rgba(255,255,255,.07)', cellRadius:'12px',
+            cellToday:'rgba(124,92,255,.16)', cellTodayRing:'inset 0 0 0 1px rgba(150,120,255,.7)',
+            cellOut:'rgba(255,255,255,.012)', numFg:'rgba(234,240,255,.85)', weekendBg:'rgba(255,255,255,.02)'
+          };
+        }
 
-          <div style="{{ editor.footer }}">
-            <sc-if value="{{ editor.canDelete }}" hint-placeholder-val="{{ false }}">
-              <button data-no-drag onClick="{{ editor.onDelete }}" style="{{ editor.deleteBtn }}">Delete</button>
-            </sc-if>
-            <div style="flex:1;"></div>
-            <button data-no-drag onClick="{{ editor.onClose }}" style="{{ editor.cancelBtn }}">Cancel</button>
-            <button data-no-drag onClick="{{ editor.onSave }}" style="{{ editor.saveBtn }}">{{ editor.saveLabel }}</button>
-          </div>
-        </div>
-      </div>
-    </sc-if>
+        /* ---------- note view ---------- */
+        noteView(task, variant){
+          const th = this.state.theme;
+          const P = this.paperOf(task.color);
+          const cat = this.catOf(task.category);
+          const done = task.status==='done';
+          const dragging = this.state.drag && this.state.drag.task.id===task.id;
+          const total = task.checklist.length;
+          const ck = task.checklist.filter(c=>c.done).length;
+          const pct = total? Math.round(ck/total*100):0;
+          const rot = th==='cork' ? this.rotOf(task.id) : (th==='brutal'? (this.rotOf(task.id)%2?1:-1) : 0);
+          const isGhost = variant==='ghost';
+          const isKanbanCard = variant==='kanban';
+          if(isKanbanCard) variant='inbox';
+          const pop = this.state.pop===task.id;
 
-  </div>
-</div>
-</x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:&quot;100%&quot;}}">
-class Component extends DCLogic {
-  constructor(props){
-    super(props);
-    this._id = 1000;
-    const today = new Date();
-    const ymd = (d)=>{ const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), da=String(d.getDate()).padStart(2,'0'); return y+'-'+m+'-'+da; };
-    const off = (n)=>{ const d=new Date(today); d.setDate(d.getDate()+n); return ymd(d); };
-    this.ymd = ymd;
-    const mk = (o)=>({ id:'t'+(this._id++), title:o.t, desc:o.d||'', category:o.c, color:o.k, checklist:(o.l||[]).map((x,i)=>({id:'c'+(this._id++), text:x.t, done:!!x.d})), status:o.s||'todo', done:(o.s||'todo')==='done', day:o.day, order:o.o||0, korder:(o.ko!=null?o.ko:(o.o||0)) });
+          let wrap = { position:'relative', cursor:'grab', touchAction:'none', userSelect:'none', transition:'box-shadow .15s, transform .12s', opacity: done?0.82:1 };
+          let titleStyle = {}, meta={ display:'flex', alignItems:'center', gap:'6px', marginTop:'7px', flexWrap:'wrap' };
+          let pinStyle=null, stampStyle=null;
 
-    this.CAT = {
-      work:{label:'Work', dot:'#2563eb'},
-      personal:{label:'Personal', dot:'#db2777'},
-      errands:{label:'Errands', dot:'#d97706'},
-      ideas:{label:'Ideas', dot:'#7c3aed'},
-      health:{label:'Health', dot:'#059669'}
-    };
-    this.COLORS = ['yellow','pink','blue','mint','lilac','orange'];
-    this.STATUS = [
-      {key:'todo', label:'To Do', accent:'#94a3b8'},
-      {key:'doing', label:'In Progress', accent:'#3b82f6'},
-      {key:'done', label:'Completed', accent:'#22c55e'}
-    ];
+          if(th==='cork'){
+            Object.assign(wrap, {
+              background:P.bg, color:P.ink, padding: variant==='inbox'?'14px 13px 11px':'11px 11px 9px',
+              borderRadius:'2px', fontFamily:this.themeConf().ui,
+              boxShadow: dragging? '0 22px 40px rgba(35,22,5,.45)' : '0 5px 12px rgba(40,28,8,.32), inset 0 1px 0 rgba(255,255,255,.45)',
+              transform:`rotate(${isGhost?0:rot}deg)` , ['--rot']: (isGhost?0:rot)+'deg'
+            });
+            pinStyle = { position:'absolute', top:'-7px', left:'50%', width:'14px', height:'14px', marginLeft:'-7px', borderRadius:'50%', background:'radial-gradient(circle at 35% 30%, #ff8a7a, #c0392b 60%, #7c1d12)', boxShadow:'0 2px 3px rgba(0,0,0,.4)', zIndex:2 };
+            titleStyle = { fontFamily:this.themeConf().title, fontSize: variant==='inbox'?'22px':'19px', lineHeight:1.05, fontWeight:700, textDecoration: done?'line-through':'none', textDecorationColor:'rgba(120,30,20,.6)', display:'-webkit-box', WebkitLineClamp: variant==='inbox'?3:2, WebkitBoxOrient:'vertical', overflow:'hidden', wordBreak:'break-word' };
+            if(done) stampStyle = { position:'absolute', top:'40%', left:'50%', transform:'translate(-50%,-50%) rotate(-14deg)', color:'rgba(176,42,28,.62)', border:'2.5px solid rgba(176,42,28,.55)', borderRadius:'5px', padding:'1px 7px', fontFamily:this.themeConf().title, fontWeight:700, fontSize:'17px', letterSpacing:'1px', pointerEvents:'none', zIndex:3 };
+          } else if(th==='brutal'){
+            Object.assign(wrap, {
+              background:P.bg, color:P.ink, padding: variant==='inbox'?'13px 13px':'10px 11px',
+              border:'2.5px solid #111', borderRadius:'1px', fontFamily:this.themeConf().ui, fontWeight:600,
+              boxShadow: dragging? '9px 9px 0 #111' : '4px 4px 0 #111',
+              transform:`rotate(${isGhost?0:rot}deg)`, ['--rot']:(isGhost?0:rot)+'deg'
+            });
+            titleStyle = { fontSize: variant==='inbox'?'16px':'14px', lineHeight:1.12, fontWeight:700, textTransform:'uppercase', letterSpacing:'.3px', textDecoration: done?'line-through':'none', display:'-webkit-box', WebkitLineClamp: variant==='inbox'?3:2, WebkitBoxOrient:'vertical', overflow:'hidden', wordBreak:'break-word' };
+          } else {
+            Object.assign(wrap, {
+              background:P.bg, color:P.ink, padding: variant==='inbox'?'13px 14px':'11px 12px',
+              border:`1px solid ${P.edge}`, borderRadius:'13px', fontFamily:this.themeConf().ui, fontWeight:500,
+              backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)',
+              boxShadow: dragging? '0 26px 50px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.18)' : '0 10px 26px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.14)',
+              transform:'none', ['--rot']:'0deg'
+            });
+            titleStyle = { fontSize: variant==='inbox'?'16px':'14px', lineHeight:1.2, fontWeight:700, letterSpacing:'.1px', textDecoration: done?'line-through':'none', opacity: done?.8:1, display:'-webkit-box', WebkitLineClamp: variant==='inbox'?3:2, WebkitBoxOrient:'vertical', overflow:'hidden', wordBreak:'break-word' };
+          }
 
-    this.PAPER = {
-      cork:{
-        yellow:{bg:'#FCE98B',edge:'#E9D055',ink:'#5a521e'}, pink:{bg:'#F8B6C8',edge:'#EE9BB2',ink:'#6e2740'},
-        blue:{bg:'#AAD4F2',edge:'#86BEE8',ink:'#1d3f5b'}, mint:{bg:'#B4E3BE',edge:'#92D4A0',ink:'#1f5733'},
-        lilac:{bg:'#CFC0EC',edge:'#B6A2E1',ink:'#402f6b'}, orange:{bg:'#FBC78A',edge:'#F2B062',ink:'#6b3e1a'}
-      },
-      brutal:{
-        yellow:{bg:'#FFE600',ink:'#111'}, pink:{bg:'#FF5DA8',ink:'#111'}, blue:{bg:'#4D7CFF',ink:'#fff'},
-        mint:{bg:'#00E0A4',ink:'#08231b'}, lilac:{bg:'#B388FF',ink:'#160a2e'}, orange:{bg:'#FF7A2F',ink:'#1a0c02'}
-      },
-      glass:{
-        yellow:{bg:'rgba(250,210,80,.14)',edge:'rgba(250,210,80,.42)',ink:'#FBEFC4'}, pink:{bg:'rgba(244,114,182,.15)',edge:'rgba(244,114,182,.45)',ink:'#FAD3E6'},
-        blue:{bg:'rgba(96,165,250,.15)',edge:'rgba(96,165,250,.45)',ink:'#CFE3FF'}, mint:{bg:'rgba(52,211,153,.15)',edge:'rgba(52,211,153,.45)',ink:'#C5F3E1'},
-        lilac:{bg:'rgba(167,139,250,.16)',edge:'rgba(167,139,250,.46)',ink:'#E2D7FF'}, orange:{bg:'rgba(251,146,60,.15)',edge:'rgba(251,146,60,.45)',ink:'#FBDFC0'}
+          if(dragging && !isGhost) wrap.opacity = 0.18;
+          if(pop && !isGhost) wrap.animation = 'notePop .5s ease';
+
+          const inkSoft = (a)=> th==='glass' ? `rgba(234,240,255,${a})` : (th==='brutal'? `rgba(17,17,17,${a})` : `rgba(60,42,18,${a})`);
+          const dot = { width:'7px', height:'7px', borderRadius:'50%', background:cat.dot, flex:'none', boxShadow: th==='cork'?'0 0 0 1.5px rgba(255,255,255,.5)':'none' };
+          const catStyle = { fontSize:'10.5px', fontWeight:700, letterSpacing:'.4px', textTransform:'uppercase', opacity:.75, color:'inherit' };
+          const progStyle = { marginLeft:'auto', fontSize:'10.5px', fontWeight:700, opacity:.7, fontVariantNumeric:'tabular-nums' };
+          const check = { width:'19px', height:'19px', flex:'none', marginLeft: total?'6px':'auto', display:'grid', placeItems:'center', cursor:'pointer', borderRadius: th==='glass'?'6px':(th==='brutal'?'1px':'4px'), border:`1.5px solid ${inkSoft(.4)}`, background: done? cat.dot : 'transparent', color: done? '#fff':'transparent', fontSize:'12px', lineHeight:1, fontWeight:800, padding:0 };
+          const barTrack = { marginTop:'7px', height:'4px', borderRadius:'3px', background:inkSoft(.16), overflow:'hidden' };
+          const barFill = { width:pct+'%', height:'100%', borderRadius:'3px', background: done? cat.dot : (th==='glass'? P.edge.replace(/[\d.]+\)$/,'.9)') : inkSoft(.55)), transition:'width .25s' };
+          const chipStyle = { fontSize:'10px', fontWeight:700, padding:'2px 8px', borderRadius:'20px', background:inkSoft(.12), color:'inherit', opacity:.9, whiteSpace:'nowrap' };
+
+          const v = {
+            id:task.id, title:task.title||'Untitled', titleStyle, wrap, meta,
+            dot, catStyle, catLabel:cat.label,
+            hasList: total>0, progress: ck+'/'+total, progStyle,
+            check, checkMark: done?'✓':'', barTrack, barFill,
+            pin: th==='cork' && !isGhost && variant!=='ghost', pinStyle,
+            stamp: done && th==='cork' && !isGhost, stampStyle,
+            onDown: (e)=> this.startDrag(e, task),
+            onToggle: (e)=>{ e.stopPropagation(); this.toggleDone(task.id); },
+            hasChip: isKanbanCard, chipLabel: this.chipLabel(task), chipStyle,
+            hasDesc: variant==='inbox' && !!(task.desc||'').trim(),
+            desc: task.desc, descStyle:{ fontSize:'12px', lineHeight:1.35, marginTop:'5px', opacity:.7, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }
+          };
+          return v;
+        }
+
+        buildGhost(){
+          const d = this.state.drag; if(!d) return null;
+          const v = this.noteView(d.task, 'ghost');
+          v.wrap = { ...v.wrap, position:'fixed', left:(d.x-d.ox)+'px', top:(d.y-d.oy)+'px', width:d.w+'px', pointerEvents:'none', zIndex:9999, cursor:'grabbing', transform:(v.wrap.transform||'')+' scale(1.04)', opacity:1 };
+          return v;
+        }
+
+        /* ---------- chrome ---------- */
+        buildUI(){
+          const C = this.themeConf();
+          const th = this.state.theme;
+          const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+          const root = { position:'relative', height:'100vh', minHeight:0, display:'flex', flexDirection:'column', backgroundColor:C.pageBg, backgroundImage:C.pageImg, backgroundSize:C.pageSize, overflow:'hidden' };
+
+          const themeBtn = (key,label,sw)=>{
+            const active = th===key;
+            return { key, label, onClick:()=>this.setState({theme:key}),
+              style:{ display:'flex', alignItems:'center', gap:'6px', padding:'6px 11px', borderRadius:'8px', border:'none', cursor:'pointer', fontSize:'12.5px', fontWeight:700, fontFamily:C.ui,
+                background: active? (th==='glass'?'rgba(255,255,255,.16)': (th==='brutal'?'#fff':'rgba(255,255,255,.18)')) : 'transparent',
+                color: active? (th==='brutal'?'#111':C.toolbarFg) : C.toolbarSub,
+                boxShadow: active && th==='brutal' ? '2px 2px 0 #FF4D2E':'none' },
+              swatch:{ width:'11px', height:'11px', borderRadius:'3px', background:sw, flex:'none', boxShadow:'0 0 0 1px rgba(0,0,0,.2)' } };
+          };
+
+          const navBtn = { width:'30px', height:'30px', display:'grid', placeItems:'center', border:'none', borderRadius:'8px', cursor:'pointer', fontSize:'18px', lineHeight:1, background:'rgba(255,255,255,.12)', color:C.toolbarFg, fontFamily:C.ui };
+
+          const viewBtn = (key,label)=>{
+            const active = this.state.view===key;
+            return { key, label, onClick:()=>this.setState({view:key, drag:null, dropTarget:null}),
+              style:{ display:'flex', alignItems:'center', gap:'6px', padding:'6px 13px', borderRadius:'8px', border:'none', cursor:'pointer', fontSize:'12.5px', fontWeight:700, fontFamily:C.ui,
+                background: active? (th==='brutal'?'#fff':'rgba(255,255,255,.18)') : 'transparent',
+                color: active? (th==='brutal'?'#111':C.toolbarFg) : C.toolbarSub,
+                boxShadow: active && th==='brutal' ? '2px 2px 0 '+C.accent:'none' } };
+          };
+
+          return {
+            root, showBlobs: th==='glass',
+            blobA:{ position:'absolute', top:'-160px', left:'-120px', width:'520px', height:'520px', borderRadius:'50%', background:'radial-gradient(circle, rgba(124,92,255,.55), transparent 65%)', filter:'blur(40px)', animation:'blobFloat 14s ease-in-out infinite', zIndex:0 },
+            blobB:{ position:'absolute', top:'10%', right:'-160px', width:'560px', height:'560px', borderRadius:'50%', background:'radial-gradient(circle, rgba(54,209,196,.42), transparent 65%)', filter:'blur(50px)', animation:'blobFloat 18s ease-in-out infinite', zIndex:0 },
+            blobC:{ position:'absolute', bottom:'-200px', left:'30%', width:'600px', height:'600px', borderRadius:'50%', background:'radial-gradient(circle, rgba(236,72,153,.30), transparent 65%)', filter:'blur(55px)', animation:'blobFloat 20s ease-in-out infinite', zIndex:0 },
+            appName:C.appName,
+            toolbar:{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'16px', padding:'13px 22px', background:C.toolbarBg, color:C.toolbarFg, borderBottom:C.toolbarBorder, position:'relative', zIndex:2, backdropFilter: th==='glass'?'blur(16px)':'none', WebkitBackdropFilter: th==='glass'?'blur(16px)':'none', flexWrap:'wrap' },
+            brand:{ fontFamily:C.title, fontSize: th==='cork'?'30px':(th==='brutal'?'22px':'21px'), fontWeight: th==='brutal'?900:700, letterSpacing: th==='brutal'?'-.5px':'0', lineHeight:1, color:C.toolbarFg },
+            navGroup:{ display:'flex', alignItems:'center', gap:'8px' },
+            navBtn,
+            monthLabel:{ fontFamily:C.ui, fontSize:'16px', fontWeight:700, minWidth:'150px', textAlign:'center', color:C.toolbarFg },
+            yearLabel:{ opacity:.5, fontWeight:600, marginLeft:'2px' },
+            monthName: months[this.state.viewM], year: this.state.viewY,
+            todayBtn:{ marginLeft:'4px', padding:'7px 13px', border:'none', borderRadius:'8px', cursor:'pointer', fontSize:'12.5px', fontWeight:700, fontFamily:C.ui, background:'rgba(255,255,255,.12)', color:C.toolbarFg },
+            segWrap:{ display:'flex', gap:'3px', padding:'3px', borderRadius:'11px', background: th==='brutal'?'#222':'rgba(0,0,0,.18)', border: th==='glass'?'1px solid rgba(255,255,255,.08)':'none' },
+            themes:[ themeBtn('cork','Cork','#caa46b'), themeBtn('brutal','Neon','#FF4D2E'), themeBtn('glass','Aurora','#7c5cff') ],
+            views:[ viewBtn('calendar','Calendar'), viewBtn('kanban','Board') ],
+            isCalendar: this.state.view==='calendar', isKanban: this.state.view==='kanban',
+            kanbanWrap:{ flex:1, minWidth:0, minHeight:0, display:'flex', gap:'16px', width:'100%' },
+            addBtn:{ padding:'9px 16px', border: th==='brutal'?'2.5px solid #111':'none', borderRadius:'9px', cursor:'pointer', fontSize:'13px', fontWeight:800, fontFamily:C.ui, background:C.accent, color:C.accentFg, boxShadow: th==='brutal'?'3px 3px 0 #111':'0 4px 14px rgba(0,0,0,.18)', whiteSpace:'nowrap' },
+
+            boardWrap:{ flex:1, minWidth:0, minHeight:0, display:'flex', flexDirection:'column', background:C.boardBg, border:C.boardBorder, borderRadius: th==='glass'?'18px':(th==='brutal'?'2px':'8px'), boxShadow:C.boardShadow, padding: th==='cork'?'0':'10px', overflow:'hidden', backdropFilter: th==='glass'?'blur(8px)':'none', WebkitBackdropFilter: th==='glass'?'blur(8px)':'none' },
+            weekRow:{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap: th==='brutal'?'0':'6px', padding: th==='brutal'?'0':'2px 2px 8px', background: th==='brutal'?C.weekBg:'transparent' },
+            grid:{ flex:1, minHeight:0, display:'grid', gridTemplateColumns:'repeat(7,1fr)', gridAutoRows:'1fr', gap: th==='brutal'?'0':'6px', overflow:'auto' },
+            gap:{ height:'3px', borderRadius:'2px', background:C.accent, margin:'1px 2px', boxShadow:'0 0 8px '+C.accent },
+
+            inbox:{ width:'288px', flex:'none', display:'flex', flexDirection:'column', background: th==='cork'?'rgba(58,38,17,.42)':(th==='brutal'?'#fff':'rgba(255,255,255,.04)'), border: th==='brutal'?'3px solid #111':(th==='glass'?'1px solid rgba(255,255,255,.09)':'1px solid rgba(0,0,0,.18)'), borderRadius: th==='brutal'?'2px':'14px', boxShadow: th==='brutal'?'8px 8px 0 #111': (th==='glass'?'0 30px 80px rgba(0,0,0,.4)':'0 10px 30px rgba(0,0,0,.2)'), overflow:'hidden', backdropFilter: th==='glass'?'blur(12px)':'none', WebkitBackdropFilter: th==='glass'?'blur(12px)':'none' },
+            inboxHead:{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 16px 4px', fontFamily:C.title, fontWeight: th==='brutal'?900:700, fontSize: th==='cork'?'26px':'18px', color: th==='brutal'?'#111':C.toolbarFg },
+            inboxCount:{ fontFamily:C.ui, fontSize:'12px', fontWeight:700, padding:'2px 9px', borderRadius:'20px', background:C.accent, color:C.accentFg },
+            inboxHint:{ padding:'0 16px 10px', fontFamily:C.ui, fontSize:'11.5px', color: th==='brutal'?'#888':C.toolbarSub, fontWeight:500 },
+            inboxList:{ flex:1, minHeight:0, overflow:'auto', display:'flex', flexDirection:'column', gap:'13px', padding:'8px 16px 4px' },
+            inboxEmpty:{ fontFamily:C.ui, fontSize:'12.5px', lineHeight:1.5, color: th==='brutal'?'#999':C.toolbarSub, textAlign:'center', padding:'24px 10px' },
+            inboxAdd:{ margin:'12px 16px 16px', padding:'10px', border: th==='brutal'?'2.5px solid #111':('1px dashed '+(th==='glass'?'rgba(255,255,255,.3)':'rgba(0,0,0,.3)')), borderRadius:'9px', cursor:'pointer', fontFamily:C.ui, fontSize:'13px', fontWeight:700, background:'transparent', color: th==='brutal'?'#111':C.toolbarFg },
+
+            C
+          };
+        }
+
+        buildCells(){
+          const C = this.themeConf();
+          const th = this.state.theme;
+          const y=this.state.viewY, m=this.state.viewM;
+          const first = new Date(y,m,1);
+          const start = new Date(first); start.setDate(1-first.getDay());
+          const todayStr = this.ymd(new Date());
+          const dt = this.state.dropTarget;
+          const weekdays = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>({ label:d, style:{ textAlign: th==='brutal'?'center':'left', padding: th==='brutal'?'8px 6px':'2px 6px', fontFamily:C.ui, fontSize:'11px', fontWeight:800, letterSpacing:'.8px', textTransform:'uppercase', color: th==='brutal'?'#fff':C.weekFg } }));
+
+          const cells=[];
+          for(let i=0;i<42;i++){
+            const d=new Date(start); d.setDate(start.getDate()+i);
+            const ds=this.ymd(d);
+            const inMonth = d.getMonth()===m;
+            const isToday = ds===todayStr;
+            const wknd = d.getDay()===0 || d.getDay()===6;
+            const notesRaw = this.notesForDay(ds, this.state.drag? this.state.drag.task.id : null);
+            const isDrop = dt && dt.day===ds;
+            const style = { position:'relative', display:'flex', flexDirection:'column', minHeight:'62px', padding: th==='brutal'?'5px 6px 6px':'5px 6px 7px',
+              background: !inMonth? C.cellOut : (isToday? C.cellToday : (wknd? C.weekendBg : C.cellBg)),
+              border: C.cellBorder, borderRadius:C.cellRadius, overflow:'hidden',
+              boxShadow: isDrop? ('inset 0 0 0 2px '+C.accent) : (isToday? C.cellTodayRing : 'none'),
+              transition:'box-shadow .12s' };
+            const notes = notesRaw.map((t,idx)=>{ const v=this.noteView(t,'cell'); v.gapBefore = !!(isDrop && dt.index===idx); return v; });
+            cells.push({
+              key:ds, dateStr:ds, dayNum:d.getDate(), inMonth, style,
+              head:{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'4px' },
+              numStyle:{ fontFamily: th==='cork'?C.title:C.ui, fontSize: th==='cork'?'17px':'12.5px', fontWeight: th==='brutal'?800:700, lineHeight:1, color: inMonth? (isToday? C.accent : C.numFg) : (th==='glass'?'rgba(234,240,255,.3)':'rgba(90,70,40,.45)'), padding: th==='cork'?'1px 5px':'0', borderRadius: th==='cork'?'10px':'0', background: th==='cork'&&isToday?'rgba(184,71,46,.14)':'transparent' },
+              addStyle:{ width:'18px', height:'18px', border:'none', borderRadius:'5px', cursor:'pointer', fontSize:'13px', lineHeight:1, display:'grid', placeItems:'center', background:'transparent', color: th==='glass'?'rgba(234,240,255,.4)':(th==='brutal'?'#999':'rgba(60,42,18,.4)'), opacity:.9, padding:0 },
+              onAdd:(e)=>{ e.stopPropagation(); this.openNew(ds); },
+              notesWrap:{ display:'flex', flexDirection:'column', gap:'7px', overflow:'auto', flex:1, minHeight:0 },
+              notes, gapEnd: !!(isDrop && dt.index>=notesRaw.length)
+            });
+          }
+          return { weekdays, cells };
+        }
+
+        buildInbox(){
+          const notesRaw = this.notesForDay('inbox', this.state.drag? this.state.drag.task.id : null);
+          return { count: notesRaw.length, empty: notesRaw.length===0, notes: notesRaw.map(t=>this.noteView(t,'inbox')) };
+        }
+
+        buildColumns(){
+          const C = this.themeConf();
+          const th = this.state.theme;
+          const dt = this.state.dropTarget;
+          return this.STATUS.map(col=>{
+            const notesRaw = this.tasksForStatus(col.key, this.state.drag? this.state.drag.task.id : null);
+            const isDrop = dt && dt.status===col.key;
+            const notes = notesRaw.map((t,idx)=>{ const v=this.noteView(t,'kanban'); v.gapBefore = !!(isDrop && dt.index===idx); return v; });
+            const panelBg = th==='cork'?'rgba(58,38,17,.40)':(th==='brutal'?'#fff':'rgba(255,255,255,.04)');
+            const headFg = th==='brutal'?'#111':C.toolbarFg;
+            return {
+              key:col.key, label:col.label, count:notesRaw.length,
+              style:{ flex:1, minWidth:0, minHeight:0, display:'flex', flexDirection:'column', background:panelBg,
+                border: th==='brutal'?'3px solid #111':(th==='glass'?'1px solid rgba(255,255,255,.09)':'1px solid rgba(0,0,0,.18)'),
+                borderRadius: th==='brutal'?'2px':'16px',
+                boxShadow: isDrop? ('inset 0 0 0 2px '+C.accent+', '+(th==='brutal'?'8px 8px 0 #111':'0 16px 36px rgba(0,0,0,.3)')) : (th==='brutal'?'6px 6px 0 #111':(th==='glass'?'0 24px 60px rgba(0,0,0,.4)':'0 10px 30px rgba(0,0,0,.18)')),
+                overflow:'hidden', backdropFilter: th==='glass'?'blur(12px)':'none', WebkitBackdropFilter: th==='glass'?'blur(12px)':'none', transition:'box-shadow .12s' },
+              accentBar:{ height:'4px', background:col.accent, flex:'none' },
+              head:{ display:'flex', alignItems:'center', gap:'9px', padding:'13px 15px 10px' },
+              dotStyle:{ width:'9px', height:'9px', borderRadius:'50%', background:col.accent, flex:'none', boxShadow:'0 0 0 3px '+col.accent+'33' },
+              labelStyle:{ fontFamily:C.ui, fontWeight:800, fontSize:'13px', letterSpacing:'.4px', textTransform:'uppercase', color:headFg },
+              countStyle:{ fontFamily:C.ui, fontSize:'12px', fontWeight:800, minWidth:'22px', height:'22px', padding:'0 7px', display:'grid', placeItems:'center', borderRadius:'20px', background: th==='brutal'?'#111':'rgba(128,128,128,.18)', color: th==='brutal'?'#fff':headFg },
+              onAdd:(e)=>{ e.stopPropagation(); this.openNew('inbox', col.key); },
+              addStyle:{ marginLeft:'auto', width:'25px', height:'25px', border:'none', borderRadius:'7px', cursor:'pointer', fontSize:'17px', lineHeight:1, display:'grid', placeItems:'center', background: th==='brutal'?'#111':'rgba(128,128,128,.16)', color: th==='brutal'?'#fff':headFg, padding:0 },
+              listStyle:{ flex:1, minHeight:0, overflow:'auto', display:'flex', flexDirection:'column', gap:'12px', padding:'10px 14px 14px' },
+              notes, gapEnd: !!(isDrop && dt.index>=notesRaw.length),
+              empty: notesRaw.length===0,
+              emptyStyle:{ fontFamily:C.ui, fontSize:'12.5px', lineHeight:1.5, color: th==='brutal'?'#9a9a9a':C.toolbarSub, textAlign:'center', padding:'26px 12px', border:'1.5px dashed '+(th==='brutal'?'#ccc':(th==='glass'?'rgba(255,255,255,.16)':'rgba(0,0,0,.16)')), borderRadius:'12px' }
+            };
+          });
+        }
+
+        /* ---------- editor ---------- */
+        buildEditor(){
+          const ed = this.state.editing; if(!ed) return null;
+          const C = this.themeConf();
+          const th = this.state.theme;
+          const dark = th==='glass';
+          const panelBg = dark? '#161a2e' : '#fffdf8';
+          const fg = dark? '#eaf0ff' : '#241c12';
+          const sub = dark? 'rgba(234,240,255,.5)' : 'rgba(60,42,18,.55)';
+          const fieldBg = dark? 'rgba(255,255,255,.05)' : '#f3efe6';
+          const border = dark? 'rgba(255,255,255,.12)' : 'rgba(60,42,18,.18)';
+          const isNew = !this.state.tasks.some(t=>t.id===ed.id);
+          const inputBase = { width:'100%', padding:'11px 13px', borderRadius:'10px', border:'1px solid '+border, background:fieldBg, color:fg, fontFamily:C.ui, fontSize:'14px', fontWeight:500 };
+
+          const colors = this.COLORS.map(k=>{ const P=this.PAPER[th][k]; const active=ed.color===k; const sw = th==='glass'? P.edge.replace(/[\d.]+\)$/,'.9)') : P.bg; return { key:k, onClick:()=>this.setEd({color:k}), style:{ width:'34px', height:'34px', borderRadius:'9px', cursor:'pointer', background:sw, border: active? '3px solid '+C.accent : '1px solid '+border, boxShadow: active?'0 0 0 2px '+panelBg+' inset':'none', padding:0 } }; });
+          const cats = Object.keys(this.CAT).map(k=>{ const c=this.CAT[k]; const active=ed.category===k; return { key:k, label:c.label, onClick:()=>this.setEd({category:k}), dot:{ width:'8px', height:'8px', borderRadius:'50%', background:c.dot, flex:'none' }, style:{ display:'flex', alignItems:'center', gap:'7px', padding:'7px 12px', borderRadius:'20px', cursor:'pointer', fontFamily:C.ui, fontSize:'12.5px', fontWeight:700, border:'1px solid '+(active?c.dot:border), background: active? c.dot+'22':'transparent', color:fg } }; });
+
+          const checklist = (ed.checklist||[]).map((it,i)=>({
+            id:it.id, text:it.text, mark: it.done?'✓':'',
+            box:{ width:'22px', height:'22px', flex:'none', display:'grid', placeItems:'center', borderRadius:'6px', cursor:'pointer', border:'1.5px solid '+border, background: it.done? C.accent:'transparent', color:'#fff', fontWeight:800, fontSize:'12px', padding:0 },
+            input:{ flex:1, padding:'8px 10px', borderRadius:'8px', border:'1px solid '+border, background:fieldBg, color:fg, fontFamily:C.ui, fontSize:'13px', textDecoration: it.done?'line-through':'none', opacity: it.done?.65:1 },
+            onToggle:()=> this.setEd({ checklist: ed.checklist.map((x,j)=> j===i? {...x,done:!x.done}:x) }),
+            onText:(e)=>{ const v=e.target.value; this.setEd({ checklist: ed.checklist.map((x,j)=> j===i? {...x,text:v}:x) }); },
+            onRemove:()=> this.setEd({ checklist: ed.checklist.filter((x,j)=>j!==i) })
+          }));
+
+          const addItem=()=>{ const t=(ed._new||'').trim(); if(!t) return; this.setEd({ checklist:[...(ed.checklist||[]), {id:this.uid('c'), text:t, done:false}], _new:'' }); };
+
+          const btn=(bg,fgc,extra)=> Object.assign({ padding:'10px 18px', borderRadius:'9px', border:'none', cursor:'pointer', fontFamily:C.ui, fontSize:'13.5px', fontWeight:800, background:bg, color:fgc }, extra||{});
+
+          return {
+            overlay:{ position:'fixed', inset:0, background:'rgba(10,8,4,.55)', backdropFilter:'blur(3px)', WebkitBackdropFilter:'blur(3px)', display:'grid', placeItems:'center', zIndex:9000, padding:'20px', animation:'fadeIn .15s ease' },
+            onBg:()=>this.setState({editing:null}), stop:(e)=>e.stopPropagation(),
+            panel:{ width:'min(520px,100%)', maxHeight:'90vh', overflow:'auto', background:panelBg, color:fg, borderRadius:'18px', padding:'22px', boxShadow:'0 40px 100px rgba(0,0,0,.5)', border:'1px solid '+border, fontFamily:C.ui, animation:'modalIn .2s cubic-bezier(.2,.8,.2,1)' },
+            headRow:{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'14px' },
+            kicker: isNew? 'New task' : 'Edit task',
+            kickerStyle:{},
+            closeBtn:{ width:'30px', height:'30px', border:'none', borderRadius:'8px', cursor:'pointer', background:fieldBg, color:fg, fontSize:'13px', padding:0 },
+            title: ed.title, onTitle:(e)=>this.setEd({title:e.target.value}),
+            titleInput:{ ...inputBase, fontSize:'17px', fontWeight:700, marginBottom:'10px' },
+            desc: ed.desc, onDesc:(e)=>this.setEd({desc:e.target.value}),
+            descInput:{ ...inputBase, minHeight:'62px', resize:'vertical', lineHeight:1.45 },
+            fieldLabel:{ fontSize:'11px', fontWeight:800, letterSpacing:'.7px', textTransform:'uppercase', color:sub, margin:'17px 0 9px' },
+            colors, cats, checklist,
+            statuses: this.STATUS.map(st=>{ const active=(ed.status||'todo')===st.key; return { key:st.key, label:st.label, onClick:()=>this.setEd({status:st.key, done:st.key==='done'}), dot:{ width:'8px', height:'8px', borderRadius:'50%', background:st.accent, flex:'none' }, style:{ display:'flex', alignItems:'center', gap:'7px', padding:'7px 13px', borderRadius:'20px', cursor:'pointer', fontFamily:C.ui, fontSize:'12.5px', fontWeight:700, border:'1px solid '+(active?st.accent:border), background: active? st.accent+'22':'transparent', color:fg } }; }),
+            itemRemove:{ width:'26px', height:'26px', flex:'none', border:'none', borderRadius:'7px', cursor:'pointer', background:'transparent', color:sub, fontSize:'12px', padding:0 },
+            addBox:{ width:'22px', height:'22px', flex:'none', display:'grid', placeItems:'center', borderRadius:'6px', border:'1px dashed '+border, color:sub, fontSize:'14px' },
+            newItem: ed._new||'', onNewItem:(e)=>this.setEd({_new:e.target.value}), onNewKey:(e)=>{ if(e.key==='Enter'){ e.preventDefault(); addItem(); } },
+            newInput:{ flex:1, padding:'8px 10px', borderRadius:'8px', border:'1px solid '+border, background:fieldBg, color:fg, fontFamily:C.ui, fontSize:'13px' },
+            day: (ed.day && ed.day.indexOf('-')>=0)? ed.day : '', onDay:(e)=>this.setEd({ day: e.target.value || 'inbox' }),
+            dateInput:{ padding:'9px 12px', borderRadius:'9px', border:'1px solid '+border, background:fieldBg, color:fg, fontFamily:C.ui, fontSize:'13px', fontWeight:600, colorScheme: dark?'dark':'light' },
+            onInbox:()=>this.setEd({day:'inbox'}), inboxActive: ed.day==='inbox', inboxLabel: ed.day==='inbox'?'✓ Inbox':'Send to inbox',
+            inboxBtn:{ padding:'9px 14px', borderRadius:'9px', cursor:'pointer', fontFamily:C.ui, fontSize:'12.5px', fontWeight:700, border:'1px solid '+(ed.day==='inbox'?C.accent:border), background: ed.day==='inbox'? C.accent+'22':'transparent', color:fg },
+            onDone:()=>this.setEd({done:!ed.done}), doneLabel: ed.done?'✓ Completed':'Mark complete',
+            doneBtn:{ padding:'9px 14px', borderRadius:'9px', cursor:'pointer', fontFamily:C.ui, fontSize:'12.5px', fontWeight:700, border:'1px solid '+(ed.done?'#16a34a':border), background: ed.done? 'rgba(22,163,74,.16)':'transparent', color: ed.done? (dark?'#86efac':'#15803d'):fg },
+            footer:{ display:'flex', alignItems:'center', gap:'10px', marginTop:'22px', paddingTop:'16px', borderTop:'1px solid '+border },
+            canDelete: !isNew, onDelete:()=>this.deleteTask(), deleteBtn: btn('transparent','#e0524a',{ border:'1px solid '+border }),
+            onClose:()=>this.setState({editing:null}), cancelBtn: btn(fieldBg,fg),
+            onSave:()=>this.saveEdit(), saveLabel: isNew?'Add task':'Save', saveBtn: btn(C.accent,C.accentFg,{ opacity:(ed.title||'').trim()?1:.5 })
+          };
+        }
+
+        renderVals(){
+          const ui = this.buildUI();
+          const cellsData = this.buildCells();
+          return {
+            ui,
+            weekdays: cellsData.weekdays,
+            cells: cellsData.cells,
+            columns: this.buildColumns(),
+            inbox: this.buildInbox(),
+            ghost: this.buildGhost(),
+            editor: this.buildEditor(),
+            onPrev: ()=> this.setState(s=>{ let m=s.viewM-1,y=s.viewY; if(m<0){m=11;y--;} return {viewM:m,viewY:y}; }),
+            onNext: ()=> this.setState(s=>{ let m=s.viewM+1,y=s.viewY; if(m>11){m=0;y++;} return {viewM:m,viewY:y}; }),
+            onToday: ()=>{ const d=new Date(); this.setState({viewM:d.getMonth(), viewY:d.getFullYear()}); },
+            onAddInbox: ()=> this.openNew('inbox')
+          };
+        }
       }
-    };
-
-    this.state = {
-      theme:'cork',
-      view:'calendar',
-      viewY: today.getFullYear(),
-      viewM: today.getMonth(),
-      tasks: [
-        mk({t:'Finish Q3 deck', d:'Pull latest numbers, tighten the story.', c:'work', k:'yellow', day:off(0), o:0, s:'doing', ko:0, l:[{t:'Outline',d:1},{t:'Charts',d:1},{t:'Rehearse',d:0}]}),
-        mk({t:'Call plumber', c:'errands', k:'pink', day:off(0), o:1, s:'todo', ko:0}),
-        mk({t:'Gym — leg day', c:'health', k:'mint', day:off(1), o:0, s:'done', ko:0}),
-        mk({t:'Review pull requests', d:'Two from Sam, one from Dee.', c:'work', k:'blue', day:off(1), o:1, s:'doing', ko:1, l:[{t:'auth-refactor',d:1},{t:'cal-grid',d:0}]}),
-        mk({t:'Date night 🍝', c:'personal', k:'pink', day:off(2), o:0, s:'todo', ko:1}),
-        mk({t:'Pay rent', c:'errands', k:'orange', day:off(2), o:1, s:'done', ko:1}),
-        mk({t:'Sketch app idea', d:'The thing about offline notes.', c:'ideas', k:'lilac', day:off(4), o:0, s:'todo', ko:2, l:[{t:'Moodboard',d:0},{t:'User flow',d:0},{t:'Name it',d:0}]}),
-        mk({t:'Dentist 9:00', c:'health', k:'blue', day:off(5), o:0, s:'done', ko:2}),
-        mk({t:'Birthday gift for Mom', c:'personal', k:'yellow', day:off(7), o:0, s:'todo', ko:3}),
-        mk({t:'Read “Shape Up”', c:'ideas', k:'mint', day:'inbox', o:0, s:'doing', ko:2, l:[{t:'Part 1',d:1},{t:'Part 2',d:0}]}),
-        mk({t:'Renew passport', d:'Expires in 4 months.', c:'errands', k:'orange', day:'inbox', o:1, s:'todo', ko:4}),
-        mk({t:'Plan weekend trip', c:'personal', k:'lilac', day:'inbox', o:2, s:'todo', ko:5})
-      ],
-      editing:null,
-      drag:null,
-      dropTarget:null,
-      pop:null
-    };
-
-    this.onMove = this.onMove.bind(this);
-    this.onUp = this.onUp.bind(this);
-  }
-
-  componentDidMount(){
-    document.addEventListener('pointermove', this.onMove);
-    document.addEventListener('pointerup', this.onUp);
-  }
-  componentWillUnmount(){
-    document.removeEventListener('pointermove', this.onMove);
-    document.removeEventListener('pointerup', this.onUp);
-  }
-
-  uid(p){ return (p||'t')+(this._id++); }
-  paperOf(k){ return this.PAPER[this.state.theme][k] || this.PAPER[this.state.theme].yellow; }
-  catOf(k){ return this.CAT[k] || this.CAT.work; }
-  notesForDay(day, excludeId){ return this.state.tasks.filter(t=>t.day===day && t.id!==excludeId).sort((a,b)=>a.order-b.order); }
-  tasksForStatus(st, excludeId){ return this.state.tasks.filter(t=>t.status===st && t.id!==excludeId).sort((a,b)=>a.korder-b.korder); }
-  chipLabel(task){ if(!task.day || task.day==='inbox') return 'Inbox'; const p=task.day.split('-'); const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][(+p[1])-1]; return mo+' '+(+p[2]); }
-  rotOf(id){ let h=0; for(let i=0;i<id.length;i++) h=(h*31+id.charCodeAt(i))|0; return ((Math.abs(h)%7)-3); }
-
-  /* ---------- drag ---------- */
-  startDrag(e, task){
-    if(e.button!==undefined && e.button!==0) return;
-    if(e.target.closest && e.target.closest('[data-no-drag]')) return;
-    const el = e.currentTarget;
-    const r = el.getBoundingClientRect();
-    this._pending = { task, sx:e.clientX, sy:e.clientY, ox:e.clientX-r.left, oy:e.clientY-r.top, w:r.width, h:r.height };
-  }
-  onMove(e){
-    const p = this._pending; if(!p) return;
-    if(!this.state.drag){
-      if(Math.hypot(e.clientX-p.sx, e.clientY-p.sy) < 6) return;
-      document.body.style.userSelect='none';
-      this.setState({ drag:{ task:p.task, x:e.clientX, y:e.clientY, ox:p.ox, oy:p.oy, w:p.w, h:p.h } });
-    }
-    this._pt = { x:e.clientX, y:e.clientY };
-    if(!this._raf){
-      this._raf = requestAnimationFrame(()=>{
-        this._raf = null;
-        if(!this.state.drag || !this._pt) return;
-        const target = this.computeDrop(this._pt.x, this._pt.y);
-        this.setState(s=> s.drag ? { drag:{...s.drag, x:this._pt.x, y:this._pt.y}, dropTarget:target } : {});
-      });
-    }
-  }
-  computeDrop(x,y){
-    const el = document.elementFromPoint(x,y);
-    if(!el) return null;
-    const drag = this.state.drag;
-    if(this.state.view==='kanban'){
-      const colEl = el.closest && el.closest('[data-drop-status]');
-      if(!colEl) return null;
-      const st = colEl.getAttribute('data-drop-status');
-      const list = this.tasksForStatus(st, drag ? drag.task.id : null);
-      let index = list.length;
-      const noteEl = el.closest('[data-note-id]');
-      if(noteEl){ const id=noteEl.getAttribute('data-note-id'); const i=list.findIndex(t=>t.id===id); if(i>=0){ const r=noteEl.getBoundingClientRect(); index=(y < r.top+r.height/2)?i:i+1; } }
-      return { status:st, index };
-    }
-    const dayEl = el.closest && el.closest('[data-drop-day]');
-    if(!dayEl) return null;
-    const day = dayEl.getAttribute('data-drop-day');
-    if(day==='inbox') return { day:'inbox', index:99999 };
-    const list = this.notesForDay(day, drag ? drag.task.id : null);
-    let index = list.length;
-    const noteEl = el.closest('[data-note-id]');
-    if(noteEl){
-      const id = noteEl.getAttribute('data-note-id');
-      const i = list.findIndex(t=>t.id===id);
-      if(i>=0){ const r=noteEl.getBoundingClientRect(); index = (y < r.top+r.height/2) ? i : i+1; }
-    }
-    return { day, index };
-  }
-  onUp(e){
-    const p = this._pending;
-    if(p && this.state.drag){
-      const t = this.state.dropTarget;
-      if(t){ if(t.status!==undefined) this.moveStatus(p.task.id, t.status, t.index); else this.moveTask(p.task.id, t.day, t.index); }
-      document.body.style.userSelect='';
-      this.setState({ drag:null, dropTarget:null });
-    } else if(p){
-      if(Math.hypot(e.clientX-p.sx, e.clientY-p.sy) < 6) this.openEdit(p.task);
-    }
-    this._pending = null;
-  }
-  moveTask(id, day, index){
-    this.setState(s=>{
-      const tasks = s.tasks.map(t=>({...t}));
-      const moving = tasks.find(t=>t.id===id); if(!moving) return {};
-      moving.day = day;
-      const others = tasks.filter(t=>t.day===day && t.id!==id).sort((a,b)=>a.order-b.order);
-      const at = Math.max(0, Math.min(index, others.length));
-      others.splice(at, 0, moving);
-      others.forEach((t,i)=> t.order=i);
-      return { tasks };
-    });
-  }
-  moveStatus(id, status, index){
-    this.setState(s=>{
-      const tasks = s.tasks.map(t=>({...t}));
-      const moving = tasks.find(t=>t.id===id); if(!moving) return {};
-      moving.status = status; moving.done = status==='done';
-      const others = tasks.filter(t=>t.status===status && t.id!==id).sort((a,b)=>a.korder-b.korder);
-      const at = Math.max(0, Math.min(index, others.length));
-      others.splice(at,0,moving);
-      others.forEach((t,i)=> t.korder=i);
-      return { tasks };
-    });
-  }
-
-  /* ---------- task ops ---------- */
-  toggleDone(id){
-    this.setState(s=>{
-      const tasks = s.tasks.map(t=>{
-        if(t.id!==id) return {...t};
-        const done = !t.done;
-        return {...t, done, status: done?'done':'todo'};
-      });
-      const moved = tasks.find(t=>t.id===id);
-      if(moved){ const col = tasks.filter(t=>t.status===moved.status && t.id!==id); moved.korder = col.reduce((m,t)=>Math.max(m,t.korder),-1)+1; }
-      const justDone = moved && moved.done;
-      return { tasks, pop: justDone ? id : s.pop };
-    }, ()=>{ if(this.state.pop===id){ clearTimeout(this._popT); this._popT=setTimeout(()=> this.setState({pop:null}), 520); } });
-  }
-  openEdit(task){ this.setState({ editing:{ ...task, checklist: task.checklist.map(c=>({...c})), _new:'' } }); }
-  openNew(day, status){ this.setState({ editing:{ id:this.uid('t'), title:'', desc:'', category:'work', color:'yellow', checklist:[], status:status||'todo', done:(status||'todo')==='done', day:day||'inbox', order:9999, korder:9999, _new:'' } }); }
-  setEd(patch){ this.setState(s=> ({ editing:{...s.editing, ...patch} })); }
-  saveEdit(){
-    const ed = this.state.editing; if(!ed) return;
-    const title=(ed.title||'').trim(); if(!title){ return; }
-    this.setState(s=>{
-      let tasks = s.tasks.map(t=>({...t}));
-      const day = (ed.day && ed.day.indexOf('-')>=0) ? ed.day : 'inbox';
-      const status = ed.status||'todo';
-      const clean = { id:ed.id, title, desc:ed.desc||'', category:ed.category||'work', color:ed.color||'yellow', checklist:(ed.checklist||[]).map(c=>({id:c.id,text:c.text,done:!!c.done})), status, done:status==='done', day, order: ed.order, korder: (ed.korder!=null?ed.korder:9999) };
-      const ex = tasks.find(t=>t.id===ed.id);
-      if(ex){ Object.assign(ex, clean); }
-      else { const mo = tasks.filter(t=>t.day===day).reduce((m,t)=>Math.max(m,t.order),-1); clean.order=mo+1; const mko = tasks.filter(t=>t.status===status).reduce((m,t)=>Math.max(m,t.korder),-1); clean.korder=mko+1; tasks.push(clean); }
-      return { tasks, editing:null };
-    });
-  }
-  deleteTask(){ const ed=this.state.editing; if(!ed) return; this.setState(s=>({ tasks:s.tasks.filter(t=>t.id!==ed.id), editing:null })); }
-
-  /* ---------- theming ---------- */
-  themeConf(){
-    const th = this.state.theme;
-    if(th==='cork') return {
-      appName:'Corkboard', ui:"'Libre Franklin',sans-serif", title:"'Caveat',cursive",
-      pageBg:'#caa46b',
-      pageImg:'radial-gradient(circle at 18% 30%, rgba(110,78,38,.30) 0 1.6px, transparent 2.6px), radial-gradient(circle at 67% 58%, rgba(110,78,38,.24) 0 1.6px, transparent 2.6px), radial-gradient(circle at 42% 82%, rgba(140,100,55,.22) 0 1.3px, transparent 2.2px)',
-      pageSize:'24px 24px, 31px 31px, 17px 17px',
-      toolbarBg:'#6b4a2b', toolbarFg:'#fbf3e6', toolbarSub:'rgba(251,243,230,.6)', toolbarBorder:'1px solid rgba(0,0,0,.25)',
-      accent:'#b8472e', accentFg:'#fff',
-      boardBg:'transparent', boardBorder:'none', boardPad:'0', boardShadow:'none',
-      weekFg:'rgba(46,30,12,.8)', weekBg:'transparent',
-      cellBg:'rgba(255,250,240,.10)', cellBorder:'1px solid rgba(74,50,22,.32)', cellRadius:'3px',
-      cellToday:'rgba(255,247,225,.22)', cellTodayRing:'inset 0 0 0 2px rgba(184,71,46,.85)',
-      cellOut:'rgba(120,90,55,.12)', numFg:'#3a2611', weekendBg:'rgba(120,90,55,.06)'
-    };
-    if(th==='brutal') return {
-      appName:'TASKS//', ui:"'Space Grotesk',sans-serif", title:"'Archivo Black',sans-serif",
-      pageBg:'#F2EEDF',
-      pageImg:'linear-gradient(rgba(0,0,0,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,.05) 1px, transparent 1px)',
-      pageSize:'26px 26px, 26px 26px',
-      toolbarBg:'#111', toolbarFg:'#fff', toolbarSub:'rgba(255,255,255,.55)', toolbarBorder:'3px solid #111',
-      accent:'#FF4D2E', accentFg:'#fff',
-      boardBg:'#fff', boardBorder:'3px solid #111', boardPad:'0', boardShadow:'8px 8px 0 #111',
-      weekFg:'#111', weekBg:'#111',
-      cellBg:'#fff', cellBorder:'2px solid #111', cellRadius:'0',
-      cellToday:'#FFF6C2', cellTodayRing:'inset 0 0 0 3px #111',
-      cellOut:'#EDE9DA', numFg:'#111', weekendBg:'#FBF7E4'
-    };
-    return {
-      appName:'Aurora', ui:"'Manrope',sans-serif", title:"'Manrope',sans-serif",
-      pageBg:'#0b0f1f',
-      pageImg:'none', pageSize:'auto',
-      toolbarBg:'rgba(255,255,255,.04)', toolbarFg:'#eaf0ff', toolbarSub:'rgba(234,240,255,.5)', toolbarBorder:'1px solid rgba(255,255,255,.10)',
-      accent:'#7c5cff', accentFg:'#fff',
-      boardBg:'rgba(255,255,255,.03)', boardBorder:'1px solid rgba(255,255,255,.09)', boardPad:'0', boardShadow:'0 30px 80px rgba(0,0,0,.45)',
-      weekFg:'rgba(234,240,255,.55)', weekBg:'transparent',
-      cellBg:'rgba(255,255,255,.035)', cellBorder:'1px solid rgba(255,255,255,.07)', cellRadius:'12px',
-      cellToday:'rgba(124,92,255,.16)', cellTodayRing:'inset 0 0 0 1px rgba(150,120,255,.7)',
-      cellOut:'rgba(255,255,255,.012)', numFg:'rgba(234,240,255,.85)', weekendBg:'rgba(255,255,255,.02)'
-    };
-  }
-
-  /* ---------- note view ---------- */
-  noteView(task, variant){
-    const th = this.state.theme;
-    const P = this.paperOf(task.color);
-    const cat = this.catOf(task.category);
-    const done = task.status==='done';
-    const dragging = this.state.drag && this.state.drag.task.id===task.id;
-    const total = task.checklist.length;
-    const ck = task.checklist.filter(c=>c.done).length;
-    const pct = total? Math.round(ck/total*100):0;
-    const rot = th==='cork' ? this.rotOf(task.id) : (th==='brutal'? (this.rotOf(task.id)%2?1:-1) : 0);
-    const isGhost = variant==='ghost';
-    const isKanbanCard = variant==='kanban';
-    if(isKanbanCard) variant='inbox';
-    const pop = this.state.pop===task.id;
-
-    let wrap = { position:'relative', cursor:'grab', touchAction:'none', userSelect:'none', transition:'box-shadow .15s, transform .12s', opacity: done?0.82:1 };
-    let titleStyle = {}, meta={ display:'flex', alignItems:'center', gap:'6px', marginTop:'7px', flexWrap:'wrap' };
-    let pinStyle=null, stampStyle=null;
-
-    if(th==='cork'){
-      Object.assign(wrap, {
-        background:P.bg, color:P.ink, padding: variant==='inbox'?'14px 13px 11px':'11px 11px 9px',
-        borderRadius:'2px', fontFamily:this.themeConf().ui,
-        boxShadow: dragging? '0 22px 40px rgba(35,22,5,.45)' : '0 5px 12px rgba(40,28,8,.32), inset 0 1px 0 rgba(255,255,255,.45)',
-        transform:`rotate(${isGhost?0:rot}deg)` , ['--rot']: (isGhost?0:rot)+'deg'
-      });
-      pinStyle = { position:'absolute', top:'-7px', left:'50%', width:'14px', height:'14px', marginLeft:'-7px', borderRadius:'50%', background:'radial-gradient(circle at 35% 30%, #ff8a7a, #c0392b 60%, #7c1d12)', boxShadow:'0 2px 3px rgba(0,0,0,.4)', zIndex:2 };
-      titleStyle = { fontFamily:this.themeConf().title, fontSize: variant==='inbox'?'22px':'19px', lineHeight:1.05, fontWeight:700, textDecoration: done?'line-through':'none', textDecorationColor:'rgba(120,30,20,.6)', display:'-webkit-box', WebkitLineClamp: variant==='inbox'?3:2, WebkitBoxOrient:'vertical', overflow:'hidden', wordBreak:'break-word' };
-      if(done) stampStyle = { position:'absolute', top:'40%', left:'50%', transform:'translate(-50%,-50%) rotate(-14deg)', color:'rgba(176,42,28,.62)', border:'2.5px solid rgba(176,42,28,.55)', borderRadius:'5px', padding:'1px 7px', fontFamily:this.themeConf().title, fontWeight:700, fontSize:'17px', letterSpacing:'1px', pointerEvents:'none', zIndex:3 };
-    } else if(th==='brutal'){
-      Object.assign(wrap, {
-        background:P.bg, color:P.ink, padding: variant==='inbox'?'13px 13px':'10px 11px',
-        border:'2.5px solid #111', borderRadius:'1px', fontFamily:this.themeConf().ui, fontWeight:600,
-        boxShadow: dragging? '9px 9px 0 #111' : '4px 4px 0 #111',
-        transform:`rotate(${isGhost?0:rot}deg)`, ['--rot']:(isGhost?0:rot)+'deg'
-      });
-      titleStyle = { fontSize: variant==='inbox'?'16px':'14px', lineHeight:1.12, fontWeight:700, textTransform:'uppercase', letterSpacing:'.3px', textDecoration: done?'line-through':'none', display:'-webkit-box', WebkitLineClamp: variant==='inbox'?3:2, WebkitBoxOrient:'vertical', overflow:'hidden', wordBreak:'break-word' };
-    } else {
-      Object.assign(wrap, {
-        background:P.bg, color:P.ink, padding: variant==='inbox'?'13px 14px':'11px 12px',
-        border:`1px solid ${P.edge}`, borderRadius:'13px', fontFamily:this.themeConf().ui, fontWeight:500,
-        backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)',
-        boxShadow: dragging? '0 26px 50px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.18)' : '0 10px 26px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.14)',
-        transform:'none', ['--rot']:'0deg'
-      });
-      titleStyle = { fontSize: variant==='inbox'?'16px':'14px', lineHeight:1.2, fontWeight:700, letterSpacing:'.1px', textDecoration: done?'line-through':'none', opacity: done?.8:1, display:'-webkit-box', WebkitLineClamp: variant==='inbox'?3:2, WebkitBoxOrient:'vertical', overflow:'hidden', wordBreak:'break-word' };
-    }
-
-    if(dragging && !isGhost) wrap.opacity = 0.18;
-    if(pop && !isGhost) wrap.animation = 'notePop .5s ease';
-
-    const inkSoft = (a)=> th==='glass' ? `rgba(234,240,255,${a})` : (th==='brutal'? `rgba(17,17,17,${a})` : `rgba(60,42,18,${a})`);
-    const dot = { width:'7px', height:'7px', borderRadius:'50%', background:cat.dot, flex:'none', boxShadow: th==='cork'?'0 0 0 1.5px rgba(255,255,255,.5)':'none' };
-    const catStyle = { fontSize:'10.5px', fontWeight:700, letterSpacing:'.4px', textTransform:'uppercase', opacity:.75, color:'inherit' };
-    const progStyle = { marginLeft:'auto', fontSize:'10.5px', fontWeight:700, opacity:.7, fontVariantNumeric:'tabular-nums' };
-    const check = { width:'19px', height:'19px', flex:'none', marginLeft: total?'6px':'auto', display:'grid', placeItems:'center', cursor:'pointer', borderRadius: th==='glass'?'6px':(th==='brutal'?'1px':'4px'), border:`1.5px solid ${inkSoft(.4)}`, background: done? cat.dot : 'transparent', color: done? '#fff':'transparent', fontSize:'12px', lineHeight:1, fontWeight:800, padding:0 };
-    const barTrack = { marginTop:'7px', height:'4px', borderRadius:'3px', background:inkSoft(.16), overflow:'hidden' };
-    const barFill = { width:pct+'%', height:'100%', borderRadius:'3px', background: done? cat.dot : (th==='glass'? P.edge.replace(/[\d.]+\)$/,'.9)') : inkSoft(.55)), transition:'width .25s' };
-    const chipStyle = { fontSize:'10px', fontWeight:700, padding:'2px 8px', borderRadius:'20px', background:inkSoft(.12), color:'inherit', opacity:.9, whiteSpace:'nowrap' };
-
-    const v = {
-      id:task.id, title:task.title||'Untitled', titleStyle, wrap, meta,
-      dot, catStyle, catLabel:cat.label,
-      hasList: total>0, progress: ck+'/'+total, progStyle,
-      check, checkMark: done?'✓':'', barTrack, barFill,
-      pin: th==='cork' && !isGhost && variant!=='ghost', pinStyle,
-      stamp: done && th==='cork' && !isGhost, stampStyle,
-      onDown: (e)=> this.startDrag(e, task),
-      onToggle: (e)=>{ e.stopPropagation(); this.toggleDone(task.id); },
-      hasChip: isKanbanCard, chipLabel: this.chipLabel(task), chipStyle,
-      hasDesc: variant==='inbox' && !!(task.desc||'').trim(),
-      desc: task.desc, descStyle:{ fontSize:'12px', lineHeight:1.35, marginTop:'5px', opacity:.7, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }
-    };
-    return v;
-  }
-
-  buildGhost(){
-    const d = this.state.drag; if(!d) return null;
-    const v = this.noteView(d.task, 'ghost');
-    v.wrap = { ...v.wrap, position:'fixed', left:(d.x-d.ox)+'px', top:(d.y-d.oy)+'px', width:d.w+'px', pointerEvents:'none', zIndex:9999, cursor:'grabbing', transform:(v.wrap.transform||'')+' scale(1.04)', opacity:1 };
-    return v;
-  }
-
-  /* ---------- chrome ---------- */
-  buildUI(){
-    const C = this.themeConf();
-    const th = this.state.theme;
-    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-    const root = { position:'relative', height:'100vh', minHeight:0, display:'flex', flexDirection:'column', backgroundColor:C.pageBg, backgroundImage:C.pageImg, backgroundSize:C.pageSize, overflow:'hidden' };
-
-    const themeBtn = (key,label,sw)=>{
-      const active = th===key;
-      return { key, label, onClick:()=>this.setState({theme:key}),
-        style:{ display:'flex', alignItems:'center', gap:'6px', padding:'6px 11px', borderRadius:'8px', border:'none', cursor:'pointer', fontSize:'12.5px', fontWeight:700, fontFamily:C.ui,
-          background: active? (th==='glass'?'rgba(255,255,255,.16)': (th==='brutal'?'#fff':'rgba(255,255,255,.18)')) : 'transparent',
-          color: active? (th==='brutal'?'#111':C.toolbarFg) : C.toolbarSub,
-          boxShadow: active && th==='brutal' ? '2px 2px 0 #FF4D2E':'none' },
-        swatch:{ width:'11px', height:'11px', borderRadius:'3px', background:sw, flex:'none', boxShadow:'0 0 0 1px rgba(0,0,0,.2)' } };
-    };
-
-    const navBtn = { width:'30px', height:'30px', display:'grid', placeItems:'center', border:'none', borderRadius:'8px', cursor:'pointer', fontSize:'18px', lineHeight:1, background:'rgba(255,255,255,.12)', color:C.toolbarFg, fontFamily:C.ui };
-
-    const viewBtn = (key,label)=>{
-      const active = this.state.view===key;
-      return { key, label, onClick:()=>this.setState({view:key, drag:null, dropTarget:null}),
-        style:{ display:'flex', alignItems:'center', gap:'6px', padding:'6px 13px', borderRadius:'8px', border:'none', cursor:'pointer', fontSize:'12.5px', fontWeight:700, fontFamily:C.ui,
-          background: active? (th==='brutal'?'#fff':'rgba(255,255,255,.18)') : 'transparent',
-          color: active? (th==='brutal'?'#111':C.toolbarFg) : C.toolbarSub,
-          boxShadow: active && th==='brutal' ? '2px 2px 0 '+C.accent:'none' } };
-    };
-
-    return {
-      root, showBlobs: th==='glass',
-      blobA:{ position:'absolute', top:'-160px', left:'-120px', width:'520px', height:'520px', borderRadius:'50%', background:'radial-gradient(circle, rgba(124,92,255,.55), transparent 65%)', filter:'blur(40px)', animation:'blobFloat 14s ease-in-out infinite', zIndex:0 },
-      blobB:{ position:'absolute', top:'10%', right:'-160px', width:'560px', height:'560px', borderRadius:'50%', background:'radial-gradient(circle, rgba(54,209,196,.42), transparent 65%)', filter:'blur(50px)', animation:'blobFloat 18s ease-in-out infinite', zIndex:0 },
-      blobC:{ position:'absolute', bottom:'-200px', left:'30%', width:'600px', height:'600px', borderRadius:'50%', background:'radial-gradient(circle, rgba(236,72,153,.30), transparent 65%)', filter:'blur(55px)', animation:'blobFloat 20s ease-in-out infinite', zIndex:0 },
-      appName:C.appName,
-      toolbar:{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'16px', padding:'13px 22px', background:C.toolbarBg, color:C.toolbarFg, borderBottom:C.toolbarBorder, position:'relative', zIndex:2, backdropFilter: th==='glass'?'blur(16px)':'none', WebkitBackdropFilter: th==='glass'?'blur(16px)':'none', flexWrap:'wrap' },
-      brand:{ fontFamily:C.title, fontSize: th==='cork'?'30px':(th==='brutal'?'22px':'21px'), fontWeight: th==='brutal'?900:700, letterSpacing: th==='brutal'?'-.5px':'0', lineHeight:1, color:C.toolbarFg },
-      navGroup:{ display:'flex', alignItems:'center', gap:'8px' },
-      navBtn,
-      monthLabel:{ fontFamily:C.ui, fontSize:'16px', fontWeight:700, minWidth:'150px', textAlign:'center', color:C.toolbarFg },
-      yearLabel:{ opacity:.5, fontWeight:600, marginLeft:'2px' },
-      monthName: months[this.state.viewM], year: this.state.viewY,
-      todayBtn:{ marginLeft:'4px', padding:'7px 13px', border:'none', borderRadius:'8px', cursor:'pointer', fontSize:'12.5px', fontWeight:700, fontFamily:C.ui, background:'rgba(255,255,255,.12)', color:C.toolbarFg },
-      segWrap:{ display:'flex', gap:'3px', padding:'3px', borderRadius:'11px', background: th==='brutal'?'#222':'rgba(0,0,0,.18)', border: th==='glass'?'1px solid rgba(255,255,255,.08)':'none' },
-      themes:[ themeBtn('cork','Cork','#caa46b'), themeBtn('brutal','Neon','#FF4D2E'), themeBtn('glass','Aurora','#7c5cff') ],
-      views:[ viewBtn('calendar','Calendar'), viewBtn('kanban','Board') ],
-      isCalendar: this.state.view==='calendar', isKanban: this.state.view==='kanban',
-      kanbanWrap:{ flex:1, minWidth:0, minHeight:0, display:'flex', gap:'16px', width:'100%' },
-      addBtn:{ padding:'9px 16px', border: th==='brutal'?'2.5px solid #111':'none', borderRadius:'9px', cursor:'pointer', fontSize:'13px', fontWeight:800, fontFamily:C.ui, background:C.accent, color:C.accentFg, boxShadow: th==='brutal'?'3px 3px 0 #111':'0 4px 14px rgba(0,0,0,.18)', whiteSpace:'nowrap' },
-
-      boardWrap:{ flex:1, minWidth:0, minHeight:0, display:'flex', flexDirection:'column', background:C.boardBg, border:C.boardBorder, borderRadius: th==='glass'?'18px':(th==='brutal'?'2px':'8px'), boxShadow:C.boardShadow, padding: th==='cork'?'0':'10px', overflow:'hidden', backdropFilter: th==='glass'?'blur(8px)':'none', WebkitBackdropFilter: th==='glass'?'blur(8px)':'none' },
-      weekRow:{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap: th==='brutal'?'0':'6px', padding: th==='brutal'?'0':'2px 2px 8px', background: th==='brutal'?C.weekBg:'transparent' },
-      grid:{ flex:1, minHeight:0, display:'grid', gridTemplateColumns:'repeat(7,1fr)', gridAutoRows:'1fr', gap: th==='brutal'?'0':'6px', overflow:'auto' },
-      gap:{ height:'3px', borderRadius:'2px', background:C.accent, margin:'1px 2px', boxShadow:'0 0 8px '+C.accent },
-
-      inbox:{ width:'288px', flex:'none', display:'flex', flexDirection:'column', background: th==='cork'?'rgba(58,38,17,.42)':(th==='brutal'?'#fff':'rgba(255,255,255,.04)'), border: th==='brutal'?'3px solid #111':(th==='glass'?'1px solid rgba(255,255,255,.09)':'1px solid rgba(0,0,0,.18)'), borderRadius: th==='brutal'?'2px':'14px', boxShadow: th==='brutal'?'8px 8px 0 #111': (th==='glass'?'0 30px 80px rgba(0,0,0,.4)':'0 10px 30px rgba(0,0,0,.2)'), overflow:'hidden', backdropFilter: th==='glass'?'blur(12px)':'none', WebkitBackdropFilter: th==='glass'?'blur(12px)':'none' },
-      inboxHead:{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 16px 4px', fontFamily:C.title, fontWeight: th==='brutal'?900:700, fontSize: th==='cork'?'26px':'18px', color: th==='brutal'?'#111':C.toolbarFg },
-      inboxCount:{ fontFamily:C.ui, fontSize:'12px', fontWeight:700, padding:'2px 9px', borderRadius:'20px', background:C.accent, color:C.accentFg },
-      inboxHint:{ padding:'0 16px 10px', fontFamily:C.ui, fontSize:'11.5px', color: th==='brutal'?'#888':C.toolbarSub, fontWeight:500 },
-      inboxList:{ flex:1, minHeight:0, overflow:'auto', display:'flex', flexDirection:'column', gap:'13px', padding:'8px 16px 4px' },
-      inboxEmpty:{ fontFamily:C.ui, fontSize:'12.5px', lineHeight:1.5, color: th==='brutal'?'#999':C.toolbarSub, textAlign:'center', padding:'24px 10px' },
-      inboxAdd:{ margin:'12px 16px 16px', padding:'10px', border: th==='brutal'?'2.5px solid #111':('1px dashed '+(th==='glass'?'rgba(255,255,255,.3)':'rgba(0,0,0,.3)')), borderRadius:'9px', cursor:'pointer', fontFamily:C.ui, fontSize:'13px', fontWeight:700, background:'transparent', color: th==='brutal'?'#111':C.toolbarFg },
-
-      C
-    };
-  }
-
-  buildCells(){
-    const C = this.themeConf();
-    const th = this.state.theme;
-    const y=this.state.viewY, m=this.state.viewM;
-    const first = new Date(y,m,1);
-    const start = new Date(first); start.setDate(1-first.getDay());
-    const todayStr = this.ymd(new Date());
-    const dt = this.state.dropTarget;
-    const weekdays = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>({ label:d, style:{ textAlign: th==='brutal'?'center':'left', padding: th==='brutal'?'8px 6px':'2px 6px', fontFamily:C.ui, fontSize:'11px', fontWeight:800, letterSpacing:'.8px', textTransform:'uppercase', color: th==='brutal'?'#fff':C.weekFg } }));
-
-    const cells=[];
-    for(let i=0;i<42;i++){
-      const d=new Date(start); d.setDate(start.getDate()+i);
-      const ds=this.ymd(d);
-      const inMonth = d.getMonth()===m;
-      const isToday = ds===todayStr;
-      const wknd = d.getDay()===0 || d.getDay()===6;
-      const notesRaw = this.notesForDay(ds, this.state.drag? this.state.drag.task.id : null);
-      const isDrop = dt && dt.day===ds;
-      const style = { position:'relative', display:'flex', flexDirection:'column', minHeight:'62px', padding: th==='brutal'?'5px 6px 6px':'5px 6px 7px',
-        background: !inMonth? C.cellOut : (isToday? C.cellToday : (wknd? C.weekendBg : C.cellBg)),
-        border: C.cellBorder, borderRadius:C.cellRadius, overflow:'hidden',
-        boxShadow: isDrop? ('inset 0 0 0 2px '+C.accent) : (isToday? C.cellTodayRing : 'none'),
-        transition:'box-shadow .12s' };
-      const notes = notesRaw.map((t,idx)=>{ const v=this.noteView(t,'cell'); v.gapBefore = !!(isDrop && dt.index===idx); return v; });
-      cells.push({
-        key:ds, dateStr:ds, dayNum:d.getDate(), inMonth, style,
-        head:{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'4px' },
-        numStyle:{ fontFamily: th==='cork'?C.title:C.ui, fontSize: th==='cork'?'17px':'12.5px', fontWeight: th==='brutal'?800:700, lineHeight:1, color: inMonth? (isToday? C.accent : C.numFg) : (th==='glass'?'rgba(234,240,255,.3)':'rgba(90,70,40,.45)'), padding: th==='cork'?'1px 5px':'0', borderRadius: th==='cork'?'10px':'0', background: th==='cork'&&isToday?'rgba(184,71,46,.14)':'transparent' },
-        addStyle:{ width:'18px', height:'18px', border:'none', borderRadius:'5px', cursor:'pointer', fontSize:'13px', lineHeight:1, display:'grid', placeItems:'center', background:'transparent', color: th==='glass'?'rgba(234,240,255,.4)':(th==='brutal'?'#999':'rgba(60,42,18,.4)'), opacity:.9, padding:0 },
-        onAdd:(e)=>{ e.stopPropagation(); this.openNew(ds); },
-        notesWrap:{ display:'flex', flexDirection:'column', gap:'7px', overflow:'auto', flex:1, minHeight:0 },
-        notes, gapEnd: !!(isDrop && dt.index>=notesRaw.length)
-      });
-    }
-    return { weekdays, cells };
-  }
-
-  buildInbox(){
-    const notesRaw = this.notesForDay('inbox', this.state.drag? this.state.drag.task.id : null);
-    return { count: notesRaw.length, empty: notesRaw.length===0, notes: notesRaw.map(t=>this.noteView(t,'inbox')) };
-  }
-
-  buildColumns(){
-    const C = this.themeConf();
-    const th = this.state.theme;
-    const dt = this.state.dropTarget;
-    return this.STATUS.map(col=>{
-      const notesRaw = this.tasksForStatus(col.key, this.state.drag? this.state.drag.task.id : null);
-      const isDrop = dt && dt.status===col.key;
-      const notes = notesRaw.map((t,idx)=>{ const v=this.noteView(t,'kanban'); v.gapBefore = !!(isDrop && dt.index===idx); return v; });
-      const panelBg = th==='cork'?'rgba(58,38,17,.40)':(th==='brutal'?'#fff':'rgba(255,255,255,.04)');
-      const headFg = th==='brutal'?'#111':C.toolbarFg;
-      return {
-        key:col.key, label:col.label, count:notesRaw.length,
-        style:{ flex:1, minWidth:0, minHeight:0, display:'flex', flexDirection:'column', background:panelBg,
-          border: th==='brutal'?'3px solid #111':(th==='glass'?'1px solid rgba(255,255,255,.09)':'1px solid rgba(0,0,0,.18)'),
-          borderRadius: th==='brutal'?'2px':'16px',
-          boxShadow: isDrop? ('inset 0 0 0 2px '+C.accent+', '+(th==='brutal'?'8px 8px 0 #111':'0 16px 36px rgba(0,0,0,.3)')) : (th==='brutal'?'6px 6px 0 #111':(th==='glass'?'0 24px 60px rgba(0,0,0,.4)':'0 10px 30px rgba(0,0,0,.18)')),
-          overflow:'hidden', backdropFilter: th==='glass'?'blur(12px)':'none', WebkitBackdropFilter: th==='glass'?'blur(12px)':'none', transition:'box-shadow .12s' },
-        accentBar:{ height:'4px', background:col.accent, flex:'none' },
-        head:{ display:'flex', alignItems:'center', gap:'9px', padding:'13px 15px 10px' },
-        dotStyle:{ width:'9px', height:'9px', borderRadius:'50%', background:col.accent, flex:'none', boxShadow:'0 0 0 3px '+col.accent+'33' },
-        labelStyle:{ fontFamily:C.ui, fontWeight:800, fontSize:'13px', letterSpacing:'.4px', textTransform:'uppercase', color:headFg },
-        countStyle:{ fontFamily:C.ui, fontSize:'12px', fontWeight:800, minWidth:'22px', height:'22px', padding:'0 7px', display:'grid', placeItems:'center', borderRadius:'20px', background: th==='brutal'?'#111':'rgba(128,128,128,.18)', color: th==='brutal'?'#fff':headFg },
-        onAdd:(e)=>{ e.stopPropagation(); this.openNew('inbox', col.key); },
-        addStyle:{ marginLeft:'auto', width:'25px', height:'25px', border:'none', borderRadius:'7px', cursor:'pointer', fontSize:'17px', lineHeight:1, display:'grid', placeItems:'center', background: th==='brutal'?'#111':'rgba(128,128,128,.16)', color: th==='brutal'?'#fff':headFg, padding:0 },
-        listStyle:{ flex:1, minHeight:0, overflow:'auto', display:'flex', flexDirection:'column', gap:'12px', padding:'10px 14px 14px' },
-        notes, gapEnd: !!(isDrop && dt.index>=notesRaw.length),
-        empty: notesRaw.length===0,
-        emptyStyle:{ fontFamily:C.ui, fontSize:'12.5px', lineHeight:1.5, color: th==='brutal'?'#9a9a9a':C.toolbarSub, textAlign:'center', padding:'26px 12px', border:'1.5px dashed '+(th==='brutal'?'#ccc':(th==='glass'?'rgba(255,255,255,.16)':'rgba(0,0,0,.16)')), borderRadius:'12px' }
-      };
-    });
-  }
-
-  /* ---------- editor ---------- */
-  buildEditor(){
-    const ed = this.state.editing; if(!ed) return null;
-    const C = this.themeConf();
-    const th = this.state.theme;
-    const dark = th==='glass';
-    const panelBg = dark? '#161a2e' : '#fffdf8';
-    const fg = dark? '#eaf0ff' : '#241c12';
-    const sub = dark? 'rgba(234,240,255,.5)' : 'rgba(60,42,18,.55)';
-    const fieldBg = dark? 'rgba(255,255,255,.05)' : '#f3efe6';
-    const border = dark? 'rgba(255,255,255,.12)' : 'rgba(60,42,18,.18)';
-    const isNew = !this.state.tasks.some(t=>t.id===ed.id);
-    const inputBase = { width:'100%', padding:'11px 13px', borderRadius:'10px', border:'1px solid '+border, background:fieldBg, color:fg, fontFamily:C.ui, fontSize:'14px', fontWeight:500 };
-
-    const colors = this.COLORS.map(k=>{ const P=this.PAPER[th][k]; const active=ed.color===k; const sw = th==='glass'? P.edge.replace(/[\d.]+\)$/,'.9)') : P.bg; return { key:k, onClick:()=>this.setEd({color:k}), style:{ width:'34px', height:'34px', borderRadius:'9px', cursor:'pointer', background:sw, border: active? '3px solid '+C.accent : '1px solid '+border, boxShadow: active?'0 0 0 2px '+panelBg+' inset':'none', padding:0 } }; });
-    const cats = Object.keys(this.CAT).map(k=>{ const c=this.CAT[k]; const active=ed.category===k; return { key:k, label:c.label, onClick:()=>this.setEd({category:k}), dot:{ width:'8px', height:'8px', borderRadius:'50%', background:c.dot, flex:'none' }, style:{ display:'flex', alignItems:'center', gap:'7px', padding:'7px 12px', borderRadius:'20px', cursor:'pointer', fontFamily:C.ui, fontSize:'12.5px', fontWeight:700, border:'1px solid '+(active?c.dot:border), background: active? c.dot+'22':'transparent', color:fg } }; });
-
-    const checklist = (ed.checklist||[]).map((it,i)=>({
-      id:it.id, text:it.text, mark: it.done?'✓':'',
-      box:{ width:'22px', height:'22px', flex:'none', display:'grid', placeItems:'center', borderRadius:'6px', cursor:'pointer', border:'1.5px solid '+border, background: it.done? C.accent:'transparent', color:'#fff', fontWeight:800, fontSize:'12px', padding:0 },
-      input:{ flex:1, padding:'8px 10px', borderRadius:'8px', border:'1px solid '+border, background:fieldBg, color:fg, fontFamily:C.ui, fontSize:'13px', textDecoration: it.done?'line-through':'none', opacity: it.done?.65:1 },
-      onToggle:()=> this.setEd({ checklist: ed.checklist.map((x,j)=> j===i? {...x,done:!x.done}:x) }),
-      onText:(e)=>{ const v=e.target.value; this.setEd({ checklist: ed.checklist.map((x,j)=> j===i? {...x,text:v}:x) }); },
-      onRemove:()=> this.setEd({ checklist: ed.checklist.filter((x,j)=>j!==i) })
-    }));
-
-    const addItem=()=>{ const t=(ed._new||'').trim(); if(!t) return; this.setEd({ checklist:[...(ed.checklist||[]), {id:this.uid('c'), text:t, done:false}], _new:'' }); };
-
-    const btn=(bg,fgc,extra)=> Object.assign({ padding:'10px 18px', borderRadius:'9px', border:'none', cursor:'pointer', fontFamily:C.ui, fontSize:'13.5px', fontWeight:800, background:bg, color:fgc }, extra||{});
-
-    return {
-      overlay:{ position:'fixed', inset:0, background:'rgba(10,8,4,.55)', backdropFilter:'blur(3px)', WebkitBackdropFilter:'blur(3px)', display:'grid', placeItems:'center', zIndex:9000, padding:'20px', animation:'fadeIn .15s ease' },
-      onBg:()=>this.setState({editing:null}), stop:(e)=>e.stopPropagation(),
-      panel:{ width:'min(520px,100%)', maxHeight:'90vh', overflow:'auto', background:panelBg, color:fg, borderRadius:'18px', padding:'22px', boxShadow:'0 40px 100px rgba(0,0,0,.5)', border:'1px solid '+border, fontFamily:C.ui, animation:'modalIn .2s cubic-bezier(.2,.8,.2,1)' },
-      headRow:{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'14px' },
-      kicker: isNew? 'New task' : 'Edit task',
-      kickerStyle:{},
-      closeBtn:{ width:'30px', height:'30px', border:'none', borderRadius:'8px', cursor:'pointer', background:fieldBg, color:fg, fontSize:'13px', padding:0 },
-      title: ed.title, onTitle:(e)=>this.setEd({title:e.target.value}),
-      titleInput:{ ...inputBase, fontSize:'17px', fontWeight:700, marginBottom:'10px' },
-      desc: ed.desc, onDesc:(e)=>this.setEd({desc:e.target.value}),
-      descInput:{ ...inputBase, minHeight:'62px', resize:'vertical', lineHeight:1.45 },
-      fieldLabel:{ fontSize:'11px', fontWeight:800, letterSpacing:'.7px', textTransform:'uppercase', color:sub, margin:'17px 0 9px' },
-      colors, cats, checklist,
-      statuses: this.STATUS.map(st=>{ const active=(ed.status||'todo')===st.key; return { key:st.key, label:st.label, onClick:()=>this.setEd({status:st.key, done:st.key==='done'}), dot:{ width:'8px', height:'8px', borderRadius:'50%', background:st.accent, flex:'none' }, style:{ display:'flex', alignItems:'center', gap:'7px', padding:'7px 13px', borderRadius:'20px', cursor:'pointer', fontFamily:C.ui, fontSize:'12.5px', fontWeight:700, border:'1px solid '+(active?st.accent:border), background: active? st.accent+'22':'transparent', color:fg } }; }),
-      itemRemove:{ width:'26px', height:'26px', flex:'none', border:'none', borderRadius:'7px', cursor:'pointer', background:'transparent', color:sub, fontSize:'12px', padding:0 },
-      addBox:{ width:'22px', height:'22px', flex:'none', display:'grid', placeItems:'center', borderRadius:'6px', border:'1px dashed '+border, color:sub, fontSize:'14px' },
-      newItem: ed._new||'', onNewItem:(e)=>this.setEd({_new:e.target.value}), onNewKey:(e)=>{ if(e.key==='Enter'){ e.preventDefault(); addItem(); } },
-      newInput:{ flex:1, padding:'8px 10px', borderRadius:'8px', border:'1px solid '+border, background:fieldBg, color:fg, fontFamily:C.ui, fontSize:'13px' },
-      day: (ed.day && ed.day.indexOf('-')>=0)? ed.day : '', onDay:(e)=>this.setEd({ day: e.target.value || 'inbox' }),
-      dateInput:{ padding:'9px 12px', borderRadius:'9px', border:'1px solid '+border, background:fieldBg, color:fg, fontFamily:C.ui, fontSize:'13px', fontWeight:600, colorScheme: dark?'dark':'light' },
-      onInbox:()=>this.setEd({day:'inbox'}), inboxActive: ed.day==='inbox', inboxLabel: ed.day==='inbox'?'✓ Inbox':'Send to inbox',
-      inboxBtn:{ padding:'9px 14px', borderRadius:'9px', cursor:'pointer', fontFamily:C.ui, fontSize:'12.5px', fontWeight:700, border:'1px solid '+(ed.day==='inbox'?C.accent:border), background: ed.day==='inbox'? C.accent+'22':'transparent', color:fg },
-      onDone:()=>this.setEd({done:!ed.done}), doneLabel: ed.done?'✓ Completed':'Mark complete',
-      doneBtn:{ padding:'9px 14px', borderRadius:'9px', cursor:'pointer', fontFamily:C.ui, fontSize:'12.5px', fontWeight:700, border:'1px solid '+(ed.done?'#16a34a':border), background: ed.done? 'rgba(22,163,74,.16)':'transparent', color: ed.done? (dark?'#86efac':'#15803d'):fg },
-      footer:{ display:'flex', alignItems:'center', gap:'10px', marginTop:'22px', paddingTop:'16px', borderTop:'1px solid '+border },
-      canDelete: !isNew, onDelete:()=>this.deleteTask(), deleteBtn: btn('transparent','#e0524a',{ border:'1px solid '+border }),
-      onClose:()=>this.setState({editing:null}), cancelBtn: btn(fieldBg,fg),
-      onSave:()=>this.saveEdit(), saveLabel: isNew?'Add task':'Save', saveBtn: btn(C.accent,C.accentFg,{ opacity:(ed.title||'').trim()?1:.5 })
-    };
-  }
-
-  renderVals(){
-    const ui = this.buildUI();
-    const cellsData = this.buildCells();
-    return {
-      ui,
-      weekdays: cellsData.weekdays,
-      cells: cellsData.cells,
-      columns: this.buildColumns(),
-      inbox: this.buildInbox(),
-      ghost: this.buildGhost(),
-      editor: this.buildEditor(),
-      onPrev: ()=> this.setState(s=>{ let m=s.viewM-1,y=s.viewY; if(m<0){m=11;y--;} return {viewM:m,viewY:y}; }),
-      onNext: ()=> this.setState(s=>{ let m=s.viewM+1,y=s.viewY; if(m>11){m=0;y++;} return {viewM:m,viewY:y}; }),
-      onToday: ()=>{ const d=new Date(); this.setState({viewM:d.getMonth(), viewY:d.getFullYear()}); },
-      onAddInbox: ()=> this.openNew('inbox')
-    };
-  }
-}
-</script>
-</body>
+    </script>
+  </body>
 </html>

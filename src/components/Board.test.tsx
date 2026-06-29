@@ -20,6 +20,10 @@ function Harness() {
         onDelete={(id) => setTasks((p) => p.filter((x) => x.id !== id))}
         onToggleDone={(id) => setTasks((p) => applyToggleDone(p, id).tasks)}
         persistReorder={(next) => setTasks(next)}
+        getTemplate={() => undefined}
+        updateSeries={() => {}}
+        deleteOccurrence={() => {}}
+        deleteSeriesFuture={() => {}}
       />
     </ThemeProvider>
   )

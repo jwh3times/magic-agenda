@@ -1,4 +1,4 @@
-import type { Category, Color, Status, Task } from '../types/task'
+import { NO_RECUR, type Category, type Color, type Status, type Task } from '../types/task'
 import { addDays, ymd } from '../lib/dates'
 
 let seq = 1000
@@ -30,6 +30,7 @@ function mk(o: MkInput): Task {
     day: o.day,
     order: o.o ?? 0,
     korder: o.ko ?? o.o ?? 0,
+    ...NO_RECUR,
   }
 }
 

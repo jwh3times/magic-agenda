@@ -30,7 +30,30 @@ export interface Task {
   order: number
   /** Order within a status column (kanban view). */
   korder: number
+
+  // Recurrence. A template carries recurFreq != 'none' and recurParentId === null and is hidden
+  // from the board; its materialized instances carry recurFreq 'none' and recurParentId = template id.
+  recurFreq: RecurFreq
+  recurInterval: number
+  recurUntil: string | null
+  recurParentId: string | null
+  /** Dates (YYYY-MM-DD) of deleted occurrences — never regenerated (templates only). */
+  recurSkip: string[]
 }
 
 /** The sentinel used throughout app + dnd logic for an unscheduled task. */
 export const INBOX = 'inbox'
+
+/** Default (non-recurring) recurrence fields — spread into task constructors. */
+export const NO_RECUR = {
+  recurFreq: 'none' as RecurFreq,
+  recurInterval: 1,
+  recurUntil: null as string | null,
+  recurParentId: null as string | null,
+  recurSkip: [] as string[],
+}
+
+/** A task is a hidden recurrence template when it bears a rule and has no parent. */
+export function isTemplate(t: Pick<Task, 'recurFreq' | 'recurParentId'>): boolean {
+  return t.recurFreq !== 'none' && !t.recurParentId
+}

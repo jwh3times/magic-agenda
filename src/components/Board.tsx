@@ -14,12 +14,12 @@ import { WeekView } from './WeekView'
 import { AgendaView } from './AgendaView'
 import { Inbox } from './Inbox'
 import { KanbanView } from './KanbanView'
-import { TaskEditor } from './TaskEditor'
+import { TaskEditor, type RecurScope } from './TaskEditor'
 import { SearchFilterBar } from './SearchFilterBar'
 import { applyFilters, isFilterActive, EMPTY_FILTER, type FilterQuery } from '../data/filters'
 import type { ViewOption } from './ViewSwitcher'
 import type { BoardHandlers, PopId } from './boardHandlers'
-import type { Status, Task, ViewName } from '../types/task'
+import { NO_RECUR, type Status, type Task, type ViewName } from '../types/task'
 
 interface Editing {
   task: Task
@@ -35,6 +35,10 @@ export interface BoardProps {
   onDelete: (id: string) => void
   onToggleDone: (id: string) => void
   persistReorder: (next: Task[], containers: string[], mode: Mode) => void
+  getTemplate: (parentId: string) => Task | undefined
+  updateSeries: (instance: Task, draft: Task) => void
+  deleteOccurrence: (instance: Task) => void
+  deleteSeriesFuture: (instance: Task) => void
   initialView?: ViewName
   onViewChange?: (v: ViewName) => void
   onSignOut?: () => void
@@ -60,6 +64,7 @@ function newTaskTemplate(day: string, status: Status): Task {
     day,
     order: 9999,
     korder: 9999,
+    ...NO_RECUR,
   }
 }
 
@@ -71,6 +76,10 @@ export function Board({
   onDelete,
   onToggleDone,
   persistReorder,
+  getTemplate,
+  updateSeries,
+  deleteOccurrence,
+  deleteSeriesFuture,
   initialView,
   onViewChange,
   onSignOut,
@@ -105,19 +114,51 @@ export function Board({
     onToggleDone(id)
   }
 
-  const handleSave = (task: Task) => {
-    if (editing?.isNew) onCreate(task)
-    else onUpdate(task)
+  const handleSave = (task: Task, scope?: RecurScope) => {
+    const orig = editing?.task
+    if (editing?.isNew) {
+      onCreate(task) // createTask spawns a series if the task carries a rule
+    } else if (orig?.recurParentId && scope === 'future') {
+      updateSeries(orig, task)
+    } else if (orig?.recurParentId) {
+      // "this occurrence": update just this instance, never persisting a rule onto it
+      onUpdate({
+        ...task,
+        recurFreq: 'none',
+        recurInterval: 1,
+        recurUntil: null,
+        recurParentId: orig.recurParentId,
+      })
+    } else {
+      onUpdate(task) // non-recurring (updateTask converts it to a series if a rule was added)
+    }
     setEditing(null)
   }
 
-  const handleDelete = (id: string) => {
-    onDelete(id)
+  const handleDelete = (task: Task, scope?: RecurScope) => {
+    if (task.recurParentId && scope === 'future') deleteSeriesFuture(task)
+    else if (task.recurParentId && scope === 'this') deleteOccurrence(task)
+    else onDelete(task.id)
     setEditing(null)
+  }
+
+  const openTask = (task: Task) => {
+    let t = task
+    if (task.recurParentId) {
+      const tmpl = getTemplate(task.recurParentId)
+      if (tmpl)
+        t = {
+          ...task,
+          recurFreq: tmpl.recurFreq,
+          recurInterval: tmpl.recurInterval,
+          recurUntil: tmpl.recurUntil,
+        }
+    }
+    setEditing({ task: t, isNew: false })
   }
 
   const handlers: BoardHandlers = {
-    onOpen: (task) => setEditing({ task, isNew: false }),
+    onOpen: openTask,
     onToggleDone: handleToggle,
     onAddDay: (dateStr) => setEditing({ task: newTaskTemplate(dateStr, 'todo'), isNew: true }),
     onAddInbox: () => setEditing({ task: newTaskTemplate('inbox', 'todo'), isNew: true }),
