@@ -16,16 +16,20 @@ npm run dev
 
 ## Workflow
 
+`main` is protected: **no direct pushes** — every change lands through a Pull Request whose checks pass.
+
 1. **Open an issue first** for non‑trivial changes so we can agree on the approach.
-2. Fork the repo and create a branch from `main` (e.g. `feat/week-view-keyboard-nav`).
+2. Create a branch from `main` (e.g. `feat/week-view-keyboard-nav`).
 3. Make your change with tests (see below).
-4. Ensure everything is green locally:
+4. Ensure everything is green locally — these mirror the required CI checks:
    ```bash
-   npm run lint
-   npm test
-   npm run build
+   npm run format:check && npm run lint   # the "Format" check
+   npm test                               # the "Test" check
+   npm run build                          # the "Build" check
    ```
-5. Open a Pull Request against `main` and fill in the template. CI must pass.
+5. Open a Pull Request against `main` and fill in the template. The **`Format`, `Test`, and `Build`**
+   checks plus **CodeQL** must pass and any review threads must be resolved before it can merge — no
+   approvals are required, so you can self‑merge once it's green.
 
 ## Standards
 
@@ -33,8 +37,8 @@ npm run dev
   prefer **test‑first** for new behaviour and bug fixes (write a failing test, then make it pass).
   Reproduce bugs with a failing test before fixing.
 - **TypeScript strict** — no `any` escape hatches without good reason; `npm run build` type‑checks.
-- **Formatting & linting** — Prettier + ESLint. Run `npm run format` before committing; `npm run lint`
-  must pass.
+- **Formatting & linting** — Prettier + ESLint. Run `npm run format` before committing; `npm run
+  format:check` and `npm run lint` must both pass (together they are the CI `Format` check).
 - **Styling model** — the UI uses per‑theme inline style objects (ported from the prototype), not a CSS
   framework. Match the surrounding code; keep theme branching in `src/theme`.
 - **Commits** — clear, imperative messages ("Add week keyboard navigation"). Keep PRs focused.

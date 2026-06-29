@@ -33,6 +33,17 @@ few days and will coordinate a fix and disclosure timeline with you.
 - **Auth redirect allow‑list.** Supabase Auth only redirects to allow‑listed URLs; keep the list tight
   (production domain, preview hosts, localhost).
 
+## Automated safeguards
+
+This repository runs several automated checks (configured in `.github/`):
+
+- **CodeQL code scanning** (default setup) — findings surface on PRs; the `main` branch ruleset blocks
+  merging on medium‑or‑higher severity.
+- **Secret scanning + push protection** — blocks commits containing known secret formats.
+- **Dependabot** — daily dependency + GitHub Actions update PRs, plus security alerts and updates.
+- **Branch protection** — `main` is PR‑only; the `Format` / `Test` / `Build` CI checks and CodeQL must
+  pass before a PR can merge.
+
 ## Responsible disclosure
 
 We will not pursue legal action against good‑faith security research that respects user privacy, avoids

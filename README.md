@@ -104,6 +104,7 @@ npm run dev      # start the dev server at http://localhost:5173
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run lint` | Lint with ESLint |
 | `npm run format` | Format with Prettier |
+| `npm run format:check` | Check formatting without writing (run in CI) |
 
 ## Project structure
 
@@ -133,9 +134,13 @@ design/                the original prototype (reference only — not built)
 
 ## Deployment
 
-Pushing to `main` triggers a [Cloudflare Pages](https://pages.cloudflare.com) build (framework preset
-**Vite**, build `npm run build`, output `dist`). The `VITE_SUPABASE_*` variables are set in the Pages
-project for Production and Preview. `public/_redirects` provides the SPA deep‑link fallback.
+[Cloudflare Pages](https://pages.cloudflare.com) builds and deploys `main` (framework preset **Vite**,
+build `npm run build`, output `dist`). The `VITE_SUPABASE_*` variables are set in the Pages project for
+Production and Preview, and `public/_redirects` provides the SPA deep‑link fallback.
+
+`main` is **protected** — it's PR‑only (no direct pushes), and a PR can't merge until the CI checks
+(`Format`, `Test`, `Build`) and CodeQL pass. Because Cloudflare deploys `main`, **production only ships
+after a PR closes with all checks green.** See [CONTRIBUTING.md](./CONTRIBUTING.md) for the workflow.
 
 ## Contributing
 
