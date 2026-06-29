@@ -84,4 +84,10 @@ describe('cardStyles', () => {
     })
     expect(cardStyles('glass', t, 'inbox').barFill.width).toBe('50%')
   })
+
+  it('uses the textDecorationLine longhand (no shorthand/longhand mix)', () => {
+    const s = cardStyles('cork', task({ status: 'done' }), 'cell')
+    expect(s.titleStyle.textDecorationLine).toBe('line-through')
+    expect('textDecoration' in s.titleStyle).toBe(false)
+  })
 })
