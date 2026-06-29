@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
+import logoDark from '../assets/logo-dark.svg'
 
 type Mode = 'signin' | 'signup'
 
@@ -85,9 +86,11 @@ export function Login() {
           WebkitBackdropFilter: 'blur(12px)',
         }}
       >
-        <h1 style={{ fontFamily: "'Caveat', cursive", fontSize: 40, margin: '0 0 2px' }}>
-          Magic Agenda
-        </h1>
+        <img
+          src={logoDark}
+          alt="Magic Agenda"
+          style={{ height: 48, display: 'block', margin: '0 0 6px' }}
+        />
         <p style={{ margin: '0 0 22px', opacity: 0.55, fontSize: 14 }}>
           {mode === 'signin' ? 'Welcome back — sign in to your board.' : 'Create your account.'}
         </p>

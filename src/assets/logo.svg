@@ -1,0 +1,37 @@
+<svg width="900" height="260" viewBox="0 0 900 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Magic Agenda logo">
+  <defs>
+    <linearGradient id="tile2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7A4FE0"/>
+      <stop offset="1" stop-color="#4A2A86"/>
+    </linearGradient>
+    <linearGradient id="spark2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFD46B"/>
+      <stop offset="1" stop-color="#FFA920"/>
+    </linearGradient>
+    <filter id="soft2" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+  </defs>
+
+  <g transform="translate(20,30)">
+    <rect x="0" y="0" width="200" height="200" rx="48" fill="url(#tile2)"/>
+    <g transform="rotate(-8 100 104) translate(0 7)">
+      <rect x="58" y="60" width="86" height="92" rx="11" fill="#1E0F45" fill-opacity="0.32" filter="url(#soft2)"/>
+    </g>
+    <g transform="rotate(-8 100 104)">
+      <rect x="58" y="60" width="86" height="92" rx="11" fill="#FFFDF6"/>
+      <rect x="70" y="80" width="50" height="8" rx="4" fill="#FFB020"/>
+      <rect x="70" y="97" width="62" height="7" rx="3.5" fill="#D9D2EA"/>
+      <rect x="70" y="112" width="50" height="7" rx="3.5" fill="#D9D2EA"/>
+      <rect x="70" y="128" width="13" height="13" rx="3.5" fill="#EFE9FA"/>
+      <path d="M73 134.5 l3 3 l4.5 -6" fill="none" stroke="#7A4FE0" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <path d="M150 48 Q150 68 170 68 Q150 68 150 88 Q150 68 130 68 Q150 68 150 48 Z" fill="url(#spark2)"/>
+    <path d="M132 36 Q132 44 140 44 Q132 44 132 52 Q132 44 124 44 Q132 44 132 36 Z" fill="#FFE39A"/>
+  </g>
+
+  <text x="252" y="158" font-family="Poppins, 'Segoe UI', system-ui, sans-serif" font-size="88" font-weight="700" letter-spacing="-2">
+    <tspan fill="#6B3FD4">magic</tspan><tspan fill="#231B36">agenda</tspan>
+  </text>
+  <text x="256" y="200" font-family="Poppins, 'Segoe UI', system-ui, sans-serif" font-size="26" font-weight="500" letter-spacing="1" fill="#9A8FB5">plan it like magic</text>
+</svg>

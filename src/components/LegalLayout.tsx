@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
+import logoDark from '../assets/logo-dark.svg'
 
 const link: CSSProperties = { color: '#a78bfa', textDecoration: 'none' }
 
@@ -23,8 +24,8 @@ export function LegalLayout({
       }}
     >
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
-        <a href="/" style={{ ...link, fontSize: 14 }}>
-          ← Magic Agenda
+        <a href="/" aria-label="Magic Agenda home" style={{ display: 'inline-block' }}>
+          <img src={logoDark} alt="Magic Agenda" style={{ height: 30, display: 'block' }} />
         </a>
         <h1 style={{ fontFamily: "'Caveat', cursive", fontSize: 44, margin: '18px 0 2px' }}>
           {title}

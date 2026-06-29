@@ -2,6 +2,7 @@ import { useTheme } from '../theme/ThemeProvider'
 import { toolbarChrome } from '../theme/chrome'
 import { ViewSwitcher, type ViewOption } from './ViewSwitcher'
 import { ThemeSwitcher } from './ThemeSwitcher'
+import logoDark from '../assets/logo-dark.svg'
 import type { ViewName } from '../types/task'
 
 export interface ToolbarProps {
@@ -34,7 +35,11 @@ export function Toolbar({
   return (
     <div style={c.toolbar}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 }}>
-        <div style={c.brand}>{conf.appName}</div>
+        <img
+          src={logoDark}
+          alt="Magic Agenda"
+          style={{ height: 30, display: 'block', flex: 'none' }}
+        />
         <ViewSwitcher views={views} view={view} onChange={onChangeView} />
         {showNav && (
           <div style={c.navGroup}>
