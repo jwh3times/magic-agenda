@@ -1,7 +1,8 @@
 import { useTheme } from '../theme/ThemeProvider'
 import { columnChrome } from '../theme/chrome'
 import { tasksForStatus } from '../data/selectors'
-import { TaskCard } from './TaskCard'
+import { DropLane } from '../dnd/DropLane'
+import { SortableCard } from '../dnd/SortableCard'
 import type { StatusDef } from '../theme/constants'
 import type { Task } from '../types/task'
 import type { BoardHandlers, PopId } from './boardHandlers'
@@ -29,6 +30,7 @@ export function Column({ col, tasks, handlers, pop, isDrop = false }: ColumnProp
         <button
           type="button"
           style={c.addStyle}
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation()
             handlers.onAddStatus(col.key)
@@ -37,9 +39,9 @@ export function Column({ col, tasks, handlers, pop, isDrop = false }: ColumnProp
           +
         </button>
       </div>
-      <div style={c.listStyle}>
+      <DropLane id={col.key} itemIds={notes.map((n) => n.id)} style={c.listStyle}>
         {notes.map((t) => (
-          <TaskCard
+          <SortableCard
             key={t.id}
             task={t}
             variant="kanban"
@@ -49,7 +51,7 @@ export function Column({ col, tasks, handlers, pop, isDrop = false }: ColumnProp
           />
         ))}
         {notes.length === 0 && <div style={c.emptyStyle}>Drop tasks here</div>}
-      </div>
+      </DropLane>
     </div>
   )
 }

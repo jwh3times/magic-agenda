@@ -1,6 +1,7 @@
 import { useTheme } from '../theme/ThemeProvider'
 import { cellChrome } from '../theme/chrome'
-import { TaskCard } from './TaskCard'
+import { DropLane } from '../dnd/DropLane'
+import { SortableCard } from '../dnd/SortableCard'
 import type { CellMeta } from '../data/selectors'
 import type { Task } from '../types/task'
 import type { BoardHandlers, PopId } from './boardHandlers'
@@ -10,7 +11,7 @@ export interface DayCellProps {
   notes: Task[]
   handlers: BoardHandlers
   pop: PopId
-  /** True while a drag is hovering this cell (Phase 4). */
+  /** True while a drag is hovering this cell (Phase 11 gap indicator). */
   isDrop?: boolean
 }
 
@@ -24,6 +25,7 @@ export function DayCell({ meta, notes, handlers, pop, isDrop = false }: DayCellP
         <button
           type="button"
           style={c.addStyle}
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation()
             handlers.onAddDay(meta.dateStr)
@@ -32,9 +34,9 @@ export function DayCell({ meta, notes, handlers, pop, isDrop = false }: DayCellP
           +
         </button>
       </div>
-      <div style={c.notesWrap}>
+      <DropLane id={meta.dateStr} itemIds={notes.map((n) => n.id)} style={c.notesWrap}>
         {notes.map((t) => (
-          <TaskCard
+          <SortableCard
             key={t.id}
             task={t}
             variant="cell"
@@ -43,7 +45,7 @@ export function DayCell({ meta, notes, handlers, pop, isDrop = false }: DayCellP
             onToggleDone={handlers.onToggleDone}
           />
         ))}
-      </div>
+      </DropLane>
     </div>
   )
 }

@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
+import { DndContext, DragOverlay } from '@dnd-kit/core'
 import { useTheme } from '../theme/ThemeProvider'
 import { rootStyle, blobStyles } from '../theme/chrome'
 import { MONTHS_LONG } from '../lib/dates'
 import { applyToggleDone } from '../data/selectors'
 import { makeMockTasks } from '../data/mockTasks'
+import { useBoardDnd } from '../dnd/useBoardDnd'
+import { CardOverlay } from '../dnd/CardOverlay'
 import { Toolbar } from './Toolbar'
 import { CalendarView } from './CalendarView'
 import { Inbox } from './Inbox'
@@ -26,6 +29,8 @@ export function Board() {
   const [viewM, setViewM] = useState(now.getMonth())
   const [pop, setPop] = useState<PopId>(null)
   const popTimer = useRef<number | undefined>(undefined)
+
+  const dnd = useBoardDnd(view, tasks, setTasks)
 
   useEffect(() => () => window.clearTimeout(popTimer.current), [])
 
@@ -91,26 +96,39 @@ export function Board() {
         onAddInbox={handlers.onAddInbox}
       />
 
-      <div
-        style={{
-          display: 'flex',
-          gap: 18,
-          flex: 1,
-          minHeight: 0,
-          padding: '18px 22px 22px',
-          position: 'relative',
-          zIndex: 1,
-        }}
+      <DndContext
+        sensors={dnd.sensors}
+        collisionDetection={dnd.collisionDetection}
+        onDragStart={dnd.onDragStart}
+        onDragOver={dnd.onDragOver}
+        onDragEnd={dnd.onDragEnd}
+        onDragCancel={dnd.onDragCancel}
       >
-        {view === 'kanban' ? (
-          <KanbanView tasks={tasks} handlers={handlers} pop={pop} />
-        ) : (
-          <div style={{ display: 'flex', gap: 18, flex: 1, minHeight: 0, width: '100%' }}>
-            <CalendarView viewY={viewY} viewM={viewM} tasks={tasks} handlers={handlers} pop={pop} />
-            <Inbox tasks={tasks} handlers={handlers} pop={pop} />
-          </div>
-        )}
-      </div>
+        <div
+          style={{
+            display: 'flex',
+            gap: 18,
+            flex: 1,
+            minHeight: 0,
+            padding: '18px 22px 22px',
+            position: 'relative',
+            zIndex: 1,
+          }}
+        >
+          {view === 'kanban' ? (
+            <KanbanView tasks={tasks} handlers={handlers} pop={pop} />
+          ) : (
+            <div style={{ display: 'flex', gap: 18, flex: 1, minHeight: 0, width: '100%' }}>
+              <CalendarView viewY={viewY} viewM={viewM} tasks={tasks} handlers={handlers} pop={pop} />
+              <Inbox tasks={tasks} handlers={handlers} pop={pop} />
+            </div>
+          )}
+        </div>
+
+        <DragOverlay>
+          {dnd.activeTask ? <CardOverlay task={dnd.activeTask} width={dnd.activeWidth} /> : null}
+        </DragOverlay>
+      </DndContext>
     </div>
   )
 }

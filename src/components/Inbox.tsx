@@ -1,7 +1,8 @@
 import { useTheme } from '../theme/ThemeProvider'
 import { inboxChrome } from '../theme/chrome'
 import { notesForDay } from '../data/selectors'
-import { TaskCard } from './TaskCard'
+import { DropLane } from '../dnd/DropLane'
+import { SortableCard } from '../dnd/SortableCard'
 import { INBOX, type Task } from '../types/task'
 import type { BoardHandlers, PopId } from './boardHandlers'
 
@@ -23,9 +24,9 @@ export function Inbox({ tasks, handlers, pop }: InboxProps) {
         <span style={c.inboxCount}>{notes.length}</span>
       </div>
       <div style={c.inboxHint}>Unscheduled · drag onto a day</div>
-      <div style={c.inboxList}>
+      <DropLane id={INBOX} itemIds={notes.map((n) => n.id)} style={c.inboxList}>
         {notes.map((t) => (
-          <TaskCard
+          <SortableCard
             key={t.id}
             task={t}
             variant="inbox"
@@ -39,7 +40,7 @@ export function Inbox({ tasks, handlers, pop }: InboxProps) {
             Nothing here. Drag a note in to park it, or hit “+ New task”.
           </div>
         )}
-      </div>
+      </DropLane>
       <button type="button" style={c.inboxAdd} onClick={handlers.onAddInbox}>
         + Add to inbox
       </button>

@@ -62,6 +62,7 @@ export function TaskCard({
         <button
           type="button"
           aria-label={done ? 'Mark not done' : 'Mark done'}
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation()
             onToggleDone?.(task.id)
