@@ -7,13 +7,36 @@ import { applyToggleDone } from '../data/selectors'
 import { makeMockTasks } from '../data/mockTasks'
 import { useBoardDnd } from '../dnd/useBoardDnd'
 import { CardOverlay } from '../dnd/CardOverlay'
+import { newId } from '../lib/id'
 import { Toolbar } from './Toolbar'
 import { CalendarView } from './CalendarView'
 import { Inbox } from './Inbox'
 import { KanbanView } from './KanbanView'
+import { TaskEditor } from './TaskEditor'
 import type { ViewOption } from './ViewSwitcher'
 import type { BoardHandlers, PopId } from './boardHandlers'
-import type { ViewName } from '../types/task'
+import type { Status, Task, ViewName } from '../types/task'
+
+interface Editing {
+  task: Task
+  isNew: boolean
+}
+
+function newTaskTemplate(day: string, status: Status): Task {
+  return {
+    id: newId(),
+    title: '',
+    description: '',
+    category: 'work',
+    color: 'yellow',
+    checklist: [],
+    status,
+    done: status === 'done',
+    day,
+    order: 9999,
+    korder: 9999,
+  }
+}
 
 const VIEWS: ViewOption[] = [
   { key: 'calendar', label: 'Calendar' },
@@ -28,6 +51,7 @@ export function Board() {
   const [viewY, setViewY] = useState(now.getFullYear())
   const [viewM, setViewM] = useState(now.getMonth())
   const [pop, setPop] = useState<PopId>(null)
+  const [editing, setEditing] = useState<Editing | null>(null)
   const popTimer = useRef<number | undefined>(undefined)
 
   const dnd = useBoardDnd(view, tasks, setTasks)
@@ -46,13 +70,29 @@ export function Board() {
     })
   }
 
-  // Editor opens are wired in Phase 5; the add buttons + card clicks are inert for now.
+  const saveTask = (task: Task) => {
+    setTasks((prev) => {
+      const exists = prev.some((t) => t.id === task.id)
+      if (exists) return prev.map((t) => (t.id === task.id ? task : t))
+      const order = prev.filter((t) => t.day === task.day).reduce((m, t) => Math.max(m, t.order), -1) + 1
+      const korder =
+        prev.filter((t) => t.status === task.status).reduce((m, t) => Math.max(m, t.korder), -1) + 1
+      return [...prev, { ...task, order, korder }]
+    })
+    setEditing(null)
+  }
+
+  const deleteTask = (id: string) => {
+    setTasks((prev) => prev.filter((t) => t.id !== id))
+    setEditing(null)
+  }
+
   const handlers: BoardHandlers = {
-    onOpen: () => {},
+    onOpen: (task) => setEditing({ task, isNew: false }),
     onToggleDone: toggleDone,
-    onAddDay: () => {},
-    onAddInbox: () => {},
-    onAddStatus: () => {},
+    onAddDay: (dateStr) => setEditing({ task: newTaskTemplate(dateStr, 'todo'), isNew: true }),
+    onAddInbox: () => setEditing({ task: newTaskTemplate('inbox', 'todo'), isNew: true }),
+    onAddStatus: (status) => setEditing({ task: newTaskTemplate('inbox', status), isNew: true }),
   }
 
   const isCalendar = view === 'calendar'
@@ -129,6 +169,17 @@ export function Board() {
           {dnd.activeTask ? <CardOverlay task={dnd.activeTask} width={dnd.activeWidth} /> : null}
         </DragOverlay>
       </DndContext>
+
+      {editing && (
+        <TaskEditor
+          key={editing.task.id}
+          initial={editing.task}
+          isNew={editing.isNew}
+          onSave={saveTask}
+          onDelete={deleteTask}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </div>
   )
 }

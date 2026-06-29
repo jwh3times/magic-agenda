@@ -24,3 +24,26 @@ test('switches between Calendar and Board (kanban) views', async () => {
   await user.click(screen.getByRole('button', { name: 'Calendar' }))
   expect(screen.getByText('Inbox')).toBeInTheDocument()
 })
+
+test('+ New task creates a task via the editor', async () => {
+  const user = userEvent.setup()
+  render(<App />)
+
+  await user.click(screen.getByRole('button', { name: '+ New task' }))
+  const title = screen.getByPlaceholderText('Task title…')
+  await user.type(title, 'Water the plants')
+  await user.click(screen.getByRole('button', { name: 'Add task' }))
+
+  // Modal closed and the new task is on the board.
+  expect(screen.queryByPlaceholderText('Task title…')).not.toBeInTheDocument()
+  expect(screen.getByText('Water the plants')).toBeInTheDocument()
+})
+
+test('clicking a card opens the editor prefilled', async () => {
+  const user = userEvent.setup()
+  render(<App />)
+
+  await user.click(screen.getByText('Finish Q3 deck'))
+  expect(screen.getByDisplayValue('Finish Q3 deck')).toBeInTheDocument()
+  expect(screen.getByText('Edit task')).toBeInTheDocument()
+})
