@@ -1,0 +1,6 @@
+# Reference artifacts — not our source; keep them byte-for-byte as committed.
+design/
+
+# Build output / deps
+dist/
+node_modules/
