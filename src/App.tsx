@@ -5,6 +5,8 @@ import { ProtectedRoute } from './auth/ProtectedRoute'
 import { Spinner } from './components/Spinner'
 import { Login } from './pages/Login'
 import { AuthCallback } from './pages/AuthCallback'
+import { Privacy } from './pages/Privacy'
+import { Terms } from './pages/Terms'
 
 // The board pulls in dnd-kit, every view, the editor, and the Supabase data layer —
 // lazy-load it so the login/auth path stays a small initial bundle.
@@ -17,6 +19,8 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
           <Route
             path="/"
             element={

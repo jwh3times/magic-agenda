@@ -10,7 +10,8 @@ npm run build          # tsc -b (typecheck) && vite build -> dist/
 npm test               # vitest run (all tests once)
 npm run test:watch     # vitest watch mode
 npm run lint           # eslint
-npm run format         # prettier (src only; design/ is .prettierignore'd)
+npm run format         # prettier --write (src only; design/ is .prettierignore'd)
+npm run format:check   # prettier --check (the CI "Format" job runs this + lint)
 
 # Run one test file or one test by name:
 npx vitest run src/dnd/reorder.test.ts
@@ -25,7 +26,10 @@ Tests are hermetic — `vite.config.ts` injects dummy `VITE_SUPABASE_*` env, so 
 project. Local dev needs a real `.env.local` (copy `.env.example`); `src/lib/supabase.ts` throws at
 startup if the two `VITE_SUPABASE_*` vars are missing.
 
-Deploy = push to `main`; Cloudflare Pages auto-builds (`npm run build` → `dist`). `VITE_*` vars are
+`main` is **protected — PR-only, no direct pushes** (no admin bypass). Land changes via a branch + PR;
+the `Format` / `Test` / `Build` checks and CodeQL must pass and review threads resolve before merge (0
+approvals required, so you can self-merge once green). Cloudflare Pages builds & deploys `main`
+(`npm run build` → `dist`), so production only ships after a checks-passing merge. `VITE_*` vars are
 inlined at **build time**, so they must be set in the Pages project, not just locally.
 
 ## Architecture (the parts that span multiple files)

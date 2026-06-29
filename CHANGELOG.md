@@ -6,6 +6,26 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-06-29
+
+### Added
+
+- **Legal pages** — Privacy Policy and Terms of Service, linked from the app. (#14)
+- **Branding** — wordmark/logo, social (Open Graph / Twitter) meta tags, and app icons/favicons. (#15)
+
+### Fixed
+
+- **Theme and default‑view preferences now persist.** Changing the theme or default view updated local
+  state but never reached the database: the Supabase `user_settings` upsert was built but never executed
+  (a query builder only issues its request when awaited / `.then`‑ed), so the preference reset to Cork /
+  Calendar on every reload. The write now fires and logs failures.
+- **Larger logo** in the toolbar and on the login screen. (#16)
+
+### Internal
+
+- CI split into separate **Format / Test / Build** jobs; added Dependabot and a `CLAUDE.md` contributor
+  guide.
+
 ## [1.0.0] - 2026-06-29
 
 Initial public release — [magicagenda.app](https://magicagenda.app).
@@ -33,5 +53,6 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/jwh3times/magic-agenda/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/jwh3times/magic-agenda/releases/tag/v1.0.0
