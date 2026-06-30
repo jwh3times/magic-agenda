@@ -7,8 +7,8 @@ Magic Agenda is a continuously deployed web app; the latest release on `main` (a
 
 | Version | Supported |
 | --- | --- |
-| 1.0.x (latest) | ✅ |
-| < 1.0 | ❌ |
+| 1.1.x (latest) | ✅ |
+| < 1.1 | ❌ |
 
 ## Reporting a vulnerability
 

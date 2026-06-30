@@ -6,6 +6,23 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-06-29
+
+Maintenance release — dependency and toolchain modernization. No user‑facing feature or behavior
+changes; the app already ran cleanly on the new versions.
+
+### Internal
+
+- **React 18 → 19** — `react`, `react-dom`, and their `@types` upgraded together (one atomic bump, since
+  the pair must move in lockstep); no source changes required (the app was already on `createRoot`). (#21)
+- **TypeScript 5.9 → 6.0.** (#9)
+- **ESLint 9 → 10** — `eslint`, `@eslint/js`, and `eslint-plugin-react-hooks` bumped atomically. (#20)
+- **`@dnd-kit/sortable` 8 → 10.** (#11)
+- **Test/lint tooling** — `jsdom` 25 → 29 (#10) and `globals` 15 → 17 (#6), plus a grouped batch of
+  minor/patch updates. (#18)
+- **CI on Node 26** with an `engines` field (`node >=26`) now declared; `actions/checkout` 4 → 7 and
+  `actions/setup-node` 4 → 6. (#19, #2, #1)
+
 ## [1.0.1] - 2026-06-29
 
 ### Added
@@ -53,6 +70,7 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/jwh3times/magic-agenda/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/jwh3times/magic-agenda/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/jwh3times/magic-agenda/releases/tag/v1.0.0

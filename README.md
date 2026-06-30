@@ -30,7 +30,7 @@ of three hand‑built themes.
 
 | Area | Choice |
 | --- | --- |
-| Frontend | [Vite](https://vite.dev) + [React](https://react.dev) 18 + TypeScript (SPA, React Router) |
+| Frontend | [Vite](https://vite.dev) + [React](https://react.dev) 19 + TypeScript (SPA, React Router) |
 | Backend | [Supabase](https://supabase.com) — Postgres + Auth + Row‑Level Security |
 | Drag & drop | `@dnd-kit/core` + `@dnd-kit/sortable` |
 | Hosting | [Cloudflare Pages](https://pages.cloudflare.com) (static SPA, auto‑deploy from GitHub) |
@@ -40,7 +40,7 @@ of three hand‑built themes.
 
 ### Prerequisites
 
-- **Node.js 20+** and npm
+- **Node.js 26+** and npm
 - A free **Supabase** project (for the database + auth)
 
 ### 1. Clone & install
