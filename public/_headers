@@ -1,0 +1,20 @@
+# Security response headers for the Cloudflare Pages deployment.
+# Cloudflare serves this file verbatim (it is copied from public/ into dist/ at build).
+# Docs: https://developers.cloudflare.com/pages/configuration/headers/
+#
+# CSP notes (validated against the production build, 2026-06-30):
+#   - script-src 'self'      — the Vite build emits only external module chunks from our origin;
+#                              there are no inline <script> tags, so no hash/unsafe-inline is needed.
+#   - style-src 'unsafe-inline' — the theming layer is an inline-style-object model, and the
+#                              Google Fonts stylesheet is loaded from fonts.googleapis.com.
+#   - connect-src ...supabase.co — Supabase REST (https) + Realtime (wss).
+#   - img-src data:          — Vite may inline small SVG assets as data: URIs.
+# If the Cloudflare preview deploy shows CSP violations in the console, relax the offending
+# directive (or switch to Content-Security-Policy-Report-Only to observe first).
+
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
