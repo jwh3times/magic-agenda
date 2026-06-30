@@ -11,11 +11,54 @@ updates:
       prefix: "chore(deps)"
       prefix-development: "chore(dev-deps)"
     groups:
-      # Vite, Vitest and the React plugin are peer-locked — @vitejs/plugin-react
-      # requires a matching Vite major (e.g. plugin-react 6 needs Vite 8), so a
-      # bump to one alone leaves an unsatisfiable peer range. Group them (majors
-      # included) so they always upgrade together as a single PR. Listed before
-      # the catch-all below so these three are captured here first.
+      # --- Peer-locked families: a lone major bump leaves an unsatisfiable peer
+      #     range, so the family's majors must travel together as one PR. All
+      #     minor/patch bumps already batch into the catch-all PR at the bottom,
+      #     so these family groups are intentionally major-only. ---
+
+      # react + react-dom ship in lockstep at identical versions and must match at
+      # runtime; the @types/* packages track the same major.
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+        update-types:
+          - "major"
+
+      # @dnd-kit/sortable peer-requires @dnd-kit/core (^6.3.0), so the family moves
+      # together — a core major strands sortable.
+      dnd-kit:
+        patterns:
+          - "@dnd-kit/*"
+        update-types:
+          - "major"
+
+      # @testing-library/react and user-event both peer-require @testing-library/dom,
+      # the shared hub of this family.
+      testing-library:
+        patterns:
+          - "@testing-library/*"
+        update-types:
+          - "major"
+
+      # @eslint/js is lockstep-versioned with eslint; both plugins peer-cap on the
+      # eslint major; typescript-eslint peer-bounds BOTH the eslint major and the
+      # typescript range, so typescript rides along here.
+      lint-and-typescript:
+        patterns:
+          - "eslint"
+          - "@eslint/*"
+          - "eslint-plugin-*"
+          - "typescript-eslint"
+          - "globals"
+          - "typescript"
+        update-types:
+          - "major"
+
+      # @vitejs/plugin-react requires a matching Vite major (plugin-react 6 needs
+      # Vite 8); vitest tracks the Vite majors it supports.
       vite-ecosystem:
         patterns:
           - "vite"
@@ -23,9 +66,9 @@ updates:
           - "@vitejs/plugin-react"
         update-types:
           - "major"
-          - "minor"
-          - "patch"
-      # One PR for all remaining minor + patch bumps; other majors open individually for review.
+
+      # One PR for all remaining minor + patch bumps; ungrouped majors (e.g.
+      # @supabase/supabase-js, react-router-dom, prettier, jsdom) open individually.
       npm-minor-and-patch:
         patterns:
           - "*"
