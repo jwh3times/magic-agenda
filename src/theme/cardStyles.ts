@@ -72,7 +72,7 @@ export function cardStyles(
     transition: 'box-shadow .15s, transform .12s',
     opacity: done ? 0.82 : 1,
   }
-  let titleStyle: CSSProperties = {}
+  let titleStyle: CSSProperties
   const meta: CSSProperties = {
     display: 'flex',
     alignItems: 'center',
