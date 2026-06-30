@@ -28,13 +28,13 @@ of three hand‑built themes.
 
 ## Tech stack
 
-| Area | Choice |
-| --- | --- |
-| Frontend | [Vite](https://vite.dev) + [React](https://react.dev) 19 + TypeScript (SPA, React Router) |
-| Backend | [Supabase](https://supabase.com) — Postgres + Auth + Row‑Level Security |
-| Drag & drop | `@dnd-kit/core` + `@dnd-kit/sortable` |
-| Hosting | [Cloudflare Pages](https://pages.cloudflare.com) (static SPA, auto‑deploy from GitHub) |
-| Tests | [Vitest](https://vitest.dev) + Testing Library (jsdom) |
+| Area        | Choice                                                                                    |
+| ----------- | ----------------------------------------------------------------------------------------- |
+| Frontend    | [Vite](https://vite.dev) + [React](https://react.dev) 19 + TypeScript (SPA, React Router) |
+| Backend     | [Supabase](https://supabase.com) — Postgres + Auth + Row‑Level Security                   |
+| Drag & drop | `@dnd-kit/core` + `@dnd-kit/sortable`                                                     |
+| Hosting     | [Cloudflare Pages](https://pages.cloudflare.com) (static SPA, auto‑deploy from GitHub)    |
+| Tests       | [Vitest](https://vitest.dev) + Testing Library (jsdom)                                    |
 
 ## Getting started
 
@@ -95,16 +95,16 @@ npm run dev      # start the dev server at http://localhost:5173
 
 ## Scripts
 
-| Command | Description |
-| --- | --- |
-| `npm run dev` | Start the Vite dev server |
-| `npm run build` | Type‑check and build for production (`dist/`) |
-| `npm run preview` | Preview the production build locally |
-| `npm test` | Run the test suite once |
-| `npm run test:watch` | Run tests in watch mode |
-| `npm run lint` | Lint with ESLint |
-| `npm run format` | Format with Prettier |
-| `npm run format:check` | Check formatting without writing (run in CI) |
+| Command                | Description                                   |
+| ---------------------- | --------------------------------------------- |
+| `npm run dev`          | Start the Vite dev server                     |
+| `npm run build`        | Type‑check and build for production (`dist/`) |
+| `npm run preview`      | Preview the production build locally          |
+| `npm test`             | Run the test suite once                       |
+| `npm run test:watch`   | Run tests in watch mode                       |
+| `npm run lint`         | Lint with ESLint                              |
+| `npm run format`       | Format with Prettier                          |
+| `npm run format:check` | Check formatting without writing (run in CI)  |
 
 ## Project structure
 
@@ -141,6 +141,11 @@ Production and Preview, and `public/_redirects` provides the SPA deep‑link fal
 `main` is **protected** — it's PR‑only (no direct pushes), and a PR can't merge until the CI checks
 (`Format`, `Test`, `Build`) and CodeQL pass. Because Cloudflare deploys `main`, **production only ships
 after a PR closes with all checks green.** See [CONTRIBUTING.md](./CONTRIBUTING.md) for the workflow.
+
+## Roadmap
+
+Planned features and fixes are tracked in [ROADMAP.md](./ROADMAP.md); shipped work lives in the
+[changelog](./CHANGELOG.md).
 
 ## Contributing
 

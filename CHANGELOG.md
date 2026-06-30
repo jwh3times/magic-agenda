@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+_Planned features and fixes are tracked in [ROADMAP.md](./ROADMAP.md)._
+
 ## [1.1.0] - 2026-06-29
 
 Maintenance release — dependency and toolchain modernization. No user‑facing feature or behavior
