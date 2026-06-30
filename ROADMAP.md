@@ -76,6 +76,12 @@ Priority: **P1** near-term · **P2** medium · **P3** nice-to-have.
 
 ## Polish
 
+- [ ] **Public landing page (unblocks Google OAuth branding verification)** · **P3** — Google's branding
+      verification currently fails on three counts, all because the root (`magicagenda.app`) routes
+      straight to the login wall: (1) the home page is **behind a login**, (2) it **does not explain the
+      app's purpose**, and (3) the home-page domain is **not verified as owned**. Add a public landing
+      page at `/` (the board moves behind it) that describes the product and links Privacy/Terms without
+      requiring sign-in, and **verify domain ownership** of `magicagenda.app` in Google Search Console.
 - [ ] **Custom auth domain** · **P3** — the Google consent screen shows the `…supabase.co` callback host
       on the free Supabase tier; a custom auth domain would display a branded host.
       _(from the CHANGELOG "Known limitations".)_
