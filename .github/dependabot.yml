@@ -1,4 +1,9 @@
 # https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#
+# Minor/patch updates are grouped into a single PR per ecosystem to reduce noise;
+# MAJOR bumps arrive individually — EXCEPT for peer-locked families where a lone
+# bump would leave an unsatisfiable peer range. Those families travel together as
+# one major PR.
 version: 2
 updates:
   # JavaScript / npm dependencies
@@ -6,7 +11,11 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+      time: "07:00"
+      timezone: "America/New_York"
     open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
     commit-message:
       prefix: "chore(deps)"
       prefix-development: "chore(dev-deps)"
@@ -64,6 +73,7 @@ updates:
           - "vite"
           - "vitest"
           - "@vitejs/plugin-react"
+          - "@vitest/*"
         update-types:
           - "major"
 
@@ -80,7 +90,12 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "America/New_York"
+    labels:
+      - "dependencies"
     commit-message:
       prefix: "chore(ci)"
     groups:
