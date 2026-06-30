@@ -6,6 +6,6 @@
 * @jwh3times
 
 # Examples of path-specific ownership (uncomment / adjust as needed):
-# /web/                @jwh3times   # [PLACEHOLDER — frontend owner]
-# /src/ApexRacers.Api/     @jwh3times   # [PLACEHOLDER — backend owner]
-# /.github/                @jwh3times   # [PLACEHOLDER — CI/infra owner]
+# /src/        @jwh3times   # frontend SPA (components, pages, dnd, theme)
+# /supabase/   @jwh3times   # database migrations & schema
+# /.github/    @jwh3times   # CI workflows & repo config
