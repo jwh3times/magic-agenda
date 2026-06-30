@@ -6,7 +6,7 @@ By participating, you agree to abide by our [Code of Conduct](./CODE_OF_CONDUCT.
 
 ## Getting set up
 
-Follow the [Getting started](./README.md#getting-started) section of the README (Node 20+, a Supabase
+Follow the [Getting started](./README.md#getting-started) section of the README (Node 26+, a Supabase
 project, `.env.local`). Then:
 
 ```bash
