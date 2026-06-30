@@ -136,7 +136,11 @@ design/                the original prototype (reference only — not built)
 
 [Cloudflare Pages](https://pages.cloudflare.com) builds and deploys `main` (framework preset **Vite**,
 build `npm run build`, output `dist`). The `VITE_SUPABASE_*` variables are set in the Pages project for
-Production and Preview, and `public/_redirects` provides the SPA deep‑link fallback.
+Production and Preview; `public/_redirects` provides the SPA deep‑link fallback, and `public/_headers`
+sets security response headers (Content‑Security‑Policy, `X-Frame-Options`, `nosniff`, `Referrer-Policy`).
+
+Database migrations apply to production automatically: merging a change under `supabase/migrations/` to
+`main` triggers the **Deploy Migrations** workflow (`supabase db push`).
 
 `main` is **protected** — it's PR‑only (no direct pushes), and a PR can't merge until the CI checks
 (`Format`, `Test`, `Build`) and CodeQL pass. Because Cloudflare deploys `main`, **production only ships

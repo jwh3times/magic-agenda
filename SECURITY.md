@@ -32,6 +32,13 @@ few days and will coordinate a fix and disclosure timeline with you.
   `.env.example` (placeholders) is committed. Rotate keys in the Supabase dashboard if one leaks.
 - **Auth redirect allow‑list.** Supabase Auth only redirects to allow‑listed URLs; keep the list tight
   (production domain, preview hosts, localhost).
+- **Security response headers.** Production is served with a `Content-Security-Policy` (scripts limited
+  to our own origin, `frame-ancestors 'none'`) plus `X-Frame-Options: DENY`, `X-Content-Type-Options:
+  nosniff`, `Referrer-Policy`, and a minimal `Permissions-Policy`, via `public/_headers` (Cloudflare
+  Pages).
+- **Production DB credentials stay in CI secrets.** The `Deploy Migrations` workflow applies schema
+  changes using a Supabase access token + database password held as **encrypted GitHub Actions
+  secrets** — never in client code or a `VITE_`‑prefixed variable.
 
 ## Automated safeguards
 
