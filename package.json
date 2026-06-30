@@ -1,7 +1,7 @@
 {
   "name": "magic-agenda",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A tactile, multi-user task board — a draggable sticky-note calendar that syncs across devices.",
   "license": "MIT",
   "author": "Jerry Holland",
