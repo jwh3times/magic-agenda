@@ -8,6 +8,20 @@ All notable changes to this project are documented here. The format is based on
 
 _Planned features and fixes are tracked in [ROADMAP.md](./ROADMAP.md)._
 
+### Security
+
+- **Security response headers** — `public/_headers` (served by Cloudflare Pages) adds a
+  Content‑Security‑Policy, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`,
+  and a minimal `Permissions-Policy`. (#33)
+- **Per‑user recurrence index** — `tasks_recur_instance_uniq` is now scoped by `user_id`
+  (`(user_id, recur_parent_id, day)`), closing a theoretical cross‑tenant existence leak. (#33)
+
+### Internal
+
+- **Auto‑deploy migrations** — a `Deploy Migrations` GitHub Actions workflow applies Supabase migrations
+  to production on merge to `main` (changes under `supabase/migrations/**`) via `supabase db push`. (#34)
+- **Repo health** — added `CODEOWNERS` and a `FUNDING.yml` sponsor button. (#32)
+
 ## [1.1.1] - 2026-06-30
 
 Maintenance release — dev‑toolchain upgrades and documentation. No user‑facing feature or behavior

@@ -29,8 +29,10 @@ startup if the two `VITE_SUPABASE_*` vars are missing.
 `main` is **protected — PR-only, no direct pushes** (no admin bypass). Land changes via a branch + PR;
 the `Format` / `Test` / `Build` checks and CodeQL must pass and review threads resolve before merge (0
 approvals required, so you can self-merge once green). Cloudflare Pages builds & deploys `main`
-(`npm run build` → `dist`), so production only ships after a checks-passing merge. `VITE_*` vars are
-inlined at **build time**, so they must be set in the Pages project, not just locally.
+(`npm run build` → `dist`), so production only ships after a checks-passing merge. Database migrations
+are applied to production on the same merge by the `Deploy Migrations` workflow (triggered by changes
+under `supabase/migrations/**`). `VITE_*` vars are inlined at **build time**, so they must be set in the
+Pages project, not just locally.
 
 ## Architecture (the parts that span multiple files)
 
@@ -98,6 +100,10 @@ ported from it. It is **not built**, is in `.prettierignore`, and should not be 
 
 ## When changing the schema
 
-Add a new file under `supabase/migrations/`, `npx supabase db push`, then regenerate
-`src/types/database.types.ts` with `supabase gen types`. Keep the `mappers.ts` conventions above intact.
+Add a new file under `supabase/migrations/`. Migrations **auto-apply to production on merge to `main`**
+via the `Deploy Migrations` workflow (`.github/workflows/deploy-migrations.yml`, which runs
+`npx supabase db push`); run `npx supabase db push` yourself only to apply to a local/branch DB or to
+get the schema in place before regenerating types. Regenerate `src/types/database.types.ts` with
+`supabase gen types` once the schema is applied (`gen types --linked` reads the remote DB). Keep the
+`mappers.ts` conventions above intact.
 Prefer test-first for pure logic in `src/data` and `src/dnd` (these have thorough unit tests).

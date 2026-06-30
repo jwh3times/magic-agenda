@@ -51,8 +51,9 @@ format:check` and `npm run lint` must both pass (together they are the CI `Forma
   stored. Reindex both source and destination on cross‑container moves.
 - **`design/` is reference only** — the original prototype. Don't edit it or let formatters touch it
   (it's in `.prettierignore`).
-- **Schema changes** go through a new file in `supabase/migrations/` (CLI‑managed); regenerate
-  `src/types/database.types.ts` with `npx supabase gen types`.
+- **Schema changes** go through a new file in `supabase/migrations/` (CLI‑managed) and **auto‑apply to
+  production on merge** via the `Deploy Migrations` workflow; regenerate `src/types/database.types.ts`
+  with `npx supabase gen types` once the schema is applied.
 
 ## Project layout
 
