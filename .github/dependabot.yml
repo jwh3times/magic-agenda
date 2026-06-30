@@ -11,7 +11,21 @@ updates:
       prefix: "chore(deps)"
       prefix-development: "chore(dev-deps)"
     groups:
-      # One PR for all minor + patch bumps; major bumps open individually for review.
+      # Vite, Vitest and the React plugin are peer-locked — @vitejs/plugin-react
+      # requires a matching Vite major (e.g. plugin-react 6 needs Vite 8), so a
+      # bump to one alone leaves an unsatisfiable peer range. Group them (majors
+      # included) so they always upgrade together as a single PR. Listed before
+      # the catch-all below so these three are captured here first.
+      vite-ecosystem:
+        patterns:
+          - "vite"
+          - "vitest"
+          - "@vitejs/plugin-react"
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"
+      # One PR for all remaining minor + patch bumps; other majors open individually for review.
       npm-minor-and-patch:
         patterns:
           - "*"
