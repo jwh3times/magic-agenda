@@ -8,6 +8,26 @@ All notable changes to this project are documented here. The format is based on
 
 _Planned features and fixes are tracked in [ROADMAP.md](./ROADMAP.md)._
 
+## [1.1.1] - 2026-06-30
+
+Maintenance release — dev‑toolchain upgrades and documentation. No user‑facing feature or behavior
+changes.
+
+### Internal
+
+- **Vite 6 → 8, Vitest 3 → 4, `@vitejs/plugin-react` 4 → 6** — combined major dev‑toolchain upgrade.
+  The three move in lockstep (plugin‑react 6 requires Vite `^8`; Vitest 4 spans the gap), so they were
+  bumped atomically to avoid an unsatisfiable peer range in CI. Vite 8 is Rolldown‑powered and
+  plugin‑react now drives React Refresh via Oxc. (#27)
+- **`@supabase/supabase-js` 2.108 → 2.110** plus a follow‑up **Vite 8.1.0 → 8.1.1** patch. (#30)
+- **Prettier 3.9.3 → 3.9.4.** (#23)
+- **Dependabot** now runs on an explicit schedule (time/timezone) with PR labels, and a `vite`‑ecosystem
+  group keeps the interdependent major bumps landing together. (#29, #27)
+
+### Docs
+
+- **Added [ROADMAP.md](./ROADMAP.md)** and normalized formatting across the project docs. (#28)
+
 ## [1.1.0] - 2026-06-29
 
 Maintenance release — dependency and toolchain modernization. No user‑facing feature or behavior
@@ -72,7 +92,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/jwh3times/magic-agenda/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/jwh3times/magic-agenda/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/jwh3times/magic-agenda/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/jwh3times/magic-agenda/releases/tag/v1.0.0
