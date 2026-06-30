@@ -31,7 +31,7 @@
     "@supabase/supabase-js": "^2.108.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^7.18.0"
+    "react-router-dom": "^7.18.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -44,12 +44,12 @@
     "@vitejs/plugin-react": "^4.7.0",
     "eslint": "^10.6.0",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-refresh": "^0.4.26",
+    "eslint-plugin-react-refresh": "^0.5.3",
     "globals": "^17.7.0",
     "jsdom": "^29.1.1",
     "prettier": "^3.9.3",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.62.0",
+    "typescript-eslint": "^8.62.1",
     "vite": "^6.4.3",
     "vitest": "^3.2.6"
   }
