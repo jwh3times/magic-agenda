@@ -31,3 +31,6 @@ pnpm-debug.log*
 
 # misc
 *.local
+
+# private (local-only notes, security reviews, etc. — never commit)
+private/

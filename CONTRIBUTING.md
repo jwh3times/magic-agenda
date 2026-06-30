@@ -38,7 +38,7 @@ npm run dev
   Reproduce bugs with a failing test before fixing.
 - **TypeScript strict** — no `any` escape hatches without good reason; `npm run build` type‑checks.
 - **Formatting & linting** — Prettier + ESLint. Run `npm run format` before committing; `npm run
-  format:check` and `npm run lint` must both pass (together they are the CI `Format` check).
+format:check` and `npm run lint` must both pass (together they are the CI `Format` check).
 - **Styling model** — the UI uses per‑theme inline style objects (ported from the prototype), not a CSS
   framework. Match the surrounding code; keep theme branching in `src/theme`.
 - **Commits** — clear, imperative messages ("Add week keyboard navigation"). Keep PRs focused.
