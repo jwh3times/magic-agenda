@@ -45,6 +45,7 @@ export function rowToTask(row: TaskRow): Task {
     recurUntil: row.recur_until,
     recurParentId: row.recur_parent_id,
     recurSkip: Array.isArray(row.recur_skip) ? (row.recur_skip as string[]) : [],
+    recurOriginDay: row.recur_origin_day,
   }
 }
 
@@ -67,5 +68,6 @@ export function taskToRow(task: Task, userId: string): TaskInsert {
     recur_until: task.recurUntil,
     recur_parent_id: task.recurParentId,
     recur_skip: task.recurSkip as unknown as Json,
+    recur_origin_day: task.recurOriginDay,
   }
 }

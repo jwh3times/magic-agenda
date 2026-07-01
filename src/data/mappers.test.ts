@@ -23,6 +23,7 @@ function row(over: Partial<TaskRow> = {}): TaskRow {
     recur_until: null,
     recur_parent_id: null,
     recur_skip: [],
+    recur_origin_day: null,
     created_at: '2026-06-29T00:00:00Z',
     updated_at: '2026-06-29T00:00:00Z',
     ...over,
@@ -77,6 +78,10 @@ describe('rowToTask', () => {
     expect(t.order).toBe(5)
     expect(t.korder).toBe(3)
   })
+  it('maps recur_origin_day -> recurOriginDay (null for non-instances)', () => {
+    expect(rowToTask(row({ recur_origin_day: '2026-07-01' })).recurOriginDay).toBe('2026-07-01')
+    expect(rowToTask(row({ recur_origin_day: null })).recurOriginDay).toBeNull()
+  })
 })
 
 describe('taskToRow', () => {
@@ -94,6 +99,12 @@ describe('taskToRow', () => {
     expect(r.korder).toBe(2)
     expect(r.status).toBe('done')
     expect('done' in r).toBe(false)
+  })
+  it('maps recurOriginDay -> recur_origin_day', () => {
+    expect(taskToRow(task({ recurOriginDay: '2026-07-01' }), 'u1').recur_origin_day).toBe(
+      '2026-07-01',
+    )
+    expect(taskToRow(task({ recurOriginDay: null }), 'u1').recur_origin_day).toBeNull()
   })
 })
 

@@ -46,6 +46,42 @@ export function occurrenceDates(
 }
 
 /**
+ * The occurrence date an instance was materialized for: its recorded origin day, or (for legacy
+ * instances that predate origin tracking) its current day. This — not the mutable `day` — is what
+ * identifies which occurrence an instance covers, so dragging an instance to another day does not
+ * make its original occurrence look unfilled and regenerate a duplicate.
+ */
+export function instanceOrigin(t: { recurOriginDay: string | null; day: string }): string {
+  return t.recurOriginDay ?? t.day
+}
+
+/**
+ * Whether an instance falls in the "this occurrence and all later" scope of an all-future edit or
+ * delete, compared by origin occurrence (not the movable day) so a dragged card is scoped by the
+ * occurrence it represents rather than where it currently sits. `cutOrigin` is the origin of the
+ * occurrence the scope starts at. ISO date strings compare chronologically.
+ */
+export function isFromOccurrenceOnward(
+  t: { recurOriginDay: string | null; day: string },
+  cutOrigin: string,
+): boolean {
+  return instanceOrigin(t) >= cutOrigin
+}
+
+/**
+ * Like `missingInstanceDates`, but takes the existing instances (not their days) and treats each as
+ * covering its origin occurrence — so a moved instance keeps its origin date filled.
+ */
+export function missingInstances(
+  template: RecurRule,
+  existing: readonly { recurOriginDay: string | null; day: string }[],
+  todayStr: string,
+  horizonDays = RECUR_HORIZON_DAYS,
+): string[] {
+  return missingInstanceDates(template, existing.map(instanceOrigin), todayStr, horizonDays)
+}
+
+/**
  * Occurrence dates within the rolling horizon that have no materialized instance yet — i.e. the
  * instances to create. Skipped (deleted) occurrences are never returned.
  */
