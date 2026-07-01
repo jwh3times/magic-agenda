@@ -39,6 +39,13 @@ export interface Task {
   recurParentId: string | null
   /** Dates (YYYY-MM-DD) of deleted occurrences — never regenerated (templates only). */
   recurSkip: string[]
+  /**
+   * The occurrence date (YYYY-MM-DD) this instance was materialized for. Immutable across drags —
+   * unlike `day`, which the user can move — so materialization identifies covered occurrences by
+   * origin and never resurrects a duplicate on the origin day. NULL for templates and
+   * non-recurring tasks (and legacy instances that predate this field).
+   */
+  recurOriginDay: string | null
 }
 
 /** The sentinel used throughout app + dnd logic for an unscheduled task. */
@@ -51,6 +58,7 @@ export const NO_RECUR = {
   recurUntil: null as string | null,
   recurParentId: null as string | null,
   recurSkip: [] as string[],
+  recurOriginDay: null as string | null,
 }
 
 /** A task is a hidden recurrence template when it bears a rule and has no parent. */

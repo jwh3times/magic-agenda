@@ -68,12 +68,6 @@ Priority: **P1** near-term · **P2** medium · **P3** nice-to-have.
 - [ ] **Admin dashboard** · **P2** — internal view for users, tasks, and flags. _Depends on roles &
       feature flags._
 
-## Bug Fixes
-
-- [ ] **Recurring-occurrence drag resurrects a copy** · **P1** — moving a recurring instance to another
-      day re-creates one on its origin day after reload; instances need to record their origin date.
-      _(from the CHANGELOG "Known limitations".)_
-
 ## Polish
 
 - [ ] **Public landing page (unblocks Google OAuth branding verification)** · **P3** — Google's branding

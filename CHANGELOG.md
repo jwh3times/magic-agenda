@@ -8,6 +8,17 @@ All notable changes to this project are documented here. The format is based on
 
 _Planned features and fixes are tracked in [ROADMAP.md](./ROADMAP.md)._
 
+### Fixed
+
+- **Recurring‑occurrence drag no longer resurrects a copy** — moving a recurring instance to a
+  different day used to re‑create a duplicate on its original day after reload (and delete/edit
+  "all future" on a moved occurrence trimmed the series at the wrong boundary). Instances now record
+  an immutable `recur_origin_day`; materialization, the delete skip‑list, series edit/delete scope,
+  and the `tasks_recur_instance_uniq` index all key off the origin occurrence instead of the movable
+  `day`. Existing instances are backfilled to `recur_origin_day = day`; any instance already moved,
+  inboxed, or deleted‑while‑moved before this release has an unrecoverable origin and may regenerate
+  a duplicate one final time.
+
 ### Security
 
 - **Security response headers** — `public/_headers` (served by Cloudflare Pages) adds a
