@@ -17,6 +17,11 @@ const field: CSSProperties = {
   fontFamily: 'system-ui, sans-serif',
 }
 
+// Client mirror of the Supabase password policy (min length 10 + complexity). The dashboard setting
+// is the real control; this only makes signup fail fast. Applied in signup mode only — sign-in must
+// accept any legacy password shorter than the current minimum.
+const SIGNUP_MIN_PASSWORD = 10
+
 export function Login() {
   const { session } = useAuth()
   const navigate = useNavigate()
@@ -135,12 +140,18 @@ export function Login() {
           <input
             type="password"
             required
-            minLength={6}
+            minLength={mode === 'signup' ? SIGNUP_MIN_PASSWORD : undefined}
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             style={field}
           />
+          {mode === 'signup' && (
+            <div style={{ fontSize: 12, opacity: 0.5, lineHeight: 1.4 }}>
+              At least 10 characters, including upper- and lower-case letters, a number, and a
+              symbol.
+            </div>
+          )}
 
           {error && <div style={{ color: '#ff8b8b', fontSize: 13, lineHeight: 1.4 }}>{error}</div>}
           {notice && (
