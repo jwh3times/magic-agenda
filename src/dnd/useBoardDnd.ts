@@ -1,7 +1,8 @@
 import { useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import {
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   closestCorners,
   useSensor,
   useSensors,
@@ -50,8 +51,11 @@ export function useBoardDnd(
   const touched = useRef<Set<string>>(new Set())
   const didMove = useRef(false)
 
+  // Mouse drags start after a small movement; touch drags need a long-press so that a plain
+  // swipe on a card still scrolls the board (paired with touchAction:'manipulation' on cards).
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
 

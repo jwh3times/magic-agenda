@@ -4,6 +4,7 @@ import { useTheme } from '../theme/ThemeProvider'
 import { DragDisabledContext } from '../dnd/dragContext'
 import { rootStyle, blobStyles } from '../theme/chrome'
 import { MONTHS_LONG, addDays, addMonths, formatWeekRange, startOfWeek } from '../lib/dates'
+import { useIsMobile } from '../lib/useMediaQuery'
 import { useBoardDnd } from '../dnd/useBoardDnd'
 import { CardOverlay } from '../dnd/CardOverlay'
 import type { Mode } from '../dnd/reorder'
@@ -85,6 +86,7 @@ export function Board({
   onSignOut,
 }: BoardProps) {
   const { theme, conf } = useTheme()
+  const isMobile = useIsMobile()
   const [view, setView] = useState<ViewName>(initialView ?? 'calendar')
   const [anchor, setAnchor] = useState(() => new Date())
   const [pop, setPop] = useState<PopId>(null)
@@ -176,7 +178,7 @@ export function Board({
   const onToday = () => setAnchor(new Date())
 
   return (
-    <div style={rootStyle(conf)}>
+    <div className="app-root" style={rootStyle(conf)}>
       {theme === 'glass' && blobStyles().map((b, i) => <div key={i} style={b} />)}
 
       <Toolbar
@@ -206,10 +208,10 @@ export function Board({
           <div
             style={{
               display: 'flex',
-              gap: 18,
+              gap: isMobile ? 10 : 18,
               flex: 1,
               minHeight: 0,
-              padding: '18px 22px 22px',
+              padding: isMobile ? '10px 10px 12px' : '18px 22px 22px',
               position: 'relative',
               zIndex: 1,
             }}
@@ -219,7 +221,16 @@ export function Board({
             ) : view === 'agenda' ? (
               <AgendaView tasks={visibleTasks} handlers={handlers} pop={pop} />
             ) : (
-              <div style={{ display: 'flex', gap: 18, flex: 1, minHeight: 0, width: '100%' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: isMobile ? 'column' : 'row',
+                  gap: isMobile ? 10 : 18,
+                  flex: 1,
+                  minHeight: 0,
+                  width: '100%',
+                }}
+              >
                 {view === 'week' ? (
                   <WeekView
                     weekStart={weekStart}

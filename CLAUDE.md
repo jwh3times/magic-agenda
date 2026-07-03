@@ -92,7 +92,24 @@ persists the touched lanes. Critical, non-obvious detail: persistence must fire 
 drop target) — tracked via a `didMove` ref. Container ids are `dateStr | 'inbox'` (day mode) or status
 (kanban). While a search filter is active, drag is disabled via `DragDisabledContext` (consumed by
 `SortableCard`'s `useSortable({ disabled })`) — this keeps the `DndContext` sensors array a constant
-size, avoiding a dnd-kit hook-deps warning.
+size, avoiding a dnd-kit hook-deps warning. Sensors are split Mouse/Touch (not `PointerSensor`):
+touch drags require a **250ms long-press** and cards use `touchAction: 'manipulation'` — together
+that's what lets a plain swipe over a card scroll the board on phones. Don't collapse these back
+into a `PointerSensor` or set `touchAction: 'none'`.
+
+### Responsive layout branches on `useIsMobile()`, not CSS media queries
+
+Because styles are inline objects (below), media queries can't reach them. Components that adapt to
+phones (`Board`, `Toolbar`, `CalendarView`, `WeekView`, `KanbanView`, `Inbox`, `SearchFilterBar`,
+`TaskEditor`) call `useIsMobile()` from `src/lib/useMediaQuery.ts` (a reactive `matchMedia` hook;
+breakpoint `MOBILE_QUERY` = 760px) and branch in JSX, spreading overrides onto the chrome styles.
+The hook returns `false` where `matchMedia` is missing, so jsdom tests render the desktop layout
+unless they stub `matchMedia` (see the mobile block in `Board.test.tsx`). Mobile layouts: stacked
+toolbar rows, vertical Week list, side-panning month grid (min-width 640px), snap-scroll kanban
+columns, and a collapsible full-width Inbox docked under the board. The shell height is the
+`.app-root` CSS class (`100dvh` with a `100vh` fallback) — inline styles can't express the
+fallback, so don't move it back into `rootStyle`. Form fields use ≥16px text on mobile (smaller
+triggers iOS Safari's focus zoom).
 
 ### Theming is an inline-style-object model, not CSS
 

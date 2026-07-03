@@ -8,11 +8,11 @@ import type { StatusDef } from './constants'
 // prototype's buildUI / buildCells / buildColumns. `satisfies` validates every value as a
 // CSSProperties while keeping precise keys for consumers.
 
-/** Page shell — the prototype's `root`. */
+/** Page shell — the prototype's `root`. Height comes from the `.app-root` CSS class
+ *  (100dvh with a 100vh fallback), which inline styles can't express. */
 export function rootStyle(conf: ThemeConf): CSSProperties {
   return {
     position: 'relative',
-    height: '100vh',
     minHeight: 0,
     display: 'flex',
     flexDirection: 'column',

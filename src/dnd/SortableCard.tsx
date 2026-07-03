@@ -21,8 +21,10 @@ export interface SortableCardProps {
 export function SortableCard({ task, variant, pop, onOpen, onToggleDone }: SortableCardProps) {
   const disabled = useContext(DragDisabledContext)
   const { setNodeRef, attributes, listeners, isDragging } = useSortable({ id: task.id, disabled })
+  // 'manipulation' (not 'none') so touch-scrolling over a card still works; the TouchSensor's
+  // long-press activation takes over the gesture only once a drag actually starts.
   return (
-    <div ref={setNodeRef} style={{ touchAction: 'none' }} {...attributes} {...listeners}>
+    <div ref={setNodeRef} style={{ touchAction: 'manipulation' }} {...attributes} {...listeners}>
       <TaskCard
         task={task}
         variant={variant}

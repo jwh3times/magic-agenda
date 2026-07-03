@@ -8,6 +8,20 @@ All notable changes to this project are documented here. The format is based on
 
 _Planned features and fixes are tracked in [ROADMAP.md](./ROADMAP.md)._
 
+### Added
+
+- **Mobile‑responsive layout** — the board now adapts to phone‑width screens: the toolbar stacks into
+  compact rows, Week view becomes a vertical day list, the month Calendar pans sideways at a readable
+  width, Kanban columns swipe horizontally with snap points, and the Inbox docks full‑width below the
+  board as a collapsible panel. The task editor opens as a bottom sheet and form fields use 16px text
+  on phones so iOS Safari no longer zooms on focus. Layout branches on a new `useIsMobile()`
+  matchMedia hook (`src/lib/useMediaQuery.ts`), since the inline‑style theming can't use CSS media
+  queries. The shell also sizes with `100dvh` so the collapsing mobile URL bar no longer cuts off the
+  bottom of the board.
+- **Touch drag‑and‑drop** — dragging now works on touch screens: a long‑press (250ms) picks up a card
+  while a plain swipe scrolls the board. Previously cards set `touch-action: none` and the pointer
+  sensor treated any 6px touch movement as a drag, which made touch scrolling impossible.
+
 ### Fixed
 
 - **Recurring‑occurrence drag no longer resurrects a copy** — moving a recurring instance to a

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { render, screen } from '@testing-library/react'
+import { afterEach, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '../theme/ThemeProvider'
 import { Board } from './Board'
@@ -96,4 +97,40 @@ test('search hides non-matching tasks live', async () => {
   await user.type(screen.getByPlaceholderText('Search tasks…'), 'Finish')
   expect(screen.getByText('Finish Q3 deck')).toBeInTheDocument()
   expect(screen.queryByText('Renew passport')).not.toBeInTheDocument()
+})
+
+// jsdom has no matchMedia, so every other test renders the desktop layout; this one stubs a
+// phone-width match to exercise the mobile branches (stacked layout, collapsible inbox).
+describe('mobile layout', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  const stubMobile = () =>
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({
+        matches: true,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      })),
+    )
+
+  test('renders all views and a collapsible inbox on a phone-width screen', async () => {
+    stubMobile()
+    const user = userEvent.setup()
+    renderBoard()
+
+    // Calendar view: board + inbox render stacked; inbox header toggles its body.
+    expect(screen.getByText('Finish Q3 deck')).toBeInTheDocument()
+    expect(screen.getByText('Renew passport')).toBeInTheDocument()
+    await user.click(screen.getByText('Inbox'))
+    expect(screen.queryByText('Renew passport')).not.toBeInTheDocument() // collapsed
+    await user.click(screen.getByText('Inbox'))
+    expect(screen.getByText('Renew passport')).toBeInTheDocument() // expanded again
+
+    await user.click(screen.getByRole('button', { name: 'Week' }))
+    expect(screen.getByText('Finish Q3 deck')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Board' }))
+    expect(screen.getByText('In Progress', { selector: 'span' })).toBeInTheDocument()
+  })
 })

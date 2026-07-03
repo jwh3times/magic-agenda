@@ -25,6 +25,8 @@ of three hand‑built themes.
   rolling 90‑day horizon, with **this‑occurrence vs. all‑future** edit and delete semantics.
 - **Accounts & sync** — email/password and Google sign‑in; every task is private to you via Postgres
   Row‑Level Security; optimistic updates with rollback.
+- **Works on your phone** — responsive layouts for every view (stacked week, swipeable kanban,
+  collapsible inbox, bottom‑sheet editor) and long‑press touch drag‑and‑drop.
 
 ## Tech stack
 
