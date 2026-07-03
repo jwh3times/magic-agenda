@@ -154,7 +154,8 @@ Planned features and fixes are tracked in [ROADMAP.md](./ROADMAP.md); shipped wo
 ## Contributing
 
 Contributions welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md). By participating you agree to the
-[Code of Conduct](./CODE_OF_CONDUCT.md).
+[Code of Conduct](./CODE_OF_CONDUCT.md). For help, bug reports, and feature requests, see
+[SUPPORT.md](./SUPPORT.md); for vulnerability reports, see [SECURITY.md](./SECURITY.md).
 
 ## License
 

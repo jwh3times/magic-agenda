@@ -2,6 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## What this is
+
+Magic Agenda is a drag-and-drop task board (day / week / kanban views, recurring tasks, three visual
+themes) built as a pure React + TypeScript SPA on Supabase (Postgres + Auth), deployed to Cloudflare
+Pages at [magicagenda.app](https://magicagenda.app). Pages live in `src/pages/`: `BoardPage` (the app),
+`Login`, `AuthCallback`, and the static legal pages `Privacy` / `Terms` (both rendered through
+`src/components/LegalLayout.tsx`).
+
 ## Commands
 
 ```bash
@@ -95,7 +103,7 @@ branching that CSS vars can't express cleanly.
 
 ### `design/Task Board.dc.html` is the source of truth, reference-only
 
-The original 822-line vanilla-JS prototype. The visual layer and the reorder/recurrence logic were
+The original 821-line vanilla-JS prototype. The visual layer and the reorder/recurrence logic were
 ported from it. It is **not built**, is in `.prettierignore`, and should not be edited.
 
 ## When changing the schema
