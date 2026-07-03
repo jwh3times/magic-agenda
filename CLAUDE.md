@@ -40,7 +40,9 @@ approvals required, so you can self-merge once green). Cloudflare Pages builds &
 (`npm run build` → `dist`), so production only ships after a checks-passing merge. Database migrations
 are applied to production on the same merge by the `Deploy Migrations` workflow (triggered by changes
 under `supabase/migrations/**`). `VITE_*` vars are inlined at **build time**, so they must be set in the
-Pages project, not just locally.
+Pages project, not just locally. Every merge to `main` is also stamped by the `Version` workflow
+(`.github/workflows/version.yml`), which pushes a build tag `v<package.json version>.<build>`
+(e.g. `v1.1.1.3`) with an auto-incrementing build number; release tags stay 3-part (`v1.1.1`).
 
 ## Architecture (the parts that span multiple files)
 
