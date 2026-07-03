@@ -2,7 +2,9 @@
 
 Planned features and fixes for Magic Agenda. This is **aspirational, not a commitment** — items
 within a section are unordered, priorities shift, and nothing here has a guaranteed date. For what has
-already shipped, see [CHANGELOG.md](./CHANGELOG.md).
+already shipped, see [CHANGELOG.md](./CHANGELOG.md). A detailed per-item implementation plan
+(approach, schema, touch points, tests, risks, sizing, and build order) lives in
+[docs/IMPLEMENTATION_PLAN.md](./docs/IMPLEMENTATION_PLAN.md).
 
 **Legend** — status: `[ ]` planned · `[~]` in progress.
 Priority: **P1** near-term · **P2** medium · **P3** nice-to-have.
