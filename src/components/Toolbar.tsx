@@ -1,5 +1,6 @@
 import { useTheme } from '../theme/ThemeProvider'
 import { toolbarChrome } from '../theme/chrome'
+import { useIsMobile } from '../lib/useMediaQuery'
 import { ViewSwitcher, type ViewOption } from './ViewSwitcher'
 import { ThemeSwitcher } from './ThemeSwitcher'
 import logoDark from '../assets/logo-dark.svg'
@@ -31,7 +32,67 @@ export function Toolbar({
   onSignOut,
 }: ToolbarProps) {
   const { theme, conf } = useTheme()
+  const isMobile = useIsMobile()
   const c = toolbarChrome(theme, conf)
+
+  if (isMobile) {
+    // Phone layout: three stacked rows — brand + actions, switchers (side-scrollable), nav.
+    return (
+      <div
+        style={{
+          ...c.toolbar,
+          flexDirection: 'column',
+          alignItems: 'stretch',
+          gap: '9px',
+          padding: '9px 10px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <img
+            src={logoDark}
+            alt="Magic Agenda"
+            style={{ height: 44, display: 'block', flex: 'none' }}
+          />
+          <div style={{ flex: 1 }} />
+          <button type="button" onClick={onAddInbox} style={c.addBtn}>
+            + New task
+          </button>
+          {onSignOut && (
+            <button type="button" onClick={onSignOut} style={c.todayBtn} title="Sign out">
+              Sign out
+            </button>
+          )}
+        </div>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10,
+            overflowX: 'auto',
+          }}
+        >
+          <ViewSwitcher views={views} view={view} onChange={onChangeView} />
+          <ThemeSwitcher />
+        </div>
+        {showNav && (
+          <div style={{ ...c.navGroup, justifyContent: 'center' }}>
+            <button type="button" onClick={onPrev} style={c.navBtn}>
+              ‹
+            </button>
+            <div style={c.monthLabel}>{navLabel}</div>
+            <button type="button" onClick={onNext} style={c.navBtn}>
+              ›
+            </button>
+            <button type="button" onClick={onToday} style={c.todayBtn}>
+              Today
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div style={c.toolbar}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 }}>

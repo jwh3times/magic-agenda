@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import { useTheme } from '../theme/ThemeProvider'
+import { useIsMobile } from '../lib/useMediaQuery'
 import { CAT, STATUS } from '../theme/constants'
 import { EMPTY_FILTER, isFilterActive, type FilterQuery } from '../data/filters'
 import type { Category, Status } from '../types/task'
@@ -11,6 +12,7 @@ export interface SearchFilterBarProps {
 
 export function SearchFilterBar({ query, onChange }: SearchFilterBarProps) {
   const { theme, conf } = useTheme()
+  const isMobile = useIsMobile()
   const dark = theme === 'glass'
   const fg = dark ? '#eaf0ff' : '#241c12'
   const bg = dark ? 'rgba(255,255,255,.06)' : 'rgba(255,255,255,.78)'
@@ -22,7 +24,7 @@ export function SearchFilterBar({ query, onChange }: SearchFilterBarProps) {
     background: bg,
     color: fg,
     fontFamily: conf.ui,
-    fontSize: 13,
+    fontSize: isMobile ? 16 : 13, // <16px makes iOS Safari zoom in on focus
     colorScheme: dark ? 'dark' : 'light',
   }
   const active = isFilterActive(query)
@@ -32,8 +34,8 @@ export function SearchFilterBar({ query, onChange }: SearchFilterBarProps) {
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 10,
-        padding: '10px 22px 0',
+        gap: isMobile ? 8 : 10,
+        padding: isMobile ? '10px 10px 0' : '10px 22px 0',
         flexWrap: 'wrap',
         position: 'relative',
         zIndex: 1,
@@ -48,7 +50,7 @@ export function SearchFilterBar({ query, onChange }: SearchFilterBarProps) {
       <select
         value={query.category}
         onChange={(e) => onChange({ ...query, category: e.target.value as Category | 'all' })}
-        style={control}
+        style={{ ...control, ...(isMobile && { flex: '1 1 40%', minWidth: 0 }) }}
       >
         <option value="all">All categories</option>
         {(Object.keys(CAT) as Category[]).map((k) => (
@@ -60,7 +62,7 @@ export function SearchFilterBar({ query, onChange }: SearchFilterBarProps) {
       <select
         value={query.status}
         onChange={(e) => onChange({ ...query, status: e.target.value as Status | 'all' })}
-        style={control}
+        style={{ ...control, ...(isMobile && { flex: '1 1 40%', minWidth: 0 }) }}
       >
         <option value="all">All statuses</option>
         {STATUS.map((s) => (

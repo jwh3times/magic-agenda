@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { useTheme } from '../theme/ThemeProvider'
+import { useIsMobile } from '../lib/useMediaQuery'
 import { CAT, COLORS, PAPER, STATUS } from '../theme/constants'
 import { newId } from '../lib/id'
 import { isScheduled } from '../lib/dates'
@@ -19,6 +20,7 @@ export interface TaskEditorProps {
 /** The task editor modal — ported from the prototype's buildEditor + markup. */
 export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEditorProps) {
   const { theme, conf } = useTheme()
+  const isMobile = useIsMobile()
   const [draft, setDraft] = useState<Task>(initial)
   const [newItem, setNewItem] = useState('')
   const [scopePrompt, setScopePrompt] = useState<null | 'save' | 'delete'>(null)
@@ -42,6 +44,8 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
   const fieldBg = dark ? 'rgba(255,255,255,.05)' : '#f3efe6'
   const border = dark ? 'rgba(255,255,255,.12)' : 'rgba(60,42,18,.18)'
 
+  // <16px input text makes iOS Safari zoom the page in on focus.
+  const ctlFont = isMobile ? '16px' : '13px'
   const inputBase: CSSProperties = {
     width: '100%',
     padding: '11px 13px',
@@ -50,7 +54,7 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
     background: fieldBg,
     color: fg,
     fontFamily: conf.ui,
-    fontSize: '14px',
+    fontSize: isMobile ? '16px' : '14px',
     fontWeight: 500,
   }
   const fieldLabel: CSSProperties = {
@@ -112,9 +116,9 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
           backdropFilter: 'blur(3px)',
           WebkitBackdropFilter: 'blur(3px)',
           display: 'grid',
-          placeItems: 'center',
+          placeItems: isMobile ? 'end stretch' : 'center', // bottom sheet on phones
           zIndex: 9000,
-          padding: '20px',
+          padding: isMobile ? 0 : '20px',
           animation: 'fadeIn .15s ease',
         }}
         onClick={onClose}
@@ -123,13 +127,13 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
           role="dialog"
           aria-modal="true"
           style={{
-            width: 'min(520px,100%)',
+            width: isMobile ? '100%' : 'min(520px,100%)',
             maxHeight: '90vh',
             overflow: 'auto',
             background: panelBg,
             color: fg,
-            borderRadius: '18px',
-            padding: '22px',
+            borderRadius: isMobile ? '18px 18px 0 0' : '18px',
+            padding: isMobile ? '18px 16px 26px' : '22px',
             boxShadow: '0 40px 100px rgba(0,0,0,.5)',
             border: `1px solid ${border}`,
             fontFamily: conf.ui,
@@ -306,7 +310,7 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
                     background: fieldBg,
                     color: fg,
                     fontFamily: conf.ui,
-                    fontSize: '13px',
+                    fontSize: ctlFont,
                     textDecoration: it.done ? 'line-through' : 'none',
                     opacity: it.done ? 0.65 : 1,
                   }}
@@ -366,7 +370,7 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
                   background: fieldBg,
                   color: fg,
                   fontFamily: conf.ui,
-                  fontSize: '13px',
+                  fontSize: ctlFont,
                 }}
               />
             </div>
@@ -424,7 +428,7 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
                 background: fieldBg,
                 color: fg,
                 fontFamily: conf.ui,
-                fontSize: '13px',
+                fontSize: ctlFont,
                 fontWeight: 600,
                 colorScheme: dark ? 'dark' : 'light',
               }}
@@ -460,7 +464,7 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
                 background: fieldBg,
                 color: fg,
                 fontFamily: conf.ui,
-                fontSize: '13px',
+                fontSize: ctlFont,
                 fontWeight: 600,
                 colorScheme: dark ? 'dark' : 'light',
               }}
@@ -495,7 +499,7 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
                     background: fieldBg,
                     color: fg,
                     fontFamily: conf.ui,
-                    fontSize: '13px',
+                    fontSize: ctlFont,
                     fontWeight: 600,
                     colorScheme: dark ? 'dark' : 'light',
                   }}

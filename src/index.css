@@ -27,6 +27,15 @@ input:focus,
 textarea:focus {
   outline: none;
 }
+/* Board shell height: dvh tracks the collapsing mobile-browser URL bar (100vh does not). */
+.app-root {
+  height: 100vh;
+}
+@supports (height: 100dvh) {
+  .app-root {
+    height: 100dvh;
+  }
+}
 
 @keyframes blobFloat {
   0% {
