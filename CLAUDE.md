@@ -115,3 +115,12 @@ get the schema in place before regenerating types. Regenerate `src/types/databas
 `supabase gen types` once the schema is applied (`gen types --linked` reads the remote DB). Keep the
 `mappers.ts` conventions above intact.
 Prefer test-first for pure logic in `src/data` and `src/dnd` (these have thorough unit tests).
+
+## Agents & docs automation
+
+Project subagents live in `.claude/agents/`: `docs-updater` (keeps CLAUDE.md, README.md, ROADMAP.md,
+CHANGELOG.md in sync with the code) and `code-reviewer` (reviews diffs against the app/DB boundary,
+RLS, recurrence, and DnD correctness rules before merging). Docs freshness is auto-checked at the
+end of every response turn by a read-only Stop hook in `.claude/settings.json` (single pre-approved
+git command + Read/Grep/Glob — it never edits files). When it detects drift it blocks the stop with
+specifics and the main session invokes `docs-updater` to fix exactly that drift.
