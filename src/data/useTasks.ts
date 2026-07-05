@@ -384,11 +384,26 @@ export function useTasks(userId: string): UseTasks {
             : t,
         ),
       )
+      // Apply the edited content to each instance row directly. tasksRef.current still holds the
+      // pre-edit instances here (the setTasks above updates it inside a deferred React updater), so
+      // reading their content off the ref would persist the OLD title/description/category/color and
+      // silently revert the edit on the next reload.
       const rows = [
         taskToRow(next, userId),
         ...tasksRef.current
           .filter((t) => t.recurParentId === template.id && isFromOccurrenceOnward(t, cut))
-          .map((t) => taskToRow(t, userId)),
+          .map((t) =>
+            taskToRow(
+              {
+                ...t,
+                title: draft.title,
+                description: draft.description,
+                category: draft.category,
+                color: draft.color,
+              },
+              userId,
+            ),
+          ),
       ]
       markWrites(rows.map((r) => r.id))
       const { error: err } = await supabase.from('tasks').upsert(rows, { onConflict: 'id' })
