@@ -43,6 +43,9 @@ _Planned features and fixes are tracked in [ROADMAP.md](./ROADMAP.md)._
 
 ### Internal
 
+- **Edge Function scaffolding** — `supabase/functions/` with a shared JWT-verification helper
+  (`requireUser`), CORS handling, a `hello` template function, Deno tests in a new CI `Functions`
+  job, and a `Deploy Functions` workflow that ships functions to production on merge to `main`.
 - **Auto‑deploy migrations** — a `Deploy Migrations` GitHub Actions workflow applies Supabase migrations
   to production on merge to `main` (changes under `supabase/migrations/**`) via `supabase db push`. (#34)
 - **Repo health** — added `CODEOWNERS` and a `FUNDING.yml` sponsor button. (#32)

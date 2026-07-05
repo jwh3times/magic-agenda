@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/  +  https://vitest.dev/config/
@@ -9,6 +9,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
     css: false,
+    // Deno tests, not Vitest tests — run with `deno test supabase/functions`.
+    exclude: [...configDefaults.exclude, 'supabase/functions/**'],
     // Hermetic: tests never touch the real project (getSession is local-only anyway).
     env: {
       VITE_SUPABASE_URL: 'http://localhost:54321',
