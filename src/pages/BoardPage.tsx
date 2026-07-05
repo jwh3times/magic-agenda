@@ -14,7 +14,7 @@ export function BoardPage() {
   const navigate = useNavigate()
   const userId = user?.id ?? ''
   const t = useTasks(userId)
-  const { settings, loading: settingsLoading, saveTheme, saveView } = useSettings(userId)
+  const { settings, loading: settingsLoading, saveTheme } = useSettings(userId)
 
   if (!user || settingsLoading || !settings) return <Spinner />
 
@@ -39,7 +39,6 @@ export function BoardPage() {
             deleteOccurrence={t.deleteOccurrence}
             deleteSeriesFuture={t.deleteSeriesFuture}
             initialView={settings.defaultView}
-            onViewChange={saveView}
             onSignOut={signOut}
             onOpenSettings={() => navigate('/settings')}
           />

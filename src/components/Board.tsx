@@ -5,6 +5,7 @@ import { DragDisabledContext } from '../dnd/dragContext'
 import { rootStyle, blobStyles } from '../theme/chrome'
 import { MONTHS_LONG, addDays, addMonths, formatWeekRange, startOfWeek } from '../lib/dates'
 import { useIsMobile } from '../lib/useMediaQuery'
+import { readBoardView, writeBoardView } from '../lib/viewStorage'
 import { useBoardDnd } from '../dnd/useBoardDnd'
 import { CardOverlay } from '../dnd/CardOverlay'
 import type { Mode } from '../dnd/reorder'
@@ -41,7 +42,6 @@ export interface BoardProps {
   deleteOccurrence: (instance: Task) => void
   deleteSeriesFuture: (instance: Task) => void
   initialView?: ViewName
-  onViewChange?: (v: ViewName) => void
   onSignOut?: () => void
   onOpenSettings?: () => void
 }
@@ -83,13 +83,12 @@ export function Board({
   deleteOccurrence,
   deleteSeriesFuture,
   initialView,
-  onViewChange,
   onSignOut,
   onOpenSettings,
 }: BoardProps) {
   const { theme, conf } = useTheme()
   const isMobile = useIsMobile()
-  const [view, setView] = useState<ViewName>(initialView ?? 'calendar')
+  const [view, setView] = useState<ViewName>(() => readBoardView() ?? initialView ?? 'calendar')
   const [anchor, setAnchor] = useState(() => new Date())
   const [pop, setPop] = useState<PopId>(null)
   const [editing, setEditing] = useState<Editing | null>(null)
@@ -105,7 +104,7 @@ export function Board({
 
   const changeView = (v: ViewName) => {
     setView(v)
-    onViewChange?.(v)
+    writeBoardView(v)
   }
 
   const handleToggle = (id: string) => {
