@@ -5,6 +5,7 @@ import { ProtectedRoute } from './auth/ProtectedRoute'
 import { Spinner } from './components/Spinner'
 import { Login } from './pages/Login'
 import { AuthCallback } from './pages/AuthCallback'
+import { ResetPassword } from './pages/ResetPassword'
 import { Privacy } from './pages/Privacy'
 import { Terms } from './pages/Terms'
 
@@ -22,6 +23,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/auth/reset" element={<ResetPassword />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
           <Route
