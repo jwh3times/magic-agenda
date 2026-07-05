@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
 import type { ThemeName } from '../types/task'
 import { themeConf, type ThemeConf } from './themeConf'
 
@@ -21,6 +29,14 @@ export function ThemeProvider({
   onThemeChange?: (theme: ThemeName) => void
 }) {
   const [theme, setThemeState] = useState<ThemeName>(initial)
+
+  // Re-sync when the persisted theme changes elsewhere (another device via realtime).
+  // Local changes are unaffected: they flow through setTheme and land back here as
+  // the same value, which React bails out on.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setThemeState(initial)
+  }, [initial])
 
   const setTheme = useCallback(
     (t: ThemeName) => {

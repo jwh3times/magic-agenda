@@ -15,7 +15,14 @@ const h = vi.hoisted(() => {
   const maybeSingle = vi.fn(() =>
     Promise.resolve({ data: { theme: 'cork', default_view: 'calendar' }, error: null }),
   )
-  return { upsertThen, upsert, maybeSingle }
+  const capture: { handler: ((p: unknown) => void) | null } = { handler: null }
+  const channel: Record<string, unknown> = {}
+  channel.on = vi.fn((_e: string, _f: unknown, cb: (p: unknown) => void) => {
+    capture.handler = cb
+    return channel
+  })
+  channel.subscribe = vi.fn(() => channel)
+  return { upsertThen, upsert, maybeSingle, capture, channel }
 })
 
 vi.mock('../lib/supabase', () => ({
@@ -24,6 +31,8 @@ vi.mock('../lib/supabase', () => ({
       select: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: h.maybeSingle })) })),
       upsert: h.upsert,
     })),
+    channel: vi.fn(() => h.channel),
+    removeChannel: vi.fn(),
   },
 }))
 
@@ -49,4 +58,18 @@ test('saveTheme fires the upsert request so the theme persists across reloads', 
     { user_id: 'user-1', theme: 'brutal', default_view: 'calendar' },
     { onConflict: 'user_id' },
   )
+})
+
+test('a settings change from another device is applied', async () => {
+  const { result } = renderHook(() => useSettings('user-1'))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  act(() => {
+    h.capture.handler!({
+      eventType: 'UPDATE',
+      new: { user_id: 'user-1', theme: 'glass', default_view: 'week' },
+      old: {},
+    })
+  })
+  expect(result.current.settings).toEqual({ theme: 'glass', defaultView: 'week' })
 })
