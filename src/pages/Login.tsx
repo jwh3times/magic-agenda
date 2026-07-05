@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
@@ -16,9 +16,18 @@ export function Login() {
   const { session } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const accountDeleted = Boolean(
-    (location.state as { accountDeleted?: boolean } | null)?.accountDeleted,
+  // One-shot: capture the flag at mount, then scrub it from history.state so a
+  // later reload of /login can't resurrect the "account deleted" notice.
+  const [accountDeleted] = useState(() =>
+    Boolean((location.state as { accountDeleted?: boolean } | null)?.accountDeleted),
   )
+  const noticeCleared = useRef(false)
+  useEffect(() => {
+    if (accountDeleted && !noticeCleared.current) {
+      noticeCleared.current = true
+      navigate(location.pathname, { replace: true, state: null })
+    }
+  }, [accountDeleted, navigate, location.pathname])
   const [mode, setMode] = useState<Mode>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')

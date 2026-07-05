@@ -53,3 +53,12 @@ test('back link returns from forgot mode to sign in', async () => {
   await userEvent.click(screen.getByRole('button', { name: 'Back to sign in' }))
   expect(screen.getByPlaceholderText('Password')).toBeInTheDocument()
 })
+
+test('shows the account-deleted goodbye notice when arriving from deletion', () => {
+  render(
+    <MemoryRouter initialEntries={[{ pathname: '/login', state: { accountDeleted: true } }]}>
+      <Login />
+    </MemoryRouter>,
+  )
+  expect(screen.getByText(/Your account and all of its data have been deleted/)).toBeInTheDocument()
+})
