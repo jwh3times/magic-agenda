@@ -10,6 +10,10 @@ _Planned features and fixes are tracked in [ROADMAP.md](./ROADMAP.md)._
 
 ### Added
 
+- **Password reset** — a "Forgot password?" flow on the login page emails a recovery link
+  (never revealing whether an account exists); the link lands on a new `/auth/reset` page
+  that sets the new password. A recovery session can't reach the board until the password
+  is changed.
 - **Settings page** — a `/settings` route (gear button in the toolbar) with theme and
   default-view controls and Privacy/Terms links; built as a section registry that account,
   data, and preference features will extend.
