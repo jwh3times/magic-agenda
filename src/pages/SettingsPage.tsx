@@ -126,7 +126,7 @@ function AppearanceSection({ defaultView, onChangeView }: SectionContext) {
           <option value="calendar">Calendar</option>
           <option value="week">Week</option>
           <option value="agenda">Agenda</option>
-          <option value="kanban">Kanban</option>
+          <option value="kanban">Board</option>
         </select>
       </div>
     </div>
