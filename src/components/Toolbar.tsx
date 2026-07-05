@@ -2,7 +2,6 @@ import { useTheme } from '../theme/ThemeProvider'
 import { toolbarChrome } from '../theme/chrome'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { ViewSwitcher, type ViewOption } from './ViewSwitcher'
-import { ThemeSwitcher } from './ThemeSwitcher'
 import logoDark from '../assets/logo-dark.svg'
 import type { ViewName } from '../types/task'
 
@@ -103,7 +102,6 @@ export function Toolbar({
           }}
         >
           <ViewSwitcher views={views} view={view} onChange={onChangeView} />
-          <ThemeSwitcher />
         </div>
         {showNav && (
           <div style={{ ...c.navGroup, justifyContent: 'center' }}>
@@ -148,7 +146,6 @@ export function Toolbar({
         )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        <ThemeSwitcher />
         {onOpenSettings && (
           <button
             type="button"
