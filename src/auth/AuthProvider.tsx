@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { clearBoardView } from '../lib/viewStorage'
 
 // Recovery-session marker. Persisted per-tab so a reload of /auth/reset can't
 // silently drop the "must set a new password" gate (the PASSWORD_RECOVERY event
@@ -43,6 +44,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (event === 'SIGNED_OUT') {
         sessionStorage.removeItem(RECOVERY_FLAG_KEY)
         setPasswordRecovery(false)
+        // Next sign-in should land on the default view, not the signed-out user's last view.
+        clearBoardView()
       }
     })
     return () => {

@@ -13,8 +13,9 @@ of three hand‑built themes.
 
 ## Features
 
-- **Four views** — Calendar (month), Week, Agenda, and Kanban (To Do / In Progress / Completed). Your
-  default view is remembered.
+- **Four views** — Calendar (month), Week, Agenda, and Kanban (To Do / In Progress / Completed). Set
+  your default view in Settings — that's where you land when you open the app; whichever view you
+  switch to during a session is remembered for that browser tab.
 - **Three themes** — Cork (corkboard), Neon‑Brutalist, and Aurora‑Glass — each with its own typography,
   shadows, and feel. Your choice persists.
 - **Drag‑and‑drop** — reorder within a day/column and move tasks across days, the week, columns, and the

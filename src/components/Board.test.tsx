@@ -134,3 +134,17 @@ describe('mobile layout', () => {
     expect(screen.getByText('In Progress', { selector: 'span' })).toBeInTheDocument()
   })
 })
+
+test('mounts on the view stored in sessionStorage', () => {
+  sessionStorage.setItem('ma-board-view', 'kanban')
+  renderBoard()
+  // Kanban shows the status columns; calendar/week show the Inbox instead.
+  expect(screen.getByText('To Do', { selector: 'span' })).toBeInTheDocument()
+})
+
+test('switching views remembers the choice per tab', async () => {
+  const user = userEvent.setup()
+  renderBoard()
+  await user.click(screen.getByRole('button', { name: 'Week' }))
+  expect(sessionStorage.getItem('ma-board-view')).toBe('week')
+})
