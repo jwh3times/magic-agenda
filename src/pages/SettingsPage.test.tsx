@@ -11,7 +11,10 @@ const h = vi.hoisted(() => {
   const maybeSingle = vi.fn(() =>
     Promise.resolve({ data: { theme: 'cork', default_view: 'calendar' }, error: null }),
   )
-  return { upsert, maybeSingle }
+  const channel: Record<string, unknown> = {}
+  channel.on = vi.fn(() => channel)
+  channel.subscribe = vi.fn(() => channel)
+  return { upsert, maybeSingle, channel }
 })
 
 vi.mock('../lib/supabase', () => ({
@@ -20,6 +23,8 @@ vi.mock('../lib/supabase', () => ({
       select: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: h.maybeSingle })) })),
       upsert: h.upsert,
     })),
+    channel: vi.fn(() => h.channel),
+    removeChannel: vi.fn(),
   },
 }))
 

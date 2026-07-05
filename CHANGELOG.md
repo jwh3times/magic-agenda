@@ -10,6 +10,13 @@ _Planned features and fixes are tracked in [ROADMAP.md](./ROADMAP.md)._
 
 ### Added
 
+- **Realtime multi-device sync** — edits, drags, and deletions now appear live on every
+  signed-in device via Supabase realtime (`postgres_changes` under RLS). A pure reducer
+  (`src/data/realtime.ts`) applies remote changes — deduping recurring instances by
+  occurrence, keeping templates off the board — while echoes of the device's own writes
+  are suppressed. The board also refetches on reconnect, on coming back online, and when
+  the tab becomes visible again (fixes stale boards on phones). Theme and default-view
+  changes propagate live too.
 - **Delete account** — a Danger-zone section on `/settings` permanently deletes the account
   and all data (typed confirmation required). Deletion runs in a JWT-verified `delete-account`
   edge function; Postgres cascades remove the user's tasks and settings.

@@ -21,6 +21,7 @@ export function useSettings(userId: string): UseSettings {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [loading, setLoading] = useState(true)
   const ref = useRef<Settings>(DEFAULTS)
+  const lastLocalWrite = useRef(0)
 
   useEffect(() => {
     let active = true
@@ -45,8 +46,39 @@ export function useSettings(userId: string): UseSettings {
     }
   }, [userId])
 
+  // Live settings changes from other devices. Skip events shortly after a local
+  // persist — the echo of our own upsert could otherwise transiently revert a
+  // rapid second change.
+  useEffect(() => {
+    if (!userId) return
+    const channel = supabase
+      .channel(`settings-${userId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'user_settings', filter: `user_id=eq.${userId}` },
+        (payload) => {
+          if (Date.now() - lastLocalWrite.current < 3000) return
+          const row = payload.new as { theme?: string; default_view?: string } | null
+          if (!row?.theme || !row.default_view) return
+          const next: Settings = {
+            theme: row.theme as ThemeName,
+            defaultView: row.default_view as ViewName,
+          }
+          if (next.theme === ref.current.theme && next.defaultView === ref.current.defaultView)
+            return
+          ref.current = next
+          setSettings(next)
+        },
+      )
+      .subscribe()
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [userId])
+
   const persist = useCallback(
     (next: Settings) => {
+      lastLocalWrite.current = Date.now()
       ref.current = next
       setSettings(next)
       // Must call `.then()` — a Supabase builder is a lazy thenable that only sends

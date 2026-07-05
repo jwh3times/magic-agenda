@@ -2,11 +2,16 @@ import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateA
 import { supabase } from '../lib/supabase'
 import { rowToTask, taskToRow } from './mappers'
 import { applyToggleDone } from './selectors'
+import { applyTaskChange, payloadToChange } from './realtime'
 import { instanceOrigin, isFromOccurrenceOnward, missingInstances } from './recurrence'
 import { newId } from '../lib/id'
 import { addDays, parseDay, ymd } from '../lib/dates'
 import { isTemplate, type Task } from '../types/task'
 import type { Mode } from '../dnd/reorder'
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
+import type { Database } from '../types/database.types'
+
+type TaskRow = Database['public']['Tables']['tasks']['Row']
 
 export interface UseTasks {
   /** Board tasks only (non-recurring + materialized instances); templates are hidden. */
@@ -65,6 +70,24 @@ export function useTasks(userId: string): UseTasks {
   const templatesRef = useRef<Task[]>([])
   const inFlight = useRef(false)
 
+  // Ids this client just wrote, with expiry. Realtime echoes of our own writes are
+  // skipped so they can't clobber newer optimistic state (e.g. during rapid drags).
+  // Caveat (accepted): id-keyed suppression also drops a genuine edit to the same
+  // task from another device inside the TTL — reload()/reconnect heals it.
+  const ownWrites = useRef(new Map<string, number>())
+  const OWN_WRITE_TTL_MS = 5000
+
+  const markWrites = useCallback((ids: readonly (string | null | undefined)[]) => {
+    const now = Date.now()
+    for (const [id, exp] of ownWrites.current) if (exp < now) ownWrites.current.delete(id)
+    for (const id of ids) if (id) ownWrites.current.set(id, now + OWN_WRITE_TTL_MS)
+  }, [])
+
+  const isOwnWrite = useCallback((id: string) => {
+    const exp = ownWrites.current.get(id)
+    return exp !== undefined && exp > Date.now()
+  }, [])
+
   const setTasks = useCallback<Dispatch<SetStateAction<Task[]>>>((update) => {
     _setTasks((prev) => {
       const next = typeof update === 'function' ? (update as (p: Task[]) => Task[])(prev) : update
@@ -95,12 +118,13 @@ export function useTasks(userId: string): UseTasks {
         const present = new Set(prev.filter((t) => t.recurParentId).map(instanceKey))
         return [...prev, ...instances.filter((i) => !present.has(instanceKey(i)))]
       })
+      markWrites(instances.map((i) => i.id))
       const { error: err } = await supabase
         .from('tasks')
         .insert(instances.map((t) => taskToRow(t, userId)))
       if (err) setError(err.message)
     },
-    [setTasks, userId],
+    [setTasks, userId, markWrites],
   )
 
   const reload = useCallback(async () => {
@@ -130,10 +154,77 @@ export function useTasks(userId: string): UseTasks {
     void reload()
   }, [reload, userId])
 
+  // Live changes from other devices/sessions. Sub-epoch bumps force a fresh
+  // channel after an error (with backoff); reload() covers anything missed.
+  const [subEpoch, setSubEpoch] = useState(0)
+  const retries = useRef(0)
+
+  useEffect(() => {
+    if (!userId) return
+    let disposed = false
+    const channel = supabase
+      .channel(`tasks-${userId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${userId}` },
+        (payload) => {
+          const change = payloadToChange(payload as RealtimePostgresChangesPayload<TaskRow>)
+          if (!change) return
+          const id = change.type === 'DELETE' ? change.id : change.task.id
+          if (isOwnWrite(id)) return
+          // Functional update: bursts of events (a series creation is a template +
+          // many instance frames before a render flush) must compose through React's
+          // queue — a value-form dispatch computed from tasksRef would drop all but
+          // the first and last. Same-reference returns still bail out of re-renders.
+          setTasks((prevTasks) => {
+            const prev = { tasks: prevTasks, templates: templatesRef.current }
+            const next = applyTaskChange(prev, change)
+            // Idempotent under StrictMode double-invoke (pure function of same inputs).
+            templatesRef.current = next.templates
+            return next.tasks
+          })
+        },
+      )
+      .subscribe((status) => {
+        if (disposed) return
+        if (status === 'SUBSCRIBED') {
+          retries.current = 0
+          return
+        }
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          const backoff = Math.min(30_000, 1000 * 2 ** retries.current++)
+          void reload()
+          window.setTimeout(() => {
+            if (!disposed) setSubEpoch((e) => e + 1)
+          }, backoff)
+        }
+      })
+    return () => {
+      disposed = true
+      void supabase.removeChannel(channel)
+    }
+  }, [userId, subEpoch, isOwnWrite, reload, setTasks])
+
+  // Mobile Safari (and other browsers) kill background sockets aggressively —
+  // catch up on anything missed when the tab regains focus or connectivity returns.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void reload()
+    }
+    const onOnline = () => void reload()
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('online', onOnline)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('online', onOnline)
+    }
+  }, [reload])
+
   const createTask = useCallback(
     async (task: Task) => {
       if (isTemplate(task)) {
         templatesRef.current = [...templatesRef.current, task]
+        markWrites([task.id])
         const { error: err } = await supabase.from('tasks').insert(taskToRow(task, userId))
         if (err) {
           setError(err.message)
@@ -149,13 +240,14 @@ export function useTasks(userId: string): UseTasks {
         prev.filter((t) => t.status === task.status).reduce((m, t) => Math.max(m, t.korder), -1) + 1
       const full: Task = { ...task, order, korder }
       setTasks((p) => [...p, full])
+      markWrites([full.id])
       const { error: err } = await supabase.from('tasks').insert(taskToRow(full, userId))
       if (err) {
         setTasks(prev)
         setError(err.message)
       }
     },
-    [setTasks, materialize, userId],
+    [setTasks, materialize, userId, markWrites],
   )
 
   const updateTask = useCallback(
@@ -164,6 +256,7 @@ export function useTasks(userId: string): UseTasks {
       if (isTemplate(task)) {
         setTasks((prev) => prev.filter((t) => t.id !== task.id))
         templatesRef.current = [...templatesRef.current.filter((t) => t.id !== task.id), task]
+        markWrites([task.id])
         const { error: err } = await supabase
           .from('tasks')
           .update(taskToRow(task, userId))
@@ -178,6 +271,7 @@ export function useTasks(userId: string): UseTasks {
       }
       const prev = tasksRef.current
       setTasks((p) => p.map((t) => (t.id === task.id ? task : t)))
+      markWrites([task.id])
       const { error: err } = await supabase
         .from('tasks')
         .update(taskToRow(task, userId))
@@ -187,20 +281,21 @@ export function useTasks(userId: string): UseTasks {
         setError(err.message)
       }
     },
-    [setTasks, materialize, reload, userId],
+    [setTasks, materialize, reload, userId, markWrites],
   )
 
   const removeTask = useCallback(
     async (id: string) => {
       const prev = tasksRef.current
       setTasks((p) => p.filter((t) => t.id !== id))
+      markWrites([id])
       const { error: err } = await supabase.from('tasks').delete().eq('id', id)
       if (err) {
         setTasks(prev)
         setError(err.message)
       }
     },
-    [setTasks],
+    [setTasks, markWrites],
   )
 
   const toggleDone = useCallback(
@@ -210,6 +305,7 @@ export function useTasks(userId: string): UseTasks {
       setTasks(next)
       const toggled = next.find((t) => t.id === id)
       if (!toggled) return
+      markWrites([id])
       const { error: err } = await supabase
         .from('tasks')
         .update(taskToRow(toggled, userId))
@@ -219,7 +315,7 @@ export function useTasks(userId: string): UseTasks {
         setError(err.message)
       }
     },
-    [setTasks, userId],
+    [setTasks, userId, markWrites],
   )
 
   const persistReorder = useCallback(
@@ -229,13 +325,14 @@ export function useTasks(userId: string): UseTasks {
         .filter((t) => containers.includes(mode === 'day' ? t.day : t.status))
         .map((t) => taskToRow(t, userId))
       if (rows.length === 0) return
+      markWrites(rows.map((r) => r.id))
       const { error: err } = await supabase.from('tasks').upsert(rows, { onConflict: 'id' })
       if (err) {
         setError(err.message)
         void reload()
       }
     },
-    [setTasks, userId, reload],
+    [setTasks, userId, reload, markWrites],
   )
 
   const clearError = useCallback(() => setError(null), [])
@@ -284,6 +381,7 @@ export function useTasks(userId: string): UseTasks {
           .filter((t) => t.recurParentId === template.id && isFromOccurrenceOnward(t, cut))
           .map((t) => taskToRow(t, userId)),
       ]
+      markWrites(rows.map((r) => r.id))
       const { error: err } = await supabase.from('tasks').upsert(rows, { onConflict: 'id' })
       if (err) {
         setError(err.message)
@@ -293,6 +391,11 @@ export function useTasks(userId: string): UseTasks {
       // If the rule shortened, drop instances whose occurrence (origin) now falls past the end.
       if (next.recurUntil) {
         const until = next.recurUntil
+        markWrites(
+          tasksRef.current
+            .filter((t) => t.recurParentId === template.id && instanceOrigin(t) > until)
+            .map((t) => t.id),
+        )
         setTasks((prev) =>
           prev.filter((t) => !(t.recurParentId === template.id && instanceOrigin(t) > until)),
         )
@@ -304,12 +407,13 @@ export function useTasks(userId: string): UseTasks {
       }
       await materialize([next])
     },
-    [setTasks, materialize, reload, userId],
+    [setTasks, materialize, reload, userId, markWrites],
   )
 
   const deleteOccurrence = useCallback(
     async (instance: Task) => {
       const template = templatesRef.current.find((t) => t.id === instance.recurParentId)
+      markWrites([template?.id, instance.id])
       if (template) {
         // Skip the occurrence by its origin date (not the possibly-moved day) so it never regenerates.
         const next: Task = {
@@ -321,7 +425,7 @@ export function useTasks(userId: string): UseTasks {
       }
       await removeTask(instance.id)
     },
-    [removeTask, userId],
+    [removeTask, userId, markWrites],
   )
 
   const deleteSeriesFuture = useCallback(
@@ -334,9 +438,19 @@ export function useTasks(userId: string): UseTasks {
       // Scope by the edited occurrence's origin, not its movable day, so a dragged card trims the
       // series at the right occurrence (and can't false-trigger the whole-series branch below).
       const cut = instanceOrigin(instance)
+      markWrites([
+        template.id,
+        ...tasksRef.current
+          .filter((t) => t.recurParentId === template.id && isFromOccurrenceOnward(t, cut))
+          .map((t) => t.id),
+      ])
       if (cut <= template.day) {
         // From the first occurrence onward = remove the whole series (cascade deletes instances).
         templatesRef.current = templatesRef.current.filter((t) => t.id !== template.id)
+        markWrites([
+          template.id,
+          ...tasksRef.current.filter((t) => t.recurParentId === template.id).map((t) => t.id),
+        ])
         setTasks((prev) => prev.filter((t) => t.recurParentId !== template.id))
         const { error: err } = await supabase.from('tasks').delete().eq('id', template.id)
         if (err) {
@@ -365,7 +479,7 @@ export function useTasks(userId: string): UseTasks {
         void reload()
       }
     },
-    [setTasks, removeTask, reload, userId],
+    [setTasks, removeTask, reload, userId, markWrites],
   )
 
   return {

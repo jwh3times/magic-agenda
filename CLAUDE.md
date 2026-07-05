@@ -68,6 +68,12 @@ anchor date, editing modal, pop animation, filter). This decoupling is deliberat
 testable without Supabase (`Board.test.tsx` renders it with a stateful `Harness`). `useTasks` is the
 single source of truth for board tasks: optimistic CRUD with rollback, plus `persistReorder` (upserts
 only the changed lanes). To follow a write end-to-end, read `BoardPage` → `Board` → `useTasks`.
+`useTasks` and `useSettings` also subscribe to Supabase realtime (`postgres_changes`,
+per-user channel): remote changes flow through the pure reducer in `src/data/realtime.ts`
+(instance dedupe by `(recurParentId, recurOriginDay)`, templates routed to `templatesRef`),
+while a short-TTL own-write set suppresses each client's own echoes. On channel error the
+hook reloads and resubscribes with backoff; `visibilitychange`/`online` also trigger a
+`reload()`.
 
 ### Recurrence is a hidden-template model (the most complex subsystem)
 
