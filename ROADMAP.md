@@ -38,6 +38,7 @@ sections have been removed below; remaining dependencies on them are satisfied.
 | 5.4   | Roles & feature flags            | P2  | L    | —                  |
 | 5.5   | Admin dashboard                  | P2  | L    | 5.4                |
 | 5.6   | Custom auth domain               | P3  | S    | plan/cost decision |
+| 5.7   | Branded auth emails              | P3  | S    | —                  |
 | 6.1   | iCal calendar feed               | P3  | L    | —                  |
 | 6.3   | Attachments                      | P3  | L    | —                  |
 | 6.2   | Shared / collaborative boards    | P3  | XL   | 5.4, ideally 4.2   |
@@ -215,6 +216,12 @@ Total rough effort for the remaining items: ~8–12 weeks of focused solo work.
       `…supabase.co` callback host on the free tier. Supabase custom domain (paid add-on): CNAME
       `auth.magicagenda.app`, activate, update `VITE_SUPABASE_URL` in Pages env, redeploy. No code
       change. Blocked on the Supabase plan decision — a cost call.
+- [ ] **Branded auth emails** · **P3** · S (dashboard-only) — the Supabase Auth emails (Reset
+      Password, Confirm signup, Change email) currently use the stock templates. Customize them in
+      the dashboard (Authentication → Email Templates) to match the app's tone and branding — the
+      reset email especially, since password reset (shipped) sends it to real users. No code
+      change; the defaults work, so this is pure polish. Pairs naturally with 5.6 (a branded
+      sender/auth host) if that ever happens.
 
 ## Phase 6 — Bigger bets
 
