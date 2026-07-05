@@ -17,6 +17,7 @@ export interface ToolbarProps {
   onToday: () => void
   onAddInbox: () => void
   onSignOut?: () => void
+  onOpenSettings?: () => void
 }
 
 export function Toolbar({
@@ -30,6 +31,7 @@ export function Toolbar({
   onToday,
   onAddInbox,
   onSignOut,
+  onOpenSettings,
 }: ToolbarProps) {
   const { theme, conf } = useTheme()
   const isMobile = useIsMobile()
@@ -69,6 +71,17 @@ export function Toolbar({
           <button type="button" onClick={onAddInbox} style={{ ...c.addBtn, flex: 'none' }}>
             + New task
           </button>
+          {onOpenSettings && (
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              aria-label="Settings"
+              title="Settings"
+              style={{ ...c.todayBtn, flex: 'none' }}
+            >
+              ⚙
+            </button>
+          )}
           {onSignOut && (
             <button
               type="button"
@@ -136,6 +149,17 @@ export function Toolbar({
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
         <ThemeSwitcher />
+        {onOpenSettings && (
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            aria-label="Settings"
+            title="Settings"
+            style={c.todayBtn}
+          >
+            ⚙
+          </button>
+        )}
         <button type="button" onClick={onAddInbox} style={c.addBtn}>
           + New task
         </button>

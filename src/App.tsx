@@ -11,6 +11,9 @@ import { Terms } from './pages/Terms'
 // The board pulls in dnd-kit, every view, the editor, and the Supabase data layer —
 // lazy-load it so the login/auth path stays a small initial bundle.
 const BoardPage = lazy(() => import('./pages/BoardPage').then((m) => ({ default: m.BoardPage })))
+const SettingsPage = lazy(() =>
+  import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })),
+)
 
 export default function App() {
   return (
@@ -21,6 +24,16 @@ export default function App() {
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<Spinner label="Loading…" />}>
+                  <SettingsPage />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/"
             element={
