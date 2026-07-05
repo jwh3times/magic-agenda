@@ -63,7 +63,7 @@ directory with `handler.ts` (the exported, testable request handler) and `index.
 Every function verifies the caller's JWT via `requireUser()` before doing anything,
 and only uses the service-role key after that check.
 
-- Test: `deno test supabase/functions` (the CI `Functions` job runs this).
+- Test: `cd supabase/functions && deno test` (Deno only picks up the dir's deno.json from inside it; the CI `Functions` job does the same).
 - Serve locally: `npx supabase start` (needs Docker), then `npx supabase functions serve <name>`.
 - Deploy: automatic on merge to `main` via the `Deploy Functions` workflow.
 
