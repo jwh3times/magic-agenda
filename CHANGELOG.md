@@ -10,6 +10,9 @@ _Planned features and fixes are tracked in [ROADMAP.md](./ROADMAP.md)._
 
 ### Added
 
+- **Delete account** — a Danger-zone section on `/settings` permanently deletes the account
+  and all data (typed confirmation required). Deletion runs in a JWT-verified `delete-account`
+  edge function; Postgres cascades remove the user's tasks and settings.
 - **Password reset** — a "Forgot password?" flow on the login page emails a recovery link
   (never revealing whether an account exists); the link lands on a new `/auth/reset` page
   that sets the new password. A recovery session can't reach the board until the password

@@ -1,5 +1,5 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
 import logoDark from '../assets/logo-dark.svg'
@@ -15,6 +15,19 @@ const SIGNUP_MIN_PASSWORD = 10
 export function Login() {
   const { session } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  // One-shot: capture the flag at mount, then scrub it from history.state so a
+  // later reload of /login can't resurrect the "account deleted" notice.
+  const [accountDeleted] = useState(() =>
+    Boolean((location.state as { accountDeleted?: boolean } | null)?.accountDeleted),
+  )
+  const noticeCleared = useRef(false)
+  useEffect(() => {
+    if (accountDeleted && !noticeCleared.current) {
+      noticeCleared.current = true
+      navigate(location.pathname, { replace: true, state: null })
+    }
+  }, [accountDeleted, navigate, location.pathname])
   const [mode, setMode] = useState<Mode>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -155,6 +168,11 @@ export function Login() {
             </button>
           )}
 
+          {accountDeleted && (
+            <div style={{ color: '#86efac', fontSize: 13, lineHeight: 1.4 }}>
+              Your account and all of its data have been deleted. Thanks for trying Magic Agenda.
+            </div>
+          )}
           {error && <div style={{ color: '#ff8b8b', fontSize: 13, lineHeight: 1.4 }}>{error}</div>}
           {notice && (
             <div style={{ color: '#86efac', fontSize: 13, lineHeight: 1.4 }}>{notice}</div>

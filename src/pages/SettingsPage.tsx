@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { ThemeProvider, useTheme } from '../theme/ThemeProvider'
 import { ThemeSwitcher } from '../components/ThemeSwitcher'
+import { DangerZone } from '../components/DangerZone'
 import { Spinner } from '../components/Spinner'
 import { useSettings } from '../data/useSettings'
 import { useIsMobile } from '../lib/useMediaQuery'
@@ -22,6 +23,7 @@ export interface SettingsSection {
 // Later features append here (Danger zone, export/import, week-start/timezone, labels…).
 const SECTIONS: SettingsSection[] = [
   { id: 'appearance', title: 'Appearance', render: (ctx) => <AppearanceSection {...ctx} /> },
+  { id: 'danger', title: 'Danger zone', render: () => <DangerZone /> },
 ]
 
 /** The protected /settings route: owns its own settings state + theme, like BoardPage. */
