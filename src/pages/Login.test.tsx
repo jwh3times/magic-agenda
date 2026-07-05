@@ -44,9 +44,7 @@ test('forgot mode hides the password field and sends the reset email', async () 
     redirectTo: `${window.location.origin}/auth/reset`,
   })
   // Same notice whether or not the account exists — never leak existence.
-  expect(
-    await screen.findByText(/If an account exists for that email/),
-  ).toBeInTheDocument()
+  expect(await screen.findByText(/If an account exists for that email/)).toBeInTheDocument()
 })
 
 test('back link returns from forgot mode to sign in', async () => {

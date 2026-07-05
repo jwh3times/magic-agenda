@@ -31,8 +31,8 @@ export function ResetPassword() {
             style={{ height: 110, display: 'block', margin: '0 0 6px' }}
           />
           <p style={{ margin: '0 0 18px', fontSize: 14, lineHeight: 1.5, opacity: 0.75 }}>
-            This password reset link is invalid or has expired. Request a new one from the
-            sign-in page.
+            This password reset link is invalid or has expired. Request a new one from the sign-in
+            page.
           </p>
           <Link to="/login" style={{ color: '#a78bfa', fontWeight: 700, fontSize: 14 }}>
             Back to sign in
@@ -94,8 +94,7 @@ export function ResetPassword() {
             style={authField}
           />
           <div style={{ fontSize: 12, opacity: 0.5, lineHeight: 1.4 }}>
-            At least 10 characters, including upper- and lower-case letters, a number, and a
-            symbol.
+            At least 10 characters, including upper- and lower-case letters, a number, and a symbol.
           </div>
           {error && <div style={{ color: '#ff8b8b', fontSize: 13, lineHeight: 1.4 }}>{error}</div>}
           <button
