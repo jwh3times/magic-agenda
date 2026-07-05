@@ -39,6 +39,14 @@ _Planned features and fixes are tracked in [ROADMAP.md](./ROADMAP.md)._
   while a plain swipe scrolls the board. Previously cards set `touch-action: none` and the pointer
   sensor treated any 6px touch movement as a drag, which made touch scrolling impossible.
 
+### Changed
+
+- **Theme lives in Settings; the default view is stable** — the cork/brutal/glass switcher moved
+  out of the toolbar into Settings → Appearance (theme still syncs live across devices).
+  Switching view tabs no longer changes your saved default view — the default is set only in
+  Settings and is the view you land on when you open the app; the view you pick during a session
+  is remembered for that tab (across refreshes) and resets on a new tab or sign-out.
+
 ### Fixed
 
 - **Recurring‑occurrence drag no longer resurrects a copy** — moving a recurring instance to a
