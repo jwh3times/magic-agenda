@@ -150,6 +150,18 @@ test('deleting a template drops it and all of its local instances', () => {
   expect(next.tasks.map((t) => t.id)).toEqual(['t1'])
 })
 
+test('a template UPDATE with unchanged content returns the same state object', () => {
+  const s = state([], [template])
+  expect(applyTaskChange(s, { type: 'UPDATE', task: { ...template } })).toBe(s)
+})
+
+test('INSERT/UPDATE payloads with a missing or malformed row map to null', () => {
+  const noRow = { eventType: 'INSERT', new: null, old: {} }
+  expect(payloadToChange(noRow as unknown as RealtimePostgresChangesPayload<TaskRow>)).toBeNull()
+  const noId = { eventType: 'UPDATE', new: { title: 'partial' }, old: {} }
+  expect(payloadToChange(noId as unknown as RealtimePostgresChangesPayload<TaskRow>)).toBeNull()
+})
+
 // ---- applyTaskChange: instance dedupe ----
 
 test('an instance INSERT for an occurrence we already cover replaces the local twin', () => {

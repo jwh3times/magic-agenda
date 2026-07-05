@@ -24,11 +24,19 @@ export function payloadToChange(p: RealtimePostgresChangesPayload<TaskRow>): Tas
     return id ? { type: 'DELETE', id } : null
   }
   if (p.eventType === 'INSERT' || p.eventType === 'UPDATE') {
-    return { type: p.eventType, task: rowToTask(p.new as TaskRow) }
+    // Same defensiveness as the DELETE branch: a partial/nullish row (publication
+    // anomaly, misbehaving client) must be dropped, not mapped into a garbage Task.
+    const row = p.new as Partial<TaskRow> | null
+    if (!row || typeof row.id !== 'string') return null
+    return { type: p.eventType, task: rowToTask(row as TaskRow) }
   }
   return null
 }
 
+// Key-order-sensitive by design: every Task here is built by rowToTask (fixed key
+// order) or object spread of one, so serializations are comparable. Worst case for
+// a divergent constructor is a false NEGATIVE (one redundant re-render) — never a
+// skipped real update.
 const sameTask = (a: Task, b: Task) => JSON.stringify(a) === JSON.stringify(b)
 
 /** The occurrence an instance covers — mirrors the (recur_parent_id, recur_origin_day) index. */
