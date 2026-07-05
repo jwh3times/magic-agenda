@@ -10,6 +10,9 @@ _Planned features and fixes are tracked in [ROADMAP.md](./ROADMAP.md)._
 
 ### Added
 
+- **Settings page** — a `/settings` route (gear button in the toolbar) with theme and
+  default-view controls and Privacy/Terms links; built as a section registry that account,
+  data, and preference features will extend.
 - **Mobile‑responsive layout** — the board now adapts to phone‑width screens: the toolbar stacks into
   compact rows, Week view becomes a vertical day list, the month Calendar pans sideways at a readable
   width, Kanban columns swipe horizontally with snap points, and the Inbox docks full‑width below the
