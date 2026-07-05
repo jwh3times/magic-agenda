@@ -11,7 +11,7 @@ const h = vi.hoisted(() => {
   const ok = () => Promise.resolve({ data: null, error: null })
   // Stable spies so tests can assert on the rows reload/materialize/updateSeries write.
   const insert = vi.fn(ok)
-  const upsert = vi.fn((..._args: unknown[]) => ok())
+  const upsert = vi.fn(ok)
   const channel: Record<string, unknown> = {}
   channel.on = vi.fn((_e: string, _f: unknown, cb: (p: unknown) => void) => {
     capture.handler = cb
@@ -193,6 +193,7 @@ test('updateSeries "this and future" persists the edited content to existing ins
 
   // The instance row written to the DB must carry the edited title. The bug built these rows from
   // tasksRef.current right after setTasks, so the deferred ref still held the pre-edit 'old' title.
-  const rows = h.upsert.mock.calls[0][0] as { id: string; title: string }[]
+  const call = h.upsert.mock.calls[0] as unknown as unknown[]
+  const rows = call[0] as { id: string; title: string }[]
   expect(rows.find((r) => r.id === 'i1')?.title).toBe('new')
 })
