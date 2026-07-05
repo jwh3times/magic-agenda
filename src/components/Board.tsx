@@ -43,6 +43,7 @@ export interface BoardProps {
   initialView?: ViewName
   onViewChange?: (v: ViewName) => void
   onSignOut?: () => void
+  onOpenSettings?: () => void
 }
 
 const VIEWS: ViewOption[] = [
@@ -84,6 +85,7 @@ export function Board({
   initialView,
   onViewChange,
   onSignOut,
+  onOpenSettings,
 }: BoardProps) {
   const { theme, conf } = useTheme()
   const isMobile = useIsMobile()
@@ -192,6 +194,7 @@ export function Board({
         onToday={onToday}
         onAddInbox={handlers.onAddInbox}
         onSignOut={onSignOut}
+        onOpenSettings={onOpenSettings}
       />
 
       <SearchFilterBar query={filter} onChange={setFilter} />

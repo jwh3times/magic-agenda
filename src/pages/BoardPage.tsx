@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { ThemeProvider } from '../theme/ThemeProvider'
 import { Board } from '../components/Board'
@@ -10,6 +11,7 @@ import { useSettings } from '../data/useSettings'
 /** The signed-in board: owns the Supabase-backed task + settings state, seeds the theme. */
 export function BoardPage() {
   const { user, signOut } = useAuth()
+  const navigate = useNavigate()
   const userId = user?.id ?? ''
   const t = useTasks(userId)
   const { settings, loading: settingsLoading, saveTheme, saveView } = useSettings(userId)
@@ -39,6 +41,7 @@ export function BoardPage() {
             initialView={settings.defaultView}
             onViewChange={saveView}
             onSignOut={signOut}
+            onOpenSettings={() => navigate('/settings')}
           />
           {t.error && <Toast message={t.error} onDismiss={t.clearError} />}
         </>
