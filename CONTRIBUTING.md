@@ -55,6 +55,21 @@ format:check` and `npm run lint` must both pass (together they are the CI `Forma
   production on merge** via the `Deploy Migrations` workflow; regenerate `src/types/database.types.ts`
   with `npx supabase gen types` once the schema is applied.
 
+## Edge functions
+
+Server-side code lives in `supabase/functions/` (Deno 2, not Node). Each function is a
+directory with `handler.ts` (the exported, testable request handler) and `index.ts`
+(just `Deno.serve(handler)`); shared helpers live in `supabase/functions/_shared/`.
+Every function verifies the caller's JWT via `requireUser()` before doing anything,
+and only uses the service-role key after that check.
+
+- Test: `deno test supabase/functions` (the CI `Functions` job runs this).
+- Serve locally: `npx supabase start` (needs Docker), then `npx supabase functions serve <name>`.
+- Deploy: automatic on merge to `main` via the `Deploy Functions` workflow.
+
+Node tooling deliberately ignores this directory (`eslint.config.js` ignores,
+Vitest `test.exclude`) — Deno code doesn't parse under the Node toolchain.
+
 ## Project layout
 
 See [Project structure](./README.md#project-structure) in the README.
