@@ -6,8 +6,8 @@ import { beforeEach, expect, test, vi } from 'vitest'
 type InvokeResponse = { data: { ok: boolean } | null; error: { message: string } | null }
 
 const h = vi.hoisted(() => ({
-  invoke: vi.fn(
-    (): Promise<InvokeResponse> => Promise.resolve({ data: { ok: true }, error: null }),
+  invoke: vi.fn((): Promise<InvokeResponse> =>
+    Promise.resolve({ data: { ok: true }, error: null }),
   ),
   signOut: vi.fn(() => Promise.resolve()),
 }))
