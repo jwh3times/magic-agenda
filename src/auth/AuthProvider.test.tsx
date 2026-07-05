@@ -61,3 +61,11 @@ test('the recovery flag survives a remount (page reload) via sessionStorage', as
   expect(second.result.current.passwordRecovery).toBe(false)
   expect(sessionStorage.getItem('ma-password-recovery')).toBeNull()
 })
+
+test('SIGNED_OUT clears the remembered board view', async () => {
+  sessionStorage.setItem('ma-board-view', 'week')
+  const { result } = renderHook(() => useAuth(), { wrapper })
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  act(() => h.capture.handler!('SIGNED_OUT', null))
+  expect(sessionStorage.getItem('ma-board-view')).toBeNull()
+})
