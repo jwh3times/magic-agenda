@@ -73,3 +73,20 @@ test('a settings change from another device is applied', async () => {
   })
   expect(result.current.settings).toEqual({ theme: 'glass', defaultView: 'week' })
 })
+
+test('a remote settings event arriving right after a local save is suppressed', async () => {
+  const { result } = renderHook(() => useSettings('user-1'))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  act(() => {
+    result.current.saveTheme('brutal')
+  })
+  act(() => {
+    h.capture.handler!({
+      eventType: 'UPDATE',
+      new: { user_id: 'user-1', theme: 'glass', default_view: 'week' },
+      old: {},
+    })
+  })
+  expect(result.current.settings).toEqual({ theme: 'brutal', defaultView: 'calendar' })
+})
