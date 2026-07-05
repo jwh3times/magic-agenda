@@ -13,37 +13,36 @@ Size: **S** ≤ half a day · **M** 1–2 days · **L** 3–5 days · **XL** 1�
 
 ## Build order at a glance
 
-| Order | Item                                | Pri | Size | Hard dependencies     |
-| ----- | ----------------------------------- | --- | ---- | --------------------- |
-| 0.1   | Edge Function scaffolding           | —   | S    | —                     |
-| 0.2   | Settings page shell (+ legal links) | —   | M    | —                     |
-| 1.1   | Password reset                      | P1  | M    | —                     |
-| 1.2   | Delete account                      | P1  | M    | 0.1                   |
-| 1.3   | Realtime multi-device sync          | P1  | L    | —                     |
-| 2.1   | Due time / time-of-day              | P2  | M    | —                     |
-| 2.2   | Priority via pins                   | P2  | M    | —                     |
-| 2.3   | Overdue handling & roll-forward     | P2  | M    | —                     |
-| 2.4   | Export / import                     | P2  | M    | 0.2                   |
-| 3.1   | Installable PWA + offline read      | P2  | L    | best after 1.3        |
-| 4.1   | Settings: week-start & timezone     | P3  | M    | 0.2                   |
-| 3.2   | Reminders / notifications           | P2  | XL   | 0.1, 2.1, 3.1, 4.1    |
-| 4.2   | Custom labels / categories          | P2  | XL   | 0.2                   |
-| 4.3   | Richer recurrence                   | P3  | L    | —                     |
-| 4.4   | Quick-add & keyboard shortcuts      | P3  | L    | —                     |
-| 4.5   | Bulk multi-select                   | P3  | L    | —                     |
-| 4.6   | Undo                                | P3  | M    | best after 4.5        |
-| 4.7   | Completed / archive view + stats    | P3  | M    | 0.2                   |
-| 5.1   | Public landing page                 | P3  | M    | —                     |
-| 5.2   | Google "G" logo on OAuth button     | P3  | S    | —                     |
-| 5.3   | Privacy & Terms links in-app        | P2  | S    | bundle with 0.2 / 5.1 |
-| 5.4   | Roles & feature flags               | P2  | L    | —                     |
-| 5.5   | Admin dashboard                     | P2  | L    | 5.4                   |
-| 5.6   | Custom auth domain                  | P3  | S    | plan/cost decision    |
-| 6.1   | iCal calendar feed                  | P3  | L    | 0.1                   |
-| 6.3   | Attachments                         | P3  | L    | 0.1                   |
-| 6.2   | Shared / collaborative boards       | P3  | XL   | 1.3, 5.4, ideally 4.2 |
+Phases 0 and 1 (Edge Function scaffolding, settings page shell, password reset, delete account,
+realtime multi-device sync) **shipped 2026-07-05** — see [CHANGELOG.md](./CHANGELOG.md) — and their
+sections have been removed below; remaining dependencies on them are satisfied.
 
-Total rough effort: ~10–14 weeks of focused solo work; the P1 block (0.1 → 1.3) is ~1.5–2 weeks.
+| Order | Item                             | Pri | Size | Hard dependencies  |
+| ----- | -------------------------------- | --- | ---- | ------------------ |
+| 2.1   | Due time / time-of-day           | P2  | M    | —                  |
+| 2.2   | Priority via pins                | P2  | M    | —                  |
+| 2.3   | Overdue handling & roll-forward  | P2  | M    | —                  |
+| 2.4   | Export / import                  | P2  | M    | —                  |
+| 3.1   | Installable PWA + offline read   | P2  | L    | —                  |
+| 4.1   | Settings: week-start & timezone  | P3  | M    | —                  |
+| 3.2   | Reminders / notifications        | P2  | XL   | 2.1, 3.1, 4.1      |
+| 4.2   | Custom labels / categories       | P2  | XL   | —                  |
+| 4.3   | Richer recurrence                | P3  | L    | —                  |
+| 4.4   | Quick-add & keyboard shortcuts   | P3  | L    | —                  |
+| 4.5   | Bulk multi-select                | P3  | L    | —                  |
+| 4.6   | Undo                             | P3  | M    | best after 4.5     |
+| 4.7   | Completed / archive view + stats | P3  | M    | —                  |
+| 5.1   | Public landing page              | P3  | M    | —                  |
+| 5.2   | Google "G" logo on OAuth button  | P3  | S    | —                  |
+| 5.3   | Privacy & Terms links in-app     | P2  | S    | bundle with 5.1    |
+| 5.4   | Roles & feature flags            | P2  | L    | —                  |
+| 5.5   | Admin dashboard                  | P2  | L    | 5.4                |
+| 5.6   | Custom auth domain               | P3  | S    | plan/cost decision |
+| 6.1   | iCal calendar feed               | P3  | L    | —                  |
+| 6.3   | Attachments                      | P3  | L    | —                  |
+| 6.2   | Shared / collaborative boards    | P3  | XL   | 5.4, ideally 4.2   |
+
+Total rough effort for the remaining items: ~8–12 weeks of focused solo work.
 
 ## Conventions that apply to every item
 
@@ -65,60 +64,6 @@ Total rough effort: ~10–14 weeks of focused solo work; the P1 block (0.1 → 1
   tasks must decide explicitly how it treats templates vs. instances.
 - **Optimistic writes with rollback** (the `useTasks` pattern): apply local state first, persist,
   restore `prev` + surface `error` on failure.
-
-## Phase 0 — Enabling infrastructure
-
-- [ ] **Edge Function scaffolding** · S — several items (delete account, iCal feed, push reminders)
-      need server-side code. Set up `supabase/functions/` with one hello-world function, local
-      `supabase functions serve` docs in CONTRIBUTING, and a `Deploy Functions` workflow mirroring
-      `deploy-migrations.yml` (trigger: `supabase/functions/**`). Establish the auth pattern once:
-      functions verify the caller's JWT with `supabase.auth.getUser(jwt)` and use the service-role
-      key only after that check.
-- [ ] **Settings page shell** · M — listed as P3 UX, but it is a **dependency hub**: account
-      deletion, export/import, labels management, week-start/timezone, and notification preferences
-      all need a home. New protected route `/settings` (`src/pages/SettingsPage.tsx`), themed via
-      `useTheme()`; move Theme + default-view pickers here (toolbar ThemeSwitcher stays). Sections
-      render from a small registry so later features append panels. Gear button in the toolbar;
-      Privacy/Terms links in the footer (covers part of 5.3). No schema yet.
-
-## Phase 1 — The P1 items
-
-- [ ] **Password reset** · **P1** · M — users currently have no account-recovery path. Two halves:
-      (1) _Request_: "Forgot password?" on `Login.tsx` →
-      `supabase.auth.resetPasswordForEmail(email, { redirectTo: origin + '/auth/reset' })`; always
-      show "check your email" (don't leak account existence). (2) _Complete_: new `/auth/reset`
-      route collects a new password (mirror `SIGNUP_MIN_PASSWORD = 10`) and calls
-      `supabase.auth.updateUser({ password })`; listen for `PASSWORD_RECOVERY` in
-      `AuthProvider.onAuthStateChange` and route there so recovery sessions can't land on the board
-      silently. Manual config: add `/auth/reset` to the Supabase redirect allowlist + customize the
-      reset email template. Risk: allowlist misconfig only fails in production — verify on a
-      preview deploy.
-- [ ] **Delete account** · **P1** · M — a baseline privacy expectation; the client cannot delete an
-      `auth.users` row, so this is Edge Function `delete-account` (needs 0.1): verify caller JWT →
-      `admin.deleteUser(userId)` with the service-role client; `on delete cascade` already removes
-      tasks and settings. UI: "Danger zone" on `/settings`, type-`delete`-to-confirm, then call the
-      function, `signOut()`, route to `/login`. Irreversible by design — consider a "download your
-      data first" prompt (links 2.4).
-- [ ] **Realtime multi-device sync** · **P1** · L — sync is REST + manual `reload()` today; edits
-      only appear on another device after a refresh. The riskiest P1 because it intersects
-      recurrence and optimistic updates:
-  1. Migration: `alter publication supabase_realtime add table public.tasks, public.user_settings;`
-     (realtime respects RLS for `postgres_changes`).
-  2. Pure reducer first (test-first): `src/data/realtime.ts` —
-     `applyChange(tasks, templates, change)` handling INSERT/UPDATE/DELETE of instances and
-     templates: dedupe instances by `(recurParentId, recurOriginDay)` (another device may
-     materialize the same occurrences — tolerate the echo), route template rows to `templatesRef`,
-     drop no-op updates.
-  3. Wire-up in `useTasks`: per-user channel (`filter: user_id=eq.${userId}`) after the initial
-     `reload()`. **Self-echo suppression**: keep a short-lived `Set` of ids this client just wrote
-     and skip matching events — otherwise every optimistic write is immediately re-applied.
-  4. Fallbacks: on channel error/close → `reload()` + resubscribe with backoff; also `reload()` on
-     `visibilitychange` → visible and `online` (mobile Safari kills sockets aggressively).
-  5. `useSettings` gets the same channel pattern.
-
-  Risks: double-materialization races (unique index + reducer dedupe), `updated_at` ordering
-  (last-write-wins is acceptable single-user; document it), free-tier connection limits (one
-  channel per session).
 
 ## Phase 2 — Scheduling depth
 
@@ -162,7 +107,8 @@ Total rough effort: ~10–14 weeks of focused solo work; the P1 block (0.1 → 1
       mutation); on boot without network, hydrate in **read-only mode** ("Offline — changes
       disabled" banner) — a write-queue/reconciler is explicitly out of scope (XL; revisit after
       realtime soaks). Update flow: `registerType: 'prompt'` + a "New version — refresh" toast.
-      Best after 1.3 so offline snapshots and realtime reconnects compose. Verify install on real
+      Realtime sync (shipped) already reloads on `online`, so offline snapshots and reconnects
+      compose. Verify install on real
       iOS/Android.
 - [ ] **Reminders / notifications** · **P2** · XL — web push (email fallback later); the
       highest-ops item on the list. Schema: `push_subscriptions` table (owner-only RLS) +
@@ -172,7 +118,7 @@ Total rough effort: ~10–14 weeks of focused solo work; the P1 block (0.1 → 1
       `PushManager.subscribe` (VAPID). Sender: `pg_cron` invoking an Edge Function every 5 minutes —
       query tasks due in the window (service role), send via a Deno `web-push` port, delete dead
       subscriptions on 404/410. iOS needs the PWA installed to Home Screen (16.4+) — surface in the
-      settings copy. Do **after** 4.1's timezone setting or reminders fire in UTC. Depends on 0.1,
+      settings copy. Do **after** 4.1's timezone setting or reminders fire in UTC. Depends on
       2.1, 3.1.
 
 ## Phase 4 — Productivity & personalization
@@ -249,8 +195,9 @@ Total rough effort: ~10–14 weeks of focused solo work; the P1 block (0.1 → 1
       the official multi-color mark as an inline SVG in `Login.tsx`, per Google branding
       guidelines.
 - [ ] **Privacy & Terms links while logged in** · **P2** · S — surface the legal pages from inside
-      the app, not just the login screen. Footer links on `/settings` (part of the settings shell)
-      plus a small link row in the mobile toolbar overflow; bundle into the 0.2 or 5.1 PR.
+      the app, not just the login screen. The `/settings` footer already links them (shipped with
+      the settings page); remaining: a small link row in the mobile toolbar overflow. Bundle into
+      the 5.1 PR.
 - [ ] **Roles & feature flags** · **P2** · L — the foundation the admin dashboard builds on.
       Schema: `user_roles (user_id pk, role text check (role in ('admin')))` — presence = admin,
       users read own row only; `feature_flags (key text pk, enabled boolean, description text)` —
@@ -293,9 +240,9 @@ Larger efforts that fit the app's direction but are not near-term.
      migration for existing data). RLS rewrite: task policies become "owner OR board member" via a
      definer helper — **the entire RLS suite gets re-reviewed**; the single riskiest change.
   2. App: board switcher, `useTasks(userId, boardId)`, invites by email (Edge Function).
-  3. Presence & conflict: realtime (1.3) already gives multi-writer sync; add `tasks.updated_by`
+  3. Presence & conflict: realtime (shipped) already gives multi-writer sync; add `tasks.updated_by`
      for per-card attribution.
   4. Recurrence carries over cleanly — nothing keys on `user_id` except RLS.
 
-  Depends on 1.3 (realtime), 5.4 (roles pattern), ideally 4.2 (shared boards force per-board
+  Depends on 5.4 (roles pattern), ideally 4.2 (shared boards force per-board
   labels; sequence labels first to avoid a double migration).
