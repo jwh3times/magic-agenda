@@ -9,8 +9,9 @@ const h = vi.hoisted(() => {
     rows: [],
   }
   const ok = () => Promise.resolve({ data: null, error: null })
-  // A stable spy so a test can assert whether reload/materialize issued an insert.
+  // Stable spies so tests can assert on the rows reload/materialize/updateSeries write.
   const insert = vi.fn(ok)
+  const upsert = vi.fn((..._args: unknown[]) => ok())
   const channel: Record<string, unknown> = {}
   channel.on = vi.fn((_e: string, _f: unknown, cb: (p: unknown) => void) => {
     capture.handler = cb
@@ -20,7 +21,7 @@ const h = vi.hoisted(() => {
     cb?.('SUBSCRIBED')
     return channel
   })
-  return { capture, ok, insert, channel }
+  return { capture, ok, insert, upsert, channel }
 })
 
 vi.mock('../lib/supabase', () => ({
@@ -28,7 +29,7 @@ vi.mock('../lib/supabase', () => ({
     from: vi.fn(() => ({
       select: vi.fn(() => Promise.resolve({ data: h.capture.rows, error: null })),
       insert: h.insert,
-      upsert: vi.fn(h.ok),
+      upsert: h.upsert,
       update: vi.fn(() => ({ eq: vi.fn(h.ok) })),
       delete: vi.fn(() => ({
         eq: vi.fn(h.ok),
@@ -86,6 +87,7 @@ beforeEach(() => {
   h.capture.handler = null
   h.capture.rows = [serverRow()]
   h.insert.mockClear()
+  h.upsert.mockClear()
 })
 
 test('a stale echo of our own write does not clobber optimistic state', async () => {
@@ -160,4 +162,37 @@ test('reload does not re-insert instances the board already loaded (no duplicate
   // reload read a stale (empty) board and re-inserted i1, hitting tasks_recur_instance_uniq.
   expect(h.insert).not.toHaveBeenCalled()
   expect(result.current.tasks.map((t) => t.id)).toEqual(['i1'])
+})
+
+test('updateSeries "this and future" persists the edited content to existing instances', async () => {
+  const today = ymd(new Date())
+  h.capture.rows = [
+    serverRow({ id: 'tpl1', recur_freq: 'daily', day: today, title: 'old' }),
+    serverRow({
+      id: 'i1',
+      recur_parent_id: 'tpl1',
+      recur_origin_day: today,
+      day: today,
+      title: 'old',
+    }),
+  ]
+  const { result } = renderHook(() => useTasks('u1'))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  h.upsert.mockClear()
+
+  const instance = result.current.tasks.find((t) => t.id === 'i1')!
+  await act(async () => {
+    await result.current.updateSeries(instance, {
+      ...instance,
+      title: 'new',
+      recurFreq: 'daily',
+      recurInterval: 1,
+      recurUntil: null,
+    })
+  })
+
+  // The instance row written to the DB must carry the edited title. The bug built these rows from
+  // tasksRef.current right after setTasks, so the deferred ref still held the pre-edit 'old' title.
+  const rows = h.upsert.mock.calls[0][0] as { id: string; title: string }[]
+  expect(rows.find((r) => r.id === 'i1')?.title).toBe('new')
 })
