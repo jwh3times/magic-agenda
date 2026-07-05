@@ -20,7 +20,7 @@ export type TaskChange =
 export function payloadToChange(p: RealtimePostgresChangesPayload<TaskRow>): TaskChange | null {
   if (p.eventType === 'DELETE') {
     // DELETE events carry only the replica identity (the primary key).
-    const id = (p.old as Partial<TaskRow>).id
+    const id = (p.old as Partial<TaskRow> | null)?.id
     return id ? { type: 'DELETE', id } : null
   }
   if (p.eventType === 'INSERT' || p.eventType === 'UPDATE') {

@@ -117,3 +117,27 @@ test('a change from another device is applied', async () => {
   })
   expect(result.current.tasks.map((t) => t.id)).toEqual(['t1', 't2'])
 })
+
+test('a burst of remote events all apply (series creation from another device)', async () => {
+  const { result } = renderHook(() => useTasks('u1'))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  act(() => {
+    h.capture.handler!({
+      eventType: 'INSERT',
+      new: serverRow({ id: 't2', title: 'burst 1' }),
+      old: {},
+    })
+    h.capture.handler!({
+      eventType: 'INSERT',
+      new: serverRow({ id: 't3', title: 'burst 2' }),
+      old: {},
+    })
+    h.capture.handler!({
+      eventType: 'INSERT',
+      new: serverRow({ id: 't4', title: 'burst 3' }),
+      old: {},
+    })
+  })
+  expect(result.current.tasks.map((t) => t.id)).toEqual(['t1', 't2', 't3', 't4'])
+})

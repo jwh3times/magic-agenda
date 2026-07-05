@@ -72,6 +72,8 @@ export function useTasks(userId: string): UseTasks {
 
   // Ids this client just wrote, with expiry. Realtime echoes of our own writes are
   // skipped so they can't clobber newer optimistic state (e.g. during rapid drags).
+  // Caveat (accepted): id-keyed suppression also drops a genuine edit to the same
+  // task from another device inside the TTL — reload()/reconnect heals it.
   const ownWrites = useRef(new Map<string, number>())
   const OWN_WRITE_TTL_MS = 5000
 
@@ -170,11 +172,17 @@ export function useTasks(userId: string): UseTasks {
           if (!change) return
           const id = change.type === 'DELETE' ? change.id : change.task.id
           if (isOwnWrite(id)) return
-          const prev = { tasks: tasksRef.current, templates: templatesRef.current }
-          const next = applyTaskChange(prev, change)
-          if (next === prev) return
-          templatesRef.current = next.templates
-          if (next.tasks !== prev.tasks) setTasks(next.tasks)
+          // Functional update: bursts of events (a series creation is a template +
+          // many instance frames before a render flush) must compose through React's
+          // queue — a value-form dispatch computed from tasksRef would drop all but
+          // the first and last. Same-reference returns still bail out of re-renders.
+          setTasks((prevTasks) => {
+            const prev = { tasks: prevTasks, templates: templatesRef.current }
+            const next = applyTaskChange(prev, change)
+            // Idempotent under StrictMode double-invoke (pure function of same inputs).
+            templatesRef.current = next.templates
+            return next.tasks
+          })
         },
       )
       .subscribe((status) => {
