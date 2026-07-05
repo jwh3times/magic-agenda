@@ -26,6 +26,11 @@ export async function handler(req: Request): Promise<Response> {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
   )
   const { error } = await admin.auth.admin.deleteUser(user.id)
-  if (error) return json({ error: 'Deletion failed' }, 500)
+  if (error) {
+    // Irreversible endpoint: keep a server-side trail (function logs) while the
+    // client only ever sees the generic message.
+    console.error('delete-account: deleteUser failed', error)
+    return json({ error: 'Deletion failed' }, 500)
+  }
   return json({ ok: true })
 }
