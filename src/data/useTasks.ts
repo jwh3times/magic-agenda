@@ -96,11 +96,18 @@ export function useTasks(userId: string): UseTasks {
     })
   }, [])
 
-  /** Insert any missing instances for the given templates within the rolling horizon. */
+  /**
+   * Insert any missing instances for the given templates within the rolling horizon. `board` is
+   * the authoritative set of already-materialized instances to check against; a reload MUST pass
+   * it explicitly. `tasksRef.current` is written inside a deferred React state updater, so right
+   * after `setTasks(...)` it can still hold the pre-load value (empty on a fresh mount) — reading
+   * it there makes every occurrence look missing and re-inserts rows that already exist (23505 on
+   * tasks_recur_instance_uniq). The ref default is safe only for incremental callers that did not
+   * just replace the whole board.
+   */
   const materialize = useCallback(
-    async (templates: Task[]) => {
+    async (templates: Task[], board: Task[] = tasksRef.current) => {
       const today = ymd(new Date())
-      const board = tasksRef.current
       const instances: Task[] = []
       for (const tmpl of templates) {
         // Match existing instances to occurrences by origin, so an instance dragged to another day
@@ -142,8 +149,10 @@ export function useTasks(userId: string): UseTasks {
       }
       const all = (data ?? []).map(rowToTask)
       templatesRef.current = all.filter(isTemplate)
-      setTasks(all.filter((t) => !isTemplate(t)))
-      await materialize(templatesRef.current)
+      const instances = all.filter((t) => !isTemplate(t))
+      setTasks(instances)
+      // Pass the freshly-loaded instances directly: tasksRef.current is not yet updated here.
+      await materialize(templatesRef.current, instances)
     } finally {
       setLoading(false)
       inFlight.current = false

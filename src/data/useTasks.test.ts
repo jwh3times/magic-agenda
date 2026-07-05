@@ -1,6 +1,7 @@
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { beforeEach, expect, test, vi } from 'vitest'
 import { NO_RECUR, type Task } from '../types/task'
+import { ymd } from '../lib/dates'
 
 const h = vi.hoisted(() => {
   const capture: { handler: ((p: unknown) => void) | null; rows: unknown[] } = {
@@ -8,6 +9,8 @@ const h = vi.hoisted(() => {
     rows: [],
   }
   const ok = () => Promise.resolve({ data: null, error: null })
+  // A stable spy so a test can assert whether reload/materialize issued an insert.
+  const insert = vi.fn(ok)
   const channel: Record<string, unknown> = {}
   channel.on = vi.fn((_e: string, _f: unknown, cb: (p: unknown) => void) => {
     capture.handler = cb
@@ -17,14 +20,14 @@ const h = vi.hoisted(() => {
     cb?.('SUBSCRIBED')
     return channel
   })
-  return { capture, ok, channel }
+  return { capture, ok, insert, channel }
 })
 
 vi.mock('../lib/supabase', () => ({
   supabase: {
     from: vi.fn(() => ({
       select: vi.fn(() => Promise.resolve({ data: h.capture.rows, error: null })),
-      insert: vi.fn(h.ok),
+      insert: h.insert,
       upsert: vi.fn(h.ok),
       update: vi.fn(() => ({ eq: vi.fn(h.ok) })),
       delete: vi.fn(() => ({
@@ -82,6 +85,7 @@ const appTask = (over: Partial<Task>): Task => ({
 beforeEach(() => {
   h.capture.handler = null
   h.capture.rows = [serverRow()]
+  h.insert.mockClear()
 })
 
 test('a stale echo of our own write does not clobber optimistic state', async () => {
@@ -140,4 +144,20 @@ test('a burst of remote events all apply (series creation from another device)',
     })
   })
   expect(result.current.tasks.map((t) => t.id)).toEqual(['t1', 't2', 't3', 't4'])
+})
+
+test('reload does not re-insert instances the board already loaded (no duplicate-key 23505)', async () => {
+  const today = ymd(new Date())
+  // A daily series ending today = exactly one occurrence (today), already materialized as i1.
+  h.capture.rows = [
+    serverRow({ id: 'tpl1', recur_freq: 'daily', day: today, recur_until: today }),
+    serverRow({ id: 'i1', recur_parent_id: 'tpl1', recur_origin_day: today, day: today }),
+  ]
+  const { result } = renderHook(() => useTasks('u1'))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  // The lone occurrence is already covered by i1, so materialize must insert nothing. The bug:
+  // reload read a stale (empty) board and re-inserted i1, hitting tasks_recur_instance_uniq.
+  expect(h.insert).not.toHaveBeenCalled()
+  expect(result.current.tasks.map((t) => t.id)).toEqual(['i1'])
 })
