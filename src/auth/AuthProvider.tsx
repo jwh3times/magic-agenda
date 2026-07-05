@@ -29,6 +29,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange((event, next) => {
       setSession(next)
       if (event === 'PASSWORD_RECOVERY') setPasswordRecovery(true)
+      // A recovery flow abandoned before setting a new password must not haunt the next sign-in.
+      if (event === 'SIGNED_OUT') setPasswordRecovery(false)
     })
     return () => {
       active = false
