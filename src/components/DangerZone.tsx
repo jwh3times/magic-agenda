@@ -24,9 +24,8 @@ export function DangerZone() {
     } catch {
       // Same message for a resolved `{ error }` and a thrown/rejected invoke.
       setError('Could not delete your account. Please try again or contact support.')
-      return
-    } finally {
       setBusy(false)
+      return
     }
     try {
       await signOut()
