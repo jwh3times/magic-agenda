@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { supabase } from '../lib/supabase'
+import { errorMessage } from '../lib/errors'
 import { rowToTask, taskToRow } from './mappers'
 import { applyRollForward, applyToggleDone } from './selectors'
 import { applyTaskChange, payloadToChange } from './realtime'
@@ -12,11 +13,6 @@ import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 import type { Database } from '../types/database.types'
 
 type TaskRow = Database['public']['Tables']['tasks']['Row']
-
-// A rejected/thrown write (network fault, etc.) must take the same on-error path as a
-// resolved `{ error }` — this normalizes whatever the throw carries into a message.
-const errorMessage = (e: unknown): string =>
-  e instanceof Error ? e.message : 'Something went wrong'
 
 export interface UseTasks {
   /** Board tasks only (non-recurring + materialized instances); templates are hidden. */
