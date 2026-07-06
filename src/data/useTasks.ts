@@ -47,6 +47,7 @@ function makeInstance(tmpl: Task, day: string): Task {
     status: 'todo',
     done: false,
     day,
+    atTime: tmpl.atTime,
     order: 5000,
     korder: 5000,
     recurFreq: 'none',
@@ -364,6 +365,7 @@ export function useTasks(userId: string): UseTasks {
         description: draft.description,
         category: draft.category,
         color: draft.color,
+        atTime: draft.atTime,
         checklist: draft.checklist,
         recurFreq: draft.recurFreq,
         recurInterval: draft.recurInterval,
@@ -380,14 +382,15 @@ export function useTasks(userId: string): UseTasks {
                 description: draft.description,
                 category: draft.category,
                 color: draft.color,
+                atTime: draft.atTime,
               }
             : t,
         ),
       )
       // Apply the edited content to each instance row directly. tasksRef.current still holds the
       // pre-edit instances here (the setTasks above updates it inside a deferred React updater), so
-      // reading their content off the ref would persist the OLD title/description/category/color and
-      // silently revert the edit on the next reload.
+      // reading their content off the ref would persist the OLD title/description/category/color/
+      // atTime and silently revert the edit on the next reload.
       const rows = [
         taskToRow(next, userId),
         ...tasksRef.current
@@ -400,6 +403,7 @@ export function useTasks(userId: string): UseTasks {
                 description: draft.description,
                 category: draft.category,
                 color: draft.color,
+                atTime: draft.atTime,
               },
               userId,
             ),

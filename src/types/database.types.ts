@@ -35,6 +35,7 @@ export type Database = {
     Tables: {
       tasks: {
         Row: {
+          at_time: string | null
           category: string
           checklist: Json
           color: string
@@ -56,6 +57,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          at_time?: string | null
           category?: string
           checklist?: Json
           color?: string
@@ -77,6 +79,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          at_time?: string | null
           category?: string
           checklist?: Json
           color?: string

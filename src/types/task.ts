@@ -26,6 +26,8 @@ export interface Task {
    * Maps to NULL at the database boundary (see data/mappers.ts in Phase 8).
    */
   day: string
+  /** Optional due time 'HH:MM' (24h). null = all-day. Maps to the nullable at_time column. */
+  atTime: string | null
   /** Order within a day (calendar/week views). */
   order: number
   /** Order within a status column (kanban view). */

@@ -16,6 +16,7 @@ function row(over: Partial<TaskRow> = {}): TaskRow {
     checklist: [],
     status: 'todo',
     day: null,
+    at_time: null,
     order_index: 0,
     korder: 0,
     recur_freq: 'none',
@@ -41,6 +42,7 @@ function task(over: Partial<Task> = {}): Task {
     status: 'todo',
     done: false,
     day: 'inbox',
+    atTime: null,
     order: 0,
     korder: 0,
     ...NO_RECUR,
@@ -105,6 +107,23 @@ describe('taskToRow', () => {
       '2026-07-01',
     )
     expect(taskToRow(task({ recurOriginDay: null }), 'u1').recur_origin_day).toBeNull()
+  })
+})
+
+describe('at_time', () => {
+  it('round-trips and normalizes the seconds Postgres appends', () => {
+    // Postgres `time` comes back as 'HH:MM:SS'; the app keeps 'HH:MM'.
+    const withSeconds = rowToTask(row({ at_time: '14:30:00' }))
+    expect(withSeconds.atTime).toBe('14:30')
+    expect(taskToRow(withSeconds, 'u1').at_time).toBe('14:30')
+
+    const allDay = rowToTask(row({ at_time: null }))
+    expect(allDay.atTime).toBeNull()
+    expect(taskToRow(allDay, 'u1').at_time).toBeNull()
+  })
+  it('treats a missing at_time column (pre-migration deploy window) as all-day', () => {
+    const predeploy = rowToTask(row({ at_time: undefined as unknown as string }))
+    expect(predeploy.atTime).toBeNull()
   })
 })
 

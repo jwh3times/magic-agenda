@@ -54,6 +54,7 @@ const serverRow = (over: Record<string, unknown> = {}) => ({
   checklist: [],
   status: 'todo',
   day: '2026-07-01',
+  at_time: null,
   order_index: 0,
   korder: 0,
   recur_freq: 'none',
@@ -77,6 +78,7 @@ const appTask = (over: Partial<Task>): Task => ({
   status: 'todo',
   done: false,
   day: '2026-07-01',
+  atTime: null,
   order: 0,
   korder: 0,
   ...NO_RECUR,
@@ -167,13 +169,14 @@ test('reload does not re-insert instances the board already loaded (no duplicate
 test('updateSeries "this and future" persists the edited content to existing instances', async () => {
   const today = ymd(new Date())
   h.capture.rows = [
-    serverRow({ id: 'tpl1', recur_freq: 'daily', day: today, title: 'old' }),
+    serverRow({ id: 'tpl1', recur_freq: 'daily', day: today, title: 'old', at_time: '09:00:00' }),
     serverRow({
       id: 'i1',
       recur_parent_id: 'tpl1',
       recur_origin_day: today,
       day: today,
       title: 'old',
+      at_time: '09:00:00',
     }),
   ]
   const { result } = renderHook(() => useTasks('u1'))
@@ -185,15 +188,23 @@ test('updateSeries "this and future" persists the edited content to existing ins
     await result.current.updateSeries(instance, {
       ...instance,
       title: 'new',
+      atTime: '14:00',
       recurFreq: 'daily',
       recurInterval: 1,
       recurUntil: null,
     })
   })
 
-  // The instance row written to the DB must carry the edited title. The bug built these rows from
-  // tasksRef.current right after setTasks, so the deferred ref still held the pre-edit 'old' title.
+  // The instance row written to the DB must carry the edited title and atTime. The bug built these
+  // rows from tasksRef.current right after setTasks, so the deferred ref still held the pre-edit
+  // 'old' title; atTime was never included in the whitelist at all, so it always reverted to the
+  // template's stale time regardless of ref timing.
   const call = h.upsert.mock.calls[0] as unknown as unknown[]
-  const rows = call[0] as { id: string; title: string }[]
+  const rows = call[0] as { id: string; title: string; at_time: string | null }[]
   expect(rows.find((r) => r.id === 'i1')?.title).toBe('new')
+  expect(rows.find((r) => r.id === 'i1')?.at_time).toBe('14:00')
+  expect(rows.find((r) => r.id === 'tpl1')?.at_time).toBe('14:00')
+
+  // Optimistic board state must also carry the new time, not just the eventual DB write.
+  expect(result.current.tasks.find((t) => t.id === 'i1')?.atTime).toBe('14:00')
 })

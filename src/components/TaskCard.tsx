@@ -3,7 +3,7 @@ import type { Task } from '../types/task'
 import { CAT } from '../theme/constants'
 import { cardStyles, type CardVariant } from '../theme/cardStyles'
 import { useTheme } from '../theme/ThemeProvider'
-import { chipLabel } from '../lib/dates'
+import { chipLabel, formatTime } from '../lib/dates'
 
 export interface TaskCardProps {
   task: Task
@@ -53,6 +53,7 @@ export function TaskCard({
       <div style={s.meta}>
         <span style={s.dot} />
         <span style={s.catStyle}>{cat.label}</span>
+        {task.atTime && <span style={s.chipStyle}>{formatTime(task.atTime)}</span>}
         {isKanban && <span style={s.chipStyle}>{chipLabel(task.day)}</span>}
         {hasList && (
           <span style={s.progStyle}>

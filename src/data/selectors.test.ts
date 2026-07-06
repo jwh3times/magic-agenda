@@ -20,6 +20,7 @@ function t(id: string, over: Partial<Task> = {}): Task {
     status: 'todo',
     done: false,
     day: 'inbox',
+    atTime: null,
     order: 0,
     korder: 0,
     ...NO_RECUR,
@@ -88,6 +89,18 @@ describe('agendaGroups', () => {
     const groups = agendaGroups(tasks)
     expect(groups.map((g) => g.day)).toEqual(['2026-07-01', '2026-07-02'])
     expect(groups[1].tasks.map((x) => x.id)).toEqual(['c', 'a']) // sorted by order
+  })
+
+  it('sorts timed tasks first within a day, then by time, then order', () => {
+    const day = '2026-07-10'
+    const tasks = [
+      t('untimed-early', { day, order: 0, atTime: null }),
+      t('late', { day, order: 1, atTime: '15:00' }),
+      t('early', { day, order: 2, atTime: '09:00' }),
+      t('tie-b', { day, order: 4, atTime: '09:00' }),
+    ]
+    const [group] = agendaGroups(tasks)
+    expect(group.tasks.map((x) => x.id)).toEqual(['early', 'tie-b', 'late', 'untimed-early'])
   })
 })
 
