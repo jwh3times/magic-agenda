@@ -47,6 +47,7 @@ function makeInstance(tmpl: Task, day: string): Task {
     status: 'todo',
     done: false,
     day,
+    atTime: tmpl.atTime,
     order: 5000,
     korder: 5000,
     recurFreq: 'none',

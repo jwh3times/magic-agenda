@@ -64,6 +64,7 @@ function newTaskTemplate(day: string, status: Status): Task {
     status,
     done: status === 'done',
     day,
+    atTime: null,
     order: 9999,
     korder: 9999,
     ...NO_RECUR,

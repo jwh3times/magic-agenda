@@ -17,6 +17,7 @@ function task(overrides: Partial<Task> = {}): Task {
     status: 'todo',
     done: false,
     day: 'inbox',
+    atTime: null,
     order: 0,
     korder: 0,
     ...NO_RECUR,
