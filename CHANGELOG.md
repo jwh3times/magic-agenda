@@ -10,6 +10,9 @@ _Planned features and fixes are tracked in [ROADMAP.md](./ROADMAP.md)._
 
 ### Added
 
+- **Export & import** — download the whole board (tasks, repeating series, settings) as JSON
+  from Settings → Data, and import a previous export additively: fresh ids, series links
+  preserved, nothing overwritten.
 - **Overdue tasks** — unfinished tasks from past days get a red accent, the Today button shows
   their count, and the Agenda pins an Overdue group to the top with one-click "Move all to
   today" (recurring occurrences keep their identity and never regenerate on the old day).

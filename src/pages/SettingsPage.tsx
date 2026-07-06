@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthProvider'
 import { ThemeProvider, useTheme } from '../theme/ThemeProvider'
 import { ThemeSwitcher } from '../components/ThemeSwitcher'
 import { DangerZone } from '../components/DangerZone'
+import { DataSection } from '../components/DataSection'
 import { Spinner } from '../components/Spinner'
 import { useSettings } from '../data/useSettings'
 import { useIsMobile } from '../lib/useMediaQuery'
@@ -23,6 +24,7 @@ export interface SettingsSection {
 // Later features append here (Danger zone, export/import, week-start/timezone, labels…).
 const SECTIONS: SettingsSection[] = [
   { id: 'appearance', title: 'Appearance', render: (ctx) => <AppearanceSection {...ctx} /> },
+  { id: 'data', title: 'Data', render: () => <DataSection /> },
   { id: 'danger', title: 'Danger zone', render: () => <DangerZone /> },
 ]
 
