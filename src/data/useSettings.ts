@@ -89,9 +89,12 @@ export function useSettings(userId: string): UseSettings {
           { user_id: userId, theme: next.theme, default_view: next.defaultView },
           { onConflict: 'user_id' },
         )
-        .then(({ error }) => {
-          if (error) console.error('Failed to save settings', error)
-        })
+        .then(
+          ({ error }) => {
+            if (error) console.error('Failed to save settings', error)
+          },
+          (e: unknown) => console.error('Failed to save settings', e),
+        )
     },
     [userId],
   )
