@@ -12,7 +12,7 @@ const h = vi.hoisted(() => {
     maybeSingle: vi.fn(() =>
       Promise.resolve({ data: { theme: 'cork', default_view: 'calendar' }, error: null }),
     ),
-    insert: vi.fn((rows: unknown[]) => {
+    insert: vi.fn((rows: unknown[]): Promise<{ error: { message: string } | null }> => {
       inserted.push(rows)
       return Promise.resolve({ error: null })
     }),
@@ -98,4 +98,41 @@ test('an invalid file surfaces the validator error and inserts nothing', async (
   importFile('{"version": 99}')
   await screen.findByText(/Unsupported export version/)
   expect(h.inserted.length).toBe(0)
+})
+
+test('a batch failure keeps the remapped batches; retrying resumes without re-inserting', async () => {
+  render(<DataSection />)
+  const template = mk({ id: 'tpl-1', recurFreq: 'daily' })
+  const instance = mk({ id: 'inst-1', recurParentId: 'tpl-1', recurOriginDay: '2026-07-10' })
+  importFile(
+    serializeExport([instance], [template], { theme: 'cork', defaultView: 'calendar' }, 'x'),
+  )
+  await screen.findByText(/1 task.*1 repeating series/i)
+
+  // First attempt: templates batch succeeds, tasks batch fails.
+  h.insert.mockImplementationOnce((rows: unknown[]) => {
+    h.inserted.push(rows)
+    return Promise.resolve({ error: null })
+  })
+  h.insert.mockImplementationOnce(() => Promise.resolve({ error: { message: 'boom' } }))
+
+  await userEvent.click(screen.getByRole('button', { name: 'Import' }))
+  await screen.findByText(/Import failed partway/)
+  expect(h.inserted.length).toBe(1) // only the templates batch made it in
+
+  const [templateBatchFirst] = h.inserted as { recur_freq: string; id: string }[][]
+  const firstTemplateId = templateBatchFirst[0].id
+
+  // Retry: must resume from the tasks batch, not re-remap (which would insert the template again).
+  await userEvent.click(screen.getByRole('button', { name: 'Resume import' }))
+  await waitFor(() => expect(h.inserted.length).toBe(2))
+  await screen.findByText(/Imported 1 tasks? and 1 repeating series/i)
+
+  const [templateBatch, taskBatch] = h.inserted as {
+    recur_freq: string
+    recur_parent_id: string | null
+    id: string
+  }[][]
+  expect(templateBatch[0].id).toBe(firstTemplateId) // same insert as before — not duplicated
+  expect(taskBatch[0].recur_parent_id).toBe(firstTemplateId) // link preserved through the resume
 })

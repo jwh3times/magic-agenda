@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest'
 import { NO_RECUR, type Task } from '../types/task'
 import { chunk, parseExport, remapIds, serializeExport } from './exportImport'
+import { missingInstances } from './recurrence'
 
 function mk(over: Partial<Task> = {}): Task {
   return {
@@ -101,6 +102,35 @@ test('rejects a repeating template placed in the tasks array', () => {
     templates: [],
   })
   expect(parseExport(templateInTasks).ok).toBe(false)
+})
+
+test('parseExport rejects a row that is both recurring and carries a parent id', () => {
+  // A template has recurFreq !== 'none' and no parent; an instance has recurFreq === 'none' and a
+  // parent. A row with both is neither — internally contradictory, and isTemplate() alone can't
+  // catch it (a truthy recurParentId already makes isTemplate() false).
+  const hybrid = JSON.parse(serializeExport([plain], [], settings, 'x'))
+  hybrid.tasks[0].recurFreq = 'daily'
+  hybrid.tasks[0].recurParentId = 'tpl-1'
+  expect(parseExport(JSON.stringify(hybrid)).ok).toBe(false)
+})
+
+test('a remapped template + instance is not re-materialized on the next reload (import↔materialize safety)', () => {
+  // template: daily from 2026-07-10, skips 07-11. instance: materialized for origin 07-10 (the
+  // template's own anchor occurrence). remapIds gives both fresh ids but must preserve the link.
+  const { tasks, templates } = remapIds({ tasks: [instance], templates: [template] })
+  const [remappedTemplate] = templates
+  const [remappedInstance] = tasks
+
+  // Same rolling-materialize call useTasks makes on load/reload: today = the template's anchor day,
+  // horizon 3 days -> occurrences 07-10, (skip 07-11), 07-12, 07-13.
+  const missing = missingInstances(remappedTemplate, [remappedInstance], '2026-07-10', 3)
+
+  // The imported instance already covers its origin occurrence, so materialize must not regenerate
+  // it (and can't collide on the (recur_parent_id, recur_origin_day) unique index).
+  expect(missing).not.toContain('2026-07-10')
+  expect(missing).toEqual(['2026-07-12', '2026-07-13'])
+  expect(remappedInstance.recurOriginDay).toBe('2026-07-10')
+  expect(remappedInstance.recurParentId).toBe(remappedTemplate.id)
 })
 
 test('chunk splits preserving order', () => {
