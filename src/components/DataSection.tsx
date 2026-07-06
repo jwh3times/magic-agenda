@@ -9,10 +9,23 @@ import {
   serializeExport,
   type BoardExport,
 } from '../data/exportImport'
-import { isTemplate } from '../types/task'
+import { isTemplate, type Task } from '../types/task'
 import { ymd } from '../lib/dates'
 
 const INSERT_CHUNK = 200
+
+/**
+ * Remapped, chunked insert batches for one import attempt (templates-before-instances order),
+ * plus a cursor into the next not-yet-inserted batch. Computed once per attempt; kept in state
+ * across a failed batch so a retry resumes instead of re-remapping (which would re-insert
+ * already-succeeded batches under fresh ids and duplicate them).
+ */
+interface ImportProgress {
+  batches: Task[][]
+  cursor: number
+  taskCount: number
+  templateCount: number
+}
 
 /** Settings → Data: JSON export (download) and additive import (fresh ids, FK-safe order). */
 export function DataSection() {
@@ -21,8 +34,10 @@ export function DataSection() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [pending, setPending] = useState<BoardExport | null>(null)
+  const [importProgress, setImportProgress] = useState<ImportProgress | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const resuming = importProgress !== null
 
   const btn: CSSProperties = {
     alignSelf: 'flex-start',
@@ -64,7 +79,9 @@ export function DataSection() {
     const a = document.createElement('a')
     a.href = url
     a.download = `magic-agenda-export-${ymd(new Date())}.json`
+    document.body.appendChild(a)
     a.click()
+    a.remove()
     URL.revokeObjectURL(url)
     setNotice('Export downloaded.')
   }
@@ -73,6 +90,7 @@ export function DataSection() {
     setError(null)
     setNotice(null)
     setPending(null)
+    setImportProgress(null)
     if (!file) return
     const parsed = parseExport(await file.text())
     if (!parsed.ok) {
@@ -86,22 +104,39 @@ export function DataSection() {
     if (!pending) return
     setBusy(true)
     setError(null)
-    const { tasks, templates } = remapIds(pending)
-    // Templates first: instances reference them by foreign key.
-    for (const batch of [...chunk(templates, INSERT_CHUNK), ...chunk(tasks, INSERT_CHUNK)]) {
+    // Remap only on the first attempt for this pending file — a retry after a failed batch
+    // resumes from the stored cursor so already-inserted batches are never re-remapped/re-inserted.
+    let progress = importProgress
+    if (!progress) {
+      const { tasks, templates } = remapIds(pending)
+      progress = {
+        // Templates first: instances reference them by foreign key.
+        batches: [...chunk(templates, INSERT_CHUNK), ...chunk(tasks, INSERT_CHUNK)],
+        cursor: 0,
+        taskCount: tasks.length,
+        templateCount: templates.length,
+      }
+    }
+    const { batches, taskCount, templateCount } = progress
+    let cursor = progress.cursor
+    for (; cursor < batches.length; cursor++) {
       const { error: err } = await supabase
         .from('tasks')
-        .insert(batch.map((t) => taskToRow(t, userId)))
+        .insert(batches[cursor].map((t) => taskToRow(t, userId)))
       if (err) {
         setBusy(false)
-        setError('Import failed partway — some tasks may have been added; nothing was overwritten.')
+        setImportProgress({ batches, cursor, taskCount, templateCount })
+        setError(
+          'Import failed partway — some tasks may have been added; nothing was overwritten. Click Import to resume.',
+        )
         return
       }
     }
     setBusy(false)
+    setImportProgress(null)
     setPending(null)
     setNotice(
-      `Imported ${tasks.length} tasks and ${templates.length} repeating series. Open the board to see them.`,
+      `Imported ${taskCount} tasks and ${templateCount} repeating series. Open the board to see them.`,
     )
   }
 
@@ -137,9 +172,17 @@ export function DataSection() {
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button type="button" disabled={busy} onClick={confirmImport} style={btn}>
-              Import
+              {resuming ? 'Resume import' : 'Import'}
             </button>
-            <button type="button" disabled={busy} onClick={() => setPending(null)} style={btn}>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setPending(null)
+                setImportProgress(null)
+              }}
+              style={btn}
+            >
               Cancel
             </button>
           </div>
