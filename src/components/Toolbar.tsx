@@ -17,6 +17,7 @@ export interface ToolbarProps {
   onAddInbox: () => void
   onSignOut?: () => void
   onOpenSettings?: () => void
+  overdueCount?: number
 }
 
 export function Toolbar({
@@ -31,6 +32,7 @@ export function Toolbar({
   onAddInbox,
   onSignOut,
   onOpenSettings,
+  overdueCount,
 }: ToolbarProps) {
   const { theme, conf } = useTheme()
   const isMobile = useIsMobile()
@@ -113,7 +115,7 @@ export function Toolbar({
               ›
             </button>
             <button type="button" onClick={onToday} style={c.todayBtn}>
-              Today
+              Today{overdueCount ? ` (${overdueCount})` : ''}
             </button>
           </div>
         )}
@@ -140,7 +142,7 @@ export function Toolbar({
               ›
             </button>
             <button type="button" onClick={onToday} style={c.todayBtn}>
-              Today
+              Today{overdueCount ? ` (${overdueCount})` : ''}
             </button>
           </div>
         )}

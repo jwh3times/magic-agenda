@@ -210,3 +210,19 @@ test('updateSeries "this and future" persists the edited content to existing ins
   // Optimistic board state must also carry the new time, not just the eventual DB write.
   expect(result.current.tasks.find((t) => t.id === 'i1')?.atTime).toBe('14:00')
 })
+
+test('rollForward moves overdue tasks to today and upserts only them', async () => {
+  h.capture.rows = [
+    serverRow({ id: 't1', day: '2020-01-01', order_index: 0 }),
+    serverRow({ id: 't2', day: '2026-07-10', order_index: 2 }),
+  ]
+  const { result } = renderHook(() => useTasks('u1'))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  await act(async () => {
+    await result.current.rollForward('2026-07-10')
+  })
+  const moved = result.current.tasks.find((t) => t.id === 't1')!
+  expect(moved.day).toBe('2026-07-10')
+  expect(moved.order).toBe(3)
+})

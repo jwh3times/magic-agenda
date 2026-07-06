@@ -3,7 +3,8 @@ import type { Task } from '../types/task'
 import { CAT } from '../theme/constants'
 import { cardStyles, type CardVariant } from '../theme/cardStyles'
 import { useTheme } from '../theme/ThemeProvider'
-import { chipLabel, formatTime } from '../lib/dates'
+import { isOverdue } from '../data/selectors'
+import { chipLabel, formatTime, ymd } from '../lib/dates'
 
 export interface TaskCardProps {
   task: Task
@@ -33,7 +34,8 @@ export function TaskCard({
   wrapStyle,
 }: TaskCardProps) {
   const { theme } = useTheme()
-  const s = cardStyles(theme, task, variant, { dragging, pop })
+  const overdue = isOverdue(task, ymd(new Date()))
+  const s = cardStyles(theme, task, variant, { dragging, pop, overdue })
 
   const cat = CAT[task.category]
   const done = task.status === 'done'

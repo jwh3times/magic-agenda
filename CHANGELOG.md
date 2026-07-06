@@ -10,6 +10,9 @@ _Planned features and fixes are tracked in [ROADMAP.md](./ROADMAP.md)._
 
 ### Added
 
+- **Overdue tasks** — unfinished tasks from past days get a red accent, the Today button shows
+  their count, and the Agenda pins an Overdue group to the top with one-click "Move all to
+  today" (recurring occurrences keep their identity and never regenerate on the old day).
 - **Pinned notes** — pin important tasks from the editor or the 📌 button on any card. Cork's
   classic red pin now appears only on pinned notes; brutal gets a corner flash; glass a violet
   glow. A "📌 Pinned" quick filter shows pinned tasks only — manual drag order is never

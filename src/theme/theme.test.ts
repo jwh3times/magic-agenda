@@ -104,4 +104,12 @@ describe('cardStyles', () => {
     expect(s.titleStyle.textDecorationLine).toBe('line-through')
     expect('textDecoration' in s.titleStyle).toBe(false)
   })
+
+  it('overdue cards carry the red inset accent and tinted chip', () => {
+    const s = cardStyles('cork', task({ day: '2020-01-01' }), 'kanban', { overdue: true })
+    expect(String(s.wrap.boxShadow)).toContain('#e0524a')
+    expect(String(s.chipStyle.background)).toContain('rgba(224,82,74')
+    const plain = cardStyles('cork', task(), 'kanban')
+    expect(String(plain.wrap.boxShadow)).not.toContain('#e0524a')
+  })
 })

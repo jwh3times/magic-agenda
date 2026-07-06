@@ -41,6 +41,7 @@ export function BoardPage() {
             initialView={settings.defaultView}
             onSignOut={signOut}
             onOpenSettings={() => navigate('/settings')}
+            rollForward={t.rollForward}
           />
           {t.error && <Toast message={t.error} onDismiss={t.clearError} />}
         </>
