@@ -43,6 +43,7 @@ export function DayCell({ meta, notes, handlers, pop, isDrop = false }: DayCellP
             pop={pop === t.id}
             onOpen={handlers.onOpen}
             onToggleDone={handlers.onToggleDone}
+            onTogglePin={handlers.onTogglePin}
           />
         ))}
       </DropLane>

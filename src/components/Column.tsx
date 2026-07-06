@@ -48,6 +48,7 @@ export function Column({ col, tasks, handlers, pop, isDrop = false }: ColumnProp
             pop={pop === t.id}
             onOpen={handlers.onOpen}
             onToggleDone={handlers.onToggleDone}
+            onTogglePin={handlers.onTogglePin}
           />
         ))}
         {notes.length === 0 && <div style={c.emptyStyle}>Drop tasks here</div>}

@@ -70,6 +70,7 @@ export function AgendaView({ tasks, handlers, pop }: AgendaViewProps) {
                   pop={pop === t.id}
                   onOpen={handlers.onOpen}
                   onToggleDone={handlers.onToggleDone}
+                  onTogglePin={handlers.onTogglePin}
                 />
               ))}
             </div>
@@ -88,6 +89,7 @@ export function AgendaView({ tasks, handlers, pop }: AgendaViewProps) {
                   pop={pop === t.id}
                   onOpen={handlers.onOpen}
                   onToggleDone={handlers.onToggleDone}
+                  onTogglePin={handlers.onTogglePin}
                 />
               ))}
             </div>

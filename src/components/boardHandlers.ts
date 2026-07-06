@@ -4,6 +4,7 @@ import type { Status, Task } from '../types/task'
 export interface BoardHandlers {
   onOpen: (task: Task) => void
   onToggleDone: (id: string) => void
+  onTogglePin: (id: string) => void
   onAddDay: (dateStr: string) => void
   onAddInbox: () => void
   onAddStatus: (status: Status) => void
