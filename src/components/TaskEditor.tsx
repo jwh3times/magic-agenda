@@ -9,6 +9,30 @@ import type { Category, Color, RecurFreq, Status, Task } from '../types/task'
 /** Which occurrences a save/delete applies to, for a recurring series. */
 export type RecurScope = 'this' | 'future'
 
+/** Fields a recurring instance can change without touching series content — safe to save
+ * directly, bypassing the this-occurrence-vs-all-future prompt. `done` isn't listed because it's
+ * fully derived from `status` (see `changedTaskKeys`). */
+const PER_OCCURRENCE_FIELDS: ReadonlySet<keyof Task> = new Set<keyof Task>(['pinned', 'status'])
+
+/** Keys whose value differs between `a` and `b`. `done` is skipped — it's derived from `status`,
+ * so comparing it separately would be redundant. Arrays (checklist) compare by content, not
+ * reference, since `clean()` always remaps `checklist` into a fresh array. */
+function changedTaskKeys(a: Task, b: Task): (keyof Task)[] {
+  return (Object.keys(b) as (keyof Task)[]).filter((key) => {
+    if (key === 'done') return false
+    const av = a[key]
+    const bv = b[key]
+    if (Array.isArray(av) && Array.isArray(bv)) return JSON.stringify(av) !== JSON.stringify(bv)
+    return av !== bv
+  })
+}
+
+/** True when every changed field between the original instance and the save draft is a
+ * per-occurrence field (pinned/status) — i.e. no series-content field changed. */
+function onlyPerOccurrenceChanged(original: Task, next: Task): boolean {
+  return changedTaskKeys(original, next).every((key) => PER_OCCURRENCE_FIELDS.has(key))
+}
+
 export interface TaskEditorProps {
   initial: Task
   isNew: boolean
@@ -95,8 +119,15 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
 
   const attemptSave = () => {
     if (!titleOk) return
-    if (isRecurringInstance) setScopePrompt('save')
-    else onSave(clean())
+    if (!isRecurringInstance) {
+      onSave(clean())
+      return
+    }
+    const cleaned = clean()
+    // Per-occurrence-only edits (pin/status) apply straight to this occurrence — no need to ask
+    // this-occurrence vs. all-future, since there's no series content to route.
+    if (onlyPerOccurrenceChanged(initial, cleaned)) onSave(cleaned, 'this')
+    else setScopePrompt('save')
   }
   const attemptDelete = () => {
     if (isRecurringInstance) setScopePrompt('delete')
