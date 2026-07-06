@@ -34,3 +34,6 @@ pnpm-debug.log*
 
 # private (local-only notes, security reviews, etc. — never commit)
 private/
+
+# superpowers workflow scratch (task briefs, per-agent reports, review diffs — local-only)
+.superpowers/
