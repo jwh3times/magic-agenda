@@ -16,7 +16,11 @@ const PER_OCCURRENCE_FIELDS: ReadonlySet<keyof Task> = new Set<keyof Task>(['pin
 
 /** Keys whose value differs between `a` and `b`. `done` is skipped — it's derived from `status`,
  * so comparing it separately would be redundant. Arrays (checklist) compare by content, not
- * reference, since `clean()` always remaps `checklist` into a fresh array. */
+ * reference, since `clean()` always remaps `checklist` into a fresh array. Note: the
+ * `JSON.stringify` comparison assumes consistent `ChecklistItem` key order across constructors
+ * (e.g. `clean()`'s `{ id, text, done }` object literal shape); if that ever drifts, the failure
+ * mode is fail-safe — it over-reports a change (over-shows the scope prompt), never suppresses
+ * one that's needed. */
 function changedTaskKeys(a: Task, b: Task): (keyof Task)[] {
   return (Object.keys(b) as (keyof Task)[]).filter((key) => {
     if (key === 'done') return false
@@ -604,7 +608,7 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
           )}
           {isRecurringInstance && (
             <div style={{ fontSize: 12, color: sub, marginTop: 8 }}>
-              Part of a repeating series — saving or deleting will ask about this occurrence vs. all
+              Part of a repeating series — saving or deleting may ask about this occurrence vs. all
               future.
             </div>
           )}
