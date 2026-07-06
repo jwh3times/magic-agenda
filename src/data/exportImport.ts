@@ -69,6 +69,10 @@ function isTask(v: unknown): v is Task {
     typeof t.recurInterval === 'number' &&
     (t.recurUntil === null || typeof t.recurUntil === 'string') &&
     (t.recurParentId === null || typeof t.recurParentId === 'string') &&
+    // A template (recurFreq !== 'none') has no parent; an instance (recurFreq === 'none') has one
+    // (see isTemplate() in types/task.ts). A row that is both recurring AND parented is neither —
+    // reject the hybrid rather than let it silently become a broken template or a broken instance.
+    (t.recurFreq === 'none' || t.recurParentId === null) &&
     Array.isArray(t.recurSkip) &&
     t.recurSkip.every((s) => typeof s === 'string') &&
     (t.recurOriginDay === null || typeof t.recurOriginDay === 'string') &&
