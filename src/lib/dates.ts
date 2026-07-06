@@ -98,3 +98,11 @@ export function chipLabel(day: string): string {
   const mo = MONTHS_SHORT[Number(p[1]) - 1]
   return `${mo} ${Number(p[2])}`
 }
+
+/** 'HH:MM' → compact 12-hour label, e.g. '14:30' → '2:30pm', '09:00' → '9am'. */
+export function formatTime(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map(Number)
+  const ap = h < 12 ? 'am' : 'pm'
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return m === 0 ? `${h12}${ap}` : `${h12}:${String(m).padStart(2, '0')}${ap}`
+}

@@ -70,7 +70,15 @@ export interface AgendaGroup {
   tasks: Task[]
 }
 
-/** Scheduled tasks grouped by day, ascending; each group sorted by order. (Inbox excluded.) */
+/** Agenda within-day ordering: timed before untimed, by time, ties by manual order. */
+function byAgendaTime(a: Task, b: Task): number {
+  if (a.atTime && b.atTime && a.atTime !== b.atTime) return a.atTime < b.atTime ? -1 : 1
+  if (a.atTime && !b.atTime) return -1
+  if (!a.atTime && b.atTime) return 1
+  return a.order - b.order
+}
+
+/** Scheduled tasks grouped by day, ascending; each group sorted timed-first. (Inbox excluded.) */
 export function agendaGroups(tasks: Task[]): AgendaGroup[] {
   const byDay = new Map<string, Task[]>()
   for (const t of tasks) {
@@ -81,7 +89,7 @@ export function agendaGroups(tasks: Task[]): AgendaGroup[] {
   }
   return [...byDay.keys()]
     .sort()
-    .map((day) => ({ day, tasks: (byDay.get(day) ?? []).sort((a, b) => a.order - b.order) }))
+    .map((day) => ({ day, tasks: (byDay.get(day) ?? []).sort(byAgendaTime) }))
 }
 
 /**
