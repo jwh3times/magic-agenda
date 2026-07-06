@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, test, expect } from 'vitest'
 import {
   notesForDay,
   tasksForStatus,
@@ -6,6 +6,9 @@ import {
   buildWeekCells,
   agendaGroups,
   applyToggleDone,
+  isOverdue,
+  overdueTasks,
+  applyRollForward,
 } from './selectors'
 import { NO_RECUR, type Task } from '../types/task'
 
@@ -124,4 +127,50 @@ describe('applyToggleDone', () => {
     expect(next[0].status).toBe('todo')
     expect(next[0].done).toBe(false)
   })
+})
+
+test('isOverdue: past + scheduled + not done, nothing else', () => {
+  const today = '2026-07-10'
+  expect(isOverdue(t('a', { day: '2026-07-09', status: 'todo' }), today)).toBe(true)
+  expect(isOverdue(t('a', { day: '2026-07-09', status: 'done' }), today)).toBe(false)
+  expect(isOverdue(t('a', { day: '2026-07-10' }), today)).toBe(false)
+  expect(isOverdue(t('a', { day: 'inbox' }), today)).toBe(false)
+})
+
+test('overdueTasks sorts by day then manual order', () => {
+  const today = '2026-07-10'
+  const tasks = [
+    t('b', { day: '2026-07-09', order: 1 }),
+    t('c', { day: '2026-07-09', order: 0 }),
+    t('a', { day: '2026-07-01', order: 5 }),
+    t('x', { day: '2026-07-11', order: 0 }),
+  ]
+  expect(overdueTasks(tasks, today).map((x) => x.id)).toEqual(['a', 'c', 'b'])
+})
+
+test('applyRollForward appends overdue tasks after today existing order', () => {
+  const today = '2026-07-10'
+  const tasks = [
+    t('today-1', { day: today, order: 3 }),
+    t('old-late', { day: '2026-07-09', order: 1, recurOriginDay: '2026-07-09' }),
+    t('old-early', { day: '2026-07-01', order: 0 }),
+    t('done-old', { day: '2026-07-01', order: 1, status: 'done' }),
+  ]
+  const { tasks: next, changed } = applyRollForward(tasks, today)
+  expect(changed.map((x) => x.id)).toEqual(['old-early', 'old-late'])
+  const early = next.find((x) => x.id === 'old-early')!
+  const late = next.find((x) => x.id === 'old-late')!
+  expect(early.day).toBe(today)
+  expect(early.order).toBe(4)
+  expect(late.order).toBe(5)
+  // Occurrence identity never moves with the card.
+  expect(late.recurOriginDay).toBe('2026-07-09')
+  expect(next.find((x) => x.id === 'done-old')!.day).toBe('2026-07-01')
+})
+
+test('applyRollForward is a referential no-op when nothing is overdue', () => {
+  const tasks = [t('a', { day: '2026-07-10' })]
+  const res = applyRollForward(tasks, '2026-07-10')
+  expect(res.tasks).toBe(tasks)
+  expect(res.changed).toEqual([])
 })

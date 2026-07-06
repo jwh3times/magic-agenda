@@ -113,3 +113,42 @@ export function applyToggleDone(tasks: Task[], id: string): { tasks: Task[]; jus
   }
   return { tasks: next, justDone }
 }
+
+/** Scheduled in the past and not finished. Derived — never stored. */
+export function isOverdue(t: Task, todayStr: string): boolean {
+  return isScheduled(t.day) && t.day < todayStr && t.status !== 'done'
+}
+
+/** Overdue tasks, oldest day first, ties by manual order. */
+export function overdueTasks(tasks: Task[], todayStr: string): Task[] {
+  return tasks
+    .filter((t) => isOverdue(t, todayStr))
+    .sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : a.order - b.order))
+}
+
+/**
+ * Move every overdue task to today, appended after today's existing max order in
+ * overdue-sort sequence. Pure; identity (recurOriginDay) never moves with the card.
+ * Returns the same array reference when nothing is overdue.
+ */
+export function applyRollForward(
+  tasks: Task[],
+  todayStr: string,
+): { tasks: Task[]; changed: Task[] } {
+  const overdue = overdueTasks(tasks, todayStr)
+  if (overdue.length === 0) return { tasks, changed: [] }
+  const base =
+    tasks.filter((t) => t.day === todayStr).reduce((m, t) => Math.max(m, t.order), -1) + 1
+  const orderById = new Map(overdue.map((t, i) => [t.id, base + i]))
+  const movedById = new Map<string, Task>()
+  const next = tasks.map((t) => {
+    const order = orderById.get(t.id)
+    if (order === undefined) return t
+    const moved = { ...t, day: todayStr, order }
+    movedById.set(t.id, moved)
+    return moved
+  })
+  // Report changes in overdue-sort order (day asc, ties by order), not source-array order.
+  const changed = overdue.map((t) => movedById.get(t.id)!)
+  return { tasks: next, changed }
+}
