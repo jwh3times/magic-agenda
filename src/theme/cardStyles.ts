@@ -30,6 +30,7 @@ export interface CardStyles {
 export interface CardStyleOpts {
   dragging?: boolean
   pop?: boolean
+  overdue?: boolean
 }
 
 /** Deterministic per-id rotation in [-3, 3]. Ported from prototype `rotOf`. */
@@ -50,7 +51,7 @@ export function cardStyles(
   variant: CardVariant,
   opts: CardStyleOpts = {},
 ): CardStyles {
-  const { dragging = false, pop = false } = opts
+  const { dragging = false, pop = false, overdue = false } = opts
   const C = themeConf(theme)
   const P = PAPER[theme][task.color] ?? PAPER[theme].yellow
   const cat = CAT[task.category] ?? CAT.work
@@ -214,6 +215,11 @@ export function cardStyles(
     }
   }
 
+  if (overdue && !isGhost) {
+    // Red inset accent — overdue signal, theme-independent.
+    wrap.boxShadow = `${wrap.boxShadow}, inset 3px 0 0 0 #e0524a`
+  }
+
   if (dragging && !isGhost) wrap.opacity = 0.18
   if (pop && !isGhost) wrap.animation = 'notePop .5s ease'
 
@@ -307,6 +313,7 @@ export function cardStyles(
     opacity: 0.9,
     whiteSpace: 'nowrap',
   }
+  if (overdue) Object.assign(chipStyle, { background: 'rgba(224,82,74,.22)', fontWeight: 800 })
   const descStyle: CSSProperties = {
     fontSize: '12px',
     lineHeight: 1.35,

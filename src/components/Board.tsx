@@ -3,7 +3,7 @@ import { DndContext, DragOverlay } from '@dnd-kit/core'
 import { useTheme } from '../theme/ThemeProvider'
 import { DragDisabledContext } from '../dnd/dragContext'
 import { rootStyle, blobStyles } from '../theme/chrome'
-import { MONTHS_LONG, addDays, addMonths, formatWeekRange, startOfWeek } from '../lib/dates'
+import { MONTHS_LONG, addDays, addMonths, formatWeekRange, startOfWeek, ymd } from '../lib/dates'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { readBoardView, writeBoardView } from '../lib/viewStorage'
 import { useBoardDnd } from '../dnd/useBoardDnd'
@@ -19,6 +19,7 @@ import { KanbanView } from './KanbanView'
 import { TaskEditor, type RecurScope } from './TaskEditor'
 import { SearchFilterBar } from './SearchFilterBar'
 import { applyFilters, isFilterActive, EMPTY_FILTER, type FilterQuery } from '../data/filters'
+import { overdueTasks } from '../data/selectors'
 import type { ViewOption } from './ViewSwitcher'
 import type { BoardHandlers, PopId } from './boardHandlers'
 import { NO_RECUR, type Status, type Task, type ViewName } from '../types/task'
@@ -44,6 +45,7 @@ export interface BoardProps {
   initialView?: ViewName
   onSignOut?: () => void
   onOpenSettings?: () => void
+  rollForward?: (todayStr: string) => void
 }
 
 const VIEWS: ViewOption[] = [
@@ -87,6 +89,7 @@ export function Board({
   initialView,
   onSignOut,
   onOpenSettings,
+  rollForward,
 }: BoardProps) {
   const { theme, conf } = useTheme()
   const isMobile = useIsMobile()
@@ -99,6 +102,7 @@ export function Board({
 
   const filterActive = isFilterActive(filter)
   const visibleTasks = useMemo(() => applyFilters(tasks, filter), [tasks, filter])
+  const overdueCount = useMemo(() => overdueTasks(tasks, ymd(new Date())).length, [tasks])
 
   const dnd = useBoardDnd(view, tasks, setTasks, persistReorder)
 
@@ -202,6 +206,7 @@ export function Board({
         onAddInbox={handlers.onAddInbox}
         onSignOut={onSignOut}
         onOpenSettings={onOpenSettings}
+        overdueCount={overdueCount}
       />
 
       <SearchFilterBar query={filter} onChange={setFilter} />
@@ -229,7 +234,12 @@ export function Board({
             {view === 'kanban' ? (
               <KanbanView tasks={visibleTasks} handlers={handlers} pop={pop} />
             ) : view === 'agenda' ? (
-              <AgendaView tasks={visibleTasks} handlers={handlers} pop={pop} />
+              <AgendaView
+                tasks={visibleTasks}
+                handlers={handlers}
+                pop={pop}
+                onRollForward={rollForward ? () => rollForward(ymd(new Date())) : undefined}
+              />
             ) : (
               <div
                 style={{
