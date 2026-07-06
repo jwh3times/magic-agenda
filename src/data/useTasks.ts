@@ -48,6 +48,7 @@ function makeInstance(tmpl: Task, day: string): Task {
     done: false,
     day,
     atTime: tmpl.atTime,
+    pinned: tmpl.pinned,
     order: 5000,
     korder: 5000,
     recurFreq: 'none',
@@ -352,6 +353,9 @@ export function useTasks(userId: string): UseTasks {
     [],
   )
 
+  // The template-merge and future-instance field lists below carry only series-wide content
+  // (title/description/category/color/atTime/checklist/recur*). Do NOT add `pinned`, `status`, or
+  // `done` — those are per-occurrence and would get clobbered by a "this and all future" edit.
   const updateSeries = useCallback(
     async (instance: Task, draft: Task) => {
       const template = templatesRef.current.find((t) => t.id === instance.recurParentId)

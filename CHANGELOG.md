@@ -10,6 +10,10 @@ _Planned features and fixes are tracked in [ROADMAP.md](./ROADMAP.md)._
 
 ### Added
 
+- **Pinned notes** — pin important tasks from the editor or the 📌 button on any card. Cork's
+  classic red pin now appears only on pinned notes; brutal gets a corner flash; glass a violet
+  glow. A "📌 Pinned" quick filter shows pinned tasks only — manual drag order is never
+  re-sorted by pinning.
 - **Due times** — tasks can carry an optional time of day: set or clear it in the editor's
   Schedule row, see it as a chip on cards, and the Agenda sorts timed tasks first within each
   day (calendar cells keep manual drag order). Recurring series pass their time to every

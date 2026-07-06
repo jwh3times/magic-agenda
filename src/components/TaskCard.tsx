@@ -12,6 +12,7 @@ export interface TaskCardProps {
   pop?: boolean
   onOpen?: (task: Task) => void
   onToggleDone?: (id: string) => void
+  onTogglePin?: (id: string) => void
   /** Extra style merged onto the card wrapper (e.g. dnd-kit transform in Phase 4). */
   wrapStyle?: CSSProperties
 }
@@ -28,6 +29,7 @@ export function TaskCard({
   pop,
   onOpen,
   onToggleDone,
+  onTogglePin,
   wrapStyle,
 }: TaskCardProps) {
   const { theme } = useTheme()
@@ -60,6 +62,20 @@ export function TaskCard({
             {ck}/{total}
           </span>
         )}
+        {onTogglePin && (
+          <button
+            type="button"
+            aria-label={task.pinned ? 'Unpin' : 'Pin'}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              onTogglePin(task.id)
+            }}
+            style={s.pinBtn}
+          >
+            📌
+          </button>
+        )}
         <button
           type="button"
           aria-label={done ? 'Mark not done' : 'Mark done'}
@@ -68,7 +84,7 @@ export function TaskCard({
             e.stopPropagation()
             onToggleDone?.(task.id)
           }}
-          style={s.check}
+          style={onTogglePin ? { ...s.check, marginLeft: '0px' } : s.check}
         >
           {done ? '✓' : ''}
         </button>

@@ -65,6 +65,7 @@ function newTaskTemplate(day: string, status: Status): Task {
     done: status === 'done',
     day,
     atTime: null,
+    pinned: false,
     order: 9999,
     korder: 9999,
     ...NO_RECUR,
@@ -118,6 +119,11 @@ export function Board({
     onToggleDone(id)
   }
 
+  const handlePin = (id: string) => {
+    const t = tasks.find((x) => x.id === id)
+    if (t) onUpdate({ ...t, pinned: !t.pinned })
+  }
+
   const handleSave = (task: Task, scope?: RecurScope) => {
     const orig = editing?.task
     if (editing?.isNew) {
@@ -164,6 +170,7 @@ export function Board({
   const handlers: BoardHandlers = {
     onOpen: openTask,
     onToggleDone: handleToggle,
+    onTogglePin: handlePin,
     onAddDay: (dateStr) => setEditing({ task: newTaskTemplate(dateStr, 'todo'), isNew: true }),
     onAddInbox: () => setEditing({ task: newTaskTemplate('inbox', 'todo'), isNew: true }),
     onAddStatus: (status) => setEditing({ task: newTaskTemplate('inbox', status), isNew: true }),

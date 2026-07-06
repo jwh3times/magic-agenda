@@ -20,6 +20,7 @@ export interface CardStyles {
   catStyle: CSSProperties
   progStyle: CSSProperties
   check: CSSProperties
+  pinBtn: CSSProperties
   barTrack: CSSProperties
   barFill: CSSProperties
   chipStyle: CSSProperties
@@ -164,6 +165,19 @@ export function cardStyles(
       overflow: 'hidden',
       wordBreak: 'break-word',
     }
+    if (task.pinned) {
+      // Corner flash — brutal's pinned signal.
+      pinStyle = {
+        position: 'absolute',
+        top: '-2px',
+        right: '-2px',
+        width: 0,
+        height: 0,
+        borderTop: '16px solid #FF4D2E',
+        borderLeft: '16px solid transparent',
+        zIndex: 2,
+      }
+    }
   } else {
     Object.assign(wrap, {
       background: P.bg,
@@ -193,6 +207,10 @@ export function cardStyles(
       WebkitBoxOrient: 'vertical',
       overflow: 'hidden',
       wordBreak: 'break-word',
+    }
+    if (task.pinned && !isGhost) {
+      // Violet glow — glass's pinned signal (accent #7c5cff).
+      wrap.boxShadow = `${wrap.boxShadow}, 0 0 0 1.5px rgba(124,92,255,.85), 0 0 16px rgba(124,92,255,.35)`
     }
   }
 
@@ -246,6 +264,21 @@ export function cardStyles(
     fontWeight: 800,
     padding: 0,
   }
+  const pinBtn: CSSProperties = {
+    width: '19px',
+    height: '19px',
+    flex: 'none',
+    marginLeft: total ? '0px' : 'auto',
+    display: 'grid',
+    placeItems: 'center',
+    cursor: 'pointer',
+    border: 'none',
+    background: 'transparent',
+    fontSize: '12px',
+    lineHeight: 1,
+    padding: 0,
+    opacity: task.pinned ? 1 : 0.35,
+  }
   const barTrack: CSSProperties = {
     marginTop: '7px',
     height: '4px',
@@ -289,7 +322,7 @@ export function cardStyles(
     wrap,
     titleStyle,
     meta,
-    showPin: theme === 'cork' && !isGhost,
+    showPin: (theme === 'cork' || theme === 'brutal') && task.pinned && !isGhost,
     pinStyle,
     showStamp: done && theme === 'cork' && !isGhost,
     stampStyle,
@@ -297,6 +330,7 @@ export function cardStyles(
     catStyle,
     progStyle,
     check,
+    pinBtn,
     barTrack,
     barFill,
     chipStyle,

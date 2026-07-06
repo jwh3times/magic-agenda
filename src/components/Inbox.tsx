@@ -58,6 +58,7 @@ export function Inbox({ tasks, handlers, pop }: InboxProps) {
                 pop={pop === t.id}
                 onOpen={handlers.onOpen}
                 onToggleDone={handlers.onToggleDone}
+                onTogglePin={handlers.onTogglePin}
               />
             ))}
             {notes.length === 0 && (

@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
-import { expect, test } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import { expect, test, vi } from 'vitest'
 import { ThemeProvider } from '../theme/ThemeProvider'
 import { TaskCard, type TaskCardProps } from './TaskCard'
 import { NO_RECUR, type Task } from '../types/task'
@@ -18,6 +19,7 @@ function mkTask(over: Partial<Task> = {}): Task {
     order: 0,
     korder: 0,
     atTime: null,
+    pinned: false,
     ...NO_RECUR,
     ...over,
   }
@@ -39,4 +41,18 @@ test('shows a compact time chip when the task has a due time', () => {
 test('shows no time chip for all-day tasks', () => {
   renderCard(mkTask({ atTime: null }))
   expect(screen.queryByText(/am|pm/)).not.toBeInTheDocument()
+})
+
+test('the pin tap-target toggles without opening the editor', async () => {
+  const onTogglePin = vi.fn()
+  const onOpen = vi.fn()
+  renderCard(mkTask({ pinned: false }), { onTogglePin, onOpen })
+  await userEvent.click(screen.getByRole('button', { name: 'Pin' }))
+  expect(onTogglePin).toHaveBeenCalledWith('t1')
+  expect(onOpen).not.toHaveBeenCalled()
+})
+
+test('no pin button renders when no handler is provided (drag overlay)', () => {
+  renderCard(mkTask({ pinned: true }))
+  expect(screen.queryByRole('button', { name: /Pin|Unpin/ })).not.toBeInTheDocument()
 })

@@ -415,6 +415,28 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
             })}
           </div>
 
+          <div style={fieldLabel}>Pin</div>
+          <button
+            type="button"
+            onClick={() => patch({ pinned: !draft.pinned })}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '7px',
+              padding: '7px 13px',
+              borderRadius: '20px',
+              cursor: 'pointer',
+              fontFamily: conf.ui,
+              fontSize: '12.5px',
+              fontWeight: 700,
+              border: `1px solid ${draft.pinned ? conf.accent : border}`,
+              background: draft.pinned ? `${conf.accent}22` : 'transparent',
+              color: fg,
+            }}
+          >
+            📌 {draft.pinned ? 'Pinned' : 'Pin this note'}
+          </button>
+
           <div style={fieldLabel}>Schedule</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <input
