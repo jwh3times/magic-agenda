@@ -480,15 +480,19 @@ export function useTasks(userId: string): UseTasks {
           prev.filter((t) => !(t.recurParentId === template.id && instanceOrigin(t) > until)),
         )
         try {
-          await supabase
+          const { error: err } = await supabase
             .from('tasks')
             .delete()
             .eq('recur_parent_id', template.id)
             .gt('recur_origin_day', until)
+          if (err) throw new Error(err.message)
         } catch (e) {
-          // This delete's `{ error }` was already unchecked/ignored — mirror that for a
-          // thrown/rejected write too, so materialize below still runs.
+          // Best-effort trim: the content edit above already persisted, and materialize()
+          // below still needs to run regardless, so we don't roll back or return early here —
+          // we only surface that this background persist may be out of sync (a reload can
+          // resync it), instead of failing silently as before.
           console.error('Failed to delete trimmed instances after shortening series', e)
+          setError(errorMessage(e))
         }
       }
       await materialize([next])
@@ -508,11 +512,18 @@ export function useTasks(userId: string): UseTasks {
         }
         templatesRef.current = templatesRef.current.map((t) => (t.id === template.id ? next : t))
         try {
-          await supabase.from('tasks').update(taskToRow(next, userId)).eq('id', template.id)
+          const { error: err } = await supabase
+            .from('tasks')
+            .update(taskToRow(next, userId))
+            .eq('id', template.id)
+          if (err) throw new Error(err.message)
         } catch (e) {
-          // This update's `{ error }` was already unchecked/ignored — mirror that for a
-          // thrown/rejected write too, so removeTask below still runs.
+          // Best-effort: the occurrence delete below still needs to run regardless, so we
+          // don't roll back or skip that step here — we only surface that the recur-skip
+          // persist may be out of sync (a reload can resync it), instead of failing silently
+          // as before.
           console.error('Failed to persist skipped occurrence on template', e)
+          setError(errorMessage(e))
         }
       }
       await removeTask(instance.id)

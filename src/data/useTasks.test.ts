@@ -1,7 +1,7 @@
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { beforeEach, expect, test, vi } from 'vitest'
 import { NO_RECUR, type Task } from '../types/task'
-import { ymd } from '../lib/dates'
+import { addDays, parseDay, ymd } from '../lib/dates'
 
 const h = vi.hoisted(() => {
   const capture: { handler: ((p: unknown) => void) | null; rows: unknown[] } = {
@@ -15,6 +15,14 @@ const h = vi.hoisted(() => {
   // Stable spy behind `.update(...).eq(...)` so a test can force it to reject (throw),
   // proving a throw takes the same rollback + setError path as a resolved `{ error }`.
   const updateEq = vi.fn(ok)
+  // `.delete().eq(...)` is used both as a one-level chain (removeTask, deleteSeriesFuture's
+  // whole-series delete) and as a two-level chain (`.eq(...).gt/gte(...)`, updateSeries's
+  // truncation-delete / deleteSeriesFuture's instance-delete). Give `.eq(...)`'s return value
+  // both a `.then` (so awaiting it directly resolves `{ error }`, for the one-level callers)
+  // and spy-able `.gt`/`.gte` legs (so a test can force just that leg to reject).
+  const deleteGt = vi.fn(ok)
+  const deleteGte = vi.fn(ok)
+  const deleteEq = vi.fn(() => Object.assign(ok(), { gt: deleteGt, gte: deleteGte }))
   const channel: Record<string, unknown> = {}
   channel.on = vi.fn((_e: string, _f: unknown, cb: (p: unknown) => void) => {
     capture.handler = cb
@@ -24,7 +32,7 @@ const h = vi.hoisted(() => {
     cb?.('SUBSCRIBED')
     return channel
   })
-  return { capture, ok, insert, upsert, updateEq, channel }
+  return { capture, ok, insert, upsert, updateEq, deleteEq, deleteGt, deleteGte, channel }
 })
 
 vi.mock('../lib/supabase', () => ({
@@ -34,11 +42,7 @@ vi.mock('../lib/supabase', () => ({
       insert: h.insert,
       upsert: h.upsert,
       update: vi.fn(() => ({ eq: h.updateEq })),
-      delete: vi.fn(() => ({
-        eq: vi.fn(h.ok),
-        gt: vi.fn(h.ok),
-        gte: vi.fn(h.ok),
-      })),
+      delete: vi.fn(() => ({ eq: h.deleteEq })),
     })),
     channel: vi.fn(() => h.channel),
     removeChannel: vi.fn(),
@@ -97,6 +101,11 @@ beforeEach(() => {
   h.upsert.mockClear()
   h.updateEq.mockReset()
   h.updateEq.mockImplementation(h.ok)
+  h.deleteEq.mockClear()
+  h.deleteGt.mockReset()
+  h.deleteGt.mockImplementation(h.ok)
+  h.deleteGte.mockReset()
+  h.deleteGte.mockImplementation(h.ok)
 })
 
 test('a stale echo of our own write does not clobber optimistic state', async () => {
@@ -272,4 +281,70 @@ test('a thrown/rejected write rolls back the optimistic change and sets error, s
   expect(result.current.tasks.find((t) => t.id === 't1')?.done).toBe(false)
   // ...and the throw must surface through the same setError path a resolved `{ error }` would.
   expect(result.current.error).toBe('network down')
+})
+
+test('a failing recurSkip write on deleteOccurrence still removes the occurrence locally and surfaces the error', async () => {
+  const today = ymd(new Date())
+  h.capture.rows = [
+    serverRow({ id: 'tpl1', recur_freq: 'daily', day: today, recur_until: today }),
+    serverRow({ id: 'i1', recur_parent_id: 'tpl1', recur_origin_day: today, day: today }),
+  ]
+  const { result } = renderHook(() => useTasks('u1'))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  // The template's recurSkip update rejects (e.g. a network fault) — this was previously
+  // swallowed by a bare console.error with no user-visible signal.
+  h.updateEq.mockRejectedValueOnce(new Error('skip write failed'))
+
+  const instance = result.current.tasks.find((t) => t.id === 'i1')!
+  await act(async () => {
+    await result.current.deleteOccurrence(instance)
+  })
+
+  // The occurrence removal (the following step, removeTask) still ran locally despite the
+  // failed recurSkip write...
+  expect(result.current.tasks.find((t) => t.id === 'i1')).toBeUndefined()
+  // ...and the failure is now surfaced instead of failing silently.
+  expect(result.current.error).toBe('skip write failed')
+})
+
+test('a failing trim-delete on updateSeries still materializes the widened window and surfaces the error', async () => {
+  const today = ymd(new Date())
+  h.capture.rows = [
+    serverRow({ id: 'tpl1', recur_freq: 'daily', day: today, recur_until: today }),
+    serverRow({ id: 'i1', recur_parent_id: 'tpl1', recur_origin_day: today, day: today }),
+  ]
+  const { result } = renderHook(() => useTasks('u1'))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  h.insert.mockClear()
+
+  // The trim-delete's `.gt(...)` leg rejects (e.g. a network fault) — this was previously
+  // swallowed by a bare console.error with no user-visible signal.
+  h.deleteGt.mockRejectedValueOnce(new Error('trim failed'))
+
+  const until = ymd(addDays(parseDay(today), 3))
+  const instance = result.current.tasks.find((t) => t.id === 'i1')!
+  await act(async () => {
+    await result.current.updateSeries(instance, {
+      ...instance,
+      recurFreq: 'daily',
+      recurInterval: 1,
+      recurUntil: until,
+    })
+  })
+
+  // materialize (the following step) still ran despite the failed trim-delete: widening the
+  // window from `recur_until: today` to `until` backfills the newly-in-range occurrences.
+  const days = result.current.tasks
+    .filter((t) => t.recurParentId === 'tpl1')
+    .map((t) => t.day)
+    .sort()
+  expect(days).toEqual([
+    today,
+    ymd(addDays(parseDay(today), 1)),
+    ymd(addDays(parseDay(today), 2)),
+    until,
+  ])
+  // ...and the failure is now surfaced instead of failing silently.
+  expect(result.current.error).toBe('trim failed')
 })
