@@ -10,6 +10,10 @@ _Planned features and fixes are tracked in [ROADMAP.md](./ROADMAP.md)._
 
 ### Added
 
+- **Due times** — tasks can carry an optional time of day: set or clear it in the editor's
+  Schedule row, see it as a chip on cards, and the Agenda sorts timed tasks first within each
+  day (calendar cells keep manual drag order). Recurring series pass their time to every
+  occurrence.
 - **Realtime multi-device sync** — edits, drags, and deletions now appear live on every
   signed-in device via Supabase realtime (`postgres_changes` under RLS). A pure reducer
   (`src/data/realtime.ts`) applies remote changes — deduping recurring instances by
