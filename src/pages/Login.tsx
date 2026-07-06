@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { errorMessage } from '../lib/errors'
 import { useAuth } from '../auth/AuthProvider'
 import logoDark from '../assets/logo-dark.svg'
 import { authCard, authField, authLinkBtn, authPage, authSubmit } from './authChrome'
@@ -62,7 +63,7 @@ export function Login() {
         if (err) throw err
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setError(errorMessage(err))
     } finally {
       setBusy(false)
     }
@@ -77,7 +78,7 @@ export function Login() {
       })
       if (err) throw err
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setError(errorMessage(err))
     }
   }
 

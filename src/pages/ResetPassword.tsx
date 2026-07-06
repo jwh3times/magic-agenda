@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { errorMessage } from '../lib/errors'
 import { useAuth } from '../auth/AuthProvider'
 import { authCard, authField, authPage, authSubmit } from './authChrome'
 import logoDark from '../assets/logo-dark.svg'
@@ -58,7 +59,7 @@ export function ResetPassword() {
       const { error: err } = await supabase.auth.updateUser({ password })
       if (err) throw err
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setError(errorMessage(err))
       return
     } finally {
       setBusy(false)

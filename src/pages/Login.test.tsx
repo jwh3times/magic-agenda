@@ -5,6 +5,7 @@ import { expect, test, vi } from 'vitest'
 
 const h = vi.hoisted(() => ({
   resetPasswordForEmail: vi.fn(() => Promise.resolve({ data: {}, error: null })),
+  signInWithOAuth: vi.fn(() => Promise.resolve({ error: null })),
 }))
 
 vi.mock('../lib/supabase', () => ({
@@ -13,7 +14,7 @@ vi.mock('../lib/supabase', () => ({
       resetPasswordForEmail: h.resetPasswordForEmail,
       signInWithPassword: vi.fn(() => Promise.resolve({ error: null })),
       signUp: vi.fn(() => Promise.resolve({ data: {}, error: null })),
-      signInWithOAuth: vi.fn(() => Promise.resolve({ error: null })),
+      signInWithOAuth: h.signInWithOAuth,
     },
   },
 }))
@@ -61,4 +62,11 @@ test('shows the account-deleted goodbye notice when arriving from deletion', () 
     </MemoryRouter>,
   )
   expect(screen.getByText(/Your account and all of its data have been deleted/)).toBeInTheDocument()
+})
+
+test('a rejected Google sign-in surfaces the error', async () => {
+  h.signInWithOAuth.mockRejectedValueOnce(new Error('oauth popup blocked'))
+  renderLogin()
+  await userEvent.click(screen.getByRole('button', { name: /Continue with Google/ }))
+  expect(await screen.findByText('oauth popup blocked')).toBeInTheDocument()
 })
