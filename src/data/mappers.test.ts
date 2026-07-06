@@ -121,6 +121,10 @@ describe('at_time', () => {
     expect(allDay.atTime).toBeNull()
     expect(taskToRow(allDay, 'u1').at_time).toBeNull()
   })
+  it('treats a missing at_time column (pre-migration deploy window) as all-day', () => {
+    const predeploy = rowToTask(row({ at_time: undefined as unknown as string }))
+    expect(predeploy.atTime).toBeNull()
+  })
 })
 
 describe('round trip', () => {
