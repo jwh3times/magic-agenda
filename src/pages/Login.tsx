@@ -70,11 +70,15 @@ export function Login() {
 
   const google = async () => {
     setError(null)
-    const { error: err } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    })
-    if (err) setError(err.message)
+    try {
+      const { error: err } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: `${window.location.origin}/auth/callback` },
+      })
+      if (err) throw err
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong')
+    }
   }
 
   return (

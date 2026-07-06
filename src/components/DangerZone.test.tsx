@@ -61,3 +61,14 @@ test('a failed call surfaces an error and does not sign out', async () => {
   expect(await screen.findByText(/Could not delete your account/)).toBeInTheDocument()
   expect(h.signOut).not.toHaveBeenCalled()
 })
+
+test('a thrown (rejected) call surfaces the same error, clears busy, and does not sign out', async () => {
+  h.invoke.mockRejectedValueOnce(new Error('network exploded'))
+  renderZone()
+  await userEvent.type(screen.getByPlaceholderText('delete'), 'delete')
+  const btn = screen.getByRole('button', { name: 'Delete my account' })
+  await userEvent.click(btn)
+  expect(await screen.findByText(/Could not delete your account/)).toBeInTheDocument()
+  expect(h.signOut).not.toHaveBeenCalled()
+  expect(btn).toBeEnabled() // busy cleared, not stuck disabled
+})

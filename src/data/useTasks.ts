@@ -489,9 +489,10 @@ export function useTasks(userId: string): UseTasks {
             .delete()
             .eq('recur_parent_id', template.id)
             .gt('recur_origin_day', until)
-        } catch {
+        } catch (e) {
           // This delete's `{ error }` was already unchecked/ignored — mirror that for a
           // thrown/rejected write too, so materialize below still runs.
+          console.error('Failed to delete trimmed instances after shortening series', e)
         }
       }
       await materialize([next])
@@ -512,9 +513,10 @@ export function useTasks(userId: string): UseTasks {
         templatesRef.current = templatesRef.current.map((t) => (t.id === template.id ? next : t))
         try {
           await supabase.from('tasks').update(taskToRow(next, userId)).eq('id', template.id)
-        } catch {
+        } catch (e) {
           // This update's `{ error }` was already unchecked/ignored — mirror that for a
           // thrown/rejected write too, so removeTask below still runs.
+          console.error('Failed to persist skipped occurrence on template', e)
         }
       }
       await removeTask(instance.id)

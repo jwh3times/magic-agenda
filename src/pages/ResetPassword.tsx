@@ -54,11 +54,14 @@ export function ResetPassword() {
     }
     setBusy(true)
     setError(null)
-    const { error: err } = await supabase.auth.updateUser({ password })
-    setBusy(false)
-    if (err) {
-      setError(err.message)
+    try {
+      const { error: err } = await supabase.auth.updateUser({ password })
+      if (err) throw err
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong')
       return
+    } finally {
+      setBusy(false)
     }
     clearPasswordRecovery()
     navigate('/', { replace: true })

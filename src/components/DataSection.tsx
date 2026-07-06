@@ -56,34 +56,41 @@ export function DataSection() {
     setBusy(true)
     setError(null)
     setNotice(null)
-    const [tasksRes, settingsRes] = await Promise.all([
-      supabase.from('tasks').select('*'),
-      supabase.from('user_settings').select('*').eq('user_id', userId).maybeSingle(),
-    ])
-    setBusy(false)
-    if (tasksRes.error || settingsRes.error) {
+    try {
+      const [tasksRes, settingsRes] = await Promise.all([
+        supabase.from('tasks').select('*'),
+        supabase.from('user_settings').select('*').eq('user_id', userId).maybeSingle(),
+      ])
+      if (tasksRes.error || settingsRes.error) {
+        setError('Could not load your data. Please try again.')
+        return
+      }
+      const all = (tasksRes.data ?? []).map(rowToTask)
+      const json = serializeExport(
+        all.filter((t) => !isTemplate(t)),
+        all.filter(isTemplate),
+        {
+          theme: settingsRes.data?.theme ?? 'cork',
+          defaultView: settingsRes.data?.default_view ?? 'calendar',
+        },
+        new Date().toISOString(),
+      )
+      const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `magic-agenda-export-${ymd(new Date())}.json`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      setNotice('Export downloaded.')
+    } catch {
+      // Same message as the resolved-`{error}` path — a thrown/rejected load looks
+      // identical to the user.
       setError('Could not load your data. Please try again.')
-      return
+    } finally {
+      setBusy(false)
     }
-    const all = (tasksRes.data ?? []).map(rowToTask)
-    const json = serializeExport(
-      all.filter((t) => !isTemplate(t)),
-      all.filter(isTemplate),
-      {
-        theme: settingsRes.data?.theme ?? 'cork',
-        defaultView: settingsRes.data?.default_view ?? 'calendar',
-      },
-      new Date().toISOString(),
-    )
-    const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `magic-agenda-export-${ymd(new Date())}.json`
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(url)
-    setNotice('Export downloaded.')
   }
 
   const onFile = async (file: File | undefined) => {
@@ -119,20 +126,25 @@ export function DataSection() {
     }
     const { batches, taskCount, templateCount } = progress
     let cursor = progress.cursor
-    for (; cursor < batches.length; cursor++) {
-      const { error: err } = await supabase
-        .from('tasks')
-        .insert(batches[cursor].map((t) => taskToRow(t, userId)))
-      if (err) {
-        setBusy(false)
-        setImportProgress({ batches, cursor, taskCount, templateCount })
-        setError(
-          'Import failed partway — some tasks may have been added; nothing was overwritten. Click Import to resume.',
-        )
-        return
+    try {
+      for (; cursor < batches.length; cursor++) {
+        const { error: err } = await supabase
+          .from('tasks')
+          .insert(batches[cursor].map((t) => taskToRow(t, userId)))
+        if (err) throw new Error(err.message)
       }
+    } catch {
+      // A throw (rejected promise) must behave identically to a resolved `{ error }`:
+      // keep the same batches + failed cursor so "Resume import" can retry without
+      // re-remapping (which would re-insert already-succeeded batches under fresh ids).
+      setImportProgress({ batches, cursor, taskCount, templateCount })
+      setError(
+        'Import failed partway — some tasks may have been added; nothing was overwritten. Click Import to resume.',
+      )
+      return
+    } finally {
+      setBusy(false)
     }
-    setBusy(false)
     setImportProgress(null)
     setPending(null)
     setNotice(
