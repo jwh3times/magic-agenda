@@ -226,3 +226,27 @@ test('rollForward moves overdue tasks to today and upserts only them', async () 
   expect(moved.day).toBe('2026-07-10')
   expect(moved.order).toBe(3)
 })
+
+test('rollForward with onlyIds moves only the given overdue tasks', async () => {
+  h.capture.rows = [
+    serverRow({ id: 't1', day: '2020-01-01', order_index: 0 }),
+    serverRow({ id: 't2', day: '2020-01-02', order_index: 1 }),
+    serverRow({ id: 't3', day: '2026-07-10', order_index: 2 }),
+  ]
+  const { result } = renderHook(() => useTasks('u1'))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  await act(async () => {
+    await result.current.rollForward('2026-07-10', new Set(['t1']))
+  })
+  const moved = result.current.tasks.find((t) => t.id === 't1')!
+  const untouched = result.current.tasks.find((t) => t.id === 't2')!
+  expect(moved.day).toBe('2026-07-10')
+  expect(untouched.day).toBe('2020-01-02') // still overdue, but excluded from onlyIds
+
+  // Only the moved task's row is upserted.
+  const lastCall = h.upsert.mock.calls[h.upsert.mock.calls.length - 1] as unknown as [
+    { id: string }[],
+  ]
+  expect(lastCall[0].map((r) => r.id)).toEqual(['t1'])
+})

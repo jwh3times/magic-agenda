@@ -26,8 +26,12 @@ export interface UseTasks {
   removeTask: (id: string) => Promise<void>
   toggleDone: (id: string) => Promise<void>
   persistReorder: (next: Task[], containers: string[], mode: Mode) => Promise<void>
-  /** Move every overdue task to today, appended to today's order (batched upsert). */
-  rollForward: (todayStr: string) => Promise<void>
+  /**
+   * Move overdue tasks to today, appended to today's order (batched upsert). With `onlyIds`,
+   * only overdue tasks in the set are moved (e.g. the currently-visible/filtered set);
+   * omitted, every overdue task moves.
+   */
+  rollForward: (todayStr: string, onlyIds?: ReadonlySet<string>) => Promise<void>
   /** The hidden template for a parent id (to read a series' rule). */
   getTemplate: (parentId: string) => Task | undefined
   /** Apply an instance edit to the whole series from this occurrence forward. */
@@ -349,9 +353,9 @@ export function useTasks(userId: string): UseTasks {
   )
 
   const rollForward = useCallback(
-    async (todayStr: string) => {
+    async (todayStr: string, onlyIds?: ReadonlySet<string>) => {
       const prev = tasksRef.current
-      const { tasks: next, changed } = applyRollForward(prev, todayStr)
+      const { tasks: next, changed } = applyRollForward(prev, todayStr, onlyIds)
       if (changed.length === 0) return
       setTasks(next)
       markWrites(changed.map((t) => t.id))

@@ -176,6 +176,33 @@ test('applyRollForward is a referential no-op when nothing is overdue', () => {
   expect(res.changed).toEqual([])
 })
 
+test('applyRollForward with onlyIds moves only the overdue tasks in the set', () => {
+  const today = '2026-07-10'
+  const tasks = [
+    t('today-1', { day: today, order: 3 }),
+    t('old-a', { day: '2026-07-09', order: 1 }),
+    t('old-b', { day: '2026-07-01', order: 0 }),
+  ]
+  const onlyIds = new Set(['old-a'])
+  const { tasks: next, changed } = applyRollForward(tasks, today, onlyIds)
+  expect(changed.map((x) => x.id)).toEqual(['old-a'])
+  const movedA = next.find((x) => x.id === 'old-a')!
+  const untouchedB = next.find((x) => x.id === 'old-b')!
+  expect(movedA.day).toBe(today)
+  expect(movedA.order).toBe(4) // base = max(today orders)=3 + 1
+  // Still overdue, but excluded from onlyIds, so it stays put.
+  expect(untouchedB.day).toBe('2026-07-01')
+  expect(untouchedB.order).toBe(0)
+})
+
+test('applyRollForward with onlyIds is a referential no-op when no overdue task is in the set', () => {
+  const today = '2026-07-10'
+  const tasks = [t('old', { day: '2026-07-01' })]
+  const res = applyRollForward(tasks, today, new Set(['not-present']))
+  expect(res.tasks).toBe(tasks)
+  expect(res.changed).toEqual([])
+})
+
 describe('applyRollForward + missingInstances (regression)', () => {
   // Regression for: rolling an overdue recurring instance forward (its `day` moves to today,
   // but `recurOriginDay` stays put) must not make the materializer regenerate a duplicate on

@@ -45,7 +45,7 @@ export interface BoardProps {
   initialView?: ViewName
   onSignOut?: () => void
   onOpenSettings?: () => void
-  rollForward?: (todayStr: string) => void
+  rollForward?: (todayStr: string, onlyIds?: ReadonlySet<string>) => void
 }
 
 const VIEWS: ViewOption[] = [
@@ -102,7 +102,8 @@ export function Board({
 
   const filterActive = isFilterActive(filter)
   const visibleTasks = useMemo(() => applyFilters(tasks, filter), [tasks, filter])
-  const overdueCount = useMemo(() => overdueTasks(tasks, ymd(new Date())).length, [tasks])
+  const visibleOverdue = useMemo(() => overdueTasks(visibleTasks, ymd(new Date())), [visibleTasks])
+  const overdueCount = visibleOverdue.length
 
   const dnd = useBoardDnd(view, tasks, setTasks, persistReorder)
 
@@ -238,7 +239,11 @@ export function Board({
                 tasks={visibleTasks}
                 handlers={handlers}
                 pop={pop}
-                onRollForward={rollForward ? () => rollForward(ymd(new Date())) : undefined}
+                onRollForward={
+                  rollForward
+                    ? () => rollForward(ymd(new Date()), new Set(visibleOverdue.map((t) => t.id)))
+                    : undefined
+                }
               />
             ) : (
               <div
