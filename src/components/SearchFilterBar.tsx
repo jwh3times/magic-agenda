@@ -71,6 +71,19 @@ export function SearchFilterBar({ query, onChange }: SearchFilterBarProps) {
           </option>
         ))}
       </select>
+      <button
+        type="button"
+        aria-label={query.pinned ? 'Show all tasks' : 'Show pinned only'}
+        onClick={() => onChange({ ...query, pinned: !query.pinned })}
+        style={{
+          ...control,
+          cursor: 'pointer',
+          fontWeight: 700,
+          ...(query.pinned ? { color: conf.accent, borderColor: conf.accent } : {}),
+        }}
+      >
+        📌 Pinned
+      </button>
       {active && (
         <button
           type="button"
