@@ -58,10 +58,21 @@ describe('rotOf', () => {
 })
 
 describe('cardStyles', () => {
-  it('cork shows a pin; non-cork themes do not', () => {
-    expect(cardStyles('cork', task(), 'cell').showPin).toBe(true)
+  it('the pin is the pinned signal: cork red pin / brutal corner flash, only when pinned', () => {
+    expect(cardStyles('cork', task(), 'cell').showPin).toBe(false)
+    expect(cardStyles('cork', task({ pinned: true }), 'cell').showPin).toBe(true)
     expect(cardStyles('brutal', task(), 'cell').showPin).toBe(false)
-    expect(cardStyles('glass', task(), 'cell').showPin).toBe(false)
+    const b = cardStyles('brutal', task({ pinned: true }), 'cell')
+    expect(b.showPin).toBe(true)
+    expect(String(b.pinStyle.borderTop)).toContain('#FF4D2E')
+    expect(cardStyles('glass', task({ pinned: true }), 'cell').showPin).toBe(false)
+  })
+
+  it('glass pinned cards glow; unpinned do not', () => {
+    const off = String(cardStyles('glass', task(), 'cell').wrap.boxShadow)
+    const on = String(cardStyles('glass', task({ pinned: true }), 'cell').wrap.boxShadow)
+    expect(off).not.toContain('rgba(124,92,255')
+    expect(on).toContain('rgba(124,92,255')
   })
 
   it('shows the DONE stamp only for a completed cork card', () => {
@@ -71,7 +82,7 @@ describe('cardStyles', () => {
   })
 
   it('ghost variant suppresses pin and rotation', () => {
-    const g = cardStyles('cork', task(), 'ghost')
+    const g = cardStyles('cork', task({ pinned: true }), 'ghost')
     expect(g.showPin).toBe(false)
     expect(g.wrap.transform).toBe('rotate(0deg)')
   })
