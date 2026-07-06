@@ -12,6 +12,9 @@ const h = vi.hoisted(() => {
   // Stable spies so tests can assert on the rows reload/materialize/updateSeries write.
   const insert = vi.fn(ok)
   const upsert = vi.fn(ok)
+  // Stable spy behind `.update(...).eq(...)` so a test can force it to reject (throw),
+  // proving a throw takes the same rollback + setError path as a resolved `{ error }`.
+  const updateEq = vi.fn(ok)
   const channel: Record<string, unknown> = {}
   channel.on = vi.fn((_e: string, _f: unknown, cb: (p: unknown) => void) => {
     capture.handler = cb
@@ -21,7 +24,7 @@ const h = vi.hoisted(() => {
     cb?.('SUBSCRIBED')
     return channel
   })
-  return { capture, ok, insert, upsert, channel }
+  return { capture, ok, insert, upsert, updateEq, channel }
 })
 
 vi.mock('../lib/supabase', () => ({
@@ -30,7 +33,7 @@ vi.mock('../lib/supabase', () => ({
       select: vi.fn(() => Promise.resolve({ data: h.capture.rows, error: null })),
       insert: h.insert,
       upsert: h.upsert,
-      update: vi.fn(() => ({ eq: vi.fn(h.ok) })),
+      update: vi.fn(() => ({ eq: h.updateEq })),
       delete: vi.fn(() => ({
         eq: vi.fn(h.ok),
         gt: vi.fn(h.ok),
@@ -92,6 +95,8 @@ beforeEach(() => {
   h.capture.rows = [serverRow()]
   h.insert.mockClear()
   h.upsert.mockClear()
+  h.updateEq.mockReset()
+  h.updateEq.mockImplementation(h.ok)
 })
 
 test('a stale echo of our own write does not clobber optimistic state', async () => {
@@ -249,4 +254,22 @@ test('rollForward with onlyIds moves only the given overdue tasks', async () => 
     { id: string }[],
   ]
   expect(lastCall[0].map((r) => r.id)).toEqual(['t1'])
+})
+
+test('a thrown/rejected write rolls back the optimistic change and sets error, same as a resolved { error }', async () => {
+  const { result } = renderHook(() => useTasks('u1'))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  expect(result.current.tasks.find((t) => t.id === 't1')?.done).toBe(false)
+
+  // The write layer rejects instead of resolving `{ error }` (e.g. a network fault).
+  h.updateEq.mockRejectedValueOnce(new Error('network down'))
+
+  await act(async () => {
+    await result.current.toggleDone('t1')
+  })
+
+  // The optimistic toggle must be rolled back...
+  expect(result.current.tasks.find((t) => t.id === 't1')?.done).toBe(false)
+  // ...and the throw must surface through the same setError path a resolved `{ error }` would.
+  expect(result.current.error).toBe('network down')
 })

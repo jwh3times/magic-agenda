@@ -13,6 +13,11 @@ import type { Database } from '../types/database.types'
 
 type TaskRow = Database['public']['Tables']['tasks']['Row']
 
+// A rejected/thrown write (network fault, etc.) must take the same on-error path as a
+// resolved `{ error }` — this normalizes whatever the throw carries into a message.
+const errorMessage = (e: unknown): string =>
+  e instanceof Error ? e.message : 'Something went wrong'
+
 export interface UseTasks {
   /** Board tasks only (non-recurring + materialized instances); templates are hidden. */
   tasks: Task[]
@@ -134,10 +139,14 @@ export function useTasks(userId: string): UseTasks {
         return [...prev, ...instances.filter((i) => !present.has(instanceKey(i)))]
       })
       markWrites(instances.map((i) => i.id))
-      const { error: err } = await supabase
-        .from('tasks')
-        .insert(instances.map((t) => taskToRow(t, userId)))
-      if (err) setError(err.message)
+      try {
+        const { error: err } = await supabase
+          .from('tasks')
+          .insert(instances.map((t) => taskToRow(t, userId)))
+        if (err) throw new Error(err.message)
+      } catch (e) {
+        setError(errorMessage(e))
+      }
     },
     [setTasks, userId, markWrites],
   )
@@ -242,9 +251,11 @@ export function useTasks(userId: string): UseTasks {
       if (isTemplate(task)) {
         templatesRef.current = [...templatesRef.current, task]
         markWrites([task.id])
-        const { error: err } = await supabase.from('tasks').insert(taskToRow(task, userId))
-        if (err) {
-          setError(err.message)
+        try {
+          const { error: err } = await supabase.from('tasks').insert(taskToRow(task, userId))
+          if (err) throw new Error(err.message)
+        } catch (e) {
+          setError(errorMessage(e))
           return
         }
         await materialize([task])
@@ -258,10 +269,12 @@ export function useTasks(userId: string): UseTasks {
       const full: Task = { ...task, order, korder }
       setTasks((p) => [...p, full])
       markWrites([full.id])
-      const { error: err } = await supabase.from('tasks').insert(taskToRow(full, userId))
-      if (err) {
+      try {
+        const { error: err } = await supabase.from('tasks').insert(taskToRow(full, userId))
+        if (err) throw new Error(err.message)
+      } catch (e) {
         setTasks(prev)
-        setError(err.message)
+        setError(errorMessage(e))
       }
     },
     [setTasks, materialize, userId, markWrites],
@@ -274,12 +287,14 @@ export function useTasks(userId: string): UseTasks {
         setTasks((prev) => prev.filter((t) => t.id !== task.id))
         templatesRef.current = [...templatesRef.current.filter((t) => t.id !== task.id), task]
         markWrites([task.id])
-        const { error: err } = await supabase
-          .from('tasks')
-          .update(taskToRow(task, userId))
-          .eq('id', task.id)
-        if (err) {
-          setError(err.message)
+        try {
+          const { error: err } = await supabase
+            .from('tasks')
+            .update(taskToRow(task, userId))
+            .eq('id', task.id)
+          if (err) throw new Error(err.message)
+        } catch (e) {
+          setError(errorMessage(e))
           void reload()
           return
         }
@@ -289,13 +304,15 @@ export function useTasks(userId: string): UseTasks {
       const prev = tasksRef.current
       setTasks((p) => p.map((t) => (t.id === task.id ? task : t)))
       markWrites([task.id])
-      const { error: err } = await supabase
-        .from('tasks')
-        .update(taskToRow(task, userId))
-        .eq('id', task.id)
-      if (err) {
+      try {
+        const { error: err } = await supabase
+          .from('tasks')
+          .update(taskToRow(task, userId))
+          .eq('id', task.id)
+        if (err) throw new Error(err.message)
+      } catch (e) {
         setTasks(prev)
-        setError(err.message)
+        setError(errorMessage(e))
       }
     },
     [setTasks, materialize, reload, userId, markWrites],
@@ -306,10 +323,12 @@ export function useTasks(userId: string): UseTasks {
       const prev = tasksRef.current
       setTasks((p) => p.filter((t) => t.id !== id))
       markWrites([id])
-      const { error: err } = await supabase.from('tasks').delete().eq('id', id)
-      if (err) {
+      try {
+        const { error: err } = await supabase.from('tasks').delete().eq('id', id)
+        if (err) throw new Error(err.message)
+      } catch (e) {
         setTasks(prev)
-        setError(err.message)
+        setError(errorMessage(e))
       }
     },
     [setTasks, markWrites],
@@ -323,13 +342,15 @@ export function useTasks(userId: string): UseTasks {
       const toggled = next.find((t) => t.id === id)
       if (!toggled) return
       markWrites([id])
-      const { error: err } = await supabase
-        .from('tasks')
-        .update(taskToRow(toggled, userId))
-        .eq('id', id)
-      if (err) {
+      try {
+        const { error: err } = await supabase
+          .from('tasks')
+          .update(taskToRow(toggled, userId))
+          .eq('id', id)
+        if (err) throw new Error(err.message)
+      } catch (e) {
         setTasks(prev)
-        setError(err.message)
+        setError(errorMessage(e))
       }
     },
     [setTasks, userId, markWrites],
@@ -343,9 +364,11 @@ export function useTasks(userId: string): UseTasks {
         .map((t) => taskToRow(t, userId))
       if (rows.length === 0) return
       markWrites(rows.map((r) => r.id))
-      const { error: err } = await supabase.from('tasks').upsert(rows, { onConflict: 'id' })
-      if (err) {
-        setError(err.message)
+      try {
+        const { error: err } = await supabase.from('tasks').upsert(rows, { onConflict: 'id' })
+        if (err) throw new Error(err.message)
+      } catch (e) {
+        setError(errorMessage(e))
         void reload()
       }
     },
@@ -359,13 +382,15 @@ export function useTasks(userId: string): UseTasks {
       if (changed.length === 0) return
       setTasks(next)
       markWrites(changed.map((t) => t.id))
-      const { error: err } = await supabase.from('tasks').upsert(
-        changed.map((t) => taskToRow(t, userId)),
-        { onConflict: 'id' },
-      )
-      if (err) {
+      try {
+        const { error: err } = await supabase.from('tasks').upsert(
+          changed.map((t) => taskToRow(t, userId)),
+          { onConflict: 'id' },
+        )
+        if (err) throw new Error(err.message)
+      } catch (e) {
         setTasks(prev)
-        setError(err.message)
+        setError(errorMessage(e))
       }
     },
     [setTasks, markWrites, userId],
@@ -439,9 +464,11 @@ export function useTasks(userId: string): UseTasks {
           ),
       ]
       markWrites(rows.map((r) => r.id))
-      const { error: err } = await supabase.from('tasks').upsert(rows, { onConflict: 'id' })
-      if (err) {
-        setError(err.message)
+      try {
+        const { error: err } = await supabase.from('tasks').upsert(rows, { onConflict: 'id' })
+        if (err) throw new Error(err.message)
+      } catch (e) {
+        setError(errorMessage(e))
         void reload()
         return
       }
@@ -456,11 +483,17 @@ export function useTasks(userId: string): UseTasks {
         setTasks((prev) =>
           prev.filter((t) => !(t.recurParentId === template.id && instanceOrigin(t) > until)),
         )
-        await supabase
-          .from('tasks')
-          .delete()
-          .eq('recur_parent_id', template.id)
-          .gt('recur_origin_day', until)
+        try {
+          await supabase
+            .from('tasks')
+            .delete()
+            .eq('recur_parent_id', template.id)
+            .gt('recur_origin_day', until)
+        } catch (e) {
+          // This delete's `{ error }` was already unchecked/ignored — mirror that for a
+          // thrown/rejected write too, so materialize below still runs.
+          console.error('Failed to delete trimmed instances after shortening series', e)
+        }
       }
       await materialize([next])
     },
@@ -478,7 +511,13 @@ export function useTasks(userId: string): UseTasks {
           recurSkip: [...template.recurSkip, instanceOrigin(instance)],
         }
         templatesRef.current = templatesRef.current.map((t) => (t.id === template.id ? next : t))
-        await supabase.from('tasks').update(taskToRow(next, userId)).eq('id', template.id)
+        try {
+          await supabase.from('tasks').update(taskToRow(next, userId)).eq('id', template.id)
+        } catch (e) {
+          // This update's `{ error }` was already unchecked/ignored — mirror that for a
+          // thrown/rejected write too, so removeTask below still runs.
+          console.error('Failed to persist skipped occurrence on template', e)
+        }
       }
       await removeTask(instance.id)
     },
@@ -509,9 +548,11 @@ export function useTasks(userId: string): UseTasks {
           ...tasksRef.current.filter((t) => t.recurParentId === template.id).map((t) => t.id),
         ])
         setTasks((prev) => prev.filter((t) => t.recurParentId !== template.id))
-        const { error: err } = await supabase.from('tasks').delete().eq('id', template.id)
-        if (err) {
-          setError(err.message)
+        try {
+          const { error: err } = await supabase.from('tasks').delete().eq('id', template.id)
+          if (err) throw new Error(err.message)
+        } catch (e) {
+          setError(errorMessage(e))
           void reload()
         }
         return
@@ -522,17 +563,32 @@ export function useTasks(userId: string): UseTasks {
       setTasks((prev) =>
         prev.filter((t) => !(t.recurParentId === template.id && isFromOccurrenceOnward(t, cut))),
       )
-      const { error: e1 } = await supabase
-        .from('tasks')
-        .update(taskToRow(next, userId))
-        .eq('id', template.id)
-      const { error: e2 } = await supabase
-        .from('tasks')
-        .delete()
-        .eq('recur_parent_id', template.id)
-        .gte('recur_origin_day', cut)
-      if (e1 || e2) {
-        setError((e1 ?? e2)!.message)
+      // Both writes are independent (template cap + future-instance delete) and, as before,
+      // each is always attempted regardless of the other's outcome; either failing (by a
+      // resolved `{ error }` or a throw) surfaces the same combined error + reload.
+      let err1: Error | null = null
+      let err2: Error | null = null
+      try {
+        const { error } = await supabase
+          .from('tasks')
+          .update(taskToRow(next, userId))
+          .eq('id', template.id)
+        if (error) err1 = new Error(error.message)
+      } catch (e) {
+        err1 = e instanceof Error ? e : new Error(errorMessage(e))
+      }
+      try {
+        const { error } = await supabase
+          .from('tasks')
+          .delete()
+          .eq('recur_parent_id', template.id)
+          .gte('recur_origin_day', cut)
+        if (error) err2 = new Error(error.message)
+      } catch (e) {
+        err2 = e instanceof Error ? e : new Error(errorMessage(e))
+      }
+      if (err1 || err2) {
+        setError((err1 ?? err2)!.message)
         void reload()
       }
     },

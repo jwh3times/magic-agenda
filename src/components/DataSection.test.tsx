@@ -136,3 +136,54 @@ test('a batch failure keeps the remapped batches; retrying resumes without re-in
   expect(templateBatch[0].id).toBe(firstTemplateId) // same insert as before — not duplicated
   expect(taskBatch[0].recur_parent_id).toBe(firstTemplateId) // link preserved through the resume
 })
+
+test('a thrown (rejected) insert keeps the resume state and clears busy, like a resolved error', async () => {
+  render(<DataSection />)
+  const template = mk({ id: 'tpl-1', recurFreq: 'daily' })
+  const instance = mk({ id: 'inst-1', recurParentId: 'tpl-1', recurOriginDay: '2026-07-10' })
+  importFile(
+    serializeExport([instance], [template], { theme: 'cork', defaultView: 'calendar' }, 'x'),
+  )
+  await screen.findByText(/1 task.*1 repeating series/i)
+
+  // First attempt: templates batch succeeds, tasks batch THROWS instead of resolving an error.
+  h.insert.mockImplementationOnce((rows: unknown[]) => {
+    h.inserted.push(rows)
+    return Promise.resolve({ error: null })
+  })
+  h.insert.mockImplementationOnce(() => Promise.reject(new Error('network exploded')))
+
+  const importBtn = screen.getByRole('button', { name: 'Import' })
+  await userEvent.click(importBtn)
+  await screen.findByText(/Import failed partway/)
+  expect(h.inserted.length).toBe(1) // only the templates batch made it in
+
+  // Busy cleared: the button is re-enabled and now offers Resume, not stuck disabled.
+  const resumeBtn = await screen.findByRole('button', { name: 'Resume import' })
+  expect(resumeBtn).toBeEnabled()
+
+  const [templateBatchFirst] = h.inserted as { recur_freq: string; id: string }[][]
+  const firstTemplateId = templateBatchFirst[0].id
+
+  // Retry: resumes from the failed cursor instead of losing the batches/re-remapping.
+  await userEvent.click(resumeBtn)
+  await waitFor(() => expect(h.inserted.length).toBe(2))
+  await screen.findByText(/Imported 1 tasks? and 1 repeating series/i)
+
+  const [templateBatch, taskBatch] = h.inserted as {
+    recur_freq: string
+    recur_parent_id: string | null
+    id: string
+  }[][]
+  expect(templateBatch[0].id).toBe(firstTemplateId)
+  expect(taskBatch[0].recur_parent_id).toBe(firstTemplateId)
+})
+
+test('exportBoard clears busy and surfaces an error when the load throws', async () => {
+  h.selectTasks.mockImplementationOnce(() => Promise.reject(new Error('network exploded')))
+  render(<DataSection />)
+  const exportBtn = screen.getByRole('button', { name: 'Export my data' })
+  await userEvent.click(exportBtn)
+  expect(await screen.findByText(/Could not load your data/)).toBeInTheDocument()
+  expect(exportBtn).toBeEnabled()
+})

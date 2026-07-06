@@ -18,8 +18,11 @@ export function DangerZone() {
   const deleteAccount = async () => {
     setBusy(true)
     setError(null)
-    const { error: err } = await supabase.functions.invoke('delete-account', { method: 'POST' })
-    if (err) {
+    try {
+      const { error: err } = await supabase.functions.invoke('delete-account', { method: 'POST' })
+      if (err) throw new Error(err.message)
+    } catch {
+      // Same message for a resolved `{ error }` and a thrown/rejected invoke.
       setError('Could not delete your account. Please try again or contact support.')
       setBusy(false)
       return

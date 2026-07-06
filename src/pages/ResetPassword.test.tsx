@@ -60,6 +60,19 @@ test('updates the password and clears the recovery flag on success', async () =>
   expect(h.clearPasswordRecovery).toHaveBeenCalled()
 })
 
+test('a thrown (rejected) update surfaces an error and clears busy', async () => {
+  h.auth.current.session = { user: { id: 'u1' } }
+  h.updateUser.mockRejectedValueOnce(new Error('network exploded'))
+  renderPage()
+  await userEvent.type(screen.getByPlaceholderText('New password'), 'longenough123!')
+  await userEvent.type(screen.getByPlaceholderText('Confirm new password'), 'longenough123!')
+  const btn = screen.getByRole('button', { name: 'Set new password' })
+  await userEvent.click(btn)
+  expect(await screen.findByText('network exploded')).toBeInTheDocument()
+  expect(h.clearPasswordRecovery).not.toHaveBeenCalled()
+  expect(btn).toBeEnabled() // busy cleared, not stuck disabled
+})
+
 test('shows the expired-link screen when there is no session', () => {
   h.auth.current.session = null
   renderPage()
