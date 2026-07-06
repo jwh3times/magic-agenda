@@ -86,6 +86,23 @@ test('parseExport rejects garbage, wrong versions, and malformed tasks', () => {
   expect(parseExport(templateInTasksList).ok).toBe(false)
 })
 
+test('parseExport rejects a non-boolean done field', () => {
+  const badDone = JSON.parse(serializeExport([plain], [], settings, 'x'))
+  badDone.tasks[0].done = 'yes'
+  expect(parseExport(JSON.stringify(badDone)).ok).toBe(false)
+})
+
+test('rejects a repeating template placed in the tasks array', () => {
+  const templateInTasks = JSON.stringify({
+    version: 1,
+    exportedAt: 'x',
+    settings,
+    tasks: [template],
+    templates: [],
+  })
+  expect(parseExport(templateInTasks).ok).toBe(false)
+})
+
 test('chunk splits preserving order', () => {
   expect(chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]])
   expect(chunk([], 2)).toEqual([])

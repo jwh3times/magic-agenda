@@ -59,6 +59,7 @@ function isTask(v: unknown): v is Task {
     (CATEGORIES as readonly string[]).includes(t.category) &&
     (COLORS as readonly string[]).includes(t.color) &&
     (STATUSES as readonly string[]).includes(t.status) &&
+    typeof t.done === 'boolean' &&
     typeof t.day === 'string' &&
     typeof t.order === 'number' &&
     typeof t.korder === 'number' &&
@@ -113,6 +114,7 @@ export function remapIds(data: Pick<BoardExport, 'tasks' | 'templates'>): {
     ...t,
     id: templateIdMap.get(t.id)!,
     checklist: freshChecklist(t.checklist),
+    recurSkip: [...t.recurSkip],
   }))
   const tasks = data.tasks.map((t) => {
     const parent = t.recurParentId ? (templateIdMap.get(t.recurParentId) ?? null) : null
@@ -122,6 +124,7 @@ export function remapIds(data: Pick<BoardExport, 'tasks' | 'templates'>): {
       checklist: freshChecklist(t.checklist),
       recurParentId: parent,
       recurOriginDay: parent ? t.recurOriginDay : null,
+      recurSkip: [...t.recurSkip],
     }
   })
   return { tasks, templates }
