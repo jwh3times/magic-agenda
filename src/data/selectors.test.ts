@@ -10,6 +10,7 @@ import {
   overdueTasks,
   applyRollForward,
 } from './selectors'
+import { missingInstances, type RecurRule } from './recurrence'
 import { NO_RECUR, type Task } from '../types/task'
 
 function t(id: string, over: Partial<Task> = {}): Task {
@@ -173,4 +174,45 @@ test('applyRollForward is a referential no-op when nothing is overdue', () => {
   const res = applyRollForward(tasks, '2026-07-10')
   expect(res.tasks).toBe(tasks)
   expect(res.changed).toEqual([])
+})
+
+describe('applyRollForward + missingInstances (regression)', () => {
+  // Regression for: rolling an overdue recurring instance forward (its `day` moves to today,
+  // but `recurOriginDay` stays put) must not make the materializer regenerate a duplicate on
+  // the instance's original occurrence day.
+  it('still covers its origin occurrence after being rolled forward, so the old day is not regenerated', () => {
+    const today = '2026-07-10'
+    // Biweekly (interval 2) from 07-03 so occurrences are 07-03, 07-17, 07-31 — `today` itself
+    // is deliberately not an occurrence, keeping the assertions about the old day unambiguous.
+    const template: RecurRule = {
+      day: '2026-07-03',
+      recurFreq: 'weekly',
+      recurInterval: 2,
+      recurUntil: null,
+      recurSkip: [],
+    }
+    const instance = t('inst', {
+      day: '2026-07-03',
+      recurOriginDay: '2026-07-03',
+      recurParentId: 'template-1',
+      status: 'todo',
+    })
+
+    // Baseline: the instance (still on its own day) already covers occurrence 07-03.
+    const before = missingInstances(template, [instance], today, 30)
+    expect(before).not.toContain('2026-07-03')
+    expect(before).toEqual(['2026-07-17', '2026-07-31'])
+
+    // Roll the overdue instance forward: day -> today, origin untouched.
+    const { tasks: rolled, changed } = applyRollForward([instance], today)
+    const moved = rolled.find((x) => x.id === 'inst')!
+    expect(changed.map((x) => x.id)).toEqual(['inst'])
+    expect(moved.day).toBe(today)
+    expect(moved.recurOriginDay).toBe('2026-07-03')
+
+    // After the move, occurrence 07-03 must still read as covered — not regenerated.
+    const after = missingInstances(template, [moved], today, 30)
+    expect(after).not.toContain('2026-07-03')
+    expect(after).toEqual(before)
+  })
 })
