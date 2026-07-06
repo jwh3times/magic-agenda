@@ -56,3 +56,15 @@ test('no pin button renders when no handler is provided (drag overlay)', () => {
   renderCard(mkTask({ pinned: true }))
   expect(screen.queryByRole('button', { name: /Pin|Unpin/ })).not.toBeInTheDocument()
 })
+
+test('kanban card with a due time shows only the time chip, not the day chip', () => {
+  renderCard(mkTask({ atTime: '14:30', day: '2026-07-10' }), { variant: 'kanban' })
+  expect(screen.getByText('2:30pm')).toBeInTheDocument()
+  expect(screen.queryByText('Jul 10')).not.toBeInTheDocument()
+})
+
+test('kanban card with no due time still shows the day chip', () => {
+  renderCard(mkTask({ atTime: null, day: '2026-07-10' }), { variant: 'kanban' })
+  expect(screen.getByText('Jul 10')).toBeInTheDocument()
+  expect(screen.queryByText(/am|pm/)).not.toBeInTheDocument()
+})

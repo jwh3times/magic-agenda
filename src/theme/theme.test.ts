@@ -87,6 +87,11 @@ describe('cardStyles', () => {
     expect(g.wrap.transform).toBe('rotate(0deg)')
   })
 
+  it('glass ghost variant suppresses the pinned glow', () => {
+    const ghost = String(cardStyles('glass', task({ pinned: true }), 'ghost').wrap.boxShadow)
+    expect(ghost).not.toContain('rgba(124,92,255')
+  })
+
   it('barFill width tracks checklist completion', () => {
     const t = task({
       checklist: [

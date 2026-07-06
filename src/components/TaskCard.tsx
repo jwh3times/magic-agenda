@@ -58,7 +58,7 @@ export function TaskCard({
         <span style={s.dot} />
         <span style={s.catStyle}>{cat.label}</span>
         {task.atTime && <span style={s.chipStyle}>{formatTime(task.atTime)}</span>}
-        {isKanban && <span style={s.chipStyle}>{chipLabel(task.day)}</span>}
+        {isKanban && !task.atTime && <span style={s.chipStyle}>{chipLabel(task.day)}</span>}
         {hasList && (
           <span style={s.progStyle}>
             {ck}/{total}

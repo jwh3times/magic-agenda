@@ -130,12 +130,18 @@ export function overdueTasks(tasks: Task[], todayStr: string): Task[] {
  * Move every overdue task to today, appended after today's existing max order in
  * overdue-sort sequence. Pure; identity (recurOriginDay) never moves with the card.
  * Returns the same array reference when nothing is overdue.
+ *
+ * When `onlyIds` is given, only overdue tasks whose id is in the set are moved — other
+ * overdue tasks (e.g. hidden by an active search filter) are left in place. Omitting it
+ * (or passing everything) preserves the original "move all overdue" behavior.
  */
 export function applyRollForward(
   tasks: Task[],
   todayStr: string,
+  onlyIds?: ReadonlySet<string>,
 ): { tasks: Task[]; changed: Task[] } {
-  const overdue = overdueTasks(tasks, todayStr)
+  const overdueAll = overdueTasks(tasks, todayStr)
+  const overdue = onlyIds ? overdueAll.filter((t) => onlyIds.has(t.id)) : overdueAll
   if (overdue.length === 0) return { tasks, changed: [] }
   const base =
     tasks.filter((t) => t.day === todayStr).reduce((m, t) => Math.max(m, t.order), -1) + 1
