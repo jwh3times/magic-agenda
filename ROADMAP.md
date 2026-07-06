@@ -14,18 +14,16 @@ Size: **S** ≤ half a day · **M** 1–2 days · **L** 3–5 days · **XL** 1�
 ## Build order at a glance
 
 Phases 0 and 1 (Edge Function scaffolding, settings page shell, password reset, delete account,
-realtime multi-device sync) **shipped 2026-07-05** — see [CHANGELOG.md](./CHANGELOG.md) — and their
-sections have been removed below; remaining dependencies on them are satisfied.
+realtime multi-device sync) **shipped 2026-07-05**, and Phase 2 (Scheduling depth — due times,
+pinned notes, overdue handling & roll-forward, export/import) **shipped 2026-07-06** — see
+[CHANGELOG.md](./CHANGELOG.md) — and their sections have been removed below; remaining
+dependencies on them are satisfied.
 
 | Order | Item                             | Pri | Size | Hard dependencies  |
 | ----- | -------------------------------- | --- | ---- | ------------------ |
-| 2.1   | Due time / time-of-day           | P2  | M    | —                  |
-| 2.2   | Priority via pins                | P2  | M    | —                  |
-| 2.3   | Overdue handling & roll-forward  | P2  | M    | —                  |
-| 2.4   | Export / import                  | P2  | M    | —                  |
 | 3.1   | Installable PWA + offline read   | P2  | L    | —                  |
 | 4.1   | Settings: week-start & timezone  | P3  | M    | —                  |
-| 3.2   | Reminders / notifications        | P2  | XL   | 2.1, 3.1, 4.1      |
+| 3.2   | Reminders / notifications        | P2  | XL   | 3.1, 4.1           |
 | 4.2   | Custom labels / categories       | P2  | XL   | —                  |
 | 4.3   | Richer recurrence                | P3  | L    | —                  |
 | 4.4   | Quick-add & keyboard shortcuts   | P3  | L    | —                  |
@@ -43,7 +41,7 @@ sections have been removed below; remaining dependencies on them are satisfied.
 | 6.3   | Attachments                      | P3  | L    | —                  |
 | 6.2   | Shared / collaborative boards    | P3  | XL   | 5.4, ideally 4.2   |
 
-Total rough effort for the remaining items: ~8–12 weeks of focused solo work.
+Total rough effort for the remaining items: ~7–11 weeks of focused solo work.
 
 ## Conventions that apply to every item
 
@@ -65,38 +63,6 @@ Total rough effort for the remaining items: ~8–12 weeks of focused solo work.
   tasks must decide explicitly how it treats templates vs. instances.
 - **Optimistic writes with rollback** (the `useTasks` pattern): apply local state first, persist,
   restore `prev` + surface `error` on failure.
-
-## Phase 2 — Scheduling depth
-
-- [ ] **Due time / time-of-day** · **P2** · M — `day` is date-only; add an optional time so the
-      calendar and agenda show _when_, not just _which day_. Schema:
-      `alter table tasks add column at_time time;` (NULL = all-day, no backfill). App:
-      `Task.atTime: 'HH:MM' | null` mapped in `mappers.ts`; optional clearable time input in the
-      editor (≥16px on mobile); small per-theme time chip on cards. Agenda sorts timed-before-
-      untimed then by time; day cells keep **manual drag order** (time is display metadata there —
-      lane sorting would fight `reorder.ts`). Templates store the time; `makeInstance` copies it.
-      Times are naive local until 4.1 adds a timezone. Unlocks reminders (3.2 needs a concrete
-      "when").
-- [ ] **Priority via pins** · **P2** · M — no priority field today; reuse the sticky-note pin
-      visual to flag important notes. Schema:
-      `alter table tasks add column pinned boolean not null default false;` Editor toggle + tap
-      target on the card. Visuals per theme in `cardStyles.ts`: cork's existing pin becomes the
-      pinned signal, brutal gets a corner flash, glass a glow border. **Decision**: manual order
-      stays authoritative — pinned-first is an optional "Pinned" quick filter, not a forced sort,
-      to avoid fighting drag reindexing.
-- [ ] **Overdue handling & roll-forward** · **P2** · M — overdue =
-      `isScheduled(day) && day < today && status !== 'done'`; derived, no schema. Overdue accent on
-      cards + count badge on the Today button; agenda gains an "Overdue" group pinned to the top
-      with a "Move all to today" button calling a new `rollForward()` in `useTasks` (batched
-      `persistReorder`-style upsert appending to today's order). Auto roll-forward on load stays
-      opt-in behind a settings toggle (column arrives in Phase 4; ship manual-only first).
-      Recurring instances roll forward safely because identity is the immutable `recur_origin_day`.
-- [ ] **Export / import** · **P2** · M — JSON backup and data ownership; client-only, from
-      `/settings`. Export: `{ version: 1, exportedAt, settings, tasks, templates }` in app-domain
-      shape. Import: validate with hand-rolled guards (no new dep) → remap all ids preserving
-      `recurParentId` links → chunked batch insert via `taskToRow`. Additive only (no
-      merge/overwrite); dupes are the user's to clean — say so in the UI copy. Imported templates
-      arrive with their instances, so `reload()` after import naturally skips re-materialization.
 
 ## Phase 3 — PWA & notifications
 
@@ -120,7 +86,7 @@ Total rough effort for the remaining items: ~8–12 weeks of focused solo work.
       query tasks due in the window (service role), send via a Deno `web-push` port, delete dead
       subscriptions on 404/410. iOS needs the PWA installed to Home Screen (16.4+) — surface in the
       settings copy. Do **after** 4.1's timezone setting or reminders fire in UTC. Depends on
-      2.1, 3.1.
+      3.1, 4.1.
 
 ## Phase 4 — Productivity & personalization
 

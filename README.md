@@ -20,10 +20,19 @@ of three hand‑built themes.
   shadows, and feel. Your choice persists.
 - **Drag‑and‑drop** — reorder within a day/column and move tasks across days, the week, columns, and the
   inbox, with a floating drag ghost (powered by [dnd‑kit](https://dndkit.com)).
-- **Rich task editor** — title, description, colour, category, checklist, status, and schedule.
-- **Search & filter** — by text, category, and status; non‑matching cards hide live.
+- **Rich task editor** — title, description, colour, category, checklist, status, schedule, an
+  optional due time, and a pin toggle for priority.
+- **Search & filter** — by text, category, status, and a "📌 Pinned" quick filter; non‑matching
+  cards hide live.
 - **Recurring tasks** — daily / weekly / monthly with an interval and end date, materialized over a
   rolling 90‑day horizon, with **this‑occurrence vs. all‑future** edit and delete semantics.
+- **Due times & priority pins** — give a task an optional time of day (shown as a card chip and
+  sorted first in the Agenda) and pin the notes that matter most, with a themed visual on every
+  card.
+- **Overdue handling** — unfinished past‑due tasks get a red accent, a count badge on the Today
+  button, and an Agenda "Overdue" group with one‑click "Move all to today".
+- **Export & import** — back up your whole board as JSON from Settings → Data, and import it back
+  in additively (fresh ids, recurring series links preserved).
 - **Accounts & sync** — email/password and Google sign‑in; every task is private to you via Postgres
   Row‑Level Security; optimistic updates with rollback.
 - **Works on your phone** — responsive layouts for every view (stacked week, swipeable kanban,
