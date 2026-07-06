@@ -433,6 +433,43 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
                 colorScheme: dark ? 'dark' : 'light',
               }}
             />
+            <input
+              type="time"
+              aria-label="Due time"
+              value={draft.atTime ?? ''}
+              onChange={(e) => patch({ atTime: e.target.value || null })}
+              style={{
+                padding: '9px 12px',
+                borderRadius: '9px',
+                border: `1px solid ${border}`,
+                background: fieldBg,
+                color: fg,
+                fontFamily: conf.ui,
+                fontSize: ctlFont,
+                fontWeight: 600,
+                colorScheme: dark ? 'dark' : 'light',
+              }}
+            />
+            {draft.atTime && (
+              <button
+                type="button"
+                aria-label="Clear time"
+                onClick={() => patch({ atTime: null })}
+                style={{
+                  padding: '9px 12px',
+                  borderRadius: '9px',
+                  cursor: 'pointer',
+                  fontFamily: conf.ui,
+                  fontSize: '12.5px',
+                  fontWeight: 700,
+                  border: `1px solid ${border}`,
+                  background: 'transparent',
+                  color: fg,
+                }}
+              >
+                ✕ time
+              </button>
+            )}
             <button
               type="button"
               onClick={() => patch({ day: 'inbox' })}
