@@ -29,6 +29,7 @@ function mk(o: MkInput): Task {
     done: status === 'done',
     day: o.day,
     atTime: null,
+    pinned: false,
     order: o.o ?? 0,
     korder: o.ko ?? o.o ?? 0,
     ...NO_RECUR,

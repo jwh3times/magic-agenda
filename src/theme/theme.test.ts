@@ -18,6 +18,7 @@ function task(overrides: Partial<Task> = {}): Task {
     done: false,
     day: 'inbox',
     atTime: null,
+    pinned: false,
     order: 0,
     korder: 0,
     ...NO_RECUR,

@@ -17,6 +17,7 @@ function row(over: Partial<TaskRow> = {}): TaskRow {
     status: 'todo',
     day: null,
     at_time: null,
+    pinned: false,
     order_index: 0,
     korder: 0,
     recur_freq: 'none',
@@ -43,6 +44,7 @@ function task(over: Partial<Task> = {}): Task {
     done: false,
     day: 'inbox',
     atTime: null,
+    pinned: false,
     order: 0,
     korder: 0,
     ...NO_RECUR,
@@ -124,6 +126,18 @@ describe('at_time', () => {
   it('treats a missing at_time column (pre-migration deploy window) as all-day', () => {
     const predeploy = rowToTask(row({ at_time: undefined as unknown as string }))
     expect(predeploy.atTime).toBeNull()
+  })
+})
+
+describe('pinned', () => {
+  it('round-trips and defaults false when the column is absent', () => {
+    const baseRow = row()
+    const pinnedRow = rowToTask({ ...baseRow, pinned: true })
+    expect(pinnedRow.pinned).toBe(true)
+    expect(taskToRow(pinnedRow, 'u1').pinned).toBe(true)
+    // Deploy-window tolerance: a row read before the migration applied has no field.
+    const legacy = rowToTask({ ...baseRow, pinned: undefined as unknown as boolean })
+    expect(legacy.pinned).toBe(false)
   })
 })
 

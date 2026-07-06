@@ -28,6 +28,8 @@ export interface Task {
   day: string
   /** Optional due time 'HH:MM' (24h). null = all-day. Maps to the nullable at_time column. */
   atTime: string | null
+  /** Sticky-note pin (importance flag). Filterable, never a sort key. */
+  pinned: boolean
   /** Order within a day (calendar/week views). */
   order: number
   /** Order within a status column (kanban view). */

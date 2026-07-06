@@ -18,6 +18,7 @@ function mkTask(over: Partial<Task> = {}): Task {
     order: 0,
     korder: 0,
     atTime: null,
+    pinned: false,
     ...NO_RECUR,
     ...over,
   }

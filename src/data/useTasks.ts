@@ -48,6 +48,7 @@ function makeInstance(tmpl: Task, day: string): Task {
     done: false,
     day,
     atTime: tmpl.atTime,
+    pinned: tmpl.pinned,
     order: 5000,
     korder: 5000,
     recurFreq: 'none',

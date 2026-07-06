@@ -14,6 +14,7 @@ function t(id: string, over: Partial<Task> = {}): Task {
     done: false,
     day: 'inbox',
     atTime: null,
+    pinned: false,
     order: 0,
     korder: 0,
     ...NO_RECUR,
@@ -63,8 +64,25 @@ describe('applyFilters', () => {
   })
   it('combines facets with AND', () => {
     expect(
-      applyFilters(tasks, { text: 'call', category: 'errands', status: 'todo' }).map((x) => x.id),
+      applyFilters(tasks, {
+        text: 'call',
+        category: 'errands',
+        status: 'todo',
+        pinned: false,
+      }).map((x) => x.id),
     ).toEqual(['b'])
-    expect(applyFilters(tasks, { text: 'call', category: 'work', status: 'todo' })).toHaveLength(0)
+    expect(
+      applyFilters(tasks, { text: 'call', category: 'work', status: 'todo', pinned: false }),
+    ).toHaveLength(0)
+  })
+})
+
+describe('pinned facet', () => {
+  it('keeps only pinned tasks and counts as an active filter', () => {
+    const pinTasks = [t('a', { pinned: true }), t('b', { pinned: false })]
+    const q = { ...EMPTY_FILTER, pinned: true }
+    expect(applyFilters(pinTasks, q).map((x) => x.id)).toEqual(['a'])
+    expect(isFilterActive(q)).toBe(true)
+    expect(isFilterActive(EMPTY_FILTER)).toBe(false)
   })
 })

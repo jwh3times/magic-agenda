@@ -45,6 +45,7 @@ export type Database = {
           id: string
           korder: number
           order_index: number
+          pinned: boolean
           recur_freq: string
           recur_interval: number
           recur_origin_day: string | null
@@ -67,6 +68,7 @@ export type Database = {
           id?: string
           korder?: number
           order_index?: number
+          pinned?: boolean
           recur_freq?: string
           recur_interval?: number
           recur_origin_day?: string | null
@@ -89,6 +91,7 @@ export type Database = {
           id?: string
           korder?: number
           order_index?: number
+          pinned?: boolean
           recur_freq?: string
           recur_interval?: number
           recur_origin_day?: string | null

@@ -65,6 +65,7 @@ function newTaskTemplate(day: string, status: Status): Task {
     done: status === 'done',
     day,
     atTime: null,
+    pinned: false,
     order: 9999,
     korder: 9999,
     ...NO_RECUR,
