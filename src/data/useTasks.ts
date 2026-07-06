@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { supabase } from '../lib/supabase'
 import { rowToTask, taskToRow } from './mappers'
-import { applyToggleDone } from './selectors'
+import { applyRollForward, applyToggleDone } from './selectors'
 import { applyTaskChange, payloadToChange } from './realtime'
 import { instanceOrigin, isFromOccurrenceOnward, missingInstances } from './recurrence'
 import { newId } from '../lib/id'
@@ -26,6 +26,8 @@ export interface UseTasks {
   removeTask: (id: string) => Promise<void>
   toggleDone: (id: string) => Promise<void>
   persistReorder: (next: Task[], containers: string[], mode: Mode) => Promise<void>
+  /** Move every overdue task to today, appended to today's order (batched upsert). */
+  rollForward: (todayStr: string) => Promise<void>
   /** The hidden template for a parent id (to read a series' rule). */
   getTemplate: (parentId: string) => Task | undefined
   /** Apply an instance edit to the whole series from this occurrence forward. */
@@ -346,6 +348,25 @@ export function useTasks(userId: string): UseTasks {
     [setTasks, userId, reload, markWrites],
   )
 
+  const rollForward = useCallback(
+    async (todayStr: string) => {
+      const prev = tasksRef.current
+      const { tasks: next, changed } = applyRollForward(prev, todayStr)
+      if (changed.length === 0) return
+      setTasks(next)
+      markWrites(changed.map((t) => t.id))
+      const { error: err } = await supabase.from('tasks').upsert(
+        changed.map((t) => taskToRow(t, userId)),
+        { onConflict: 'id' },
+      )
+      if (err) {
+        setTasks(prev)
+        setError(err.message)
+      }
+    },
+    [setTasks, markWrites, userId],
+  )
+
   const clearError = useCallback(() => setError(null), [])
 
   const getTemplate = useCallback(
@@ -526,6 +547,7 @@ export function useTasks(userId: string): UseTasks {
     removeTask,
     toggleDone,
     persistReorder,
+    rollForward,
     getTemplate,
     updateSeries,
     deleteOccurrence,
