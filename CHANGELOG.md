@@ -82,6 +82,9 @@ _Planned features and fixes are tracked in [ROADMAP.md](./ROADMAP.md)._
 
 ### Internal
 
+- **Release versioning** — the `Version` workflow now creates standard three-part SemVer releases
+  (`v<major>.<minor>.<build>`) on every merge to `main`, auto-incrementing the build per major/minor
+  line while allowing a new line to start at `x.y.0`.
 - **Edge Function scaffolding** — `supabase/functions/` with a shared JWT-verification helper
   (`requireUser`), CORS handling, a `hello` template function, Deno tests in a new CI `Functions`
   job, and a `Deploy Functions` workflow that ships functions to production on merge to `main`.

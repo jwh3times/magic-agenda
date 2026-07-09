@@ -31,6 +31,17 @@ npm run dev
    checks plus **CodeQL** must pass and any review threads must be resolved before it can merge — no
    approvals are required, so you can self‑merge once it's green.
 
+## Versioning
+
+Releases use standard three-part SemVer tags in the form `v<major>.<minor>.<build>`, where this project
+uses the patch component as an auto-incrementing build number. On every merge to `main`, the `Version`
+workflow reads `package.json`, finds the highest existing tag for that major/minor line, tags the merge
+commit, and creates a GitHub Release.
+
+For normal merges, leave `package.json` on the current major/minor line and the build will increment
+automatically. To start a new major or minor line, set `package.json` to `x.y.0`; if no `v<x>.<y>.0`
+tag exists yet, the workflow releases `v<x>.<y>.0` exactly and does not force it to `v<x>.<y>.1`.
+
 ## Standards
 
 - **Tests are required.** Pure logic (`src/data`, `src/dnd`, `src/theme`) is unit‑tested with Vitest;
