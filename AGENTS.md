@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to coding agents when working with code in this repository.
 
 ## What this is
 
@@ -30,34 +30,34 @@ npx supabase db push                                              # apply supaba
 npx supabase gen types typescript --linked > src/types/database.types.ts
 ```
 
-Tests are hermetic — `vite.config.ts` injects dummy `VITE_SUPABASE_*` env, so they never hit the real
+Tests are hermetic: `vite.config.ts` injects dummy `VITE_SUPABASE_*` env, so they never hit the real
 project. Local dev needs a real `.env.local` (copy `.env.example`); `src/lib/supabase.ts` throws at
 startup if the two `VITE_SUPABASE_*` vars are missing.
 
-`main` is **protected — PR-only, no direct pushes** (no admin bypass). Land changes via a branch + PR;
+`main` is **protected: PR-only, no direct pushes** (no admin bypass). Land changes via a branch + PR;
 the `Format` / `Test` / `Build` checks and CodeQL must pass and review threads resolve before merge (0
 approvals required, so you can self-merge once green). Cloudflare Pages builds & deploys `main`
-(`npm run build` → `dist`), so production only ships after a checks-passing merge. Database migrations
+(`npm run build` -> `dist`), so production only ships after a checks-passing merge. Database migrations
 are applied to production on the same merge by the `Deploy Migrations` workflow (triggered by changes
 under `supabase/migrations/**`). `VITE_*` vars are inlined at **build time**, so they must be set in the
 Pages project, not just locally. Every merge to `main` is also stamped by the `Version` workflow
 (`.github/workflows/version.yml`), which creates a GitHub Release tagged
-`v<major>.<minor>.<build>` from `package.json` (e.g. `v1.1.2`). For an existing major/minor line the
+`v<major>.<minor>.<build>` from `package.json` (e.g. `v1.2.0`). For an existing major/minor line the
 build auto-increments from the highest existing `v<major>.<minor>.*` tag; for a new major/minor line
 the `package.json` build is used as-is, so `x.y.0` is valid and does not auto-bump to `x.y.1`.
 
 ## Architecture (the parts that span multiple files)
 
-Pure SPA → Supabase, no server of our own. Postgres **Row-Level Security is the only authorization
+Pure SPA -> Supabase, no server of our own. Postgres **Row-Level Security is the only authorization
 boundary** (every table default-denies and scopes to `auth.uid() = user_id`); the anon key is public
 by design.
 
-### App / DB boundary conventions — get these wrong and data breaks subtly
+### App / DB boundary conventions: get these wrong and data breaks subtly
 
-- **`'inbox'` ↔ `NULL`**: the app `Task.day` is the literal `'inbox'` (unscheduled) or `'YYYY-MM-DD'`.
+- **`'inbox'` <-> `NULL`**: the app `Task.day` is the literal `'inbox'` (unscheduled) or `'YYYY-MM-DD'`.
   The `'inbox'` sentinel stays everywhere in app/DnD logic and maps to a `NULL` `day` **only** in
   `src/data/mappers.ts`.
-- **`order` is reserved SQL** → the column is `order_index`; the app keeps `order`/`korder`.
+- **`order` is reserved SQL** -> the column is `order_index`; the app keeps `order`/`korder`.
 - **`done` is derived** (`status === 'done'`), never stored.
 - These conversions live entirely in `mappers.ts` (`rowToTask` / `taskToRow`). Everything else works in
   app-domain `Task` objects (`src/types/task.ts`).
@@ -66,10 +66,10 @@ by design.
 
 `pages/BoardPage.tsx` wires `useTasks(userId)` + `useSettings(userId)` + `ThemeProvider` and passes
 tasks and every mutation down to `components/Board.tsx` as props. `Board` holds only **UI** state (view,
-anchor date, editing modal, pop animation, filter). This decoupling is deliberate — it keeps `Board`
+anchor date, editing modal, pop animation, filter). This decoupling is deliberate: it keeps `Board`
 testable without Supabase (`Board.test.tsx` renders it with a stateful `Harness`). `useTasks` is the
 single source of truth for board tasks: optimistic CRUD with rollback, plus `persistReorder` (upserts
-only the changed lanes). To follow a write end-to-end, read `BoardPage` → `Board` → `useTasks`.
+only the changed lanes). To follow a write end-to-end, read `BoardPage` -> `Board` -> `useTasks`.
 `useTasks` and `useSettings` also subscribe to Supabase realtime (`postgres_changes`,
 per-user channel): remote changes flow through the pure reducer in `src/data/realtime.ts`
 (instance dedupe by `(recurParentId, recurOriginDay)`, templates routed to `templatesRef`),
@@ -86,28 +86,28 @@ Keeping templates out of the board list is what keeps reorder/DnD math clean. On
 materializes any missing instances over a rolling 90-day horizon using the pure functions in
 `src/data/recurrence.ts`; deleted occurrences are remembered in a per-template `recurSkip` array so they
 are never regenerated. Edit/delete carry **this-occurrence vs. all-future** scope (the editor's scope
-prompt → `Board` routes to `updateSeries` / `deleteOccurrence` / `deleteSeriesFuture`). `reload()` has an
+prompt -> `Board` routes to `updateSeries` / `deleteOccurrence` / `deleteSeriesFuture`). `reload()` has an
 in-flight guard because React StrictMode double-invokes the load effect, which otherwise double-inserts
 instances and trips the `(recur_parent_id, day)` unique index (Postgres 23505).
 
 ### Drag-and-drop: pure core, then dnd-kit wiring
 
 `src/dnd/reorder.ts` is **pure and unit-tested** (`moveToDay` / `moveToStatus` / `reindex` /
-`findContainer`) — it reindexes **both** the source and destination lanes on a cross-container move.
+`findContainer`): it reindexes **both** the source and destination lanes on a cross-container move.
 `src/dnd/useBoardDnd.ts` wires dnd-kit: `onDragOver` does optimistic cross-lane moves; `onDragEnd`
 persists the touched lanes. Critical, non-obvious detail: persistence must fire **even when
 `over.id === active.id`** (after an optimistic move the dragged card sits under the cursor as its own
-drop target) — tracked via a `didMove` ref. Container ids are `dateStr | 'inbox'` (day mode) or status
+drop target), tracked via a `didMove` ref. Container ids are `dateStr | 'inbox'` (day mode) or status
 (kanban). While a search filter is active, drag is disabled via `DragDisabledContext` (consumed by
-`SortableCard`'s `useSortable({ disabled })`) — this keeps the `DndContext` sensors array a constant
+`SortableCard`'s `useSortable({ disabled })`); this keeps the `DndContext` sensors array a constant
 size, avoiding a dnd-kit hook-deps warning. Sensors are split Mouse/Touch (not `PointerSensor`):
-touch drags require a **250ms long-press** and cards use `touchAction: 'manipulation'` — together
-that's what lets a plain swipe over a card scroll the board on phones. Don't collapse these back
+touch drags require a **250ms long-press** and cards use `touchAction: 'manipulation'`; together
+that's what lets a plain swipe over a card scroll the board on phones. Do not collapse these back
 into a `PointerSensor` or set `touchAction: 'none'`.
 
 ### Responsive layout branches on `useIsMobile()`, not CSS media queries
 
-Because styles are inline objects (below), media queries can't reach them. Components that adapt to
+Because styles are inline objects (below), media queries cannot reach them. Components that adapt to
 phones (`Board`, `Toolbar`, `CalendarView`, `WeekView`, `KanbanView`, `Inbox`, `SearchFilterBar`,
 `TaskEditor`) call `useIsMobile()` from `src/lib/useMediaQuery.ts` (a reactive `matchMedia` hook;
 breakpoint `MOBILE_QUERY` = 760px) and branch in JSX, spreading overrides onto the chrome styles.
@@ -115,8 +115,8 @@ The hook returns `false` where `matchMedia` is missing, so jsdom tests render th
 unless they stub `matchMedia` (see the mobile block in `Board.test.tsx`). Mobile layouts: stacked
 toolbar rows, vertical Week list, side-panning month grid (min-width 640px), snap-scroll kanban
 columns, and a collapsible full-width Inbox docked under the board. The shell height is the
-`.app-root` CSS class (`100dvh` with a `100vh` fallback) — inline styles can't express the
-fallback, so don't move it back into `rootStyle`. Form fields use ≥16px text on mobile (smaller
+`.app-root` CSS class (`100dvh` with a `100vh` fallback): inline styles cannot express the
+fallback, so do not move it back into `rootStyle`. Form fields use >=16px text on mobile (smaller
 triggers iOS Safari's focus zoom).
 
 ### Theming is an inline-style-object model, not CSS
@@ -125,8 +125,8 @@ Ported verbatim from the prototype. `theme/constants.ts` (CAT/COLORS/STATUS/PAPE
 (~26 tokens per theme), `theme/cardStyles.ts` (the style half of the prototype's `noteView`, incl.
 `rotOf`, pin, DONE stamp), and `theme/chrome.ts` (board/cell/inbox/column/toolbar styles) all return
 plain style objects with per-theme branching (rotation, pins, hard vs. soft shadows, blur). Three
-themes: `cork` / `brutal` / `glass`. **Do not refactor this to CSS variables** — the look depends on the
-branching that CSS vars can't express cleanly.
+themes: `cork` / `brutal` / `glass`. **Do not refactor this to CSS variables**: the look depends on the
+branching that CSS vars cannot express cleanly.
 
 ### `design/Task Board.dc.html` is the source of truth, reference-only
 
@@ -143,11 +143,11 @@ get the schema in place before regenerating types. Regenerate `src/types/databas
 `mappers.ts` conventions above intact.
 Prefer test-first for pure logic in `src/data` and `src/dnd` (these have thorough unit tests).
 
-## Agents & docs automation
+## Agents and docs automation
 
-Project subagents live in `.claude/agents/`: `docs-updater` (keeps CLAUDE.md, README.md, ROADMAP.md,
-CHANGELOG.md in sync with the code) and `code-reviewer` (reviews diffs against the app/DB boundary,
-RLS, recurrence, and DnD correctness rules before merging). Docs freshness is auto-checked at the
-end of every response turn by a read-only Stop hook in `.claude/settings.json` (single pre-approved
-git command + Read/Grep/Glob — it never edits files). When it detects drift it blocks the stop with
-specifics and the main session invokes `docs-updater` to fix exactly that drift.
+Claude-specific project subagents live in `.claude/agents/`: `docs-updater` (keeps `CLAUDE.md`,
+`README.md`, `ROADMAP.md`, `CHANGELOG.md` in sync with the code) and `code-reviewer` (reviews diffs
+against the app/DB boundary, RLS, recurrence, and DnD correctness rules before merging). The Claude
+docs freshness hook in `.claude/settings.json` is read-only and may report drift for Claude Code
+sessions, but other agents should still keep `AGENTS.md`, `CLAUDE.md`, `README.md`, `ROADMAP.md`, and
+`CHANGELOG.md` aligned when a change affects project behavior, commands, architecture, or release notes.

@@ -158,6 +158,9 @@ Database migrations apply to production automatically: merging a change under `s
 (`Format`, `Test`, `Build`) and CodeQL pass. Because Cloudflare deploys `main`, **production only ships
 after a PR closes with all checks green.** See [CONTRIBUTING.md](./CONTRIBUTING.md) for the workflow.
 
+Every merge to `main` also creates a GitHub Release tagged `v<major>.<minor>.<build>`. The build number
+auto-increments per major/minor line; new major/minor lines may start at `x.y.0`.
+
 ## Roadmap
 
 Planned features and fixes are tracked in [ROADMAP.md](./ROADMAP.md); shipped work lives in the
