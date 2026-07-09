@@ -5,11 +5,6 @@
 Magic Agenda is a continuously deployed web app; the latest release on `main` (and the live site at
 [magicagenda.app](https://magicagenda.app)) is the only supported version.
 
-| Version        | Supported |
-| -------------- | --------- |
-| 1.1.x (latest) | ✅        |
-| < 1.1          | ❌        |
-
 ## Reporting a vulnerability
 
 **Please do not open a public issue for security problems.**
@@ -48,8 +43,8 @@ This repository runs several automated checks (configured in `.github/`):
   merging on medium‑or‑higher severity.
 - **Secret scanning + push protection** — blocks commits containing known secret formats.
 - **Dependabot** — daily dependency + GitHub Actions update PRs, plus security alerts and updates.
-- **Branch protection** — `main` is PR‑only; the `Format` / `Test` / `Build` CI checks and CodeQL must
-  pass before a PR can merge.
+- **Branch protection** — `main` is PR‑only; the `Format` / `Test` / `Build` / `Functions` CI checks
+  and CodeQL must pass before a PR can merge.
 
 ## Responsible disclosure
 

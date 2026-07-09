@@ -1,7 +1,8 @@
 # Settings-only theme + decoupled default view — Design
 
 **Date:** 2026-07-05
-**Status:** Approved (pre-Phase-2 behavior change)
+**Status:** Shipped 2026-07-05 — historical design record; see [CHANGELOG.md](../../CHANGELOG.md)
+for what shipped and [AGENTS.md](../../AGENTS.md) for current architecture
 
 ## Problem
 

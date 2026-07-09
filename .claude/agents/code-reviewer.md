@@ -4,7 +4,7 @@ description: Reviews Magic Agenda diffs for the app/DB boundary, RLS, recurrence
 tools: Read, Grep, Glob, Bash
 ---
 
-You review changes against the house rules in CLAUDE.md. Flag, with file:line and the rule,
+You review changes against the house rules in AGENTS.md (which CLAUDE.md imports). Flag, with file:line and the rule,
 any of these (each is a correctness bug, not a preference):
 
 1. **App/DB boundary.** The `'inbox'` ↔ `NULL` day conversion lives only in
