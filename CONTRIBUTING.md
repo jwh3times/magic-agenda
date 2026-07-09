@@ -62,6 +62,9 @@ When you bump the version in `package.json`, in the same PR also:
 - **TypeScript strict** — no `any` escape hatches without good reason; `npm run build` type‑checks.
 - **Formatting & linting** — Prettier + ESLint. Run `npm run format` before committing; `npm run
 format:check` and `npm run lint` must both pass (together they are the CI `Format` check).
+- **Line endings are LF everywhere**, enforced by `.gitattributes` — no editor or `core.autocrlf`
+  configuration needed. If a checkout that predates `.gitattributes` shows Prettier line-ending
+  failures, refresh it once with `git rm --cached -r . && git reset --hard`.
 - **Styling model** — the UI uses per‑theme inline style objects (ported from the prototype), not a CSS
   framework. Match the surrounding code; keep theme branching in `src/theme`.
 - **Commits** — clear, imperative messages ("Add week keyboard navigation"). Keep PRs focused.
