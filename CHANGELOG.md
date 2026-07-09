@@ -8,6 +8,13 @@ All notable changes to this project are documented here. The format is based on
 
 _Planned features and fixes are tracked in [ROADMAP.md](./ROADMAP.md)._
 
+### Internal
+
+- **Line endings normalized via `.gitattributes`** — every text file is enforced LF in both the
+  repository and the working tree (`* text=auto eol=lf`; binaries marked). Ends the local
+  `npm run format:check` false-failures on Windows checkouts, where `core.autocrlf` produced CRLF
+  working trees that Prettier (default `endOfLine: "lf"`) flagged even though CI passed.
+
 ### Docs
 
 - **Docs audit & consolidation** — `AGENTS.md` is now the canonical agent guide (`CLAUDE.md` just

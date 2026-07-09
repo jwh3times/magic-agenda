@@ -1,0 +1,12 @@
+# Normalize every text file to LF — in the repository AND the working tree (eol=lf overrides
+# core.autocrlf on Windows checkouts). This keeps local `npm run format:check` in agreement with
+# CI: Prettier's default endOfLine is "lf", so CRLF working-tree files false-fail locally while
+# the Linux CI checkout passes.
+* text=auto eol=lf
+
+# Binary files — never subject to line-ending conversion.
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
