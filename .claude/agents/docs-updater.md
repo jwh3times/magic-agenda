@@ -1,6 +1,6 @@
 ---
 name: docs-updater
-description: Use to keep project documentation current after code changes — CLAUDE.md, README.md, ROADMAP.md, and CHANGELOG.md. Run after completing a feature, schema migration, or architectural change.
+description: Use to keep project documentation current after code changes — AGENTS.md, README.md, ROADMAP.md, and CHANGELOG.md. Run after completing a feature, schema migration, or architectural change.
 tools: Read, Write, Edit, Glob, Grep, Bash
 model: sonnet
 ---
@@ -13,32 +13,34 @@ capabilities that don't exist in the code.
 
 | File           | Audience                      | What it covers                                                                        |
 | -------------- | ----------------------------- | -------------------------------------------------------------------------------------- |
-| `CLAUDE.md`    | Claude agents (every session) | Architecture (data boundary, recurrence, DnD, theming), commands, schema workflow      |
+| `AGENTS.md`    | Coding agents (every session) | Architecture (data boundary, recurrence, DnD, theming), commands, schema workflow      |
 | `README.md`    | Human developers              | Overview, setup, deploy notes                                                         |
 | `ROADMAP.md`   | Planning                      | Remaining/planned work — remove items when they ship                                  |
 | `CHANGELOG.md` | Release notes                 | Shipped changes                                                                       |
 
+`CLAUDE.md` is only an `@AGENTS.md` import — edit `AGENTS.md`, never add content to `CLAUDE.md`.
 `design/Task Board.dc.html` is the reference-only prototype — never edit or document it as
-maintained code.
+maintained code. `docs/plans/` and `docs/specs/` are dated historical records of shipped work —
+never update them to match current code.
 
 ## What triggers what update
 
 **New migration (`supabase/migrations/`)**
-- `CLAUDE.md`: schema-related sections if a convention changed (e.g. a new column mapping in
+- `AGENTS.md`: schema-related sections if a convention changed (e.g. a new column mapping in
   `mappers.ts`); confirm `src/types/database.types.ts` was regenerated
 - `CHANGELOG.md`: entry if user-visible
 
 **App/DB boundary change (`src/data/mappers.ts`, `src/types/task.ts`)**
-- `CLAUDE.md`: "App / DB boundary conventions" section — these conventions are load-bearing
+- `AGENTS.md`: "App / DB boundary conventions" section — these conventions are load-bearing
 
 **Recurrence, DnD, or theming change (`src/data/recurrence.ts`, `src/dnd/`, `src/theme/`)**
-- `CLAUDE.md`: the matching architecture subsection
+- `AGENTS.md`: the matching architecture subsection
 
 **New page, view, or major component (`src/pages/`, `src/components/`)**
-- `CLAUDE.md`: "What this is" / architecture sections
+- `AGENTS.md`: "What this is" / architecture sections
 
 **New/renamed npm script or CI change**
-- `CLAUDE.md`: Commands block; the PR-only/`main`-protection paragraph if the process changed
+- `AGENTS.md`: Commands block; the PR-only/`main`-protection paragraph if the process changed
 
 **Feature shipped**
 - `ROADMAP.md`: remove the shipped item
@@ -58,7 +60,7 @@ and permission-free):
 ## What NOT to change
 
 - Do not edit `design/`.
-- Do not add aspirational features to `CLAUDE.md` — it describes what is implemented; planned
+- Do not add aspirational features to `AGENTS.md` — it describes what is implemented; planned
   work belongs in `ROADMAP.md`.
 
 ## Output

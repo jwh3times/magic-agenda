@@ -1,5 +1,10 @@
 # Phase 0 + Phase 1 Foundations Implementation Plan
 
+> **Status: Shipped 2026-07-05.** Historical planning record, kept for reference — checkboxes,
+> instructions, and constraints reflect the moment the plan was written, not current state (some
+> guidance here was superseded by later plans). For what shipped see
+> [CHANGELOG.md](../../CHANGELOG.md); for current architecture see [AGENTS.md](../../AGENTS.md).
+
 **Goal:** Land the five foundation items from ROADMAP.md — 0.1 Edge Function scaffolding, 0.2 Settings page shell, 1.1 Password reset, 1.2 Delete account, 1.3 Realtime multi-device sync — as five independent PRs.
 
 **Architecture:** Pure React 19 + TypeScript SPA on Supabase (Postgres + Auth + Realtime + Edge Functions), deployed to Cloudflare Pages. RLS is the only authorization boundary; anything needing service-role privileges (deleting auth users) lives in a Deno Edge Function that verifies the caller's JWT first. Realtime uses `postgres_changes` fed through a pure, unit-tested reducer with self-echo suppression.

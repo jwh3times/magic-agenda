@@ -19,17 +19,21 @@ npm run dev
 `main` is protected: **no direct pushes** — every change lands through a Pull Request whose checks pass.
 
 1. **Open an issue first** for non‑trivial changes so we can agree on the approach.
-2. Create a branch from `main` (e.g. `feat/week-view-keyboard-nav`).
+2. Create a branch from `main` (e.g. `feat/week-view-keyboard-nav`). Don't start the name with
+   `release/` — that namespace is protected by a repository ruleset and the push will be rejected;
+   use a prefix like `chore/release-vX.Y.Z` instead.
 3. Make your change with tests (see below).
 4. Ensure everything is green locally — these mirror the required CI checks:
    ```bash
-   npm run format:check && npm run lint   # the "Format" check
-   npm test                               # the "Test" check
-   npm run build                          # the "Build" check
+   npm run format:check && npm run lint     # the "Format" check
+   npm test                                 # the "Test" check
+   npm run build                            # the "Build" check
+   cd supabase/functions && deno test       # the "Functions" check (edge functions; must run from
+                                            # inside supabase/functions — see below)
    ```
-5. Open a Pull Request against `main` and fill in the template. The **`Format`, `Test`, and `Build`**
-   checks plus **CodeQL** must pass and any review threads must be resolved before it can merge — no
-   approvals are required, so you can self‑merge once it's green.
+5. Open a Pull Request against `main` and fill in the template. The **`Format`, `Test`, `Build`, and
+   `Functions`** checks plus **CodeQL** must pass and any review threads must be resolved before it
+   can merge — no approvals are required, so you can self‑merge once it's green.
 
 ## Versioning
 
@@ -41,6 +45,14 @@ commit, and creates a GitHub Release.
 For normal merges, leave `package.json` on the current major/minor line and the build will increment
 automatically. To start a new major or minor line, set `package.json` to `x.y.0`; if no `v<x>.<y>.0`
 tag exists yet, the workflow releases `v<x>.<y>.0` exactly and does not force it to `v<x>.<y>.1`.
+
+When you bump the version in `package.json`, in the same PR also:
+
+- update `package-lock.json` to match (two spots: the top-level `version` and the
+  `packages[""].version` entry — don't touch dependency entries that happen to share the number), and
+- **cut the changelog**: move the `## [Unreleased]` content of [CHANGELOG.md](./CHANGELOG.md) into a
+  new `## [X.Y.Z] - <date>` section and update the compare links at the bottom of the file.
+  "Unreleased" should only ever contain work that isn't part of a tagged release yet.
 
 ## Standards
 

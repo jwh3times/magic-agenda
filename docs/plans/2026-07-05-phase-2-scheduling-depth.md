@@ -1,5 +1,9 @@
 # Phase 2 — Scheduling Depth Implementation Plan
 
+> **Status: Shipped 2026-07-06.** Historical planning record, kept for reference — checkboxes and
+> instructions reflect the moment the plan was written, not current state. For what shipped see
+> [CHANGELOG.md](../../CHANGELOG.md); for current architecture see [AGENTS.md](../../AGENTS.md).
+
 **Goal:** Ship the four Phase 2 roadmap items — 2.1 Due time, 2.2 Priority via pins, 2.3 Overdue handling & roll-forward, 2.4 Export / import — as four sequential PRs.
 
 **Architecture:** Two additive `tasks` columns (`at_time time`, `pinned boolean`) flow through the established single-boundary path (migration → `database.types.ts` → `mappers.ts` → app-domain `Task`); everything else is pure selectors/serializers (test-first) plus surgical UI edits. Manual drag order stays authoritative everywhere — time affects only Agenda sorting, pinning is a filter, roll-forward appends to today's order.

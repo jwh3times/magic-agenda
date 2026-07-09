@@ -8,6 +8,16 @@ All notable changes to this project are documented here. The format is based on
 
 _Planned features and fixes are tracked in [ROADMAP.md](./ROADMAP.md)._
 
+### Docs
+
+- **Docs audit & consolidation** — `AGENTS.md` is now the canonical agent guide (`CLAUDE.md` just
+  imports it); the documented required checks match the actual ruleset (`Format` / `Test` / `Build` /
+  `Functions` + CodeQL); CONTRIBUTING gains the changelog-cut release step and the `release/*`
+  branch-name warning; the completed implementation plans under `docs/` are marked as historical
+  records.
+
+## [1.2.0] - 2026-07-09
+
 ### Added
 
 - **Export & import** — download the whole board (tasks, repeating series, settings) as JSON
@@ -176,7 +186,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/jwh3times/magic-agenda/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/jwh3times/magic-agenda/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/jwh3times/magic-agenda/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/jwh3times/magic-agenda/compare/v1.0.0...v1.0.1

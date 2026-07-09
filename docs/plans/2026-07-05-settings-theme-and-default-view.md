@@ -1,5 +1,9 @@
 # Settings-only theme + decoupled default view — Implementation Plan
 
+> **Status: Shipped 2026-07-05.** Historical planning record, kept for reference — checkboxes and
+> instructions reflect the moment the plan was written, not current state. For what shipped see
+> [CHANGELOG.md](../../CHANGELOG.md); for current architecture see [AGENTS.md](../../AGENTS.md).
+
 **Goal:** Move the theme switcher to Settings only, and stop the board's view tabs from overwriting the persisted default view — instead remember the current view per browser tab (sessionStorage), cleared on sign-out.
 
 **Architecture:** No schema. A tiny `src/lib/viewStorage.ts` wraps a single sessionStorage key. `Board` seeds its view from it and writes on each switch (no longer calling any settings persister); the Settings picker becomes the sole writer of `default_view`. `AuthProvider` clears the stored view on `SIGNED_OUT` so a re-login lands on the default. `Toolbar` loses its theme switcher (kept in Settings → Appearance, whose live cross-device sync is untouched).

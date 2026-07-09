@@ -14,7 +14,7 @@
 ## Checklist
 
 - [ ] Tests added or updated (test‑first for new behaviour / bug fixes)
-- [ ] `npm run lint` passes
+- [ ] `npm run format:check` and `npm run lint` pass
 - [ ] `npm test` passes
 - [ ] `npm run build` passes
 - [ ] Followed the conventions in [CONTRIBUTING.md](../CONTRIBUTING.md)

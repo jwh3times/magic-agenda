@@ -155,7 +155,7 @@ Database migrations apply to production automatically: merging a change under `s
 `main` triggers the **Deploy Migrations** workflow (`supabase db push`).
 
 `main` is **protected** — it's PR‑only (no direct pushes), and a PR can't merge until the CI checks
-(`Format`, `Test`, `Build`) and CodeQL pass. Because Cloudflare deploys `main`, **production only ships
+(`Format`, `Test`, `Build`, `Functions`) and CodeQL pass. Because Cloudflare deploys `main`, **production only ships
 after a PR closes with all checks green.** See [CONTRIBUTING.md](./CONTRIBUTING.md) for the workflow.
 
 Every merge to `main` also creates a GitHub Release tagged `v<major>.<minor>.<build>`. The build number

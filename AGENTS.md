@@ -35,8 +35,9 @@ project. Local dev needs a real `.env.local` (copy `.env.example`); `src/lib/sup
 startup if the two `VITE_SUPABASE_*` vars are missing.
 
 `main` is **protected: PR-only, no direct pushes** (no admin bypass). Land changes via a branch + PR;
-the `Format` / `Test` / `Build` checks and CodeQL must pass and review threads resolve before merge (0
-approvals required, so you can self-merge once green). Cloudflare Pages builds & deploys `main`
+the `Format` / `Test` / `Build` / `Functions` checks and CodeQL must pass and review threads resolve
+before merge (0 approvals required, so you can self-merge once green). Branch names must not start
+with `release/` — a ruleset protects that namespace and rejects the push; use `chore/release-vX.Y.Z`. Cloudflare Pages builds & deploys `main`
 (`npm run build` -> `dist`), so production only ships after a checks-passing merge. Database migrations
 are applied to production on the same merge by the `Deploy Migrations` workflow (triggered by changes
 under `supabase/migrations/**`). `VITE_*` vars are inlined at **build time**, so they must be set in the
@@ -145,9 +146,16 @@ Prefer test-first for pure logic in `src/data` and `src/dnd` (these have thoroug
 
 ## Agents and docs automation
 
-Claude-specific project subagents live in `.claude/agents/`: `docs-updater` (keeps `CLAUDE.md`,
+This file is the **canonical agent guide**; `CLAUDE.md` is only an `@AGENTS.md` import so Claude Code
+loads the same content. Edit `AGENTS.md` — never duplicate content into `CLAUDE.md`.
+
+Claude-specific project subagents live in `.claude/agents/`: `docs-updater` (keeps `AGENTS.md`,
 `README.md`, `ROADMAP.md`, `CHANGELOG.md` in sync with the code) and `code-reviewer` (reviews diffs
 against the app/DB boundary, RLS, recurrence, and DnD correctness rules before merging). The Claude
 docs freshness hook in `.claude/settings.json` is read-only and may report drift for Claude Code
-sessions, but other agents should still keep `AGENTS.md`, `CLAUDE.md`, `README.md`, `ROADMAP.md`, and
+sessions, but other agents should still keep `AGENTS.md`, `README.md`, `ROADMAP.md`, and
 `CHANGELOG.md` aligned when a change affects project behavior, commands, architecture, or release notes.
+
+Completed implementation plans are archived under `docs/plans/` and `docs/specs/` (see
+`docs/README.md`) — they are dated historical records of shipped work, not living documentation;
+do not update them to match current code.
