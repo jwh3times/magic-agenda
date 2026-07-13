@@ -36,7 +36,7 @@ jobs:
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v7
-      - uses: supabase/setup-cli@v2
+      - uses: supabase/setup-cli@v3
         with:
           version: latest
       - run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
