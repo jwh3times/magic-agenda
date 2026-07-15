@@ -16,6 +16,7 @@ updates:
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
+      - "npm"
     commit-message:
       prefix: "chore(deps)"
       prefix-development: "chore(dev-deps)"
@@ -95,6 +96,7 @@ updates:
       timezone: "America/New_York"
     labels:
       - "dependencies"
+      - "github-actions"
     commit-message:
       prefix: "chore(ci)"
     groups:
