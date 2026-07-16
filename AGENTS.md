@@ -35,17 +35,26 @@ project. Local dev needs a real `.env.local` (copy `.env.example`); `src/lib/sup
 startup if the two `VITE_SUPABASE_*` vars are missing.
 
 `main` is **protected: PR-only, no direct pushes** (no admin bypass). Land changes via a branch + PR;
-the `Format` / `Test` / `Build` / `Functions` checks and CodeQL must pass and review threads resolve
-before merge (0 approvals required, so you can self-merge once green). Branch names must not start
+the `Format` / `Test` / `Build` / `Functions` / `Changelog` checks and CodeQL must pass and review
+threads resolve before merge (0 approvals required, so you can self-merge once green). Branch names must not start
 with `release/` — a ruleset protects that namespace and rejects the push; use `chore/release-vX.Y.Z`. Cloudflare Pages builds & deploys `main`
 (`npm run build` -> `dist`), so production only ships after a checks-passing merge. Database migrations
 are applied to production on the same merge by the `Deploy Migrations` workflow (triggered by changes
 under `supabase/migrations/**`). `VITE_*` vars are inlined at **build time**, so they must be set in the
-Pages project, not just locally. Every merge to `main` is also stamped by the `Version` workflow
-(`.github/workflows/version.yml`), which creates a GitHub Release tagged
-`v<major>.<minor>.<build>` from `package.json` (e.g. `v1.2.0`). For an existing major/minor line the
-build auto-increments from the highest existing `v<major>.<minor>.*` tag; for a new major/minor line
-the `package.json` build is used as-is, so `x.y.0` is valid and does not auto-bump to `x.y.1`.
+Pages project, not just locally. Every merge to `main` is also a release: the `Version` workflow
+(`.github/workflows/version.yml`) tags `v<major>.<minor>.<build>` and creates a GitHub Release. The
+next version is computed by `scripts/next-version.mjs` — the single source of truth, also called by the
+CI guard below: for an existing major/minor line the build auto-increments from the highest existing
+`v<major>.<minor>.*` tag; for a new major/minor line the `package.json` build is used as-is, so `x.y.0`
+is valid and does not auto-bump to `x.y.1`. Because every merge ships, **`CHANGELOG.md` names the exact
+version each merge will mint**: a PR adds a `## [x.y.z]` section for its target version (from that
+script). The required `Changelog` job runs `scripts/check-changelog.mjs`, which enforces both that the
+PR names its target version **and** that every already-released 3-part tag has a section. Dependabot
+PRs are exempt from the first (a bot can't write an entry) — so their merges ship undocumented, and
+the second rule fails the next human PR until those builds are backfilled. That job must keep
+reporting a status on **every** PR including Dependabot's (the exemption lives inside the step, not in
+a job-level `if:`) — a required check that never runs leaves a PR unmergeable forever. The `ship`
+skill automates the whole flow, backfill included.
 
 ## Architecture (the parts that span multiple files)
 
@@ -151,10 +160,12 @@ loads the same content. Edit `AGENTS.md` — never duplicate content into `CLAUD
 
 Claude-specific project subagents live in `.claude/agents/`: `docs-updater` (keeps `AGENTS.md`,
 `README.md`, `ROADMAP.md`, `CHANGELOG.md` in sync with the code) and `code-reviewer` (reviews diffs
-against the app/DB boundary, RLS, recurrence, and DnD correctness rules before merging). The Claude
-docs freshness hook in `.claude/settings.json` is read-only and may report drift for Claude Code
-sessions, but other agents should still keep `AGENTS.md`, `README.md`, `ROADMAP.md`, and
-`CHANGELOG.md` aligned when a change affects project behavior, commands, architecture, or release notes.
+against the app/DB boundary, RLS, recurrence, and DnD correctness rules before merging). The `ship`
+skill (`.claude/skills/ship/`) takes a finished branch to an open PR — it refreshes the docs (via
+`docs-updater`), records the change in `CHANGELOG.md`, runs the fast checks (`format:check`, `lint`,
+`tsc -b`), pushes, and opens or updates the PR; run it with "ship it" when a branch is ready. Whether
+or not you use it, keep `AGENTS.md`, `README.md`, `ROADMAP.md`, and `CHANGELOG.md` aligned when a
+change affects project behavior, commands, architecture, or release notes.
 
 Completed implementation plans are archived under `docs/plans/` and `docs/specs/` (see
 `docs/README.md`) — they are dated historical records of shipped work, not living documentation;

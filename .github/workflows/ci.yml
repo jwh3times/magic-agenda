@@ -66,3 +66,34 @@ jobs:
         with:
           deno-version: v2.x
       - run: deno test
+
+  # Every merge to main auto-releases (see version.yml), so each PR must document
+  # the version its merge will mint, and every already-released build must have an
+  # entry. Only skipped on push-to-main, where "the next version" isn't documented
+  # yet by definition.
+  Changelog:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # full tags, needed to compute the next build number
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Verify CHANGELOG covers this merge and every released build
+        # The Dependabot exemption lives in the step, not the job's `if:`, so the
+        # job always reports a status — this is a required check, and one that
+        # never runs leaves a PR unmergeable forever. Keyed off the PR author
+        # rather than github.actor, which becomes a human's name when someone
+        # re-runs a Dependabot PR's workflow and would drop the exemption.
+        env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          if [[ "$PR_AUTHOR" == "dependabot[bot]" ]]; then
+            echo "Dependabot PR: exempt (a bot can't write a changelog entry)."
+            echo "The version this merge mints gets backfilled by the next human PR,"
+            echo "which this same check enforces."
+            exit 0
+          fi
+          node scripts/check-changelog.mjs

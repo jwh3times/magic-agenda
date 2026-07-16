@@ -44,43 +44,22 @@ jobs:
             exit 1
           fi
 
-          major="${BASH_REMATCH[1]}"
-          minor="${BASH_REMATCH[2]}"
-          requested_build="${BASH_REMATCH[3]}"
-          series="${major}.${minor}"
+          series="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
 
+          # Reuse a tag already on this commit so workflow re-runs are idempotent.
           existing_tag=$(
             git tag --points-at "$GITHUB_SHA" --list "v${series}.*" |
-              sed "s/^v${series}\.//" |
-              awk -v prefix="v${series}." '/^[0-9]+$/ { print prefix $0 }' |
+              grep -E "^v${series}\.[0-9]+$" |
               sort -V |
               tail -1
           )
 
           if [[ -n "$existing_tag" ]]; then
             tag="$existing_tag"
-            build="${tag##*.}"
           else
-            last=$(
-              git tag --list "v${series}.*" |
-                sed "s/^v${series}\.//" |
-                awk '/^[0-9]+$/' |
-                sort -n |
-                tail -1
-            )
-
-            if [[ -z "$last" ]]; then
-              build="$requested_build"
-            else
-              next=$(( last + 1 ))
-              if (( requested_build > next )); then
-                build="$requested_build"
-              else
-                build="$next"
-              fi
-            fi
-
-            tag="v${series}.${build}"
+            # scripts/next-version.mjs is the single source of truth for the build
+            # number; the CHANGELOG guard in ci.yml calls the exact same script.
+            tag="v$(node scripts/next-version.mjs)"
             if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
               echo "::error::Release tag '${tag}' already exists."
               exit 1
@@ -91,6 +70,8 @@ jobs:
             git tag -a "$tag" -m "Release ${tag}"
             git push origin "refs/tags/${tag}"
           fi
+
+          build="${tag##*.}"
 
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
           echo "series=${series}" >> "$GITHUB_OUTPUT"

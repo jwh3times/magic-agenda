@@ -4,16 +4,103 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+Every merge to `main` auto-releases (the `Version` workflow tags `v<major>.<minor>.<build>`), so each
+released build gets its own section below — named for the version the merge minted. `Unreleased` holds
+only work that is on a branch but not yet merged.
+
 ## [Unreleased]
 
-_Planned features and fixes are tracked in [ROADMAP.md](./ROADMAP.md)._
+No unreleased changes.
+
+## [1.2.12] - 2026-07-16
+
+### Internal
+
+- **The changelog now names the version each merge mints.** Every merge to `main` auto-releases, so
+  each entry is recorded against the build it shipped in rather than accumulating under
+  `[Unreleased]`. A new [`scripts/next-version.mjs`](./scripts/next-version.mjs) is the single source
+  of truth for that number — the `Version` workflow, the `Changelog` CI guard, and the `ship` agent
+  skill all call it. Builds `v1.2.1`–`v1.2.11` are backfilled below from their release tags.
+- **`Changelog` CI guard**, now a required status check, runs
+  [`scripts/check-changelog.mjs`](./scripts/check-changelog.mjs) to enforce two invariants: the PR
+  names the version its merge will mint, and every already-released build has an entry. Dependabot
+  PRs are exempt from the first — a bot can't write a meaningful entry — which is exactly what the
+  second one covers: a bot merge ships undocumented and takes a build number with it, and the guard
+  then fails the next human PR until that gap is backfilled.
+- **`ship` agent skill** (`.claude/skills/ship/`) takes a finished branch to an open PR: it refreshes
+  the docs, backfills any undocumented released builds, writes the changelog entry for the version the
+  merge will mint, runs the fast checks (`format:check`, `lint`, `tsc -b`), and opens or updates the
+  PR. It replaces the previous Claude docs-freshness `Stop` hook.
+
+### Docs
+
+- **CONTRIBUTING and AGENTS** now document the named-version changelog model and the `Changelog`
+  guard, replacing the previous `[Unreleased]`-cut release step.
+
+## [1.2.11] - 2026-07-16
+
+### Internal
+
+- **`vite` (dev) 8.1.4 → 8.1.5.** (#85)
+
+## [1.2.10] - 2026-07-15
+
+### Internal
+
+- **Dependabot config gains `npm` and `github-actions` PR labels.** (#83)
+
+## [1.2.9] - 2026-07-15
+
+### Internal
+
+- **`actions/setup-node` (GitHub Actions) 6 → 7.** (#81)
+
+## [1.2.8] - 2026-07-15
+
+### Internal
+
+- **`@supabase/supabase-js` 2.110.5 → 2.110.6.** (#82)
+
+## [1.2.7] - 2026-07-15
+
+### Internal
+
+- **Dependabot now runs on a daily schedule (05:00).** (#80)
+
+## [1.2.6] - 2026-07-15
+
+### Internal
+
+- **`@supabase/supabase-js` 2.110.4 → 2.110.5.** (#79)
+
+## [1.2.5] - 2026-07-14
+
+### Internal
+
+- **`@supabase/supabase-js` 2.110.2 → 2.110.4.** (#78)
+
+## [1.2.4] - 2026-07-13
+
+### Internal
+
+- **`supabase/setup-cli` (GitHub Actions) 2 → 3.** (#77)
+
+## [1.2.3] - 2026-07-10
+
+### Internal
+
+- **Prettier 3.9.4 → 3.9.5.** (#76)
+
+## [1.2.2] - 2026-07-09
 
 ### Internal
 
 - **Line endings normalized via `.gitattributes`** — every text file is enforced LF in both the
   repository and the working tree (`* text=auto eol=lf`; binaries marked). Ends the local
   `npm run format:check` false-failures on Windows checkouts, where `core.autocrlf` produced CRLF
-  working trees that Prettier (default `endOfLine: "lf"`) flagged even though CI passed.
+  working trees that Prettier (default `endOfLine: "lf"`) flagged even though CI passed. (#75)
+
+## [1.2.1] - 2026-07-09
 
 ### Docs
 
@@ -21,7 +108,7 @@ _Planned features and fixes are tracked in [ROADMAP.md](./ROADMAP.md)._
   imports it); the documented required checks match the actual ruleset (`Format` / `Test` / `Build` /
   `Functions` + CodeQL); CONTRIBUTING gains the changelog-cut release step and the `release/*`
   branch-name warning; the completed implementation plans under `docs/` are marked as historical
-  records.
+  records. (#74)
 
 ## [1.2.0] - 2026-07-09
 
@@ -193,7 +280,19 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.12...HEAD
+[1.2.12]: https://github.com/jwh3times/magic-agenda/compare/v1.2.11...v1.2.12
+[1.2.11]: https://github.com/jwh3times/magic-agenda/compare/v1.2.10...v1.2.11
+[1.2.10]: https://github.com/jwh3times/magic-agenda/compare/v1.2.9...v1.2.10
+[1.2.9]: https://github.com/jwh3times/magic-agenda/compare/v1.2.8...v1.2.9
+[1.2.8]: https://github.com/jwh3times/magic-agenda/compare/v1.2.7...v1.2.8
+[1.2.7]: https://github.com/jwh3times/magic-agenda/compare/v1.2.6...v1.2.7
+[1.2.6]: https://github.com/jwh3times/magic-agenda/compare/v1.2.5...v1.2.6
+[1.2.5]: https://github.com/jwh3times/magic-agenda/compare/v1.2.4...v1.2.5
+[1.2.4]: https://github.com/jwh3times/magic-agenda/compare/v1.2.3...v1.2.4
+[1.2.3]: https://github.com/jwh3times/magic-agenda/compare/v1.2.2...v1.2.3
+[1.2.2]: https://github.com/jwh3times/magic-agenda/compare/v1.2.1...v1.2.2
+[1.2.1]: https://github.com/jwh3times/magic-agenda/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/jwh3times/magic-agenda/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/jwh3times/magic-agenda/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/jwh3times/magic-agenda/compare/v1.0.1...v1.1.0

@@ -31,28 +31,55 @@ npm run dev
    cd supabase/functions && deno test       # the "Functions" check (edge functions; must run from
                                             # inside supabase/functions — see below)
    ```
-5. Open a Pull Request against `main` and fill in the template. The **`Format`, `Test`, `Build`, and
-   `Functions`** checks plus **CodeQL** must pass and any review threads must be resolved before it
-   can merge — no approvals are required, so you can self‑merge once it's green.
+   Also add a `## [x.y.z]` changelog section for the version this merge will mint (see
+   [Versioning](#versioning)) and verify it with the same script CI runs:
+   ```bash
+   node scripts/check-changelog.mjs        # the "Changelog" check
+   ```
+5. Open a Pull Request against `main` and fill in the template. The **`Format`, `Test`, `Build`,
+   `Functions`, and `Changelog`** checks plus **CodeQL** must pass and any review threads must be
+   resolved before it can merge — no approvals are required, so you can self‑merge once it's green.
 
 ## Versioning
 
-Releases use standard three-part SemVer tags in the form `v<major>.<minor>.<build>`, where this project
-uses the patch component as an auto-incrementing build number. On every merge to `main`, the `Version`
-workflow reads `package.json`, finds the highest existing tag for that major/minor line, tags the merge
-commit, and creates a GitHub Release.
+Releases use three-part SemVer tags `v<major>.<minor>.<build>`, where the patch component is an
+auto-incrementing build number. **Every merge to `main` is a release**: the `Version` workflow computes
+the next version with [`scripts/next-version.mjs`](./scripts/next-version.mjs), tags the merge commit,
+and creates a GitHub Release — and Cloudflare Pages deploys the same merge, so a tag and a production
+deploy are one and the same.
 
-For normal merges, leave `package.json` on the current major/minor line and the build will increment
-automatically. To start a new major or minor line, set `package.json` to `x.y.0`; if no `v<x>.<y>.0`
-tag exists yet, the workflow releases `v<x>.<y>.0` exactly and does not force it to `v<x>.<y>.1`.
+For normal merges, leave `package.json` on the current major/minor line and the build increments
+automatically. To start a new major or minor line, set `package.json` to `x.y.0` and match
+`package-lock.json` (two spots: the top-level `version` and the `packages[""].version` entry — don't
+touch dependency entries that happen to share the number); if no `v<x>.<y>.0` tag exists yet, the
+workflow releases `v<x>.<y>.0` exactly and does not force it to `v<x>.<y>.1`.
 
-When you bump the version in `package.json`, in the same PR also:
+### Changelog
 
-- update `package-lock.json` to match (two spots: the top-level `version` and the
-  `packages[""].version` entry — don't touch dependency entries that happen to share the number), and
-- **cut the changelog**: move the `## [Unreleased]` content of [CHANGELOG.md](./CHANGELOG.md) into a
-  new `## [X.Y.Z] - <date>` section and update the compare links at the bottom of the file.
-  "Unreleased" should only ever contain work that isn't part of a tagged release yet.
+Because every merge ships, each PR must add a **`## [x.y.z]` section naming the version its merge will
+mint** to [CHANGELOG.md](./CHANGELOG.md). Compute that version with `node scripts/next-version.mjs` —
+the same script the `Version` workflow uses — then add the section (grouped under Keep a Changelog
+headings) and update the compare links at the bottom of the file. `## [Unreleased]` stays as a header
+holding only work on a branch that hasn't merged yet (`No unreleased changes.` at rest).
+
+The required **`Changelog` check** runs [`scripts/check-changelog.mjs`](./scripts/check-changelog.mjs),
+which enforces two rules:
+
+1. **Your PR names the version its merge will mint.**
+2. **Every already-released build has a section.**
+
+Rule 2 is there because Dependabot PRs are **exempt** from rule 1 — a bot can't write a meaningful
+entry, so its merge ships undocumented and takes a build number with it. The next human PR is where
+that debt comes due: the check fails until you backfill the missing versions. Run the script locally
+to see exactly which ones:
+
+```bash
+node scripts/check-changelog.mjs
+```
+
+Read the release tag (`git show --stat v1.2.11`) to write each backfilled entry. Agents can do this
+whole flow — backfill, compute the version, write the entry, run the checks, open the PR — with the
+`ship` skill (see [AGENTS.md](./AGENTS.md)).
 
 ## Standards
 
