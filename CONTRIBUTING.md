@@ -31,14 +31,14 @@ npm run dev
    cd supabase/functions && deno test       # the "Functions" check (edge functions; must run from
                                             # inside supabase/functions — see below)
    ```
-   Also add a `## [x.y.z]` changelog section for the version this merge will mint — run
-   `node scripts/next-version.mjs` to get it (see [Versioning](#versioning)); the `Changelog` check
-   verifies it.
-5. Open a Pull Request against `main` and fill in the template. The **`Format`, `Test`, `Build`, and
-   `Functions`** checks plus **CodeQL** must pass and any review threads must be resolved before it
-   can merge — no approvals are required, so you can self‑merge once it's green. A **`Changelog`**
-   check also runs on every PR (except Dependabot's), verifying the changelog names the version the
-   merge will mint; add it to the required checks in branch protection to gate merges on it too.
+   Also add a `## [x.y.z]` changelog section for the version this merge will mint (see
+   [Versioning](#versioning)) and verify it with the same script CI runs:
+   ```bash
+   node scripts/check-changelog.mjs        # the "Changelog" check
+   ```
+5. Open a Pull Request against `main` and fill in the template. The **`Format`, `Test`, `Build`,
+   `Functions`, and `Changelog`** checks plus **CodeQL** must pass and any review threads must be
+   resolved before it can merge — no approvals are required, so you can self‑merge once it's green.
 
 ## Versioning
 
@@ -59,14 +59,27 @@ workflow releases `v<x>.<y>.0` exactly and does not force it to `v<x>.<y>.1`.
 Because every merge ships, each PR must add a **`## [x.y.z]` section naming the version its merge will
 mint** to [CHANGELOG.md](./CHANGELOG.md). Compute that version with `node scripts/next-version.mjs` —
 the same script the `Version` workflow uses — then add the section (grouped under Keep a Changelog
-headings) and update the compare links at the bottom of the file. The **`Changelog` CI check** enforces
-this: it fails any PR whose changelog doesn't name its target version. `## [Unreleased]` stays as a
-header holding only work on a branch that hasn't merged yet (`No unreleased changes.` at rest).
+headings) and update the compare links at the bottom of the file. `## [Unreleased]` stays as a header
+holding only work on a branch that hasn't merged yet (`No unreleased changes.` at rest).
 
-Dependabot PRs are **exempt** from the `Changelog` check (a bot can't write a meaningful entry); their
-versions are backfilled into the changelog the next time a human ships a branch. Agents can do this
-whole flow — compute the version, write the entry, run the checks, open the PR — with the `ship` skill
-(see [AGENTS.md](./AGENTS.md)).
+The required **`Changelog` check** runs [`scripts/check-changelog.mjs`](./scripts/check-changelog.mjs),
+which enforces two rules:
+
+1. **Your PR names the version its merge will mint.**
+2. **Every already-released build has a section.**
+
+Rule 2 is there because Dependabot PRs are **exempt** from rule 1 — a bot can't write a meaningful
+entry, so its merge ships undocumented and takes a build number with it. The next human PR is where
+that debt comes due: the check fails until you backfill the missing versions. Run the script locally
+to see exactly which ones:
+
+```bash
+node scripts/check-changelog.mjs
+```
+
+Read the release tag (`git show --stat v1.2.11`) to write each backfilled entry. Agents can do this
+whole flow — backfill, compute the version, write the entry, run the checks, open the PR — with the
+`ship` skill (see [AGENTS.md](./AGENTS.md)).
 
 ## Standards
 

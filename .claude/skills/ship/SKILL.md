@@ -21,6 +21,10 @@ wrong the moment it lands. The `Changelog` CI job enforces this on every PR.
 - Compute the version with **`node scripts/next-version.mjs`** (prints a bare SemVer like
   `1.2.12`). This is the single source of truth — the tag workflow and the CI guard call the
   same script. **Never hand-compute it.**
+- The `Changelog` check is **required** and enforces two things via
+  `scripts/check-changelog.mjs`: this PR names `$next`, **and** every already-released build has a
+  section. The second is why step 2 exists — Dependabot merges ship undocumented and this PR is
+  where that debt comes due.
 - `## [Unreleased]` stays as a header with a `No unreleased changes.` placeholder; your
   branch's entry goes in a `## [x.y.z]` section for the computed version.
 - **Cutting a new minor/major** is just a normal ship where you first bump `package.json` to
@@ -44,17 +48,19 @@ wrong the moment it lands. The `Changelog` CI job enforces this on every PR.
 
 ```bash
 git fetch --tags -q origin
-git tag -l "v*" --sort=v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | tail -8
-grep -E '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md | head -8
+node scripts/check-changelog.mjs   # expected to exit 1 here — step 4 writes this branch's entry
 ```
 
-Any 3-part tag with **no** matching `## [x.y.z]` section is a released build with no entry — in
-practice a merged Dependabot PR, which the `Changelog` guard exempts. Backfill it now: read what
-that tag changed (`git show --stat <tag>`, plus the `package.json` / `package-lock.json` diff for
-dependency bumps) and add a dated section in the right position, with a compare link. This is what
-makes the bot exemption safe — skipping it lets the changelog silently lose versions. **Ignore the
-legacy 4-part tags** (`v1.1.1.x`) — they predate the scheme and are covered collectively by the
-existing sections.
+Read the **`These builds were released but have no '## [x.y.z]' section:`** line. Each version it
+lists is a build that shipped with no entry — in practice a merged Dependabot PR, which the guard
+exempts from naming its own version. Backfill each one now: read what the tag changed
+(`git show --stat v<x.y.z>`, plus the `package.json` / `package-lock.json` diff for dependency
+bumps) and add a dated section in the right position, with a compare link.
+
+This step is not optional bookkeeping — it's the half of the guard that makes the bot exemption
+safe. The same script fails **this** PR until the gaps are filled, so skipping it just means a red
+check. The other error line (`no '## [$next]' section`) is expected until step 4. **Ignore the
+legacy 4-part tags** (`v1.1.1.x`) — they predate the scheme and the script already excludes them.
 
 ### 3. Refresh the docs
 
@@ -96,14 +102,14 @@ Cheap gates that catch most mistakes in seconds. **Tests, the full build, and th
 edge-function tests run in CI, not here** (`Test`, `Build`, `Functions` jobs).
 
 ```bash
-npm run format:check   # prettier (src only) — half of the CI "Format" check
-npm run lint           # eslint          — the other half
-npx tsc -b             # typecheck (the first half of `npm run build`)
-
-# Mirror the Changelog CI guard locally so you don't push a red PR:
-next=$(node scripts/next-version.mjs)
-grep -qF "## [$next]" CHANGELOG.md && echo "changelog names v$next ✓" || { echo "MISSING ## [$next] in CHANGELOG.md"; exit 1; }
+npm run format:check      # prettier (src only) — half of the CI "Format" check
+npm run lint              # eslint          — the other half
+npx tsc -b                # typecheck (the first half of `npm run build`)
+node scripts/check-changelog.mjs   # the exact script the required `Changelog` check runs
 ```
+
+`check-changelog.mjs` must now exit 0: this branch's entry names `$next`, and step 2 filled every
+backfill gap. If it still reports missing builds, go back to step 2 — do not push.
 
 `format:check` only covers `src/**`, so the docs/changelog markdown you edited is not
 formatting-gated (there is no markdown check in CI) — no root Prettier run is needed. Fix format
@@ -129,11 +135,9 @@ gh pr list --head "$(git branch --show-current)" --state open --json number -q '
 
 ### 8. Report
 
-Give the user: the PR URL; the version this merge will mint (`v$next`); anything the fast checks
-or backfill surfaced. State plainly that **`Test`, `Build`, and `Functions` run in CI, not
-locally** — do not imply the branch is verified beyond the fast checks. If the `Changelog` status
-check is **not yet in the repo's required checks**, remind the user it's a branch-protection toggle
-they control.
+Give the user: the PR URL; the version this merge will mint (`v$next`); any versions you backfilled
+in step 2 and what they turned out to be. State plainly that **`Test`, `Build`, and `Functions` run
+in CI, not locally** — do not imply the branch is verified beyond the fast checks.
 
 ## Do not
 
@@ -154,5 +158,6 @@ they control.
 | Hand-computing the next build | Run `node scripts/next-version.mjs`; it's what CI checks against. |
 | Letting `docs-updater` edit `CHANGELOG.md` too | Tell it to skip `CHANGELOG.md`; the skill owns that file. |
 | Stacking a second section on re-ship | Rewrite in place; renumber if `$next` changed since last ship. |
+| Skipping the backfill because "it's not my change" | The guard fails your PR for someone else's undocumented build. Step 2 is how it gets paid. |
 | Adding a root Prettier run to gate the docs | `format:check` is `src`-only and there's no markdown check in CI — nothing to gate. |
 | Merging once green | Stop at PR open — the human self-merges. |

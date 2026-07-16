@@ -68,10 +68,11 @@ jobs:
       - run: deno test
 
   # Every merge to main auto-releases (see version.yml), so each PR must document
-  # the version its merge will mint. Dependabot can't write changelog entries — its
-  # PRs are exempt and get backfilled at ship time (see the ship skill).
+  # the version its merge will mint, and every already-released build must have an
+  # entry. Only skipped on push-to-main, where "the next version" isn't documented
+  # yet by definition.
   Changelog:
-    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -80,12 +81,19 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
-      - name: Verify CHANGELOG names the version this merge will mint
+      - name: Verify CHANGELOG covers this merge and every released build
+        # The Dependabot exemption lives in the step, not the job's `if:`, so the
+        # job always reports a status — this is a required check, and one that
+        # never runs leaves a PR unmergeable forever. Keyed off the PR author
+        # rather than github.actor, which becomes a human's name when someone
+        # re-runs a Dependabot PR's workflow and would drop the exemption.
+        env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
-          next=$(node scripts/next-version.mjs)
-          echo "This merge will mint v${next}."
-          if ! grep -qF "## [${next}]" CHANGELOG.md; then
-            echo "::error file=CHANGELOG.md::CHANGELOG.md has no '## [${next}]' section. This merge releases v${next} — add its entry (the ship skill does this automatically via scripts/next-version.mjs)."
-            exit 1
+          if [[ "$PR_AUTHOR" == "dependabot[bot]" ]]; then
+            echo "Dependabot PR: exempt (a bot can't write a changelog entry)."
+            echo "The version this merge mints gets backfilled by the next human PR,"
+            echo "which this same check enforces."
+            exit 0
           fi
-          echo "Found the '## [${next}]' section."
+          node scripts/check-changelog.mjs

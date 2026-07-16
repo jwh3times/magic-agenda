@@ -12,26 +12,36 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
-## [1.2.11] - 2026-07-16
+## [1.2.12] - 2026-07-16
 
 ### Internal
 
 - **The changelog now names the version each merge mints.** Every merge to `main` auto-releases, so
   each entry is recorded against the build it shipped in rather than accumulating under
   `[Unreleased]`. A new [`scripts/next-version.mjs`](./scripts/next-version.mjs) is the single source
-  of truth for that number — the `Version` workflow, a new `Changelog` CI guard, and the `ship` agent
-  skill all call it. The `Changelog` check fails any PR whose `CHANGELOG.md` doesn't name its target
-  version (Dependabot PRs are exempt and backfilled at ship time). Builds `v1.2.1`–`v1.2.10` are
-  backfilled below from their release tags.
+  of truth for that number — the `Version` workflow, the `Changelog` CI guard, and the `ship` agent
+  skill all call it. Builds `v1.2.1`–`v1.2.11` are backfilled below from their release tags.
+- **`Changelog` CI guard**, now a required status check, runs
+  [`scripts/check-changelog.mjs`](./scripts/check-changelog.mjs) to enforce two invariants: the PR
+  names the version its merge will mint, and every already-released build has an entry. Dependabot
+  PRs are exempt from the first — a bot can't write a meaningful entry — which is exactly what the
+  second one covers: a bot merge ships undocumented and takes a build number with it, and the guard
+  then fails the next human PR until that gap is backfilled.
 - **`ship` agent skill** (`.claude/skills/ship/`) takes a finished branch to an open PR: it refreshes
-  the docs, writes the changelog entry for the version the merge will mint, runs the fast checks
-  (`format:check`, `lint`, `tsc -b`), and opens or updates the PR. It replaces the previous Claude
-  docs-freshness `Stop` hook.
+  the docs, backfills any undocumented released builds, writes the changelog entry for the version the
+  merge will mint, runs the fast checks (`format:check`, `lint`, `tsc -b`), and opens or updates the
+  PR. It replaces the previous Claude docs-freshness `Stop` hook.
 
 ### Docs
 
 - **CONTRIBUTING and AGENTS** now document the named-version changelog model and the `Changelog`
   guard, replacing the previous `[Unreleased]`-cut release step.
+
+## [1.2.11] - 2026-07-16
+
+### Internal
+
+- **`vite` (dev) 8.1.4 → 8.1.5.** (#85)
 
 ## [1.2.10] - 2026-07-15
 
@@ -270,7 +280,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.11...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.12...HEAD
+[1.2.12]: https://github.com/jwh3times/magic-agenda/compare/v1.2.11...v1.2.12
 [1.2.11]: https://github.com/jwh3times/magic-agenda/compare/v1.2.10...v1.2.11
 [1.2.10]: https://github.com/jwh3times/magic-agenda/compare/v1.2.9...v1.2.10
 [1.2.9]: https://github.com/jwh3times/magic-agenda/compare/v1.2.8...v1.2.9

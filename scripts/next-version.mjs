@@ -42,7 +42,8 @@ export function computeNextVersion(version, tags) {
   return `${major}.${minor}.${nextBuild}`
 }
 
-function gitTags() {
+/** @returns {string[]} every tag name in the repo. */
+export function gitTags() {
   return execFileSync('git', ['tag', '--list'], { encoding: 'utf8' }).split('\n').filter(Boolean)
 }
 

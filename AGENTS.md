@@ -35,8 +35,8 @@ project. Local dev needs a real `.env.local` (copy `.env.example`); `src/lib/sup
 startup if the two `VITE_SUPABASE_*` vars are missing.
 
 `main` is **protected: PR-only, no direct pushes** (no admin bypass). Land changes via a branch + PR;
-the `Format` / `Test` / `Build` / `Functions` checks and CodeQL must pass and review threads resolve
-before merge (0 approvals required, so you can self-merge once green). Branch names must not start
+the `Format` / `Test` / `Build` / `Functions` / `Changelog` checks and CodeQL must pass and review
+threads resolve before merge (0 approvals required, so you can self-merge once green). Branch names must not start
 with `release/` — a ruleset protects that namespace and rejects the push; use `chore/release-vX.Y.Z`. Cloudflare Pages builds & deploys `main`
 (`npm run build` -> `dist`), so production only ships after a checks-passing merge. Database migrations
 are applied to production on the same merge by the `Deploy Migrations` workflow (triggered by changes
@@ -48,8 +48,13 @@ CI guard below: for an existing major/minor line the build auto-increments from 
 `v<major>.<minor>.*` tag; for a new major/minor line the `package.json` build is used as-is, so `x.y.0`
 is valid and does not auto-bump to `x.y.1`. Because every merge ships, **`CHANGELOG.md` names the exact
 version each merge will mint**: a PR adds a `## [x.y.z]` section for its target version (from that
-script), and the `Changelog` CI job enforces it (Dependabot PRs are exempt and backfilled at ship
-time). The `ship` skill automates the whole flow.
+script). The required `Changelog` job runs `scripts/check-changelog.mjs`, which enforces both that the
+PR names its target version **and** that every already-released 3-part tag has a section. Dependabot
+PRs are exempt from the first (a bot can't write an entry) — so their merges ship undocumented, and
+the second rule fails the next human PR until those builds are backfilled. That job must keep
+reporting a status on **every** PR including Dependabot's (the exemption lives inside the step, not in
+a job-level `if:`) — a required check that never runs leaves a PR unmergeable forever. The `ship`
+skill automates the whole flow, backfill included.
 
 ## Architecture (the parts that span multiple files)
 
