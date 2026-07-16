@@ -66,3 +66,26 @@ jobs:
         with:
           deno-version: v2.x
       - run: deno test
+
+  # Every merge to main auto-releases (see version.yml), so each PR must document
+  # the version its merge will mint. Dependabot can't write changelog entries — its
+  # PRs are exempt and get backfilled at ship time (see the ship skill).
+  Changelog:
+    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # full tags, needed to compute the next build number
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Verify CHANGELOG names the version this merge will mint
+        run: |
+          next=$(node scripts/next-version.mjs)
+          echo "This merge will mint v${next}."
+          if ! grep -qF "## [${next}]" CHANGELOG.md; then
+            echo "::error file=CHANGELOG.md::CHANGELOG.md has no '## [${next}]' section. This merge releases v${next} — add its entry (the ship skill does this automatically via scripts/next-version.mjs)."
+            exit 1
+          fi
+          echo "Found the '## [${next}]' section."
