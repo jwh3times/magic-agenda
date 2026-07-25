@@ -67,6 +67,18 @@ jobs:
           deno-version: v2.x
       - run: deno test
 
+  # .claude/ is the source of truth for both harnesses; .codex/agents and
+  # .agents/skills are generated from it and committed. This fails a PR that edits
+  # one without regenerating the other. No `npm ci` — the script has no deps.
+  Agents:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - run: npm run codex:check
+
   # Every merge to main auto-releases (see version.yml), so each PR must document
   # the version its merge will mint, and every already-released build must have an
   # entry. Only skipped on push-to-main, where "the next version" isn't documented

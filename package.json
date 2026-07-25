@@ -22,7 +22,9 @@
     "test:watch": "vitest",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\""
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
+    "codex:sync": "node scripts/sync-codex.mjs",
+    "codex:check": "node scripts/sync-codex.mjs --check"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

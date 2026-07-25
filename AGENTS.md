@@ -20,6 +20,8 @@ npm run test:watch     # vitest watch mode
 npm run lint           # eslint
 npm run format         # prettier --write (src only; design/ is .prettierignore'd)
 npm run format:check   # prettier --check (the CI "Format" job runs this + lint)
+npm run codex:sync     # regenerate Codex's agent config from .claude/ (see below)
+npm run codex:check    # verify it is in sync (the CI "Agents" job runs this)
 
 # Run one test file or one test by name:
 npx vitest run src/dnd/reorder.test.ts
@@ -35,7 +37,7 @@ project. Local dev needs a real `.env.local` (copy `.env.example`); `src/lib/sup
 startup if the two `VITE_SUPABASE_*` vars are missing.
 
 `main` is **protected: PR-only, no direct pushes** (no admin bypass). Land changes via a branch + PR;
-the `Format` / `Test` / `Build` / `Functions` / `Changelog` checks and CodeQL must pass and review
+the `Format` / `Test` / `Build` / `Functions` / `Agents` / `Changelog` checks and CodeQL must pass and review
 threads resolve before merge (0 approvals required, so you can self-merge once green). Branch names must not start
 with `release/` — a ruleset protects that namespace and rejects the push; use `chore/release-vX.Y.Z`. Cloudflare Pages builds & deploys `main`
 (`npm run build` -> `dist`), so production only ships after a checks-passing merge. Database migrations
@@ -158,7 +160,7 @@ Prefer test-first for pure logic in `src/data` and `src/dnd` (these have thoroug
 This file is the **canonical agent guide**; `CLAUDE.md` is only an `@AGENTS.md` import so Claude Code
 loads the same content. Edit `AGENTS.md` — never duplicate content into `CLAUDE.md`.
 
-Claude-specific project subagents live in `.claude/agents/`: `docs-updater` (keeps `AGENTS.md`,
+Project subagents live in `.claude/agents/`: `docs-updater` (keeps `AGENTS.md`,
 `README.md`, `ROADMAP.md`, `CHANGELOG.md` in sync with the code) and `code-reviewer` (reviews diffs
 against the app/DB boundary, RLS, recurrence, and DnD correctness rules before merging). The `ship`
 skill (`.claude/skills/ship/`) takes a finished branch to an open PR — it refreshes the docs (via
@@ -166,6 +168,35 @@ skill (`.claude/skills/ship/`) takes a finished branch to an open PR — it refr
 `tsc -b`), pushes, and opens or updates the PR; run it with "ship it" when a branch is ready. Whether
 or not you use it, keep `AGENTS.md`, `README.md`, `ROADMAP.md`, and `CHANGELOG.md` aligned when a
 change affects project behavior, commands, architecture, or release notes.
+
+### `.claude/` is the source of truth; the Codex trees are generated
+
+Both Claude Code and Codex are used on this repo, and they read different files. Rather than keep
+two hand-written copies that drift, **`.claude/` is authored and everything Codex-specific is
+generated from it** by `scripts/sync-codex.mjs` (`npm run codex:sync`):
+
+| Source                     | Generated              | How                                             |
+| -------------------------- | ---------------------- | ----------------------------------------------- |
+| `.claude/agents/<n>.md`    | `.codex/agents/<n>.toml` | frontmatter + body -> `developer_instructions`   |
+| `.claude/skills/<n>/**`    | `.agents/skills/<n>/**`  | copied verbatim, plus a "generated" banner       |
+
+Those destinations are not a matched pair by choice — they are where Codex actually looks. Subagents
+load only from `.codex/agents/`; skills are found by scanning `.agents/skills` from the cwd up to the
+repo root. Both generated trees are **committed**, so a Codex session gets them without running Node.
+
+Rules for this pipeline:
+
+- **Never edit `.codex/` or `.agents/` by hand** — run `npm run codex:sync`. The script owns every
+  byte in both trees, so a file with no source is deleted as stale.
+- **Never "adapt" skill prose for Codex.** A blind `CLAUDE.md` -> `AGENTS.md` substitution is what
+  once produced "edit `AGENTS.md`, never add content to `AGENTS.md`". References to `CLAUDE.md` are
+  correct as written for both tools, because it really does exist and really is just an import.
+- The Claude-only frontmatter keys are translated, not dropped silently: `tools:` without any
+  file-writing tool becomes `sandbox_mode = "read-only"`, and `model:` is recorded in a comment as
+  not carried over (Claude's tiers name no Codex model; Codex uses `agents.default_subagent_model`).
+- The required **`Agents` CI job** runs `npm run codex:check`, which fails on any missing, hand-edited,
+  or stale generated file, and also asserts `CLAUDE.md` still contains its `@AGENTS.md` import line.
+  Pure logic in the script is unit-tested in `scripts/sync-codex.test.mjs`.
 
 Completed implementation plans are archived under `docs/plans/` and `docs/specs/` (see
 `docs/README.md`) — they are dated historical records of shipped work, not living documentation;
