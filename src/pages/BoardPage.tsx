@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import { useAuth } from '../auth/AuthProvider'
 import { ThemeProvider } from '../theme/ThemeProvider'
 import { Board } from '../components/Board'
