@@ -30,6 +30,8 @@ npm run dev
    npm run build                            # the "Build" check
    cd supabase/functions && deno test       # the "Functions" check (edge functions; must run from
                                             # inside supabase/functions — see below)
+   npm run codex:check                      # the "Agents" check (only matters if you touched
+                                            # .claude/ — see below)
    ```
    Also add a `## [x.y.z]` changelog section for the version this merge will mint (see
    [Versioning](#versioning)) and verify it with the same script CI runs:
@@ -37,7 +39,7 @@ npm run dev
    node scripts/check-changelog.mjs        # the "Changelog" check
    ```
 5. Open a Pull Request against `main` and fill in the template. The **`Format`, `Test`, `Build`,
-   `Functions`, and `Changelog`** checks plus **CodeQL** must pass and any review threads must be
+   `Functions`, `Agents`, and `Changelog`** checks plus **CodeQL** must pass and any review threads must be
    resolved before it can merge — no approvals are required, so you can self‑merge once it's green.
 
 ## Versioning
@@ -80,6 +82,21 @@ node scripts/check-changelog.mjs
 Read the release tag (`git show --stat v1.2.11`) to write each backfilled entry. Agents can do this
 whole flow — backfill, compute the version, write the entry, run the checks, open the PR — with the
 `ship` skill (see [AGENTS.md](./AGENTS.md)).
+
+### Agent configuration
+
+Claude Code and Codex read different files, so only one side is authored: **`.claude/` is the source
+of truth**, and `.codex/agents/` (subagents) plus `.agents/skills/` (skills) are generated from it by
+[`scripts/sync-codex.mjs`](./scripts/sync-codex.mjs). Edit `.claude/`, then:
+
+```bash
+npm run codex:sync     # regenerate; commit the result
+npm run codex:check     # what the required "Agents" check runs
+```
+
+Never hand-edit the generated trees — the script owns them, and the check fails on any file that is
+missing, edited, or left over from a deleted source. See
+[AGENTS.md](./AGENTS.md#claude-is-the-source-of-truth-the-codex-trees-are-generated) for the mapping.
 
 ## Standards
 

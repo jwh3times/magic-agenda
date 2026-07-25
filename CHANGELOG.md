@@ -12,6 +12,56 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.17] - 2026-07-24
+
+### Internal
+
+- **Codex's agent config is now generated from Claude's, not hand-copied.** `.claude/` is the single
+  source of truth: [`scripts/sync-codex.mjs`](./scripts/sync-codex.mjs) converts
+  `.claude/agents/<name>.md` into `.codex/agents/<name>.toml` and copies `.claude/skills/<name>/` to
+  `.agents/skills/<name>/`, which is where Codex actually looks for each. Both generated trees are
+  committed, so a Codex session picks up the same `docs-updater`, `code-reviewer`, and `ship`
+  definitions without running anything. Run it with `npm run codex:sync`.
+- **`Agents` CI check** runs `npm run codex:check` and fails on any generated file that is missing,
+  hand-edited, or left over from a deleted source. It also asserts `CLAUDE.md` still contains its
+  `@AGENTS.md` import, so the two guides cannot fork into separate copies again.
+- **Fixed the drift already in the Codex copies.** They had been written by substituting `AGENTS.md`
+  for `CLAUDE.md` throughout, which produced self-contradictions such as "edit `AGENTS.md`, never add
+  content to `AGENTS.md`". Skill prose is now copied byte-for-byte — references to `CLAUDE.md` are
+  correct as written for both tools, because it really is just an import. Claude-only frontmatter is
+  translated rather than dropped in silence: an agent granted no file-writing tools becomes
+  `sandbox_mode = "read-only"`, and `model:` is recorded in a comment as having no Codex equivalent.
+
+### Docs
+
+- **AGENTS.md and CONTRIBUTING.md** document the generated-config pipeline, the rule against editing
+  `.codex/` or `.agents/` by hand, and the new `Agents` check in both required-check lists.
+
+## [1.2.16] - 2026-07-22
+
+### Internal
+
+- **`@supabase/supabase-js` 2.110.7 → 2.110.8, `react` and `react-dom` 19.2.7 → 19.2.8,
+  `@vitejs/plugin-react` (dev) 6.0.3 → 6.0.4.** (#89)
+
+## [1.2.15] - 2026-07-21
+
+### Internal
+
+- **`prettier` (dev) 3.9.5 → 3.9.6.** (#88)
+
+## [1.2.14] - 2026-07-21
+
+### Internal
+
+- **`@testing-library/jest-dom` (dev) 6.9.1 → 7.0.0.** (#87)
+
+## [1.2.13] - 2026-07-17
+
+### Internal
+
+- **`@supabase/supabase-js` 2.110.6 → 2.110.7.** (#86)
+
 ## [1.2.12] - 2026-07-16
 
 ### Internal
@@ -280,7 +330,12 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.12...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.17...HEAD
+[1.2.17]: https://github.com/jwh3times/magic-agenda/compare/v1.2.16...v1.2.17
+[1.2.16]: https://github.com/jwh3times/magic-agenda/compare/v1.2.15...v1.2.16
+[1.2.15]: https://github.com/jwh3times/magic-agenda/compare/v1.2.14...v1.2.15
+[1.2.14]: https://github.com/jwh3times/magic-agenda/compare/v1.2.13...v1.2.14
+[1.2.13]: https://github.com/jwh3times/magic-agenda/compare/v1.2.12...v1.2.13
 [1.2.12]: https://github.com/jwh3times/magic-agenda/compare/v1.2.11...v1.2.12
 [1.2.11]: https://github.com/jwh3times/magic-agenda/compare/v1.2.10...v1.2.11
 [1.2.10]: https://github.com/jwh3times/magic-agenda/compare/v1.2.9...v1.2.10
