@@ -12,6 +12,32 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.18] - 2026-07-25
+
+### Security
+
+- **Upgraded React Router to v8 to clear a high-severity advisory.**
+  [GHSA-qwww-vcr4-c8h2](https://github.com/advisories/GHSA-qwww-vcr4-c8h2) (RSC-mode CSRF bypass)
+  affects `react-router` `>= 7.12.0, < 8.3.0`; the app was on 7.18.1. Magic Agenda is a
+  client-only SPA with no RSC, no server, and no router actions, so the vulnerable code path was
+  never reachable in production — but the dependency is now on a patched version regardless, and
+  `npm audit --omit=dev` reports no vulnerabilities.
+
+### Changed
+
+- **`react-router-dom` replaced by `react-router` 8.3.0.** Dependabot could not make this bump on
+  its own: `react-router-dom` pins `react-router` to its own exact version, and the
+  `react-router-dom` re-export package was **removed** in v8 — so no in-range update existed and
+  its daily security-update run had been failing. The 13 import sites now pull from the
+  consolidated `react-router` package. Nothing else changed: the app uses `BrowserRouter` in
+  library mode rather than `RouterProvider`, so v8's new `react-router/dom` entry point is not
+  needed here. React 19.2.8 and Node 26 already satisfy v8's `>=19.2.7` and `>=22.22.0` floors.
+
+### Internal
+
+- **Dependabot config comment** no longer lists `react-router-dom` as an example of a package
+  whose majors open as individual PRs.
+
 ## [1.2.17] - 2026-07-24
 
 ### Internal
@@ -330,7 +356,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.17...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.18...HEAD
+[1.2.18]: https://github.com/jwh3times/magic-agenda/compare/v1.2.17...v1.2.18
 [1.2.17]: https://github.com/jwh3times/magic-agenda/compare/v1.2.16...v1.2.17
 [1.2.16]: https://github.com/jwh3times/magic-agenda/compare/v1.2.15...v1.2.16
 [1.2.15]: https://github.com/jwh3times/magic-agenda/compare/v1.2.14...v1.2.15

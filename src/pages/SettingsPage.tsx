@@ -1,5 +1,5 @@
 import { type CSSProperties, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { useAuth } from '../auth/AuthProvider'
 import { ThemeProvider, useTheme } from '../theme/ThemeProvider'
 import { ThemeSwitcher } from '../components/ThemeSwitcher'

@@ -79,7 +79,7 @@ updates:
           - "major"
 
       # One PR for all remaining minor + patch bumps; ungrouped majors (e.g.
-      # @supabase/supabase-js, react-router-dom, prettier, jsdom) open individually.
+      # @supabase/supabase-js, react-router, prettier, jsdom) open individually.
       npm-minor-and-patch:
         patterns:
           - "*"
