@@ -160,6 +160,17 @@ site_url = "https://magicagenda.app"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
+#
+# The `*.magic-agenda.pages.dev` entry matches every per-PR Cloudflare Pages preview deploy, and is
+# a REVIEWED, ACCEPTED risk — not an oversight (2026-06-30 security review, Finding 3; re-affirmed
+# 2026-07-26). It is bounded: that subdomain namespace belongs to this project alone, and Cloudflare
+# does not build previews for fork PRs, so only someone who can already deploy to this project could
+# host a token-capture page under it. Dropping it would break Google sign-in on preview deploys,
+# which is a real cost against a near-zero risk. The severe cases are absent and must stay absent:
+# no bare-host or scheme wildcard (`https://*`), and no wildcard over a domain we do not control.
+#
+# Keep every entry as narrow as the thing it exists for; anything added here is a place OAuth
+# tokens may legally land.
 additional_redirect_urls = [
   "https://magicagenda.app/**",
   "https://magic-agenda.pages.dev/**",

@@ -66,6 +66,14 @@ Pure SPA -> Supabase, no server of our own. Postgres **Row-Level Security is the
 boundary** (every table default-denies and scopes to `auth.uid() = user_id`); the anon key is public
 by design.
 
+Dated security reviews live in `private/` — **git-ignored, local to the maintainer's checkout**, so
+they are not in a clone. They are where accepted risks and open findings are recorded, with the
+reasoning. If that directory is present, read the newest one before changing auth, RLS, realtime
+publication, or the Edge Functions; several non-obvious decisions in this repo (the redirect
+allow-list wildcard, tokens in `localStorage`, the realtime DELETE fan-out) are accepted risks
+argued there, not oversights to "fix". If it is absent, treat those decisions as load-bearing and
+ask before changing them.
+
 ### Auth: PKCE, not implicit-flow URL fragments
 
 `src/lib/supabase.ts` sets `flowType: 'pkce'` and, critically, `detectSessionInUrl: () => false` (the
