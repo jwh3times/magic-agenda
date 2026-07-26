@@ -249,10 +249,16 @@ pass = "env(RESEND_API_KEY)"
 admin_email = "no-reply@magicagenda.app"
 sender_name = "Magic Agenda"
 
-# Uncomment to customize email template
-# [auth.email.template.invite]
-# subject = "You have been invited"
-# content_path = "./supabase/templates/invite.html"
+# The two templates the app actually sends. Content is version-controlled; the
+# deploy-auth-config workflow pushes subject + body on merge. Restyling (ROADMAP
+# 5.7) is now ordinary PR work against these files.
+[auth.email.template.confirmation]
+subject = "Confirm your email address"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.recovery]
+subject = "Reset your password"
+content_path = "./supabase/templates/recovery.html"
 
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
