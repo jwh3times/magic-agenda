@@ -1,15 +1,5 @@
 <!doctype html>
-<!--
-  Password-reset email. Deployed by the `Deploy Auth Config` workflow on merge
-  (subject lives in supabase/config.toml) — never edit this in the dashboard.
-
-  The action link MUST stay exactly `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery`:
-  the app redeems it with supabase.auth.verifyOtp() on /auth/reset. `&` is raw, not `&amp;`,
-  matching the production-verified v1.2.19 template.
-
-  Email-client constraints: table layout, inline styles, no webfonts, no gradients, no SVG.
-  The `color-scheme: dark` hints stop Gmail/Apple Mail re-inverting an already-dark email.
--->
+<!-- Keep the action link exact; see AGENTS.md "When changing auth config". -->
 <html lang="en">
   <head>
     <meta charset="utf-8" />

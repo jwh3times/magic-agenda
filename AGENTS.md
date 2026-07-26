@@ -195,7 +195,14 @@ the CLI's config.toml parsing on every command can't fail on a missing var. **Ne
 `supabase config push` locally** — it deploys straight to production, bypassing the PR preview.
 The two auth email templates the app sends (confirm-signup, reset-password) live in
 `supabase/templates/{confirmation,recovery}.html` and deploy the same way — edit the HTML files,
-never the dashboard, which is no longer the source of truth for them.
+never the dashboard, which is no longer the source of truth for them. Three constraints on those
+files: (1) the action link must stay exactly
+`{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery|signup` — raw `&`, not `&amp;` —
+because `ResetPassword` / `AuthConfirm` redeem it with `verifyOtp`; (2) they are **email**, so
+table layout and inline styles only (no flexbox/grid, webfonts, gradients, or SVG), and the
+`color-scheme: dark` meta pair is what stops dark-mode clients re-inverting the already-dark
+design; (3) **the whole file is pushed as the email body**, comments included — keep comments to a
+line, since anything here ships to every recipient's inbox.
 
 ## Agents and docs automation
 
