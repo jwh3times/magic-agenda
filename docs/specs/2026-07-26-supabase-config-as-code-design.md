@@ -24,6 +24,7 @@ gaps it missed:
 | **no `[auth.external.google]` block at all** | **Google OAuth live, client id + secret** | **Could disable Google sign-in** |
 | **`[auth.email.smtp]` commented out** | **Resend SMTP live (2026-07-25)** | **Could revert to the default provider — re-locking templates (free-tier restriction) and dropping the 30/hr limit** |
 | `[auth.rate_limit] email_sent = 2` | 30 (custom-SMTP value) | Rate-limits auth email to 2/hr |
+| [auth.mfa.totp] enroll/verify = false | TOTP enabled | Would disable authenticator-app MFA enrollment |
 
 Meanwhile the two auth email templates exist only in the dashboard, edited by hand on
 2026-07-25. ROADMAP 5.7 (branded emails) will edit them again; without templates-as-code every
@@ -44,6 +45,9 @@ edit is an untracked manual dashboard change.
 - Both required secrets are available to add as GitHub Actions repo secrets (Google OAuth client
   secret; Resend API key), joining the three Supabase secrets `deploy-migrations.yml` already
   uses.
+- The PR-1 final review caught one value the Gate-1 inventory missed: **TOTP MFA is enabled in
+  production** (dashboard-verified 2026-07-26) while the stock file said disabled — reinforcing
+  the everything-explicit rule.
 
 ## Decisions
 
@@ -51,8 +55,8 @@ edit is an untracked manual dashboard change.
 |---|---|---|
 | Rollout shape | **Two staged PRs** | PR 1 (reconcile + automation) merges as a proven no-op, revealing push semantics safely; PR 2 (templates) then rides a proven pipeline with a small, expected diff. One PR would debut the workflow and change live email flows on the same merge. |
 | Values strategy | **`config.toml` describes production; everything explicit** | Neutralizes the undocumented absent-key behavior for `[auth]`; the local stack is unused so nothing is sacrificed. |
-| Secrets | **`env()` substitution; two new repo secrets** | `GOOGLE_OAUTH_CLIENT_SECRET` and `RESEND_API_KEY`. The Google client **id** is not a secret and is committed in plain text. All *unused* stock `env()` references (Apple example, Twilio token) are deleted so the file demands exactly two env vars, no more. |
-| Preview mechanism | **`yes n | config push` decline-stream in a CI job** | No `--dry-run` exists; EOF auto-confirms, so a decline stream is the only safe non-applying form; prompt lines enumerate pending services. Output goes to the job summary for human review on every PR that touches config. |
+| Secrets | **`env()` substitution; two new repo secrets** | `GOOGLE_OAUTH_CLIENT_SECRET` and `RESEND_API_KEY`. The Google client **id** is not a secret and is committed in plain text. All *unused* stock `env()` references (Apple example, Twilio token) are deleted so the only env() refs this change adds are the two secrets (pre-existing local-only refs remain in [studio] and [experimental]). |
+| Preview mechanism | **`yes n \| config push` decline-stream in a CI job** | No `--dry-run` exists; EOF auto-confirms, so a decline stream is the only safe non-applying form; prompt lines enumerate pending services. Output goes to the job summary for human review on every PR that touches config. |
 | Unmanaged templates | **Only `confirmation` and `recovery` move to code** | The other templates (magic link, invite, email change) are stock defaults in prod — even a reset-to-default is a no-op, and the app sends none of them. |
 
 ## Design

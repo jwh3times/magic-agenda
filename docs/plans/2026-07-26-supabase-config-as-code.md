@@ -83,8 +83,8 @@ pipeline with an exactly-known diff.
 **Interfaces:**
 - Consumes: the Gate 1 value inventory (orchestrator inserts real values into this dispatch).
 - Produces: a `config.toml` whose `[auth]` tree exactly describes production; the only `env()`
-  references in the whole file are `OPENAI_API_KEY` (pre-existing, `[studio]`, local-only),
-  `RESEND_API_KEY`, and `GOOGLE_OAUTH_CLIENT_SECRET`.
+  references this change leaves in the [auth] tree are `RESEND_API_KEY` and
+  `GOOGLE_OAUTH_CLIENT_SECRET` (pre-existing [studio]/[experimental] refs are out of scope).
 
 - [ ] **Step 1: Apply the edits.** With `<G1:…>` meaning "the value recorded at Gate 1":
 
@@ -273,6 +273,7 @@ git commit -m "ci: deploy auth config from config.toml on merge to main"
         id: paths
         env:
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
           if [[ "$PR_AUTHOR" == "dependabot[bot]" ]]; then
@@ -280,7 +281,7 @@ git commit -m "ci: deploy auth config from config.toml on merge to main"
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          changed_files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- supabase/config.toml 'supabase/templates/**')
+          changed_files=$(git diff --name-only "origin/${BASE_REF}...HEAD" -- supabase/config.toml 'supabase/templates/**')
           if [ -n "$changed_files" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           else
@@ -297,6 +298,7 @@ git commit -m "ci: deploy auth config from config.toml on merge to main"
       - name: Preview config push (declines every prompt — never applies)
         if: steps.paths.outputs.changed == 'true'
         run: |
+          # Never add shell: bash to this job: that turns on pipefail, and yes(1) dying of SIGPIPE would misreport config push's exit code (141) and corrupt the no-op classification.
           set +e
           out=$(yes n | supabase config push 2>&1)
           code=$?

@@ -139,6 +139,7 @@ jobs:
         id: paths
         env:
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
           if [[ "$PR_AUTHOR" == "dependabot[bot]" ]]; then
@@ -146,7 +147,7 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          changed_files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- supabase/config.toml 'supabase/templates/**')
+          changed_files=$(git diff --name-only "origin/${BASE_REF}...HEAD" -- supabase/config.toml 'supabase/templates/**')
           if [ -n "$changed_files" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           else
@@ -163,6 +164,7 @@ jobs:
       - name: Preview config push (declines every prompt — never applies)
         if: steps.paths.outputs.changed == 'true'
         run: |
+          # Never add shell: bash to this job: that turns on pipefail, and yes(1) dying of SIGPIPE would misreport config push's exit code (141) and corrupt the no-op classification.
           set +e
           out=$(yes n | supabase config push 2>&1)
           code=$?

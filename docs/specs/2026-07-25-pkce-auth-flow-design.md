@@ -1,7 +1,7 @@
 # PKCE Auth Flow — Design
 
 - **Date:** 2026-07-25
-- **Status:** Approved, not yet implemented
+- **Status:** Shipped as v1.2.19 (PR #92, 2026-07-25)
 - **Revised:** 2026-07-25 (post-review) — `verifyOtp` emits `PASSWORD_RECOVERY` itself so
   `AuthProvider` is unchanged; single-use-token re-entry rules for `/auth/reset`; StrictMode
   once-guards; residual-risk acceptance; cutover note extended to signup confirmations
