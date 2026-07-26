@@ -57,7 +57,7 @@ export function ResetPassword() {
             style={{ height: 110, display: 'block', margin: '0 0 6px' }}
           />
           <p style={{ margin: '0 0 18px', fontSize: 14, lineHeight: 1.5, opacity: 0.75 }}>
-            You're already signed in, so this reset link wasn't used. To reset a password, sign
+            You’re already signed in, so this reset link wasn’t used. To reset a password, sign
             out first and request a new link.
           </p>
           <Link to="/" style={{ color: '#a78bfa', fontWeight: 700, fontSize: 14 }}>
