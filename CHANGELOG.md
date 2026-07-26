@@ -12,6 +12,32 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.19] - 2026-07-25
+
+### Security
+
+- **Closed a session-fixation vector: URL fragment tokens are no longer adopted as sessions.**
+  (2026-07-25 security review, Finding 1 — Medium.) The Supabase client previously ran the
+  implicit auth flow, so any URL on the origin carrying `#access_token=…` — including one an
+  attacker minted for their own account — silently replaced the visitor's session. The client
+  now uses PKCE (`flowType: 'pkce'`) with implicit URL detection disabled outright
+  (`detectSessionInUrl: () => false`, the function form — the actual control, since `flowType`
+  alone does not gate fragment adoption). A regression test pins the config; a vendor-contract
+  test pins the `verifyOtp` event behavior the new flows rely on. Neither redemption page will
+  act while a session already exists, so a crafted emailed-token link can no longer replace a
+  signed-in user's session either.
+
+### Changed
+
+- **Email links are now redeemed explicitly instead of via URL parsing.** Password-reset links
+  carry `?token_hash=` and are redeemed on `/auth/reset` (the form appears after redemption;
+  reloading mid-reset no longer risks a dead end). Signup-confirmation links land on the new
+  `/auth/confirm` page and **sign the user straight in** — the old "confirm, then come back and
+  sign in" round trip is gone, and the signup notice copy no longer says "then sign in".
+  Google OAuth is unchanged. **Cutover note:** links emailed before this release stop signing
+  users in; old reset links show "invalid or expired" (request a new one), and old confirmation
+  links still confirm the account server-side but land signed out.
+
 ## [1.2.18] - 2026-07-25
 
 ### Security
@@ -356,7 +382,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.18...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.19...HEAD
+[1.2.19]: https://github.com/jwh3times/magic-agenda/compare/v1.2.18...v1.2.19
 [1.2.18]: https://github.com/jwh3times/magic-agenda/compare/v1.2.17...v1.2.18
 [1.2.17]: https://github.com/jwh3times/magic-agenda/compare/v1.2.16...v1.2.17
 [1.2.16]: https://github.com/jwh3times/magic-agenda/compare/v1.2.15...v1.2.16
