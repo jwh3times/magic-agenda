@@ -12,6 +12,18 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.21] - 2026-07-26
+
+### Internal
+
+- **Auth email templates are now code.** The two templates the app sends — confirm-signup and
+  reset-password — live in `supabase/templates/` with their subjects in `config.toml`, deployed
+  by the `Deploy Auth Config` workflow on merge. The dashboard is no longer the source of truth
+  for them; future changes (including ROADMAP 5.7's branded restyling) are ordinary PR work
+  against the HTML files, previewed by the `Config` CI job like any other auth-config change.
+  Content matches what the dashboard served byte-for-byte, so this merge changes no user-visible
+  email. This completes the second and final follow-up from the 2026-07-25 PKCE auth spec.
+
 ## [1.2.20] - 2026-07-26
 
 ### Internal
@@ -406,7 +418,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.20...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.21...HEAD
+[1.2.21]: https://github.com/jwh3times/magic-agenda/compare/v1.2.20...v1.2.21
 [1.2.20]: https://github.com/jwh3times/magic-agenda/compare/v1.2.19...v1.2.20
 [1.2.19]: https://github.com/jwh3times/magic-agenda/compare/v1.2.18...v1.2.19
 [1.2.18]: https://github.com/jwh3times/magic-agenda/compare/v1.2.17...v1.2.18
