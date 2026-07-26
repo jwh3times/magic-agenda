@@ -18,22 +18,28 @@ export function AuthConfirm() {
   const { session, loading } = useAuth()
   const navigate = useNavigate()
   // One-shot: capture the token at mount; the redeem effect scrubs it from the URL.
-  const [tokenHash] = useState(() =>
-    new URLSearchParams(window.location.search).get('token_hash'),
-  )
+  const [tokenHash] = useState(() => new URLSearchParams(window.location.search).get('token_hash'))
   const redeemed = useRef(false)
+  const [refused, setRefused] = useState(false)
   const [verifyError, setVerifyError] = useState<string | null>(null)
 
   useEffect(() => {
     // Redeem exactly once: the token is single-use and StrictMode double-invokes
-    // effects. Any existing session skips redemption entirely.
-    if (loading || redeemed.current || session || !tokenHash) return
+    // effects. An existing session never redeems (fixation guard) — it flips
+    // `refused` instead, which renders the already-signed-in card.
+    if (loading || redeemed.current || refused) return
+    if (session) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setRefused(true)
+      return
+    }
+    if (!tokenHash) return
     redeemed.current = true
     window.history.replaceState(window.history.state, '', window.location.pathname)
     supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'signup' }).then(({ error: err }) => {
       if (err) setVerifyError(errorMessage(err))
     })
-  }, [loading, session, tokenHash])
+  }, [loading, session, tokenHash, refused])
 
   useEffect(() => {
     if (session && redeemed.current) navigate('/', { replace: true })
@@ -41,7 +47,7 @@ export function AuthConfirm() {
 
   if (loading) return <Spinner />
 
-  if (session && !redeemed.current) {
+  if (refused) {
     return (
       <div style={authPage}>
         <div style={authCard}>

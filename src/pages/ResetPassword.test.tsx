@@ -5,8 +5,8 @@ import { MemoryRouter } from 'react-router'
 import { beforeEach, expect, test, vi } from 'vitest'
 
 const h = vi.hoisted(() => ({
-  updateUser: vi.fn(() => Promise.resolve({ data: {}, error: null })),
-  verifyOtp: vi.fn(() => Promise.resolve({ data: {}, error: null })),
+  updateUser: vi.fn(() => Promise.resolve({ data: {}, error: null as Error | null })),
+  verifyOtp: vi.fn(() => Promise.resolve({ data: {}, error: null as Error | null })),
   clearPasswordRecovery: vi.fn(),
   auth: {
     current: {
@@ -31,7 +31,7 @@ import { ResetPassword } from './ResetPassword'
 beforeEach(() => {
   h.updateUser.mockClear()
   h.verifyOtp.mockClear()
-  h.verifyOtp.mockImplementation(() => Promise.resolve({ data: {}, error: null }))
+  h.verifyOtp.mockImplementation(() => Promise.resolve({ data: {}, error: null as Error | null }))
   h.auth.current.clearPasswordRecovery = h.clearPasswordRecovery
   h.clearPasswordRecovery.mockClear()
   h.auth.current.session = { user: { id: 'u1' } }
@@ -84,7 +84,11 @@ test('shows the expired-link screen when there is no session and no token', () =
   h.auth.current.session = null
   h.auth.current.passwordRecovery = false
   renderPage()
-  expect(screen.getByText('This password reset link is invalid or has expired. Request a new one from the sign-in page.')).toBeInTheDocument()
+  expect(
+    screen.getByText(
+      'This password reset link is invalid or has expired. Request a new one from the sign-in page.',
+    ),
+  ).toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Back to sign in' })).toHaveAttribute('href', '/login')
 })
 
@@ -124,7 +128,11 @@ test('a failed redemption shows the invalid-or-expired card', async () => {
   )
   window.history.replaceState(null, '', '/auth/reset?token_hash=bad&type=recovery')
   renderPage()
-  expect(await screen.findByText('This password reset link is invalid or has expired. Request a new one from the sign-in page.')).toBeInTheDocument()
+  expect(
+    await screen.findByText(
+      'This password reset link is invalid or has expired. Request a new one from the sign-in page.',
+    ),
+  ).toBeInTheDocument()
 })
 
 test('a recovery session with no token still gets the form (reload / re-entry)', () => {
@@ -139,6 +147,10 @@ test('refuses to redeem over an existing non-recovery session', () => {
   h.auth.current.passwordRecovery = false
   window.history.replaceState(null, '', '/auth/reset?token_hash=tok123&type=recovery')
   renderPage()
-  expect(screen.getByText('You’re already signed in, so this reset link wasn’t used. To reset a password, sign out first and request a new link.')).toBeInTheDocument()
+  expect(
+    screen.getByText(
+      'You’re already signed in, so this reset link wasn’t used. To reset a password, sign out first and request a new link.',
+    ),
+  ).toBeInTheDocument()
   expect(h.verifyOtp).not.toHaveBeenCalled()
 })
