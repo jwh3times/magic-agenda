@@ -111,9 +111,10 @@ Two knock-on behaviors of `() => false`, both acceptable:
    app behaves identically either way — `AuthCallback` bounces any sessionless visitor to `/login`
    without a message — but if we ever want to *show* OAuth errors on the callback page, this
    predicate (or `AuthCallback` parsing the URL itself) is where that work lives.
-2. **A signed-in user visiting `/auth/reset` with no token now gets the error card**, where today
-   the live session shows the change-password form (and `updateUser` would change *that* session's
-   password). That path was an accident of `detectSessionInUrl`-era wiring, not a designed feature.
+2. **A signed-in non-recovery user visiting `/auth/reset` with no token now gets the "already
+   signed in" refusal card** (sign-out-first guidance), where today the live session shows the
+   change-password form (and `updateUser` would change *that* session's password). That path was
+   an accident of `detectSessionInUrl`-era wiring, not a designed feature.
 
 ### Components
 
