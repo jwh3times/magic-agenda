@@ -12,6 +12,30 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.20] - 2026-07-26
+
+### Internal
+
+- **`supabase/config.toml` now describes production, and auth config deploys as code.** The file
+  had been the stock `supabase init` template since day one — running `supabase config push`
+  would have broken production auth outright (localhost site URL, weak password policy, email
+  confirmations off, no Google OAuth block, no SMTP block, TOTP MFA off). Every `[auth]` value
+  now matches the live dashboard (verified by inventory), secrets are referenced via `env()`
+  (two new repo secrets: `RESEND_API_KEY`, `GOOGLE_OAUTH_CLIENT_SECRET` — never committed), and
+  two pieces of automation keep it true: a `Deploy Auth Config` workflow applies the file with
+  `supabase config push --yes` on merges to `main` touching `supabase/config.toml` or
+  `supabase/templates/**`, and a new `Config` CI job previews the pending push on every PR via a
+  `yes n |` decline stream — chosen because the CLI's confirmation prompts default to **yes** on
+  EOF, so a closed-stdin "preview" would actually apply to production. `deploy-migrations.yml`
+  and `deploy-functions.yml` carry the new env vars so the `env()` references cannot break them.
+  This merge itself is designed to be a **no-op push** (the file equals production), proving the
+  pipeline safely; the email templates move into the repo in a follow-up PR.
+
+### Docs
+
+- The 2026-07-25 PKCE auth spec's status now records it shipped as v1.2.19; new design spec and
+  implementation plan for config-as-code added under `docs/specs/` and `docs/plans/`.
+
 ## [1.2.19] - 2026-07-25
 
 ### Security
@@ -382,7 +406,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.19...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.20...HEAD
+[1.2.20]: https://github.com/jwh3times/magic-agenda/compare/v1.2.19...v1.2.20
 [1.2.19]: https://github.com/jwh3times/magic-agenda/compare/v1.2.18...v1.2.19
 [1.2.18]: https://github.com/jwh3times/magic-agenda/compare/v1.2.17...v1.2.18
 [1.2.17]: https://github.com/jwh3times/magic-agenda/compare/v1.2.16...v1.2.17
