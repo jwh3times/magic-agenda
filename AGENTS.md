@@ -37,10 +37,10 @@ project. Local dev needs a real `.env.local` (copy `.env.example`); `src/lib/sup
 startup if the two `VITE_SUPABASE_*` vars are missing.
 
 `main` is **protected: PR-only, no direct pushes** (no admin bypass). Land changes via a branch + PR;
-the `Format` / `Test` / `Build` / `Functions` / `Agents` / `Changelog` checks and CodeQL must pass and review
-threads resolve before merge (0 approvals required, so you can self-merge once green). A `Config` job
-also runs on PRs touching `supabase/config.toml` or `supabase/templates/**`, previewing the pending
-`supabase config push`; it is **not yet a required check**. Branch names must not start
+the `Format` / `Test` / `Build` / `Functions` / `Agents` / `Changelog` / `Config` checks and CodeQL must
+pass and review threads resolve before merge (0 approvals required, so you can self-merge once green).
+`Config` previews the pending `supabase config push` on PRs touching `supabase/config.toml` or
+`supabase/templates/**` and no-ops elsewhere — it is required, so it reports on every PR. Branch names must not start
 with `release/` — a ruleset protects that namespace and rejects the push; use `chore/release-vX.Y.Z`. Cloudflare Pages builds & deploys `main`
 (`npm run build` -> `dist`), so production only ships after a checks-passing merge. Database migrations
 are applied to production on the same merge by the `Deploy Migrations` workflow (triggered by changes
@@ -171,6 +171,13 @@ get the schema in place before regenerating types. Regenerate `src/types/databas
 `mappers.ts` conventions above intact.
 Prefer test-first for pure logic in `src/data` and `src/dnd` (these have thorough unit tests).
 
+Two standing rules for any table in the `supabase_realtime` publication (today `tasks` and
+`user_settings`): **never put a secret or semantically meaningful value in the primary key**, because
+DELETE events are fanned out to every subscriber without an owner check (Postgres cannot check access
+to an already-deleted row), and **never `disable row level security`** on one — that is the single
+change that would escalate the leak from primary keys to full deleted rows. See the header comment on
+`supabase/migrations/20260704090000_realtime_tasks.sql`.
+
 ## When changing auth config
 
 `supabase/config.toml`'s `[auth]` tree describes **production** exactly (site URL, redirect
@@ -188,7 +195,14 @@ the CLI's config.toml parsing on every command can't fail on a missing var. **Ne
 `supabase config push` locally** — it deploys straight to production, bypassing the PR preview.
 The two auth email templates the app sends (confirm-signup, reset-password) live in
 `supabase/templates/{confirmation,recovery}.html` and deploy the same way — edit the HTML files,
-never the dashboard, which is no longer the source of truth for them.
+never the dashboard, which is no longer the source of truth for them. Three constraints on those
+files: (1) the action link must stay exactly
+`{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery|signup` — raw `&`, not `&amp;` —
+because `ResetPassword` / `AuthConfirm` redeem it with `verifyOtp`; (2) they are **email**, so
+table layout and inline styles only (no flexbox/grid, webfonts, gradients, or SVG), and the
+`color-scheme: dark` meta pair is what stops dark-mode clients re-inverting the already-dark
+design; (3) **the whole file is pushed as the email body**, comments included — keep comments to a
+line, since anything here ships to every recipient's inbox.
 
 ## Agents and docs automation
 

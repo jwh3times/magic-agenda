@@ -1,7 +1,8 @@
 # Supabase Config as Code — Design
 
 - **Date:** 2026-07-26
-- **Status:** Approved, not yet implemented
+- **Status:** Shipped as v1.2.20 (PR #93, config + workflows) and v1.2.21 (PR #94, email templates),
+  both 2026-07-26
 - **Drives:** Follow-ups 1 and 2 of
   [`2026-07-25-pkce-auth-flow-design.md`](2026-07-25-pkce-auth-flow-design.md) — reconcile
   `supabase/config.toml` with production so `supabase config push` is safe, then move the two

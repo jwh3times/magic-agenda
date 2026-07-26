@@ -95,9 +95,17 @@ VITE_SUPABASE_ANON_KEY=<your-anon-key>
 
 ### 4. Configure auth
 
-In the Supabase dashboard → **Authentication → URL Configuration**, add `http://localhost:5173/**`
-to the redirect allow‑list. For Google sign‑in, enable the Google provider and add a Google Cloud
-OAuth client whose redirect URI is `https://<ref>.supabase.co/auth/v1/callback`.
+For **your own** Supabase project: in the dashboard → **Authentication → URL Configuration**, add
+`http://localhost:5173/**` to the redirect allow‑list. For Google sign‑in, enable the Google provider
+and add a Google Cloud OAuth client whose redirect URI is
+`https://<ref>.supabase.co/auth/v1/callback`.
+
+> **Contributing to this repo?** Production auth settings are **code**, not dashboard state:
+> `supabase/config.toml`'s `[auth]` tree and the email templates in `supabase/templates/` describe
+> the live project exactly and deploy on merge to `main`. Change them by editing those files in a PR
+> — a dashboard edit drifts until the next push overwrites it. **Never run `supabase config push`
+> locally**: it applies straight to production, skipping the PR preview. See
+> [AGENTS.md](./AGENTS.md#when-changing-auth-config).
 
 ### 5. Run
 
@@ -152,10 +160,13 @@ Production and Preview; `public/_redirects` provides the SPA deep‑link fallbac
 sets security response headers (Content‑Security‑Policy, `X-Frame-Options`, `nosniff`, `Referrer-Policy`).
 
 Database migrations apply to production automatically: merging a change under `supabase/migrations/` to
-`main` triggers the **Deploy Migrations** workflow (`supabase db push`).
+`main` triggers the **Deploy Migrations** workflow (`supabase db push`). Auth configuration does the
+same: merging a change to `supabase/config.toml` or `supabase/templates/` triggers **Deploy Auth
+Config** (`supabase config push`), so the redirect allow‑list, password policy, and the two auth email
+templates all live in the repo rather than the dashboard.
 
 `main` is **protected** — it's PR‑only (no direct pushes), and a PR can't merge until the CI checks
-(`Format`, `Test`, `Build`, `Functions`, `Changelog`) and CodeQL pass. Because Cloudflare deploys `main`,
+(`Format`, `Test`, `Build`, `Functions`, `Changelog`, `Agents`, `Config`) and CodeQL pass. Because Cloudflare deploys `main`,
 **production only ships after a PR closes with all checks green.** See [CONTRIBUTING.md](./CONTRIBUTING.md)
 for the workflow.
 
