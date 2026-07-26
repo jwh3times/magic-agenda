@@ -12,6 +12,35 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.25] - 2026-07-26
+
+### Added
+
+- **Nightly encrypted database backups.** The Supabase free tier has **no automated backups at
+  all** — until now a dropped table or a bad migration would have lost every user's data with no
+  restore path (the app's export/import is per-user and manual, so it was never one). A new
+  `Backup` workflow dumps the schema, the `public` data, and the `auth` data each night at 09:00
+  UTC, and on demand via **Run workflow**. All three matter: `supabase db dump` excludes
+  Supabase-managed schemas by default, so without an explicit `auth` dump every restored task would
+  point at a user id that no longer exists.
+
+  **The bundle is GPG-encrypted on the runner before upload**, because this repository is public
+  and GitHub Actions artifacts on public repos can be downloaded by anyone — an unencrypted dump
+  would publish every user's email address, password hash, and task content. That needs one new
+  repository secret, `BACKUP_GPG_PASSPHRASE`; if it is lost, the backups are permanently unreadable.
+
+  The job refuses to run without that passphrase (an unset secret is an empty string, and `gpg`
+  would otherwise cheerfully encrypt with nothing), asserts each dump actually contains
+  `CREATE TABLE` / `public.tasks` / `auth.users` rather than trusting exit codes, greps the
+  encrypted output for plaintext, and decrypts its own bundle to prove it opens. A backup job that
+  goes green while storing nothing is the failure mode worth engineering against.
+
+- **`docs/runbooks/restore-from-backup.md`** — the restore procedure, including the ordering trap
+  (`auth.sql` before `data.sql`, or foreign keys fail), what to do differently for partial data loss
+  versus a lost project, what a restored database does *not* carry (auth config, OAuth client), and
+  a standing instruction to rehearse it against a throwaway project. `docs/` now distinguishes its
+  historical `plans/` and `specs/` from `runbooks/`, which is living documentation.
+
 ## [1.2.24] - 2026-07-26
 
 ### Security
@@ -496,7 +525,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.24...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.25...HEAD
+[1.2.25]: https://github.com/jwh3times/magic-agenda/compare/v1.2.24...v1.2.25
 [1.2.24]: https://github.com/jwh3times/magic-agenda/compare/v1.2.23...v1.2.24
 [1.2.23]: https://github.com/jwh3times/magic-agenda/compare/v1.2.22...v1.2.23
 [1.2.22]: https://github.com/jwh3times/magic-agenda/compare/v1.2.21...v1.2.22
