@@ -38,7 +38,9 @@ startup if the two `VITE_SUPABASE_*` vars are missing.
 
 `main` is **protected: PR-only, no direct pushes** (no admin bypass). Land changes via a branch + PR;
 the `Format` / `Test` / `Build` / `Functions` / `Agents` / `Changelog` checks and CodeQL must pass and review
-threads resolve before merge (0 approvals required, so you can self-merge once green). Branch names must not start
+threads resolve before merge (0 approvals required, so you can self-merge once green). A `Config` job
+also runs on PRs touching `supabase/config.toml` or `supabase/templates/**`, previewing the pending
+`supabase config push`; it is **not yet a required check**. Branch names must not start
 with `release/` — a ruleset protects that namespace and rejects the push; use `chore/release-vX.Y.Z`. Cloudflare Pages builds & deploys `main`
 (`npm run build` -> `dist`), so production only ships after a checks-passing merge. Database migrations
 are applied to production on the same merge by the `Deploy Migrations` workflow (triggered by changes
@@ -168,6 +170,22 @@ get the schema in place before regenerating types. Regenerate `src/types/databas
 `supabase gen types` once the schema is applied (`gen types --linked` reads the remote DB). Keep the
 `mappers.ts` conventions above intact.
 Prefer test-first for pure logic in `src/data` and `src/dnd` (these have thorough unit tests).
+
+## When changing auth config
+
+`supabase/config.toml`'s `[auth]` tree describes **production** exactly (site URL, redirect
+allow-list, password policy, OTP settings, rate limits, the Resend SMTP block, the Google OAuth
+block, TOTP MFA) — every edit is a production change, not local scaffolding. Changes to
+`supabase/config.toml` or `supabase/templates/**` **auto-apply to production on merge to `main`**
+via the `Deploy Auth Config` workflow (`.github/workflows/deploy-auth-config.yml`, which runs
+`supabase config push --yes`). The `Config` CI job previews the pending push on PRs that touch
+those paths — it declines every confirmation prompt (`yes n |`) so it can never apply: the CLI has
+no `--dry-run`, and its prompts default to **yes** on EOF, so a naive non-interactive run would
+silently push to production. Secrets referenced via `env(...)` in the file (`RESEND_API_KEY`,
+`GOOGLE_OAUTH_CLIENT_SECRET`) exist only as repository secrets, used by both the `Config` and
+`Deploy Auth Config` jobs; `deploy-migrations.yml` and `deploy-functions.yml` also carry them so
+the CLI's config.toml parsing on every command can't fail on a missing var. **Never run
+`supabase config push` locally** — it deploys straight to production, bypassing the PR preview.
 
 ## Agents and docs automation
 
