@@ -186,6 +186,9 @@ silently push to production. Secrets referenced via `env(...)` in the file (`RES
 `Deploy Auth Config` jobs; `deploy-migrations.yml` and `deploy-functions.yml` also carry them so
 the CLI's config.toml parsing on every command can't fail on a missing var. **Never run
 `supabase config push` locally** — it deploys straight to production, bypassing the PR preview.
+The two auth email templates the app sends (confirm-signup, reset-password) live in
+`supabase/templates/{confirmation,recovery}.html` and deploy the same way — edit the HTML files,
+never the dashboard, which is no longer the source of truth for them.
 
 ## Agents and docs automation
 

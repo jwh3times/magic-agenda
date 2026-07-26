@@ -182,12 +182,12 @@ Total rough effort for the remaining items: ~7–11 weeks of focused solo work.
       `…supabase.co` callback host on the free tier. Supabase custom domain (paid add-on): CNAME
       `auth.magicagenda.app`, activate, update `VITE_SUPABASE_URL` in Pages env, redeploy. No code
       change. Blocked on the Supabase plan decision — a cost call.
-- [ ] **Branded auth emails** · **P3** · S (dashboard-only) — the Supabase Auth emails (Reset
-      Password, Confirm signup, Change email) currently use the stock templates. Customize them in
-      the dashboard (Authentication → Email Templates) to match the app's tone and branding — the
-      reset email especially, since password reset (shipped) sends it to real users. No code
-      change; the defaults work, so this is pure polish. Pairs naturally with 5.6 (a branded
-      sender/auth host) if that ever happens.
+- [ ] **Branded auth emails** · **P3** · S — the confirm-signup and reset-password emails
+      (`supabase/templates/confirmation.html`, `recovery.html`) currently use plain stock markup.
+      Restyle them to match the app's tone and branding — the reset email especially, since
+      password reset (shipped) sends it to real users. Ordinary PR work against those HTML files
+      (they deploy on merge via `Deploy Auth Config`); no dashboard editing. Pairs naturally with
+      5.6 (a branded sender/auth host) if that ever happens.
 
 ## Phase 6 — Bigger bets
 
