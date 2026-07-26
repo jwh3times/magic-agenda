@@ -33,9 +33,7 @@ edit is an untracked manual dashboard change.
 
 - `supabase config push` (CLI v2) has **no `--dry-run` flag**; its only own flag is
   `--project-ref`. There is a **global `--yes`** ("Answer yes to all prompts").
-- Run **without** `--yes` and with stdin closed, it prints its pending diff and aborts at the
-  confirmation prompt — which is this design's free **preview mode** for PRs. With `--yes` it
-  applies — the deploy mode for `main`.
+- **Closed stdin is NOT a safe preview**: the CLI's confirmation prompts default to **yes on EOF** (`PromptYesNo(…, true)` in the CLI source; its integration tests assert a push proceeds on empty non-TTY stdin). The safe preview is a **piped decline stream** — `yes n | supabase config push` — which the CLI's own tests confirm declines without applying. The declined prompt lines are the preview: each names a service with pending changes. (Corrected 2026-07-26 after review caught the original abort-at-prompt assumption as false.)
 - **Absent-key semantics are undocumented** (docs and CLI reference both silent on whether keys
   missing from the file are left alone or reset to defaults). This design does not depend on the
   answer: every remotely-managed `[auth]` key is set explicitly, and PR 1 is engineered to be a
@@ -54,7 +52,7 @@ edit is an untracked manual dashboard change.
 | Rollout shape | **Two staged PRs** | PR 1 (reconcile + automation) merges as a proven no-op, revealing push semantics safely; PR 2 (templates) then rides a proven pipeline with a small, expected diff. One PR would debut the workflow and change live email flows on the same merge. |
 | Values strategy | **`config.toml` describes production; everything explicit** | Neutralizes the undocumented absent-key behavior for `[auth]`; the local stack is unused so nothing is sacrificed. |
 | Secrets | **`env()` substitution; two new repo secrets** | `GOOGLE_OAUTH_CLIENT_SECRET` and `RESEND_API_KEY`. The Google client **id** is not a secret and is committed in plain text. All *unused* stock `env()` references (Apple example, Twilio token) are deleted so the file demands exactly two env vars, no more. |
-| Preview mechanism | **`config push` without `--yes`, stdin closed, in a CI job** | No `--dry-run` exists; the abort-at-prompt behavior is the preview. Output goes to the job summary for human review on every PR that touches config. |
+| Preview mechanism | **`yes n | config push` decline-stream in a CI job** | No `--dry-run` exists; EOF auto-confirms, so a decline stream is the only safe non-applying form; prompt lines enumerate pending services. Output goes to the job summary for human review on every PR that touches config. |
 | Unmanaged templates | **Only `confirmation` and `recovery` move to code** | The other templates (magic link, invite, email change) are stock defaults in prod — even a reset-to-default is a no-op, and the app sends none of them. |
 
 ## Design
@@ -122,10 +120,10 @@ below) before the PR is written — the committed file contains only real values
 - **Always runs** (this repo's rule: a required check that skips wedges PRs). First step
   computes whether `git diff origin/main...HEAD` touches `supabase/config.toml` or
   `supabase/templates/**`; if not, it exits 0 with "no config changes".
-- Otherwise: setup-cli → link → `supabase config push < /dev/null` (no `--yes`), capturing
-  output. The step succeeds when the output shows the diff-then-abort pattern; it fails on
-  auth/parse/`env()` errors. The captured diff is written to `$GITHUB_STEP_SUMMARY` so the
-  pending change is readable in the PR checks UI.
+- Otherwise: setup-cli → link → `yes n | supabase config push` (decline-stream, no `--yes`), capturing
+  output. The step succeeds when declined prompts appear in the output or no prompts at all (no-op); it fails on
+  auth/parse/`env()` errors. The captured output is written to `$GITHUB_STEP_SUMMARY` so the
+  pending changes are readable in the PR checks UI.
 - Same five env vars (PR-triggered runs on same-repo branches receive secrets; this is a
   single-maintainer repo — fork PRs are out of scope).
 
@@ -183,7 +181,7 @@ on main before it is required.
 
 ## Error handling
 
-- The preview job's only subtlety is distinguishing abort-at-prompt (success) from real failure
+- The preview job's only subtlety is distinguishing declined-prompts (success, the preview) and clean no-op (success) from real failure
   (bad token, unresolved `env()`, TOML parse error) — decided by output pattern, not exit code
   alone.
 - A failed `Deploy Auth Config` run on main leaves prod untouched or partially updated per the

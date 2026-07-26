@@ -110,14 +110,18 @@ jobs:
           fi
           node scripts/check-changelog.mjs
 
-  # Previews what `supabase config push` would change, WITHOUT applying it: the CLI
-  # has no --dry-run, but run non-interactively without --yes it prints its diff and
-  # aborts at the confirmation prompt. The real push happens in deploy-auth-config.yml
-  # on merge. This job always reports a status (a required check that skips wedges the
-  # PR — see AGENTS.md), exiting early when the PR doesn't touch config paths.
-  # NOTE: the success/abort output patterns below were written before the first real
-  # run; PR 1 of the config-as-code plan is the calibration run — adjust there if the
-  # CLI's wording differs.
+  # Previews what `supabase config push` would change, WITHOUT applying it. The CLI
+  # has no --dry-run, and running it non-interactively with closed stdin is NOT safe:
+  # its confirmation prompts default to YES on EOF (verified against the CLI source
+  # and its integration tests). `yes n |` streams a decline to every prompt, so this
+  # job can never apply config. The prompt lines in the output ARE the preview: no
+  # prompts + exit 0 = remote already matches the file; each "Do you want to push…?"
+  # line names a service with pending changes. The real push happens in
+  # deploy-auth-config.yml on merge (--yes). This job always reports a status (a
+  # required check that skips wedges the PR — see AGENTS.md), exiting early when the
+  # PR doesn't touch config paths, and for Dependabot PRs (which get no secrets).
+  # NOTE: output patterns below were written before the first real run; PR 1 of the
+  # config-as-code plan is the calibration run — adjust there if wording differs.
   Config:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -131,10 +135,19 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Skip when the PR touches no config paths
+      - name: Skip when the PR touches no config paths (or author is Dependabot)
         id: paths
+        env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
-          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- supabase/config.toml 'supabase/templates/**' | grep -q .; then
+          set -euo pipefail
+          if [[ "$PR_AUTHOR" == "dependabot[bot]" ]]; then
+            echo "Dependabot PR: no secrets available; preview skipped." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed_files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- supabase/config.toml 'supabase/templates/**')
+          if [ -n "$changed_files" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "No auth-config changes in this PR." | tee -a "$GITHUB_STEP_SUMMARY"
@@ -147,27 +160,28 @@ jobs:
       - name: Link project
         if: steps.paths.outputs.changed == 'true'
         run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
-      - name: Preview config push (never applies)
+      - name: Preview config push (declines every prompt — never applies)
         if: steps.paths.outputs.changed == 'true'
         run: |
           set +e
-          out=$(supabase config push </dev/null 2>&1)
+          out=$(yes n | supabase config push 2>&1)
           code=$?
           set -e
           {
-            echo '## Pending `supabase config push` diff'
+            echo '## Pending `supabase config push` changes (each declined prompt = one pending service)'
             echo '```'
             echo "$out"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           echo "$out"
-          if [ "$code" -eq 0 ]; then
-            echo "Push exited 0 without confirmation — remote already matches the file (no-op)."
+          prompts=$(echo "$out" | grep -ciE 'do you want|\[y/n\]' || true)
+          if [ "$code" -eq 0 ] && [ "$prompts" -eq 0 ]; then
+            echo "No pending changes — remote already matches the file."
             exit 0
           fi
-          if echo "$out" | grep -qiE 'confirm|do you want|cancel|abort|EOF'; then
-            echo "Preview complete: push aborted at the confirmation prompt as intended."
+          if [ "$prompts" -gt 0 ]; then
+            echo "Preview complete: $prompts pending change prompt(s), all declined — nothing applied."
             exit 0
           fi
-          echo "config push failed for a reason other than the confirmation prompt."
+          echo "config push failed before reaching any confirmation prompt."
           exit "$code"
