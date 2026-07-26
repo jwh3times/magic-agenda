@@ -55,9 +55,15 @@ export function Login() {
         return
       }
       if (mode === 'signup') {
-        const { data, error: err } = await supabase.auth.signUp({ email, password })
+        const { data, error: err } = await supabase.auth.signUp({
+          email,
+          password,
+          // {{ .RedirectTo }} in the confirmation template resolves from this option —
+          // it must stay in lockstep with the dashboard template (see the design spec).
+          options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
+        })
         if (err) throw err
-        if (!data.session) setNotice('Check your email to confirm your account, then sign in.')
+        if (!data.session) setNotice('Check your email to confirm your account.')
       } else {
         const { error: err } = await supabase.auth.signInWithPassword({ email, password })
         if (err) throw err

@@ -127,7 +127,7 @@ src/
 ├─ data/         useTasks / useSettings hooks, mappers, selectors, filters, recurrence
 ├─ dnd/          pure reorder logic (unit‑tested) + dnd‑kit wiring
 ├─ lib/          supabase client, date + id helpers
-├─ pages/        Login, AuthCallback, BoardPage
+├─ pages/        Login, AuthCallback, AuthConfirm, ResetPassword, SettingsPage, BoardPage
 ├─ theme/        constants, per‑theme tokens, card styles, ThemeProvider
 └─ types/        domain + generated database types
 supabase/migrations/   SQL schema (CLI‑managed)

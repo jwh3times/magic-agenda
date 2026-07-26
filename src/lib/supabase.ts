@@ -15,6 +15,10 @@ export const supabase = createClient<Database>(url, anonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true,
+    flowType: 'pkce',
+    // Never adopt implicit-grant tokens from a URL fragment: that path has no
+    // state/nonce binding and is the session-fixation vector. Email links now
+    // carry ?token_hash= and are redeemed explicitly via verifyOtp().
+    detectSessionInUrl: () => false,
   },
 })

@@ -7,8 +7,8 @@ This file provides guidance to coding agents when working with code in this repo
 Magic Agenda is a drag-and-drop task board (day / week / kanban views, recurring tasks, three visual
 themes) built as a pure React + TypeScript SPA on Supabase (Postgres + Auth), deployed to Cloudflare
 Pages at [magicagenda.app](https://magicagenda.app). Pages live in `src/pages/`: `BoardPage` (the app),
-`Login`, `AuthCallback`, and the static legal pages `Privacy` / `Terms` (both rendered through
-`src/components/LegalLayout.tsx`).
+`SettingsPage`, `Login`, `AuthCallback`, `AuthConfirm`, `ResetPassword`, and the static legal pages
+`Privacy` / `Terms` (both rendered through `src/components/LegalLayout.tsx`).
 
 ## Commands
 
@@ -63,6 +63,20 @@ skill automates the whole flow, backfill included.
 Pure SPA -> Supabase, no server of our own. Postgres **Row-Level Security is the only authorization
 boundary** (every table default-denies and scopes to `auth.uid() = user_id`); the anon key is public
 by design.
+
+### Auth: PKCE, not implicit-flow URL fragments
+
+`src/lib/supabase.ts` sets `flowType: 'pkce'` and, critically, `detectSessionInUrl: () => false` (the
+**function** form, not `false`): that disables implicit adoption of `#access_token=` URL fragments — a
+session-fixation vector, since that path has no state/nonce binding — while leaving PKCE `?code=`
+handling intact for Google OAuth (`AuthCallback`). Password-reset and signup-confirmation email links
+now carry `?token_hash=` and are redeemed explicitly via `supabase.auth.verifyOtp()`: `ResetPassword`
+(`/auth/reset`) renders its form on `session && passwordRecovery`, never on "`verifyOtp` succeeded this
+mount" (the token is single-use, so reloads and `ProtectedRoute` re-entry must still work); `AuthConfirm`
+(`/auth/confirm`, a public route) redeems a signup token and signs the user straight in, skipping the
+old "confirm, then come back and sign in" round trip. Both pages refuse to redeem over an existing
+session (the residual session-fixation guard). `AuthProvider` / `ProtectedRoute` are unchanged —
+`verifyOtp({ type: 'recovery' })` still fires `PASSWORD_RECOVERY` itself.
 
 ### App / DB boundary conventions: get these wrong and data breaks subtly
 
