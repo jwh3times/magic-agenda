@@ -12,6 +12,35 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.24] - 2026-07-26
+
+### Security
+
+- **Closed out the redirect allow-list finding by recording the decision, not by changing it**
+  (2026-06-30 review, Finding 3; re-affirmed 2026-07-26). `https://*.magic-agenda.pages.dev/**`
+  matches every per-PR Cloudflare preview deploy, which has read as an open item across two
+  reviews. It stays: the namespace belongs to this project alone and Cloudflare builds no previews
+  for fork PRs, so only someone who can already deploy here could exploit it — while dropping it
+  would break Google sign-in on preview deploys. `supabase/config.toml` now carries that reasoning
+  next to the list, along with the cases that must stay absent (no bare-host or scheme wildcard, no
+  wildcard over a domain we don't control). Comment-only: the pushed config is byte-identical.
+
+### Docs
+
+- **`AGENTS.md` now tells agents that `private/` exists.** The security reviews are git-ignored and
+  local to the maintainer's checkout, so an agent had no way to learn that the redirect wildcard,
+  tokens in `localStorage`, and the realtime DELETE fan-out are *argued, accepted* risks rather than
+  bugs to fix — and reviews that live nowhere discoverable get re-litigated or silently undone.
+
+## [1.2.23] - 2026-07-26
+
+### Internal
+
+- **Dev-dependency bumps** (Dependabot, `npm-minor-and-patch` group): `eslint` 10.6.0 → 10.8.0,
+  `globals` 17.7.0 → 17.8.0, `typescript-eslint` 8.63.0 → 8.65.0. No runtime dependencies changed.
+  Note that `typescript-eslint` 8.65.0 still peer-requires `typescript <6.1.0`, so the TypeScript 7
+  hold added in v1.2.22 stays necessary.
+
 ## [1.2.22] - 2026-07-26
 
 ### Changed
@@ -467,7 +496,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.22...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.24...HEAD
+[1.2.24]: https://github.com/jwh3times/magic-agenda/compare/v1.2.23...v1.2.24
+[1.2.23]: https://github.com/jwh3times/magic-agenda/compare/v1.2.22...v1.2.23
 [1.2.22]: https://github.com/jwh3times/magic-agenda/compare/v1.2.21...v1.2.22
 [1.2.21]: https://github.com/jwh3times/magic-agenda/compare/v1.2.20...v1.2.21
 [1.2.20]: https://github.com/jwh3times/magic-agenda/compare/v1.2.19...v1.2.20
