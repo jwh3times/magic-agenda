@@ -6,6 +6,7 @@ import { expect, test, vi } from 'vitest'
 const h = vi.hoisted(() => ({
   resetPasswordForEmail: vi.fn(() => Promise.resolve({ data: {}, error: null })),
   signInWithOAuth: vi.fn(() => Promise.resolve({ error: null })),
+  signUp: vi.fn(() => Promise.resolve({ data: {}, error: null })),
 }))
 
 vi.mock('../lib/supabase', () => ({
@@ -13,7 +14,7 @@ vi.mock('../lib/supabase', () => ({
     auth: {
       resetPasswordForEmail: h.resetPasswordForEmail,
       signInWithPassword: vi.fn(() => Promise.resolve({ error: null })),
-      signUp: vi.fn(() => Promise.resolve({ data: {}, error: null })),
+      signUp: h.signUp,
       signInWithOAuth: h.signInWithOAuth,
     },
   },
@@ -69,4 +70,19 @@ test('a rejected Google sign-in surfaces the error', async () => {
   renderLogin()
   await userEvent.click(screen.getByRole('button', { name: /Continue with Google/ }))
   expect(await screen.findByText('oauth popup blocked')).toBeInTheDocument()
+})
+
+test('signup points the confirmation email at /auth/confirm and drops "then sign in"', async () => {
+  renderLogin()
+  await userEvent.click(screen.getByRole('button', { name: 'Sign up' }))
+  await userEvent.type(screen.getByPlaceholderText('you@example.com'), 'a@b.co')
+  await userEvent.type(screen.getByPlaceholderText('Password'), 'Longenough123!')
+  await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
+  expect(h.signUp).toHaveBeenCalledWith({
+    email: 'a@b.co',
+    password: 'Longenough123!',
+    options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
+  })
+  // Confirmation now signs the user in — the old copy said "…, then sign in."
+  expect(await screen.findByText('Check your email to confirm your account.')).toBeInTheDocument()
 })
