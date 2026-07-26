@@ -43,8 +43,12 @@ This repository runs several automated checks (configured in `.github/`):
   merging on medium‑or‑higher severity.
 - **Secret scanning + push protection** — blocks commits containing known secret formats.
 - **Dependabot** — daily dependency + GitHub Actions update PRs, plus security alerts and updates.
-- **Branch protection** — `main` is PR‑only; the `Format` / `Test` / `Build` / `Functions` CI checks
-  and CodeQL must pass before a PR can merge.
+- **Branch protection** — `main` is PR‑only; the `Format` / `Test` / `Build` / `Functions` / `Agents` /
+  `Changelog` / `Config` CI checks and CodeQL must pass before a PR can merge.
+- **Auth configuration as code** — the production `[auth]` settings (redirect allow‑list, password
+  policy, OTP and rate limits, MFA) live in `supabase/config.toml` and deploy from CI, so a weakening
+  change is reviewable in a PR diff and previewed by the `Config` check rather than made silently in a
+  dashboard. Secrets are `env()` references resolved from encrypted Actions secrets, never committed.
 
 ## Responsible disclosure
 

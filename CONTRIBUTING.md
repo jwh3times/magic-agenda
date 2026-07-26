@@ -38,9 +38,14 @@ npm run dev
    ```bash
    node scripts/check-changelog.mjs        # the "Changelog" check
    ```
+   There is deliberately **no local equivalent of the `Config` check**. It previews
+   `supabase config push` against the production project, and the Supabase CLI has no `--dry-run` —
+   running it locally would apply your changes to production. Let CI preview it in the PR.
 5. Open a Pull Request against `main` and fill in the template. The **`Format`, `Test`, `Build`,
-   `Functions`, `Agents`, and `Changelog`** checks plus **CodeQL** must pass and any review threads must be
-   resolved before it can merge — no approvals are required, so you can self‑merge once it's green.
+   `Functions`, `Agents`, `Changelog`, and `Config`** checks plus **CodeQL** must pass and any review
+   threads must be resolved before it can merge — no approvals are required, so you can self‑merge
+   once it's green. (`Config` only does real work when a PR touches `supabase/config.toml` or
+   `supabase/templates/**`; on every other PR it reports a green no‑op.)
 
 ## Versioning
 

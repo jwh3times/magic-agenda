@@ -17,7 +17,8 @@ Phases 0 and 1 (Edge Function scaffolding, settings page shell, password reset, 
 realtime multi-device sync) **shipped 2026-07-05**, and Phase 2 (Scheduling depth — due times,
 pinned notes, overdue handling & roll-forward, export/import) **shipped 2026-07-06** — see
 [CHANGELOG.md](./CHANGELOG.md) — and their sections have been removed below; remaining
-dependencies on them are satisfied.
+dependencies on them are satisfied. Item **5.7 (branded auth emails) shipped 2026-07-26** and has
+been removed the same way.
 
 | Order | Item                             | Pri | Size | Hard dependencies  |
 | ----- | -------------------------------- | --- | ---- | ------------------ |
@@ -36,7 +37,6 @@ dependencies on them are satisfied.
 | 5.4   | Roles & feature flags            | P2  | L    | —                  |
 | 5.5   | Admin dashboard                  | P2  | L    | 5.4                |
 | 5.6   | Custom auth domain               | P3  | S    | plan/cost decision |
-| 5.7   | Branded auth emails              | P3  | S    | —                  |
 | 6.1   | iCal calendar feed               | P3  | L    | —                  |
 | 6.3   | Attachments                      | P3  | L    | —                  |
 | 6.2   | Shared / collaborative boards    | P3  | XL   | 5.4, ideally 4.2   |
@@ -182,13 +182,6 @@ Total rough effort for the remaining items: ~7–11 weeks of focused solo work.
       `…supabase.co` callback host on the free tier. Supabase custom domain (paid add-on): CNAME
       `auth.magicagenda.app`, activate, update `VITE_SUPABASE_URL` in Pages env, redeploy. No code
       change. Blocked on the Supabase plan decision — a cost call.
-- [ ] **Branded auth emails** · **P3** · S — the confirm-signup and reset-password emails
-      (`supabase/templates/confirmation.html`, `recovery.html`) currently use plain stock markup.
-      Restyle them to match the app's tone and branding — the reset email especially, since
-      password reset (shipped) sends it to real users. Ordinary PR work against those HTML files
-      (they deploy on merge via `Deploy Auth Config`); no dashboard editing. Pairs naturally with
-      5.6 (a branded sender/auth host) if that ever happens.
-
 ## Phase 6 — Bigger bets
 
 Larger efforts that fit the app's direction but are not near-term.

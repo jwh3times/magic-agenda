@@ -20,6 +20,17 @@ updates:
     commit-message:
       prefix: "chore(deps)"
       prefix-development: "chore(dev-deps)"
+    ignore:
+      # TypeScript 7 is unusable here until typescript-eslint's peer range admits it.
+      # As of 2026-07-26 the latest typescript-eslint (8.65.0) still peer-requires
+      # `typescript >=4.8.4 <6.1.0`, so `npm ci` fails ERESOLVE on any TS 7 lockfile and
+      # the lint-and-typescript group PR is red on Format/Test/Build no matter how it is
+      # rebased — grouping cannot fix it, because no compatible typescript-eslint exists
+      # to group WITH (that is why #71 sat open and failing from 2026-07-09).
+      # REMOVE THIS ENTRY once typescript-eslint ships a release whose peer range allows
+      # TS 7; the lint-and-typescript group then bumps both together as designed.
+      - dependency-name: "typescript"
+        versions: [">=7"]
     groups:
       # --- Peer-locked families: a lone major bump leaves an unsatisfiable peer
       #     range, so the family's majors must travel together as one PR. All
@@ -55,7 +66,8 @@ updates:
 
       # @eslint/js is lockstep-versioned with eslint; both plugins peer-cap on the
       # eslint major; typescript-eslint peer-bounds BOTH the eslint major and the
-      # typescript range, so typescript rides along here.
+      # typescript range, so typescript rides along here. (TypeScript majors >=7 are
+      # additionally held back by the `ignore` entry above — see the note there.)
       lint-and-typescript:
         patterns:
           - "eslint"

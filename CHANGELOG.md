@@ -12,6 +12,55 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.22] - 2026-07-26
+
+### Changed
+
+- **The two auth emails are branded.** Confirm-signup and reset-password were still the four-line
+  stock fragments (`<h2>` + a bare link). They now match the auth screen the link actually opens —
+  dark navy panel, violet action button, app mark and wordmark — built table-first with inline
+  styles so Outlook and Gmail render them, and declaring `color-scheme: dark` so dark-mode clients
+  don't re-invert an already-dark email. Both gain a paste-this-link fallback, an explicit
+  "expires in 1 hour, single use" note (matching `otp_expiry = 3600`), and a "you can safely ignore
+  this" line; the confirmation copy now says you'll be signed straight in, which has been true since
+  v1.2.19. **The action URLs are byte-for-byte unchanged** — still
+  `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=…`, the form `verifyOtp` redeems — so the
+  auth flows themselves are untouched. Completes ROADMAP 5.7.
+
+### Docs
+
+- **Corrected the required-checks list everywhere it was stale.** `Config` became a required check
+  when v1.2.20 landed, but `AGENTS.md` still said it was "not yet required", and `README.md`,
+  `CONTRIBUTING.md`, and `SECURITY.md` each listed a different, shorter subset. All four now name
+  the same seven — `Format`, `Test`, `Build`, `Functions`, `Agents`, `Changelog`, `Config` — plus
+  CodeQL. `CONTRIBUTING.md` also records that `Config` has **no** local equivalent on purpose: the
+  Supabase CLI has no `--dry-run`, so running it locally would apply to production.
+- **README no longer points contributors at the auth dashboard.** Setting up your own project still
+  does, but production auth config has been code since v1.2.20 — the deployment section now covers
+  `Deploy Auth Config` alongside `Deploy Migrations`.
+- The config-as-code design spec's status header said "Approved, not yet implemented"; it shipped as
+  v1.2.20 and v1.2.21. The PR template now lists the changelog entry and `npm run codex:check`,
+  both of which gate merges.
+
+### Security
+
+- **Recorded the realtime DELETE stream as a cross-tenant disclosure boundary** (2026-07-25 review,
+  Finding 2 — Low, accepted). The migration's comment described it only as a client-correctness
+  quirk. It now states that DELETE events are fanned out to every subscriber with no owner check
+  (Postgres cannot check access to an already-deleted row), that payloads are capped at primary
+  keys — for `user_settings` that key *is* the auth user id — and records the two standing rules
+  that keep it Low: never put a secret or semantically meaningful value in the primary key of a
+  published table, and never disable RLS on one. `AGENTS.md` carries the same rules. Comment-only;
+  no schema change, and `db push` treats the already-applied migration as a no-op.
+
+### Internal
+
+- **Held TypeScript at 6.x in Dependabot.** The `lint-and-typescript` group PR for TypeScript 7 had
+  been failing since 2026-07-09: `typescript-eslint` peer-requires `typescript <6.1.0`, and its
+  latest release (8.65.0) still does, so `npm ci` fails `ERESOLVE` and grouping cannot help —
+  there is no compatible `typescript-eslint` to group with. An `ignore` entry for `typescript >=7`
+  stops the daily red PR; it comes out once typescript-eslint's peer range admits TS 7.
+
 ## [1.2.21] - 2026-07-26
 
 ### Internal
@@ -418,7 +467,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.21...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.22...HEAD
+[1.2.22]: https://github.com/jwh3times/magic-agenda/compare/v1.2.21...v1.2.22
 [1.2.21]: https://github.com/jwh3times/magic-agenda/compare/v1.2.20...v1.2.21
 [1.2.20]: https://github.com/jwh3times/magic-agenda/compare/v1.2.19...v1.2.20
 [1.2.19]: https://github.com/jwh3times/magic-agenda/compare/v1.2.18...v1.2.19

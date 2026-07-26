@@ -37,10 +37,10 @@ project. Local dev needs a real `.env.local` (copy `.env.example`); `src/lib/sup
 startup if the two `VITE_SUPABASE_*` vars are missing.
 
 `main` is **protected: PR-only, no direct pushes** (no admin bypass). Land changes via a branch + PR;
-the `Format` / `Test` / `Build` / `Functions` / `Agents` / `Changelog` checks and CodeQL must pass and review
-threads resolve before merge (0 approvals required, so you can self-merge once green). A `Config` job
-also runs on PRs touching `supabase/config.toml` or `supabase/templates/**`, previewing the pending
-`supabase config push`; it is **not yet a required check**. Branch names must not start
+the `Format` / `Test` / `Build` / `Functions` / `Agents` / `Changelog` / `Config` checks and CodeQL must
+pass and review threads resolve before merge (0 approvals required, so you can self-merge once green).
+`Config` previews the pending `supabase config push` on PRs touching `supabase/config.toml` or
+`supabase/templates/**` and no-ops elsewhere — it is required, so it reports on every PR. Branch names must not start
 with `release/` — a ruleset protects that namespace and rejects the push; use `chore/release-vX.Y.Z`. Cloudflare Pages builds & deploys `main`
 (`npm run build` -> `dist`), so production only ships after a checks-passing merge. Database migrations
 are applied to production on the same merge by the `Deploy Migrations` workflow (triggered by changes
@@ -170,6 +170,13 @@ get the schema in place before regenerating types. Regenerate `src/types/databas
 `supabase gen types` once the schema is applied (`gen types --linked` reads the remote DB). Keep the
 `mappers.ts` conventions above intact.
 Prefer test-first for pure logic in `src/data` and `src/dnd` (these have thorough unit tests).
+
+Two standing rules for any table in the `supabase_realtime` publication (today `tasks` and
+`user_settings`): **never put a secret or semantically meaningful value in the primary key**, because
+DELETE events are fanned out to every subscriber without an owner check (Postgres cannot check access
+to an already-deleted row), and **never `disable row level security`** on one — that is the single
+change that would escalate the leak from primary keys to full deleted rows. See the header comment on
+`supabase/migrations/20260704090000_realtime_tasks.sql`.
 
 ## When changing auth config
 
