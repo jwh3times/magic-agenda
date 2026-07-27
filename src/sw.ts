@@ -35,10 +35,15 @@ const RUNTIME = `ma-runtime-${VERSION}`
 const SHELL = '/index.html'
 
 sw.addEventListener('install', (event) => {
-  const urls = self.__WB_MANIFEST.map((e) => e.url)
-  event.waitUntil(
-    caches.open(PRECACHE).then((cache) => cache.addAll([...new Set([...urls, SHELL])])),
-  )
+  // The injected manifest emits root-relative URLs with no leading slash (e.g. "index.html"), so
+  // deduping on the raw strings misses that "index.html" and SHELL ("/index.html") resolve to the
+  // same request. cache.addAll's Batch Cache Operations algorithm rejects a batch containing two
+  // entries that resolve to the same request (TypeError: duplicate requests), which would fail
+  // install every time. Resolve everything to an absolute URL first, then dedupe on that.
+  const base = sw.location.href
+  const urls = self.__WB_MANIFEST.map((e) => new URL(e.url, base).href)
+  const toPrecache = [...new Set([...urls, new URL(SHELL, base).href])]
+  event.waitUntil(caches.open(PRECACHE).then((cache) => cache.addAll(toPrecache)))
 })
 
 sw.addEventListener('activate', (event) => {
