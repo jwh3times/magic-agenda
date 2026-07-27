@@ -42,7 +42,7 @@ export interface UseTasks {
   deleteOccurrence: (instance: Task) => Promise<void>
   /** Delete this occurrence and all later ones (caps recur_until, or removes the series). */
   deleteSeriesFuture: (instance: Task) => Promise<void>
-  /** True when the board is hydrated from the offline snapshot: reads work, writes are blocked. */
+  /** True when the board is showing the last-known local snapshot instead of a live server load. */
   offline: boolean
   /** When that snapshot was taken (epoch ms), for the offline banner. Null when online. */
   savedAt: number | null
@@ -85,6 +85,11 @@ export function useTasks(userId: string): UseTasks {
   const tasksRef = useRef<Task[]>([])
   const templatesRef = useRef<Task[]>([])
   const inFlight = useRef(false)
+  // Set true only by reload()'s success path — never by hydrateFromSnapshot(). Gates the
+  // snapshot writer so a failed load with no prior snapshot can't write an empty board that
+  // then reads back as "recently saved offline data" on the next failed load, permanently
+  // masking the fact that we've never actually talked to the server.
+  const hasLoadedFromServer = useRef(false)
 
   // Ids this client just wrote, with expiry. Realtime echoes of our own writes are
   // skipped so they can't clobber newer optimistic state (e.g. during rapid drags).
@@ -188,6 +193,7 @@ export function useTasks(userId: string): UseTasks {
       const all = (data ?? []).map(rowToTask)
       templatesRef.current = all.filter(isTemplate)
       const instances = all.filter((t) => !isTemplate(t))
+      hasLoadedFromServer.current = true
       setOffline(false)
       setSavedAt(null)
       setTasks(instances)
@@ -205,11 +211,18 @@ export function useTasks(userId: string): UseTasks {
   }, [setTasks, materialize, hydrateFromSnapshot])
 
   useEffect(() => {
-    // reload() batches through the PostgREST client, which resolves fetch failures as
-    // `{ error }` rather than throwing, and nothing before its first `await` can throw
-    // synchronously — so neither its own setState calls nor the ones the try/catch can reach
-    // ever fire synchronously within this effect (same reasoning as useSettings.ts's disable
-    // of this rule).
+    // `void reload()` runs reload's synchronous prefix (before its first `await`) inline, and
+    // that prefix does call `setLoading(true)` and `setError(null)` — the rule is right that a
+    // setState call happens during this effect's execution. It's safe here because that call
+    // fires once, not in a loop: on the initial mount both are value-identical to the initial
+    // `useState(true)` / `useState<string | null>(null)`, so React's Object.is bailout means
+    // neither actually triggers a re-render; and `reload` is referentially stable — `setTasks`
+    // and `markWrites` are `useCallback(…, [])`, `hydrateFromSnapshot` depends only on
+    // `[userId, setTasks]` — so calling it can't change this effect's own dependencies and
+    // re-fire it. Unlike useSettings.ts's disable of this same rule (which covers one direct
+    // `setSettings(null)` call), this one blankets an entire async function: any new synchronous
+    // setState added to reload()'s pre-await prefix is silently un-linted, so re-verify this
+    // reasoning before adding one.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void reload()
   }, [reload, userId])
@@ -217,9 +230,13 @@ export function useTasks(userId: string): UseTasks {
   // Persist the board for offline reads. Debounced because optimistic CRUD churns `tasks`;
   // a rolled-back write re-renders the restored state and the next tick writes that, so this
   // is self-correcting and needs no "confirmed" bookkeeping. Suppressed while offline so
-  // savedAt never claims to be fresher than the data.
+  // savedAt never claims to be fresher than the data. Also suppressed until a server load has
+  // actually succeeded this session (hasLoadedFromServer): otherwise a failed load with no
+  // existing snapshot would write `{ tasks: [], templates: [] }`, and that empty envelope would
+  // read back as valid, freshly-saved offline data on the next failed load — indistinguishable
+  // from a genuinely empty board and permanently hiding the fact we never reached the server.
   useEffect(() => {
-    if (!userId || offline || loading) return
+    if (!userId || offline || loading || !hasLoadedFromServer.current) return
     const id = window.setTimeout(() => {
       writeBoardSnapshot(userId, tasksRef.current, templatesRef.current)
     }, 1000)

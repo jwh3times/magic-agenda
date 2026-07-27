@@ -379,6 +379,10 @@ test('a failed load hydrates from the snapshot and materializes nothing', async 
   expect(result.current.offline).toBe(true)
   expect(result.current.savedAt).toBe(1_770_000_000_000)
   expect(result.current.error).toBeNull()
+  // Templates live outside the `tasks` list (in templatesRef), so this is the only way to prove
+  // hydrateFromSnapshot() actually restored them — dropping that assignment would leave every
+  // other assertion in this test passing while silently losing the concept of the series.
+  expect(result.current.getTemplate('tmpl')).toBeDefined()
   // The dangerous one: materialize() inserts rows, and running it over snapshot state
   // risks duplicate instances against tasks_recur_instance_uniq (23505).
   expect(h.insert).not.toHaveBeenCalled()
@@ -392,6 +396,18 @@ test('a failed load with no snapshot still surfaces the error', async () => {
   expect(result.current.error).toContain('Failed to fetch')
 })
 
+test('a failed load with no snapshot does not poison storage with an empty board', async () => {
+  h.capture.selectError = { message: 'FetchError: Failed to fetch' }
+  const { result } = renderHook(() => useTasks('u1'))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  // Advance well past the writer's 1s debounce so this proves no write ever happens, rather
+  // than merely racing a write that just hasn't fired yet. If a server load never succeeds,
+  // writing `{ tasks: [], templates: [] }` here would read back as valid, freshly-saved offline
+  // data on the very next failed load — indistinguishable from a genuinely empty board.
+  await new Promise((r) => setTimeout(r, 1500))
+  expect(localStorage.getItem('ma-snapshot-board')).toBeNull()
+})
+
 test('a successful load writes a snapshot', async () => {
   h.capture.rows = [serverRow()]
   const { result } = renderHook(() => useTasks('u1'))
@@ -400,6 +416,8 @@ test('a successful load writes a snapshot', async () => {
   const snap = JSON.parse(localStorage.getItem('ma-snapshot-board')!)
   expect(snap.userId).toBe('u1')
   expect(snap.tasks).toHaveLength(1)
+  // Proves templatesRef.current is actually threaded into the write call, not just the tasks.
+  expect(snap.templates).toEqual([])
 })
 
 test('reconnecting clears offline mode', async () => {
