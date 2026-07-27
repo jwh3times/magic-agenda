@@ -78,18 +78,30 @@ export function TaskCard({
             📌
           </button>
         )}
-        <button
-          type="button"
-          aria-label={done ? 'Mark not done' : 'Mark done'}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation()
-            onToggleDone?.(task.id)
-          }}
-          style={onTogglePin ? { ...s.check, marginLeft: '0px' } : s.check}
-        >
-          {done ? '✓' : ''}
-        </button>
+        {/* Without a handler this is a status indicator, not a control — so it renders as a span.
+            A <button> that does nothing is still focusable and still announced as a button, which
+            matters wherever cards are shown decoratively (the landing preview, the drag ghost). */}
+        {onToggleDone ? (
+          <button
+            type="button"
+            aria-label={done ? 'Mark not done' : 'Mark done'}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleDone(task.id)
+            }}
+            style={onTogglePin ? { ...s.check, marginLeft: '0px' } : s.check}
+          >
+            {done ? '✓' : ''}
+          </button>
+        ) : (
+          <span
+            aria-hidden="true"
+            style={onTogglePin ? { ...s.check, marginLeft: '0px' } : s.check}
+          >
+            {done ? '✓' : ''}
+          </span>
+        )}
       </div>
 
       {hasList && (

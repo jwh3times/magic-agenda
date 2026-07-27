@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router'
 import { useTheme } from '../theme/ThemeProvider'
 import { inboxChrome } from '../theme/chrome'
 import { useIsMobile } from '../lib/useMediaQuery'
@@ -70,6 +71,28 @@ export function Inbox({ tasks, handlers, pop }: InboxProps) {
           <button type="button" style={c.inboxAdd} onClick={handlers.onAddInbox}>
             + Add to inbox
           </button>
+          {/* ROADMAP 5.3 — the legal pages reachable from the board itself, not only from /settings
+              and the login screen. The roadmap suggested "the mobile toolbar overflow", but no
+              overflow menu exists and the phone toolbar is already three stacked rows; the inbox
+              foot is the one always-rendered surface (it sits outside the view switch in Board)
+              that costs neither board nor toolbar space. */}
+          <div
+            style={{
+              margin: '0 16px 14px',
+              display: 'flex',
+              gap: 12,
+              fontSize: 11,
+              opacity: 0.55,
+              color: conf.numFg,
+            }}
+          >
+            <Link to="/privacy" style={{ color: 'inherit' }}>
+              Privacy
+            </Link>
+            <Link to="/terms" style={{ color: 'inherit' }}>
+              Terms
+            </Link>
+          </div>
         </>
       )}
     </div>

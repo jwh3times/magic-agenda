@@ -33,6 +33,8 @@ of three hand‑built themes.
   button, and an Agenda "Overdue" group with one‑click "Move all to today".
 - **Export & import** — back up your whole board as JSON from Settings → Data, and import it back
   in additively (fresh ids, recurring series links preserved).
+- **A public front door** — signed out, `magicagenda.app` is a landing page with a live, themed
+  preview of the real board (rendered, not screenshotted); signed in, the same URL is your board.
 - **Accounts & sync** — email/password and Google sign‑in; every task is private to you via Postgres
   Row‑Level Security; optimistic updates with rollback.
 - **Works on your phone** — responsive layouts for every view (stacked week, swipeable kanban,

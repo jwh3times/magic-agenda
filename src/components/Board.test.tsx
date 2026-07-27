@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { render, screen } from '@testing-library/react'
 import { afterEach, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router'
 import { ThemeProvider } from '../theme/ThemeProvider'
 import { Board } from './Board'
 import { applyToggleDone } from '../data/selectors'
@@ -9,24 +10,28 @@ import { makeMockTasks } from '../data/mockTasks'
 import type { Task } from '../types/task'
 
 // Mimics BoardPage's data ownership with local state (no Supabase) so Board stays hermetic.
+// MemoryRouter is here because the inbox foot links to /privacy and /terms (ROADMAP 5.3); Board
+// still owns no data and touches no network.
 function Harness() {
   const [tasks, setTasks] = useState<Task[]>(makeMockTasks)
   return (
-    <ThemeProvider>
-      <Board
-        tasks={tasks}
-        setTasks={setTasks}
-        onCreate={(t) => setTasks((p) => [...p, t])}
-        onUpdate={(t) => setTasks((p) => p.map((x) => (x.id === t.id ? t : x)))}
-        onDelete={(id) => setTasks((p) => p.filter((x) => x.id !== id))}
-        onToggleDone={(id) => setTasks((p) => applyToggleDone(p, id).tasks)}
-        persistReorder={(next) => setTasks(next)}
-        getTemplate={() => undefined}
-        updateSeries={() => {}}
-        deleteOccurrence={() => {}}
-        deleteSeriesFuture={() => {}}
-      />
-    </ThemeProvider>
+    <MemoryRouter>
+      <ThemeProvider>
+        <Board
+          tasks={tasks}
+          setTasks={setTasks}
+          onCreate={(t) => setTasks((p) => [...p, t])}
+          onUpdate={(t) => setTasks((p) => p.map((x) => (x.id === t.id ? t : x)))}
+          onDelete={(id) => setTasks((p) => p.filter((x) => x.id !== id))}
+          onToggleDone={(id) => setTasks((p) => applyToggleDone(p, id).tasks)}
+          persistReorder={(next) => setTasks(next)}
+          getTemplate={() => undefined}
+          updateSeries={() => {}}
+          deleteOccurrence={() => {}}
+          deleteSeriesFuture={() => {}}
+        />
+      </ThemeProvider>
+    </MemoryRouter>
   )
 }
 
