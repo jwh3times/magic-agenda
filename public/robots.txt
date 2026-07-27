@@ -1,0 +1,16 @@
+# Magic Agenda — https://magicagenda.app
+#
+# This file exists so that /robots.txt resolves to a real file. `_redirects` rewrites every
+# unmatched path to index.html with a 200, so without it the response was Cloudflare's managed
+# Content Signals block followed by an entire HTML document — directives and markup in one file.
+# Crawlers ignore the unparseable lines, so it still functioned, but it was not a robots.txt.
+#
+# Cloudflare prepends its managed Content Signals block to whatever is here; that block sets
+# `User-agent: * / Allow: /` plus AI-crawler opt-outs, and is managed in the Cloudflare dashboard
+# rather than in this repo.
+
+User-agent: *
+Allow: /
+
+# Auth redemption routes carry single-use tokens and have nothing worth indexing.
+Disallow: /auth/
