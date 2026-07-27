@@ -21,23 +21,25 @@ dependencies on them are satisfied. Items **5.7 (branded auth emails, 2026-07-26
 5.3 (public landing page, Google mark, in-app legal links, 2026-07-27)** shipped and have been
 removed the same way.
 
-| Order | Item                             | Pri | Size | Hard dependencies  |
-| ----- | -------------------------------- | --- | ---- | ------------------ |
-| 3.1   | Installable PWA + offline read   | P2  | L    | —                  |
-| 4.1   | Settings: week-start & timezone  | P3  | M    | —                  |
-| 3.2   | Reminders / notifications        | P2  | XL   | 3.1, 4.1           |
-| 4.2   | Custom labels / categories       | P2  | XL   | —                  |
-| 4.3   | Richer recurrence                | P3  | L    | —                  |
-| 4.4   | Quick-add & keyboard shortcuts   | P3  | L    | —                  |
-| 4.5   | Bulk multi-select                | P3  | L    | —                  |
-| 4.6   | Undo                             | P3  | M    | best after 4.5     |
-| 4.7   | Completed / archive view + stats | P3  | M    | —                  |
-| 5.4   | Roles & feature flags            | P2  | L    | —                  |
-| 5.5   | Admin dashboard                  | P2  | L    | 5.4                |
-| 5.6   | Custom auth domain               | P3  | S    | plan/cost decision |
-| 6.1   | iCal calendar feed               | P3  | L    | —                  |
-| 6.3   | Attachments                      | P3  | L    | —                  |
-| 6.2   | Shared / collaborative boards    | P3  | XL   | 5.4, ideally 4.2   |
+| Order | Item                             | Pri | Size | Hard dependencies      |
+| ----- | -------------------------------- | --- | ---- | ---------------------- |
+| 3.1   | Installable PWA + offline read   | P2  | L    | —                      |
+| 4.1   | Settings: week-start & timezone  | P3  | M    | —                      |
+| 3.2   | Reminders / notifications        | P2  | XL   | 3.1, 4.1               |
+| 4.2   | Custom labels / categories       | P2  | XL   | —                      |
+| 4.3   | Richer recurrence                | P3  | L    | —                      |
+| 4.4   | Quick-add & keyboard shortcuts   | P3  | L    | —                      |
+| 4.5   | Bulk multi-select                | P3  | L    | —                      |
+| 4.6   | Undo                             | P3  | M    | best after 4.5         |
+| 4.7   | Completed / archive view + stats | P3  | M    | —                      |
+| 4.8   | Two-factor (TOTP) enrollment UI  | P3  | M    | —                      |
+| 5.4   | Roles & feature flags            | P2  | L    | —                      |
+| 5.5   | Admin dashboard                  | P2  | L    | 5.4                    |
+| 5.6   | Custom auth domain               | P3  | S    | Supabase Pro (~$35/mo) |
+| 5.8   | Leaked-password protection       | P3  | S    | Supabase Pro ($25/mo)  |
+| 6.1   | iCal calendar feed               | P3  | L    | —                      |
+| 6.3   | Attachments                      | P3  | L    | —                      |
+| 6.2   | Shared / collaborative boards    | P3  | XL   | 5.4, ideally 4.2       |
 
 Total rough effort for the remaining items: ~7–11 weeks of focused solo work.
 
@@ -88,8 +90,12 @@ Total rough effort for the remaining items: ~7–11 weeks of focused solo work.
 
 ## Phase 4 — Productivity & personalization
 
-- [ ] **Settings: week-start & timezone** · **P3** · M — completes the settings page; dates are
-      effectively UTC today. Schema: `user_settings.week_start int not null default 0`,
+- [ ] **Settings: week-start & timezone** · **P3** · M — completes the settings page. Dates are
+      **browser-local** today, not UTC: `lib/dates.ts` builds every `YYYY-MM-DD` from
+      `getFullYear`/`getMonth`/`getDate` and `parseDay` returns a local `Date`, so a single-device
+      user is already correct. What is missing is a _stored_ timezone — which is what a server-side
+      sender (3.2, an Edge Function with no browser to ask) and cross-timezone travel both need.
+      Schema: `user_settings.week_start int not null default 0`,
       `user_settings.timezone text` (IANA, NULL = browser). `startOfWeek`, `buildWeekCells`,
       `buildMonthGrid` take a `weekStart` param (pure — test-first; weekday headers rotate);
       "today" moves behind `todayYmd(tz?)` in `lib/dates.ts` using `Intl.DateTimeFormat`. Risk:
@@ -146,6 +152,22 @@ Total rough effort for the remaining items: ~7–11 weeks of focused solo work.
       weeks, plain divs — no chart dep) + current streak. Optional auto-archive: selector filter
       hiding done tasks older than 30 days from the board (they remain in History).
 
+- [ ] **Two-factor (TOTP) enrollment UI** · **P3** · M — **production already allows TOTP and the
+      app cannot reach it**: `supabase/config.toml`'s `[auth.mfa.totp]` sets `enroll_enabled` and
+      `verify_enabled` true (max 10 factors), while nothing in `src/` calls `supabase.auth.mfa.*`.
+      So this is closing a live gap, not adding a capability — and it needs **no config change**.
+      Two halves: (a) a "Two-factor authentication" section on `/settings` — `mfa.enroll` (factor
+      type `totp`) renders the returned QR SVG + secret, `mfa.challenge` + `mfa.verify` activate it,
+      `mfa.listFactors` lists enrolled factors, `mfa.unenroll` removes one behind a confirm; (b) a
+      step-up gate at login — after sign-in, `mfa.getAuthenticatorAssuranceLevel()` returning
+      `currentLevel: 'aal1'` with `nextLevel: 'aal2'` must render a 6-digit challenge before the
+      board, which belongs in `ProtectedRoute` (the one place every signed-in route passes through).
+      Test with the `mfa` methods mocked, the way `Login.test.tsx` mocks auth today. Two risks to
+      write down rather than discover: Supabase issues **no backup codes**, so a lost authenticator
+      needs maintainer intervention on a solo project — say so in the settings copy; and RLS policies
+      key on `auth.uid()` only, so enrolling does **not** harden the data boundary unless a policy
+      later requires `aal2`. Do not gate RLS on AAL in the same PR.
+
 ## Phase 5 — Public face & admin
 
 - [ ] **Roles & feature flags** · **P2** · L — the foundation the admin dashboard builds on.
@@ -164,7 +186,23 @@ Total rough effort for the remaining items: ~7–11 weeks of focused solo work.
 - [ ] **Custom auth domain** · **P3** · S (mostly ops) — the Google consent screen shows the
       `…supabase.co` callback host on the free tier. Supabase custom domain (paid add-on): CNAME
       `auth.magicagenda.app`, activate, update `VITE_SUPABASE_URL` in Pages env, redeploy. No code
-      change. Blocked on the Supabase plan decision — a cost call.
+      change. **Deferred by decision, not undecided:** priced 2026-07-26 at Supabase Pro ($25/mo,
+      org-level) plus the custom-domain add-on ($10/mo, per project) = $35/mo. The plan decision
+      went the other way for now — nightly encrypted `pg_dump` backups (v1.2.25) bought back Pro's
+      strongest benefit for $0 — so this waits until the app has users beyond the maintainer. The
+      same purchase is what would enable leaked-password protection (HIBP), the one open item from
+      the security reviews.
+
+- [ ] **Leaked-password protection (HIBP)** · **P3** · S (ops, no code) — the last open security
+      finding, carried since 2026-06-30. Supabase checks new passwords against Have I Been Pwned
+      (k-anonymity: only the first 5 hex chars of the SHA-1 leave the project), but it is a **Pro**
+      feature, so this is the same $25/mo purchase as 5.6 and is deferred with it. Current
+      mitigation, live in `config.toml`: `minimum_password_length = 10` plus
+      `password_requirements = "lower_upper_letters_digits_symbols"` — that excludes most weak
+      passwords and leaves exactly one hole, the breached-yet-complex password. When bought, this is
+      a one-key config change that deploys through the existing `Deploy Auth Config` workflow. The
+      full argument lives in the maintainer's git-ignored security reviews; it is named here so the
+      public roadmap doesn't imply the item doesn't exist.
 
 ## Phase 6 — Bigger bets
 
@@ -176,7 +214,8 @@ Larger efforts that fit the app's direction but are not near-term.
       "rotate link" button on `/settings` (token = capability; document the secret-URL model).
       v1 exports recurring instances as literal events (simple and correct since instances are
       materialized rows); RRULE/EXDATE mapping is v2. Extract a pure `tasksToIcs()` module shared
-      into the function dir, tested with Deno in a new `Functions Test` CI job. Cache 5 min via
+      into the function dir, tested with Deno under the **existing** required `Functions` CI job
+      (`ci.yml`, `deno test` run from inside `supabase/functions`). Cache 5 min via
       `Cache-Control` — calendar clients poll aggressively.
 - [ ] **Attachments** · **P3** · L — file uploads on tasks via Supabase Storage. Bucket
       `attachments`, path `userId/taskId/filename`, storage RLS matching the path prefix to
