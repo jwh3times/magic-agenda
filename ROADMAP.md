@@ -17,8 +17,9 @@ Phases 0 and 1 (Edge Function scaffolding, settings page shell, password reset, 
 realtime multi-device sync) **shipped 2026-07-05**, and Phase 2 (Scheduling depth — due times,
 pinned notes, overdue handling & roll-forward, export/import) **shipped 2026-07-06** — see
 [CHANGELOG.md](./CHANGELOG.md) — and their sections have been removed below; remaining
-dependencies on them are satisfied. Item **5.7 (branded auth emails) shipped 2026-07-26** and has
-been removed the same way.
+dependencies on them are satisfied. Items **5.7 (branded auth emails, 2026-07-26)** and **5.1 / 5.2 /
+5.3 (public landing page, Google mark, in-app legal links, 2026-07-27)** shipped and have been
+removed the same way.
 
 | Order | Item                             | Pri | Size | Hard dependencies  |
 | ----- | -------------------------------- | --- | ---- | ------------------ |
@@ -31,9 +32,6 @@ been removed the same way.
 | 4.5   | Bulk multi-select                | P3  | L    | —                  |
 | 4.6   | Undo                             | P3  | M    | best after 4.5     |
 | 4.7   | Completed / archive view + stats | P3  | M    | —                  |
-| 5.1   | Public landing page              | P3  | M    | —                  |
-| 5.2   | Google "G" logo on OAuth button  | P3  | S    | —                  |
-| 5.3   | Privacy & Terms links in-app     | P2  | S    | bundle with 5.1    |
 | 5.4   | Roles & feature flags            | P2  | L    | —                  |
 | 5.5   | Admin dashboard                  | P2  | L    | 5.4                |
 | 5.6   | Custom auth domain               | P3  | S    | plan/cost decision |
@@ -150,21 +148,6 @@ Total rough effort for the remaining items: ~7–11 weeks of focused solo work.
 
 ## Phase 5 — Public face & admin
 
-- [ ] **Public landing page (unblocks Google OAuth branding verification)** · **P3** · M — Google's
-      branding verification fails on three counts, all because `magicagenda.app` routes straight to
-      the login wall: the home page is behind a login, doesn't explain the app's purpose, and the
-      domain isn't verified as owned. Signed-out `/` renders a static marketing page (hero, theme
-      screenshots, feature bullets, Privacy/Terms, "Get started"); signed-in `/` keeps rendering
-      the board — `session ? <BoardPage/> : <Landing/>` in `App.tsx`, no URL migration, no broken
-      bookmarks. Add real `<title>`/meta per route. Manual steps in the PR: verify the domain in
-      Google Search Console, re-request OAuth branding review.
-- [ ] **Google "G" logo on Continue-with-Google** · **P3** · S — replace the generic blue "G" with
-      the official multi-color mark as an inline SVG in `Login.tsx`, per Google branding
-      guidelines.
-- [ ] **Privacy & Terms links while logged in** · **P2** · S — surface the legal pages from inside
-      the app, not just the login screen. The `/settings` footer already links them (shipped with
-      the settings page); remaining: a small link row in the mobile toolbar overflow. Bundle into
-      the 5.1 PR.
 - [ ] **Roles & feature flags** · **P2** · L — the foundation the admin dashboard builds on.
       Schema: `user_roles (user_id pk, role text check (role in ('admin')))` — presence = admin,
       users read own row only; `feature_flags (key text pk, enabled boolean, description text)` —

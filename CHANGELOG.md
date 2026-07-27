@@ -12,6 +12,45 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.28] - 2026-07-27
+
+### Added
+
+- **`magicagenda.app` has a front door.** Signed out, `/` was a login wall — which is exactly why
+  Google's OAuth branding verification fails: the home page didn't explain what the app is. It now
+  renders a landing page with the headline, what the product does, the feature list, and links to
+  Privacy and Terms. Signed in, `/` still renders your board, so no URL moved and no bookmark broke.
+  (ROADMAP 5.1.)
+
+  **The hero shows a live board, not a screenshot.** It renders the real `TaskCard` against the real
+  theme tokens using the mock board already in the repo — genuine rotation, pins, DONE stamps,
+  per-theme shadows — with a Cork / Neon-Brutalist / Aurora-Glass toggle beneath it. Nothing to
+  capture, commit at 2×, or re-take when the UI changes; it cannot drift from the product because it
+  *is* the product rendering. The toggle is local to the page and never writes to your saved theme.
+
+- **Privacy and Terms are reachable from the board itself** (ROADMAP 5.3), in the inbox foot. The
+  roadmap suggested the mobile toolbar overflow, but no overflow menu exists and the phone toolbar
+  is already three stacked rows; the inbox renders in every view and costs no board space.
+
+### Changed
+
+- **The Google sign-in button uses Google's actual mark** (ROADMAP 5.2) — the official multi-colour
+  "G" as an inline SVG, replacing a blue letter, per their branding guidelines. Inline because the
+  CSP allows no external asset hosts.
+- **A task card with no `onToggleDone` renders its checkbox as a status indicator, not a button.**
+  It was always a `<button>` with an optional-chained handler, so decorative cards shipped a
+  focusable control that did nothing — reachable by keyboard and announced as a button. Found by the
+  landing preview's accessibility test.
+
+### Internal
+
+- Per-route `<title>`/description via a small `useDocumentTitle` hook — no new dependency; the static
+  og/twitter tags in `index.html` stay as the sitewide default.
+- The preview is lazy-loaded inside the landing page. Importing it eagerly grew the entry chunk
+  459.7 → 491.7 kB, because the card and theme modules hoist into the chunk every visitor pays for;
+  splitting it holds the entry at 465.5 kB (+1.9 kB gzip over baseline) and moves ~27 kB behind
+  first paint, where `BoardPage` now shares it — that chunk shrank 100.1 → 90.6 kB.
+
 ## [1.2.27] - 2026-07-27
 
 ### Fixed
@@ -575,7 +614,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.27...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.28...HEAD
+[1.2.28]: https://github.com/jwh3times/magic-agenda/compare/v1.2.27...v1.2.28
 [1.2.27]: https://github.com/jwh3times/magic-agenda/compare/v1.2.26...v1.2.27
 [1.2.26]: https://github.com/jwh3times/magic-agenda/compare/v1.2.25...v1.2.26
 [1.2.25]: https://github.com/jwh3times/magic-agenda/compare/v1.2.24...v1.2.25
