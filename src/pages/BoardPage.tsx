@@ -6,15 +6,15 @@ import { Spinner } from '../components/Spinner'
 import { ErrorScreen } from '../components/ErrorScreen'
 import { Toast } from '../components/Toast'
 import { useTasks } from '../data/useTasks'
-import { useSettings } from '../data/useSettings'
+import { useSettingsContext } from '../data/SettingsProvider'
 
-/** The signed-in board: owns the Supabase-backed task + settings state, seeds the theme. */
+/** The signed-in board: owns the Supabase-backed task state, reads session-wide settings. */
 export function BoardPage() {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
   const userId = user?.id ?? ''
   const t = useTasks(userId)
-  const { settings, loading: settingsLoading, saveTheme } = useSettings(userId)
+  const { settings, loading: settingsLoading, saveTheme } = useSettingsContext()
 
   if (!user || settingsLoading || !settings) return <Spinner />
 

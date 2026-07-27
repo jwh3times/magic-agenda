@@ -6,7 +6,7 @@ import { ThemeSwitcher } from '../components/ThemeSwitcher'
 import { DangerZone } from '../components/DangerZone'
 import { DataSection } from '../components/DataSection'
 import { Spinner } from '../components/Spinner'
-import { useSettings } from '../data/useSettings'
+import { useSettingsContext } from '../data/SettingsProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
 import type { ViewName } from '../types/task'
 
@@ -28,11 +28,10 @@ const SECTIONS: SettingsSection[] = [
   { id: 'danger', title: 'Danger zone', render: () => <DangerZone /> },
 ]
 
-/** The protected /settings route: owns its own settings state + theme, like BoardPage. */
+/** The protected /settings route: reads the session-wide settings, seeds the theme. */
 export function SettingsPage() {
   const { user } = useAuth()
-  const userId = user?.id ?? ''
-  const { settings, loading, saveTheme, saveView } = useSettings(userId)
+  const { settings, loading, saveTheme, saveView } = useSettingsContext()
 
   if (!user || loading || !settings) return <Spinner />
 

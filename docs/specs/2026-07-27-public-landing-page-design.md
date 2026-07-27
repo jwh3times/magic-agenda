@@ -1,7 +1,8 @@
 # Public Landing Page — Design
 
 - **Date:** 2026-07-27
-- **Status:** Approved, not yet implemented
+- **Status:** Shipped as v1.2.28 (PR #101), with two page-content follow-ups in v1.2.29 (PR #102) —
+  see the correction under "Follow-ups this spec creates"
 - **Delivers:** ROADMAP 5.1 (public landing page), 5.3 (Privacy/Terms links while logged in), and
   5.2 (official Google mark on the OAuth button) as one bundle.
 

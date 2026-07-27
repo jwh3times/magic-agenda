@@ -12,6 +12,35 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.32] - 2026-07-27
+
+### Changed
+
+- **Settings load once per session instead of once per route.** `useSettings` was called
+  independently by `BoardPage` (`/`) and `SettingsPage` (`/settings`). Those routes are mutually
+  exclusive, so every navigation between them unmounted the hook: settings were refetched, the
+  realtime channel was torn down and rebuilt, and — because both pages gate on `loading` with a
+  full-page spinner — each trip to settings flashed one. A `SettingsProvider` mounted above
+  `<Routes>` now owns that state, so there is one fetch and one channel per session and no spinner
+  on the way to settings.
+
+  Returning to the board still shows `Loading your board…`. `useTasks` is deliberately **not**
+  hoisted alongside it: `BoardPage` is lazy-loaded precisely to keep dnd-kit and the board data
+  layer out of the entry chunk, and lifting `useTasks` up would pull them back in.
+
+  Because the provider sits above the router, it also mounts for signed-out visitors — so
+  `useSettings` now no-ops on an empty `userId`. Without that guard every visitor to the public
+  landing page would have fired a `user_settings` query for `user_id = ''`. A test pins it, along
+  with the single-fetch/single-channel behaviour and the "used outside the provider" error.
+
+  Measured cost: the settings hook moves out of the two lazy page chunks and into the entry chunk,
+  which grows 465.7 → 467.3 kB (+0.5 kB gzip). `BoardPage` is unchanged at 90.6 kB.
+
+### Docs
+
+- The public-landing-page spec still read "Approved, not yet implemented" four versions after it
+  shipped. It now records v1.2.28 and the v1.2.29 follow-ups.
+
 ## [1.2.31] - 2026-07-27
 
 ### Fixed

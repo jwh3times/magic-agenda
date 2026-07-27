@@ -25,7 +25,15 @@ export function useSettings(userId: string): UseSettings {
 
   useEffect(() => {
     let active = true
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // Signed out. This hook now runs from a provider mounted above <Routes>, so it also mounts on
+    // the public landing page — without this guard every signed-out visitor would fire a
+    // user_settings query for `user_id = ''`.
+    if (!userId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSettings(null)
+      setLoading(false)
+      return
+    }
     setLoading(true)
     supabase
       .from('user_settings')
