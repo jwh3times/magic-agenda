@@ -132,7 +132,19 @@ The landing page removes the blocker; it does not complete the review.
 
 ## Follow-ups this spec creates
 
-1. If Google's review still fails after verification, the remaining gap is likely domain ownership
-   rather than page content — re-read their rejection before changing the page.
+1. ~~If Google's review still fails after verification, the remaining gap is likely domain ownership
+   rather than page content — re-read their rejection before changing the page.~~
+   **Wrong, corrected 2026-07-27 (v1.2.29).** Google's rejection named two page-content gaps this
+   design missed:
+   - **The app is client-rendered, so the served `<body>` is an empty `<div id="root">`.** A checker
+     that does not execute JavaScript sees no content at all — which reads as both "behind a login"
+     and "does not explain the purpose", the two things this page was built to fix. Addressed with a
+     `<noscript>` block in `index.html` carrying the app name, the purpose, and the legal links. If a
+     future review still fails on content, the escalation is pre-rendering the landing route at build
+     time rather than adding more meta tags.
+   - **The app name existed only as `alt` text and a footer copyright line.** The header logo is an
+     `<img>`, and the wordmark inside that SVG (lowercase "magic agenda") is invisible to the DOM, so
+     nothing on the page matched the consent screen's "Magic Agenda". The header now renders the name
+     as text beside the icon mark, and the hero sentence names the app.
 2. ROADMAP 5.6 (custom auth domain) removes the `…supabase.co` host from the consent screen and
    pairs naturally with this, but is Pro-gated and remains a cost decision.

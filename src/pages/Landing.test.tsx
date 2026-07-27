@@ -32,6 +32,18 @@ test('explains what the product is and how to start — the two things the Googl
   expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login')
 })
 
+// Google's branding verification rejected the site because "the app name configured for your OAuth
+// consent screen does not match the app name on your home page". The name was only ever an <img>
+// alt attribute and a footer copyright line — the logo's wordmark lives inside an SVG the DOM never
+// sees, and renders lowercase. This pins the exact configured name as visible page text.
+test('shows the OAuth app name "Magic Agenda" as real text, not only as image alt text', () => {
+  const { container } = renderLanding()
+  const header = container.querySelector('header') as HTMLElement
+  expect(within(header).getByText('Magic Agenda')).toBeInTheDocument()
+  // ...and the purpose sentence names the app, so name and purpose are tied together on the page.
+  expect(screen.getByText(/^Magic Agenda is a drag-and-drop task board/)).toBeInTheDocument()
+})
+
 test('links the legal pages', () => {
   renderLanding()
   expect(screen.getByRole('link', { name: 'Privacy' })).toHaveAttribute('href', '/privacy')

@@ -34,6 +34,43 @@
   </head>
   <body>
     <div id="root"></div>
+    <!--
+      Static fallback for clients that do not execute JavaScript. This app is a client-rendered SPA,
+      so without it the served <body> is an empty <div id="root"> — which reads to a non-JS crawler
+      as a page with no content at all. Google's OAuth branding verification rejected the site for
+      "home page is behind a login" and "does not explain the purpose of your app" on exactly that
+      basis. Keep the app name and the purpose sentence here, and keep them matching the OAuth
+      consent screen's app name ("Magic Agenda") and the landing page copy.
+    -->
+    <noscript>
+      <div
+        style="
+          max-width: 640px;
+          margin: 0 auto;
+          padding: 40px 20px;
+          font-family: system-ui, sans-serif;
+          color: #eaf0ff;
+          background: #0b0f1f;
+        "
+      >
+        <h1 style="font-size: 28px; margin: 0 0 4px">Magic Agenda</h1>
+        <p style="font-size: 17px; margin: 0 0 18px; opacity: 0.75">Your week, on sticky notes.</p>
+        <p style="line-height: 1.6; opacity: 0.7">
+          Magic Agenda is a drag-and-drop task board that feels like a corkboard, not a spreadsheet.
+          Plan your week on sticky notes across calendar, week, agenda, and kanban views, with three
+          visual themes, recurring tasks, due times, and priority pins — synced across every device.
+          Every task is private to your account.
+        </p>
+        <p style="line-height: 1.6; opacity: 0.7">
+          Magic Agenda needs JavaScript enabled to run the board itself.
+        </p>
+        <p style="opacity: 0.6">
+          <a href="/login" style="color: #a78bfa">Sign in or create an account</a> ·
+          <a href="/privacy" style="color: #a78bfa">Privacy</a> ·
+          <a href="/terms" style="color: #a78bfa">Terms</a>
+        </p>
+      </div>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
