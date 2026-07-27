@@ -12,6 +12,55 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.31] - 2026-07-27
+
+### Fixed
+
+- **The restore runbook was wrong in six places, found by rehearsing it for the first time.** The
+  nightly backup itself has been verified since v1.2.27, but the restore had only ever been read. It
+  was executed end to end twice against backup run `30265510548` — into a local `supabase start` stack
+  and into a throwaway hosted project. Both reached counts matching production with every integrity
+  check clean, but not before the file failed in ways that would each have cost time during an outage:
+
+  - **The documented connection host cannot be reached.** `db.<ref>.supabase.co` is IPv6-only —
+    Supabase publishes no `A` record for it — so step 3 died on its first command with `could not
+    translate host name`. The runbook now connects through the Session pooler
+    (`postgres.<ref>@aws-0-<region>.pooler…:5432`) and explains why it must be the session pooler and
+    not the transaction one: replica mode is a session setting and the load is one transaction.
+  - **Restoring `schema.sql` silently omits `on_auth_user_created`.** That trigger sits on
+    `auth.users` and the bundle's schema dump is `public`-only, so the primary documented path built a
+    database that passed every check the runbook listed while giving **new signups no `user_settings`
+    row**. Existing users would have looked fine; only later registrations would break. Confirmed by
+    probe insert on real infrastructure, and the fix is now spelled out with the DDL.
+  - **Verification never checked that RLS survived.** RLS is the only authorization boundary in this
+    app, so a restore that dropped it would be a security incident that the row counts and both orphan
+    queries reported as clean. Step 4 now asserts `relrowsecurity`, the policy count, and the trigger.
+  - **The circular foreign key was mis-stated as a restore hazard.** It is not one: the CLI emits a
+    single multi-row `INSERT` per table, and foreign keys are `AFTER … FOR EACH ROW` triggers queued to
+    end of statement, so row order within it cannot matter. Verified by forcing a recurrence template
+    onto the statement's final line at 5,064 rows with replica mode off — it restored cleanly. The
+    other stated reason, the `on_auth_user_created` settings-row collision, **is** real and was
+    reproduced.
+  - **`data.sql` sets and resets replica mode itself** — line 1 and a closing `RESET ALL` — which makes
+    the runbook's `-c "SET …"` redundant. It is kept for visibility, now labelled as such, with a
+    warning never to strip line 1.
+  - **The privilege fallback was incomplete.** Because that `SET` lives inside `data.sql`, a refusal
+    aborts the load from within the file, so the advice to drop the trigger and retry would not work
+    without also stripping line 1. The privilege itself is fine — `postgres` reports `usesuper = f`
+    and the `SET` still succeeds — now verified rather than asserted parenthetically.
+
+  Three further notes went in: the prerequisites do not hold on Windows as written (`gpg` ships with
+  Git for Windows and is missing from PowerShell's `PATH`; `psql` need not be installed at all, since a
+  `postgres:17` container works and is how this was rehearsed), the `orphan_recur_parents` check is
+  **vacuous** on current data because production holds no recurrence rows, and the passphrase in the
+  maintainer's password manager does open the bundle — something previously proven only inside CI.
+
+### Docs
+
+- `AGENTS.md` gave the `tasks.recur_parent_id` self-reference as a reason restores need triggers
+  disabled. It is not one, and that paragraph now carries the three corrections the rehearsal produced,
+  including the `schema.sql` trigger gap and the IPv6-only host.
+
 ## [1.2.30] - 2026-07-27
 
 ### Fixed
