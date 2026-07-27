@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { readSettingsSnapshot, writeSettingsSnapshot } from './snapshot'
 import type { ThemeName, ViewName } from '../types/task'
 
 export interface Settings {
@@ -23,6 +24,17 @@ export function useSettings(userId: string): UseSettings {
   const ref = useRef<Settings>(DEFAULTS)
   const lastLocalWrite = useRef(0)
 
+  // The one place settings become current: keeps the ref, React state, and the offline
+  // snapshot in step, so no caller can update two of the three and forget the last.
+  const apply = useCallback(
+    (next: Settings, persistSnapshot = true) => {
+      ref.current = next
+      setSettings(next)
+      if (persistSnapshot) writeSettingsSnapshot(userId, next)
+    },
+    [userId],
+  )
+
   useEffect(() => {
     let active = true
     // Signed out. This hook now runs from a provider mounted above <Routes>, so it also mounts on
@@ -40,19 +52,28 @@ export function useSettings(userId: string): UseSettings {
       .select('*')
       .eq('user_id', userId)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
         if (!active) return
-        const next: Settings = data
-          ? { theme: data.theme as ThemeName, defaultView: data.default_view as ViewName }
-          : DEFAULTS
-        ref.current = next
-        setSettings(next)
+        if (error) {
+          // A failed request is NOT "no row yet" — postgrest resolves with { data: null, error }
+          // rather than rejecting, so treating them alike would silently reset the user's theme
+          // to DEFAULTS on every offline boot. Fall back to the last known settings instead, and
+          // do not re-snapshot: nothing new was learned.
+          apply(readSettingsSnapshot(userId)?.settings ?? DEFAULTS, false)
+          setLoading(false)
+          return
+        }
+        apply(
+          data
+            ? { theme: data.theme as ThemeName, defaultView: data.default_view as ViewName }
+            : DEFAULTS,
+        )
         setLoading(false)
       })
     return () => {
       active = false
     }
-  }, [userId])
+  }, [userId, apply])
 
   // Live settings changes from other devices. Skip events shortly after a local
   // persist — the echo of our own upsert could otherwise transiently revert a
@@ -74,21 +95,19 @@ export function useSettings(userId: string): UseSettings {
           }
           if (next.theme === ref.current.theme && next.defaultView === ref.current.defaultView)
             return
-          ref.current = next
-          setSettings(next)
+          apply(next)
         },
       )
       .subscribe()
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [userId])
+  }, [userId, apply])
 
   const persist = useCallback(
     (next: Settings) => {
       lastLocalWrite.current = Date.now()
-      ref.current = next
-      setSettings(next)
+      apply(next)
       // Must call `.then()` — a Supabase builder is a lazy thenable that only sends
       // its request when awaited/then'd. `void <builder>` would never fire it.
       void supabase
@@ -104,7 +123,7 @@ export function useSettings(userId: string): UseSettings {
           (e: unknown) => console.error('Failed to save settings', e),
         )
     },
-    [userId],
+    [userId, apply],
   )
 
   const saveTheme = useCallback((theme: ThemeName) => persist({ ...ref.current, theme }), [persist])
