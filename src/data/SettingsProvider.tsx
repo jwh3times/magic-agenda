@@ -1,6 +1,7 @@
 import { createContext, useContext, type ReactNode } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import { useSettings, type UseSettings } from './useSettings'
+import { readLastUserId } from '../lib/lastUser'
 
 const SettingsContext = createContext<UseSettings | null>(null)
 
@@ -22,7 +23,7 @@ const SettingsContext = createContext<UseSettings | null>(null)
  */
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
-  const value = useSettings(user?.id ?? '')
+  const value = useSettings(user?.id ?? readLastUserId())
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>
 }
 

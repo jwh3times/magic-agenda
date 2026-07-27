@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
-import { expect, test, vi } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest'
 
 const auth = vi.hoisted(() => ({
   current: {
@@ -16,6 +16,16 @@ const auth = vi.hoisted(() => ({
 vi.mock('./AuthProvider', () => ({ useAuth: () => auth.current }))
 
 import { ProtectedRoute } from './ProtectedRoute'
+
+function setOnLine(value: boolean) {
+  Object.defineProperty(navigator, 'onLine', { value, configurable: true })
+}
+
+afterEach(() => {
+  setOnLine(true)
+  auth.current.session = { user: { id: 'u1' } }
+  auth.current.passwordRecovery = false
+})
 
 function renderAt(path: string) {
   return render(
@@ -47,4 +57,29 @@ test('redirects a recovery session to /auth/reset instead of the board', () => {
   renderAt('/')
   expect(screen.getByText('reset page')).toBeInTheDocument()
   expect(screen.queryByText('the board')).not.toBeInTheDocument()
+})
+
+test('redirects to login when signed out and online', () => {
+  auth.current.session = null
+  renderAt('/')
+  expect(screen.getByText('login page')).toBeInTheDocument()
+})
+
+test('renders the board offline when a snapshot exists for the last user', () => {
+  auth.current.session = null
+  localStorage.setItem('ma-last-user', 'u1')
+  localStorage.setItem(
+    'ma-snapshot-board',
+    JSON.stringify({ v: 1, userId: 'u1', savedAt: 1, tasks: [], templates: [] }),
+  )
+  setOnLine(false)
+  renderAt('/')
+  expect(screen.getByText('the board')).toBeInTheDocument()
+})
+
+test('still redirects offline when there is no snapshot', () => {
+  auth.current.session = null
+  setOnLine(false)
+  renderAt('/')
+  expect(screen.getByText('login page')).toBeInTheDocument()
 })

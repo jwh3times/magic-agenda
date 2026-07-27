@@ -2,6 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { clearBoardView } from '../lib/viewStorage'
+import { clearSnapshots } from '../data/snapshot'
+import { clearLastUserId, writeLastUserId } from '../lib/lastUser'
 
 // Recovery-session marker. Persisted per-tab so a reload of /auth/reset can't
 // silently drop the "must set a new password" gate (the PASSWORD_RECOVERY event
@@ -32,10 +34,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data }) => {
       if (!active) return
       setSession(data.session)
+      if (data.session?.user.id) writeLastUserId(data.session.user.id)
       setLoading(false)
     })
     const { data: sub } = supabase.auth.onAuthStateChange((event, next) => {
       setSession(next)
+      if (next?.user.id) writeLastUserId(next.user.id)
       if (event === 'PASSWORD_RECOVERY') {
         sessionStorage.setItem(RECOVERY_FLAG_KEY, '1')
         setPasswordRecovery(true)
@@ -46,6 +50,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setPasswordRecovery(false)
         // Next sign-in should land on the default view, not the signed-out user's last view.
         clearBoardView()
+        // Task text at rest is acceptable only because it does not outlive the session on this
+        // device. Account deletion signs out too, so it lands here as well.
+        clearSnapshots()
+        clearLastUserId()
       }
     })
     return () => {

@@ -7,12 +7,13 @@ import { ErrorScreen } from '../components/ErrorScreen'
 import { Toast } from '../components/Toast'
 import { useTasks } from '../data/useTasks'
 import { useSettingsContext } from '../data/SettingsProvider'
+import { readLastUserId } from '../lib/lastUser'
 
 /** The signed-in board: owns the Supabase-backed task state, reads session-wide settings. */
 export function BoardPage() {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
-  const userId = user?.id ?? ''
+  const userId = user?.id ?? readLastUserId()
   const t = useTasks(userId)
   const { settings, loading: settingsLoading, saveTheme } = useSettingsContext()
 
