@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { SettingsProvider } from './data/SettingsProvider'
 import { Spinner } from './components/Spinner'
+import { UpdatePrompt } from './components/UpdatePrompt'
 import { Login } from './pages/Login'
 import { AuthCallback } from './pages/AuthCallback'
 import { AuthConfirm } from './pages/AuthConfirm'
@@ -91,6 +92,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
+        <UpdatePrompt />
       </SettingsProvider>
     </AuthProvider>
   )
