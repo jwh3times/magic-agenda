@@ -12,6 +12,25 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.30] - 2026-07-27
+
+### Fixed
+
+- **`/robots.txt` served robots directives followed by an entire HTML document.** There was no
+  `robots.txt` in `public/`, and `_redirects` rewrites every unmatched path to `index.html` with a
+  200 — so Cloudflare's managed Content Signals block was prepended to the SPA shell and the two
+  were served as one file. Crawlers ignore unparseable lines, so the directives still applied
+  (`User-agent: * / Allow: /` — Googlebot was never blocked), but the response was not a valid
+  robots.txt. A real file now exists, and it disallows the `/auth/` token-redemption routes, which
+  have nothing worth indexing.
+
+  Found while investigating why Google's OAuth branding verification kept failing. It was **not**
+  the cause — Googlebot is allowed and the home page serves its full content, name, and purpose to
+  a crawler — but a `/robots.txt` that returns markup is a defect regardless of what prompted the
+  look. The same catch-all means any unmatched path returns 200 with the SPA shell rather than a
+  404; that is deliberate for client-side routes, but worth knowing when adding files crawlers
+  fetch by convention.
+
 ## [1.2.29] - 2026-07-27
 
 ### Fixed
@@ -642,7 +661,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.29...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.30...HEAD
+[1.2.30]: https://github.com/jwh3times/magic-agenda/compare/v1.2.29...v1.2.30
 [1.2.29]: https://github.com/jwh3times/magic-agenda/compare/v1.2.28...v1.2.29
 [1.2.28]: https://github.com/jwh3times/magic-agenda/compare/v1.2.27...v1.2.28
 [1.2.27]: https://github.com/jwh3times/magic-agenda/compare/v1.2.26...v1.2.27
