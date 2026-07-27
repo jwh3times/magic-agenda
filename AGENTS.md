@@ -263,9 +263,19 @@ operational procedures and must be updated in the same PR as whatever they descr
 ## Backups
 
 The free Supabase tier has **no automated backups**, so `.github/workflows/backup.yml` takes a
-nightly logical dump (schema + `public` data + `auth` data — `supabase db dump` excludes
-Supabase-managed schemas by default, and without `auth.users` every restored task would reference a
-missing user). Because this repository is public and **GitHub artifacts on public repos are
-downloadable by anyone**, the bundle is GPG-symmetric-encrypted on the runner before upload; the
-plaintext never leaves the job. Never add a step that uploads anything unencrypted. Restore
-procedure: `docs/runbooks/restore-from-backup.md`.
+nightly logical dump: `schema.sql` (DDL for `public`) plus `data.sql`, which carries **both** the
+`public` and `auth` rows — `supabase db dump --data-only` includes Supabase-managed schemas even
+though the schema dump excludes them. Do not "helpfully" add a separate `--schema auth` data dump;
+one existed until v1.2.27 and was a strict subset that made restores fail on duplicate `auth.users`
+keys. The verify step asserts `data.sql` contains both `public.tasks` and `auth.users`, which is what
+would catch that CLI behaviour changing.
+
+Because this repository is public and **GitHub artifacts on public repos are downloadable by
+anyone**, the bundle is GPG-symmetric-encrypted on the runner before upload; the plaintext never
+leaves the job. Never add a step that uploads anything unencrypted, and never echo dump contents to
+the log — the verify step prints table names only, matched at line start and identifier-filtered,
+because `COPY` payload rows are user data.
+
+Restoring is not just "load the file": `tasks.recur_parent_id` self-references and
+`on_auth_user_created` seeds a conflicting `user_settings` row, so data loads under
+`session_replication_role = replica`. Full procedure: `docs/runbooks/restore-from-backup.md`.

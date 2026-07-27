@@ -12,6 +12,31 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.27] - 2026-07-27
+
+### Fixed
+
+- **The documented restore had two ways to fail, both found by reading a successful backup's log.**
+  The first green run printed the tables it captured, which showed `data.sql` already contained the
+  `auth` schema — `supabase db dump --data-only` includes Supabase-managed schemas, even though the
+  *schema* dump excludes them. The separate `--schema auth` dump added in v1.2.25 was therefore a
+  strict subset of `data.sql` (16 KB inside 19 KB), and the runbook's "load `auth.sql`, then
+  `data.sql`" would have inserted `auth.users` twice and aborted on a duplicate key — during an
+  outage, halfway through a restore.
+
+  Worse, and independent of that: restoring `auth.users` fires `on_auth_user_created`, which seeds a
+  **default** `public.user_settings` row; the dump's `COPY` of that user's real settings row then
+  collides with it. The trigger's own `on conflict do nothing` guards the trigger's insert, not the
+  restore's, and whether it bites at all depends on table order in the dump — the kind of fault that
+  passes a rehearsal and fails in production.
+
+  The backup now takes one data dump instead of two, asserts that single file holds **both**
+  `public.tasks` and `auth.users` (so a change in that CLI behaviour fails loudly rather than
+  silently backing up half a system), and the runbook loads it once under
+  `session_replication_role = replica`, which suppresses the self-referencing recurrence foreign key
+  and the settings-seeding trigger together. Existing v1.2.25–v1.2.26 bundles remain restorable —
+  ignore their redundant `auth.sql`, which the runbook now says explicitly.
+
 ## [1.2.26] - 2026-07-27
 
 ### Fixed
@@ -550,7 +575,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.26...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.27...HEAD
+[1.2.27]: https://github.com/jwh3times/magic-agenda/compare/v1.2.26...v1.2.27
 [1.2.26]: https://github.com/jwh3times/magic-agenda/compare/v1.2.25...v1.2.26
 [1.2.25]: https://github.com/jwh3times/magic-agenda/compare/v1.2.24...v1.2.25
 [1.2.24]: https://github.com/jwh3times/magic-agenda/compare/v1.2.23...v1.2.24

@@ -67,24 +67,30 @@ jobs:
       - name: Link project
         run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
 
-      # Three dumps, because one is not enough:
-      #  - schema: redundant with supabase/migrations/ but makes the bundle self-contained and
-      #    captures anything ever applied out-of-band.
-      #  - public data: the board itself (tasks, user_settings).
-      #  - auth data: `supabase db dump` EXCLUDES Supabase-managed schemas by default. Without
-      #    this file every restored task would reference a user id that no longer exists.
+      # Two dumps:
+      #  - schema: DDL for `public`. Redundant with supabase/migrations/ but makes the bundle
+      #    self-contained and captures anything ever applied out-of-band. It excludes the `auth`
+      #    schema, which is correct — a Supabase project provisions `auth` itself.
+      #  - data: EVERYTHING the CLI will give us, which as of 2026-07-27 includes the `auth` tables
+      #    (auth.users, identities, sessions, ...) as well as public.tasks / public.user_settings.
+      #
+      # There is deliberately NO separate `--schema auth` data dump. One was added originally on the
+      # documented premise that `db dump` excludes Supabase-managed schemas — true of the SCHEMA
+      # dump, false of the DATA dump. It produced a file that was a strict subset of data.sql, and
+      # restoring both in sequence inserted auth.users twice: a duplicate-key failure in the middle
+      # of an outage. Verified empirically in run 30227716558.
+      #
+      # The verify step below asserts data.sql holds BOTH public.tasks and auth.users, so if that
+      # CLI behaviour ever changes, this fails loudly instead of silently backing up half a system.
       #
       # pg_dump warns here about a circular foreign key on `tasks` — that is `recur_parent_id`
       # referencing `tasks(id)` (the recurrence template link, init.sql:42), and it is expected.
-      # The consequence is on RESTORE, not on dump: a --data-only load can violate the FK depending
-      # on row order, so the runbook loads data with `session_replication_role = replica`. Do not
-      # "fix" this warning by dropping the auth/public split.
-      - name: Dump schema, public data, and auth data
+      # It matters on RESTORE, not on dump; see the runbook.
+      - name: Dump schema and data
         run: |
           mkdir -p backup
           supabase db dump --linked -f backup/schema.sql
           supabase db dump --linked --data-only -f backup/data.sql
-          supabase db dump --linked --data-only --schema auth -f backup/auth.sql
 
       # The failure mode that actually bites is a *successful* empty dump: the job stays green for
       # months while backing up nothing. Assert on content, not just exit codes.
@@ -107,7 +113,7 @@ jobs:
           }
           has_table() { tables "$1" | grep -qx "$2"; }
 
-          for f in schema data auth; do
+          for f in schema data; do
             [ -s "backup/$f.sql" ] || fail "backup/$f.sql is empty or missing"
           done
 
@@ -115,16 +121,17 @@ jobs:
             || fail "schema.sql contains no CREATE TABLE — the schema was not captured"
 
           # Table names only — never row values.
-          echo "Tables captured in data.sql:"; tables backup/data.sql | head -20
-          echo "Tables captured in auth.sql:"; tables backup/auth.sql | head -20
+          echo "Tables captured in data.sql:"; tables backup/data.sql | head -30
 
           # Note the limit of this check: pg_dump emits a COPY statement even for an empty table, so
           # this proves the table was captured, not that it holds rows. Row counts are verified on
           # restore (see the runbook), which is the only place they can be checked meaningfully.
           has_table backup/data.sql public.tasks \
             || fail "data.sql does not contain public.tasks — no board data was captured"
-          has_table backup/auth.sql auth.users \
-            || fail "auth.sql does not contain auth.users — accounts were not captured, so a restore would orphan every task"
+          # This one is load-bearing: it is the only thing standing between us and a backup that
+          # restores tasks belonging to users who no longer exist.
+          has_table backup/data.sql auth.users \
+            || fail "data.sql does not contain auth.users — accounts were not captured. The CLI's --data-only dump used to include the auth schema; if that changed, add an explicit auth dump back."
 
           echo "Dump sizes (bytes):"
           wc -c backup/*.sql
@@ -149,8 +156,8 @@ jobs:
           printf '%s' "$BACKUP_GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback \
             --passphrase-fd 0 --decrypt -o roundtrip.tar.gz "$bundle.gpg"
           entries="$(tar -tzf roundtrip.tar.gz | grep -c '\.sql$')"
-          if [ "$entries" -ne 3 ]; then
-            echo "::error::Round-trip check expected 3 .sql files, found $entries."
+          if [ "$entries" -ne 2 ]; then
+            echo "::error::Round-trip check expected 2 .sql files, found $entries."
             exit 1
           fi
 
