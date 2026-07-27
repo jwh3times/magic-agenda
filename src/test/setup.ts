@@ -1,10 +1,13 @@
 import '@testing-library/jest-dom'
-import { afterEach, beforeEach } from 'vitest'
+import { afterEach } from 'vitest'
 
-// localStorage polyfill for jsdom in Node.js
+// localStorage polyfill: Node 26 + vitest 4's jsdom exposes Storage but no instance.
+// Neither globalThis.localStorage nor window.localStorage is defined, though the
+// Storage constructor exists. Methods are own properties (not on Storage.prototype),
+// so tests must spy on the instance, not the prototype.
 if (typeof globalThis.localStorage === 'undefined') {
   const store: Record<string, string> = {}
-  globalThis.localStorage = new (class {
+  const polyfill = new (class {
     getItem(key: string) {
       return store[key] || null
     }
@@ -25,6 +28,13 @@ if (typeof globalThis.localStorage === 'undefined') {
       return Object.keys(store).length
     }
   })() as Storage
+
+  // Use Object.defineProperty to properly install so Node doesn't warn
+  Object.defineProperty(globalThis, 'localStorage', {
+    value: polyfill,
+    writable: false,
+    configurable: false,
+  })
 }
 
 // Isolate tests from persisted browser state (board view, auth recovery flag),

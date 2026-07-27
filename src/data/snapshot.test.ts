@@ -69,7 +69,7 @@ test('an empty user id never reads or writes', () => {
 })
 
 test('a failed write is swallowed', () => {
-  vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+  vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
     throw new Error('QuotaExceededError')
   })
   expect(() => writeBoardSnapshot('u1', [task('a')], [])).not.toThrow()
