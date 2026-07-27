@@ -12,10 +12,10 @@ but it is not installable and it does not survive losing the network. There is n
 service worker: `public/` holds `favicon.svg`, `apple-touch-icon.png`, `og.png`, `robots.txt`,
 `_headers`, and `_redirects`, and nothing else.
 
-Opening the app without a connection today is worse than an error page. `useTasks.reload()` rejects
-and the board reports a sync failure — but before that even matters, `useSettings` never resolves
-(see "The prerequisite defect" below), so `BoardPage` renders a spinner forever. A user on a plane
-sees an app that appears to be loading and never stops.
+Opening the app without a connection today gives you nothing. `reload()`'s query resolves with an
+error, `tasks` stays empty, and `BoardPage` renders `ErrorScreen` with a Retry button that cannot
+succeed. Meanwhile the theme resets (see "The prerequisite defect" below). A user on a plane has a
+board full of tasks on their device and no way to see any of them.
 
 Two goals, weighted equally: a real home-screen install, and a board that still shows your tasks
 with no network.
@@ -38,28 +38,35 @@ with no network.
 
 ## The prerequisite defect
 
-`src/data/useSettings.ts:43` attaches `.then()` with no `.catch()` and no error branch:
+`src/data/useSettings.ts:43` destructures only `data` and never looks at `error`:
 
 ```ts
-supabase
-  .from('user_settings')
-  .select('*')
-  .eq('user_id', userId)
-  .maybeSingle()
-  .then(({ data }) => {
-    /* setSettings, setLoading(false) */
-  })
+.then(({ data }) => {
+  const next: Settings = data
+    ? { theme: data.theme as ThemeName, defaultView: data.default_view as ViewName }
+    : DEFAULTS
+  ref.current = next
+  setSettings(next)
+  setLoading(false)
+})
 ```
 
-Offline, that promise rejects. `setLoading(false)` never runs, so `settingsLoading` stays true, so
-`BoardPage`'s `if (!user || settingsLoading || !settings) return <Spinner />` spins forever. It is
-also an unhandled rejection.
+A failed request and "this user has no row yet" are therefore the same branch. `postgrest-js`
+catches fetch failures and resolves with `{ data: null, error }` unless `.throwOnError()` is used —
+which this call does not — so offline, `data` is `null`, `next` becomes `DEFAULTS`, and a `glass`
+user with a `kanban` default view is silently reset to `cork`/`calendar`. Nothing hangs and nothing
+rejects; the settings just quietly revert on every failed load, offline or not.
 
-This is fixed as part of this work, not adjacent to it — a perfect service worker and a perfect
-snapshot still produce an infinite spinner while the board is gated behind settings that never
-resolve. The fix is a rejection branch that falls back to the snapshot's stored settings, and to
-`DEFAULTS` only when there is no snapshot. Falling back to `DEFAULTS` unconditionally would silently
-reset a `glass` user to `cork` every time they opened the app offline.
+This is fixed as part of this work rather than alongside it, because an offline board that renders
+in the wrong theme is a worse first impression than no offline board at all. The fix reads `error`,
+falls back to the settings snapshot when the request failed, and reaches `DEFAULTS` only for a
+genuine `data === null` **with no error** — the real "no row yet" case that the signup trigger
+normally prevents.
+
+The same conflation exists in `reload()` (`useTasks.ts:159`), which is where offline hydration hooks
+in: an offline load takes the existing `if (err)` branch, not a `catch`. A `catch` is still added
+around the query, because `throwOnError` is a one-line change away and a future edit that adds it
+must not turn an offline boot into an unhandled rejection.
 
 ## Architecture
 
@@ -169,7 +176,8 @@ offline-hydrated so `savedAt` never lies about freshness.
 
 ### Offline boot and hydration
 
-`reload()` gains a catch branch: if a snapshot exists for this user, hydrate `tasks` and
+`reload()`'s existing `if (err)` branch (plus the new defensive `catch`) gains hydration: if a
+snapshot exists for this user, hydrate `tasks` and
 `templatesRef` from it, set `offline`, and **skip `materialize()` entirely.**
 
 That skip is the most dangerous line in the feature. `materialize()` inserts rows. Running it over
@@ -222,15 +230,15 @@ itself mid-drag is worse than a stale one.
 
 Test-first for the pure modules, per the repo convention for `src/data`, `src/dnd`, and `src/lib`.
 
-| File                           | Covers                                                                                                                  |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| `sw/policy.test.ts`            | Every `*.supabase.co` URL is never cacheable (https and wss); hashed assets are cache-first; navigations are detected   |
-| `data/snapshot.test.ts`        | Round trip; drop on `v` mismatch; drop on user mismatch; corrupt JSON → `null`; quota-exceeded write is swallowed       |
-| `data/useTasks.test.ts`        | Rejected load + snapshot → tasks and templates hydrated, `offline` true, **no insert issued**; `online` event clears it |
-| `data/useSettings.test.ts`     | Rejected fetch → `loading` false with snapshot settings, `DEFAULTS` when there is no snapshot, no unhandled rejection   |
-| `auth/ProtectedRoute.test.tsx` | Offline + no session + snapshot → renders children; offline + no session + no snapshot → redirects                      |
-| `components/Board.test.tsx`    | Read-only: add disabled, drag disabled, editor view-only, banner shows the `savedAt` time                               |
-| `lib/registerSW.test.ts`       | Registers once under StrictMode; `onUpdateReady` fires on a waiting worker; `applyUpdate` posts and reloads             |
+| File                           | Covers                                                                                                                                                         |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sw/policy.test.ts`            | Every `*.supabase.co` URL is never cacheable (https and wss); hashed assets are cache-first; navigations are detected                                          |
+| `data/snapshot.test.ts`        | Round trip; drop on `v` mismatch; drop on user mismatch; corrupt JSON → `null`; quota-exceeded write is swallowed                                              |
+| `data/useTasks.test.ts`        | Error result + snapshot → tasks and templates hydrated, `offline` true, **no insert issued**; `online` event clears it; a thrown query is handled the same way |
+| `data/useSettings.test.ts`     | Error result → snapshot settings, not `DEFAULTS`; `data: null` with no error → `DEFAULTS`; error with no snapshot → `DEFAULTS`                                 |
+| `auth/ProtectedRoute.test.tsx` | Offline + no session + snapshot → renders children; offline + no session + no snapshot → redirects                                                             |
+| `components/Board.test.tsx`    | Read-only: add disabled, drag disabled, editor view-only, banner shows the `savedAt` time                                                                      |
+| `lib/registerSW.test.ts`       | Registers once under StrictMode; `onUpdateReady` fires on a waiting worker; `applyUpdate` posts and reloads                                                    |
 
 The worker's event wiring cannot run in jsdom, which is precisely why the policy lives in pure
 predicates. The wiring is verified by hand on the Cloudflare preview deploy: install on a real
