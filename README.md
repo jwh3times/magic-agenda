@@ -159,6 +159,11 @@ build `npm run build`, output `dist`). The `VITE_SUPABASE_*` variables are set i
 Production and Preview; `public/_redirects` provides the SPA deep‑link fallback, and `public/_headers`
 sets security response headers (Content‑Security‑Policy, `X-Frame-Options`, `nosniff`, `Referrer-Policy`).
 
+The database is backed up nightly by the **Backup** workflow — a logical dump (schema, board data,
+and accounts), GPG-encrypted on the runner and kept as a 90-day Actions artifact. The Supabase free
+tier has no automated backups of its own. To restore, follow
+[docs/runbooks/restore-from-backup.md](./docs/runbooks/restore-from-backup.md).
+
 Database migrations apply to production automatically: merging a change under `supabase/migrations/` to
 `main` triggers the **Deploy Migrations** workflow (`supabase db push`). Auth configuration does the
 same: merging a change to `supabase/config.toml` or `supabase/templates/` triggers **Deploy Auth

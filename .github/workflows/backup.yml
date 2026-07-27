@@ -1,0 +1,137 @@
+name: Backup
+
+# Nightly encrypted logical backup of the production database.
+#
+# WHY THIS EXISTS: the project is on the Supabase free tier, which has **no automated backups at
+# all**. Without this, a dropped table or a bad migration loses every user's data with no restore
+# path — the app's export/import is per-user and manual, so it is not a backup.
+#
+# WHY IT IS ENCRYPTED ON THE RUNNER: this repository is PUBLIC, and GitHub Actions artifacts on
+# public repositories can be downloaded by anyone (the "ArtiPACKED" research, Aug 2024; GitHub
+# declined to change the behaviour and treats artifact contents as the author's responsibility).
+# The dump contains every user's email address, bcrypt password hash, and task content. So the
+# bundle is GPG-symmetric-encrypted BEFORE upload and the plaintext never leaves the job. Do not
+# add a step that uploads anything from `backup/` directly.
+#
+# Repository secrets used (the first three already exist for the deploy workflows):
+#   SUPABASE_ACCESS_TOKEN   - Supabase personal access token
+#   SUPABASE_DB_PASSWORD    - production database password
+#   SUPABASE_PROJECT_ID     - project ref
+#   BACKUP_GPG_PASSPHRASE   - symmetric passphrase for the bundle. If this is lost, every backup
+#                             is permanently unreadable. Keep it in a password manager.
+#
+# To restore: docs/runbooks/restore-from-backup.md
+
+on:
+  schedule:
+    - cron: '0 9 * * *' # 09:00 UTC daily (~05:00 America/New_York)
+  workflow_dispatch:
+
+# Least-privilege: the job reads the repo and talks to Supabase with its own secrets.
+permissions:
+  contents: read
+
+# Never run two backups at once; queue rather than cancel, so a scheduled run is not dropped by a
+# manual one.
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  Backup:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+      # config.toml carries env() references and the CLI parses it on every command, so these must
+      # be present even though a backup never touches auth config.
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      BACKUP_GPG_PASSPHRASE: ${{ secrets.BACKUP_GPG_PASSPHRASE }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: supabase/setup-cli@v3
+        with:
+          version: latest
+
+      # Fail before dumping rather than after: an unset secret is an empty string in Actions, and
+      # gpg would happily "encrypt" with an empty passphrase, producing a bundle anyone can open.
+      - name: Require the encryption passphrase
+        run: |
+          if [ -z "$BACKUP_GPG_PASSPHRASE" ]; then
+            echo "::error::BACKUP_GPG_PASSPHRASE is not set. Refusing to produce an unencrypted backup."
+            exit 1
+          fi
+
+      - name: Link project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
+
+      # Three dumps, because one is not enough:
+      #  - schema: redundant with supabase/migrations/ but makes the bundle self-contained and
+      #    captures anything ever applied out-of-band.
+      #  - public data: the board itself (tasks, user_settings).
+      #  - auth data: `supabase db dump` EXCLUDES Supabase-managed schemas by default. Without
+      #    this file every restored task would reference a user id that no longer exists.
+      - name: Dump schema, public data, and auth data
+        run: |
+          mkdir -p backup
+          supabase db dump --linked -f backup/schema.sql
+          supabase db dump --linked --data-only -f backup/data.sql
+          supabase db dump --linked --data-only --schema auth -f backup/auth.sql
+
+      # The failure mode that actually bites is a *successful* empty dump: the job stays green for
+      # months while backing up nothing. Assert on content, not just exit codes.
+      - name: Verify the dumps contain what a restore needs
+        run: |
+          fail() { echo "::error::$1"; exit 1; }
+          for f in schema data auth; do
+            [ -s "backup/$f.sql" ] || fail "backup/$f.sql is empty or missing"
+          done
+          grep -q 'CREATE TABLE' backup/schema.sql \
+            || fail "schema.sql contains no CREATE TABLE — the schema was not captured"
+          grep -q 'public.tasks' backup/data.sql \
+            || fail "data.sql contains no public.tasks — no board data was captured"
+          grep -q 'auth.users' backup/auth.sql \
+            || fail "auth.sql contains no auth.users — accounts were not captured, so a restore would orphan every task"
+          echo "Dump sizes (bytes):"
+          wc -c backup/*.sql
+
+      - name: Bundle, encrypt, and prove it decrypts
+        run: |
+          stamp="$(date -u +%Y-%m-%d)"
+          bundle="supabase-backup-$stamp.tar.gz"
+
+          tar -czf "$bundle" -C backup .
+          printf '%s' "$BACKUP_GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback \
+            --passphrase-fd 0 --symmetric --cipher-algo AES256 -o "$bundle.gpg" "$bundle"
+
+          # Paranoia, cheaply: if encryption silently no-opped, table names would still be readable.
+          if grep -qa 'auth.users' "$bundle.gpg"; then
+            echo "::error::Plaintext found in the encrypted bundle — refusing to upload."
+            exit 1
+          fi
+
+          # A backup that cannot be opened is not a backup. Round-trip it here, while the failure
+          # is cheap, rather than discovering it during an outage.
+          printf '%s' "$BACKUP_GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback \
+            --passphrase-fd 0 --decrypt -o roundtrip.tar.gz "$bundle.gpg"
+          entries="$(tar -tzf roundtrip.tar.gz | grep -c '\.sql$')"
+          if [ "$entries" -ne 3 ]; then
+            echo "::error::Round-trip check expected 3 .sql files, found $entries."
+            exit 1
+          fi
+
+          # Leave only the encrypted bundle on disk for the upload step.
+          rm -rf backup roundtrip.tar.gz "$bundle"
+          echo "stamp=$stamp" >> "$GITHUB_ENV"
+          echo "Encrypted bundle: $bundle.gpg ($(wc -c < "$bundle.gpg") bytes)"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: supabase-backup-${{ env.stamp }}
+          path: supabase-backup-${{ env.stamp }}.tar.gz.gpg
+          # 90 days is the ceiling for a public repo. Anything older is gone — if you need a
+          # longer horizon, that is the point at which off-GitHub storage becomes necessary.
+          retention-days: 90
+          if-no-files-found: error

@@ -257,4 +257,15 @@ Rules for this pipeline:
 
 Completed implementation plans are archived under `docs/plans/` and `docs/specs/` (see
 `docs/README.md`) — they are dated historical records of shipped work, not living documentation;
-do not update them to match current code.
+do not update them to match current code. `docs/runbooks/` is the exception: those are **living**
+operational procedures and must be updated in the same PR as whatever they describe.
+
+## Backups
+
+The free Supabase tier has **no automated backups**, so `.github/workflows/backup.yml` takes a
+nightly logical dump (schema + `public` data + `auth` data — `supabase db dump` excludes
+Supabase-managed schemas by default, and without `auth.users` every restored task would reference a
+missing user). Because this repository is public and **GitHub artifacts on public repos are
+downloadable by anyone**, the bundle is GPG-symmetric-encrypted on the runner before upload; the
+plaintext never leaves the job. Never add a step that uploads anything unencrypted. Restore
+procedure: `docs/runbooks/restore-from-backup.md`.
