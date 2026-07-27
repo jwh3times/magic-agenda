@@ -1596,7 +1596,6 @@ existing `/*` block:
 # worker itself fetch()es Google Fonts — governed by connect-src, not font-src. Widening the
 # site-wide directive for that would be wrong, so scope it to the worker. Both hosts are already
 # trusted for style-src/font-src above, so nothing new enters the trust set.
-# Confirmed on a Cloudflare preview deploy: <date>, <preview URL>
 /sw.js
   Content-Security-Policy: default-src 'self'; script-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' data:; object-src 'none'; base-uri 'self'
 ```
@@ -1808,10 +1807,13 @@ git commit -m "feat: register the worker explicitly and prompt before applying a
 - Modify: `AGENTS.md`, `README.md`, `CHANGELOG.md`, `public/_headers` (fill in the dated
   confirmation line from Task 10 Step 4)
 
-- [ ] **Step 1: Verify on a preview deploy**
+- [ ] **Step 1: Hand the maintainer a verification checklist**
 
-Push the branch and open the PR so Cloudflare Pages builds a preview. On that preview URL, confirm
-each of these and record the results in the PR description:
+This step is **not** executed by the implementer. It needs a Cloudflare preview deploy (a push and a
+PR) and two physical devices. Write the checklist below into the PR description draft and stop —
+pushing is the maintainer's call, and the device checks are theirs to run.
+
+The checks the maintainer runs on the preview URL:
 
 1. DevTools → Application → Manifest: name `Magic Agenda`, three icons, no errors.
 2. DevTools → Application → Service Workers: `sw.js` is activated and running.
@@ -1827,9 +1829,17 @@ each of these and record the results in the PR description:
 8. Deploy twice: with the first build open, merge a trivial change, wait, and confirm the "new
    version" toast appears and Refresh loads the new build.
 
-- [ ] **Step 2: Fill in the CSP confirmation line**
+- [ ] **Step 2: Record the CSP confirmation — after the preview, not before**
 
-Replace `<date>, <preview URL>` in `public/_headers` with the real values from Step 1.3.
+Once the maintainer reports check 3 passing, append one line to the `/sw.js` comment block in
+`public/_headers`, in the style of the file's existing dated validation note:
+
+```
+# Confirmed on a Cloudflare preview deploy: <the date>, <the preview URL>
+```
+
+Nothing goes in that slot until the deploy has actually confirmed it — a comment claiming a
+verification that never happened is worse than no comment.
 
 - [ ] **Step 3: Write the rollback runbook**
 
