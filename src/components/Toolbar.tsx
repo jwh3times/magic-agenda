@@ -18,6 +18,7 @@ export interface ToolbarProps {
   onSignOut?: () => void
   onOpenSettings?: () => void
   overdueCount?: number
+  addDisabled?: boolean
 }
 
 export function Toolbar({
@@ -33,6 +34,7 @@ export function Toolbar({
   onSignOut,
   onOpenSettings,
   overdueCount,
+  addDisabled,
 }: ToolbarProps) {
   const { theme, conf } = useTheme()
   const isMobile = useIsMobile()
@@ -69,7 +71,13 @@ export function Toolbar({
             }}
           />
           <div style={{ flex: 1 }} />
-          <button type="button" onClick={onAddInbox} style={{ ...c.addBtn, flex: 'none' }}>
+          <button
+            type="button"
+            onClick={onAddInbox}
+            disabled={addDisabled}
+            title={addDisabled ? 'Offline — changes are disabled' : undefined}
+            style={{ ...c.addBtn, flex: 'none' }}
+          >
             + New task
           </button>
           {onOpenSettings && (
@@ -159,7 +167,13 @@ export function Toolbar({
             ⚙
           </button>
         )}
-        <button type="button" onClick={onAddInbox} style={c.addBtn}>
+        <button
+          type="button"
+          onClick={onAddInbox}
+          disabled={addDisabled}
+          title={addDisabled ? 'Offline — changes are disabled' : undefined}
+          style={c.addBtn}
+        >
           + New task
         </button>
         {onSignOut && (

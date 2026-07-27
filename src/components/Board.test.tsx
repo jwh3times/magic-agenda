@@ -7,6 +7,7 @@ import { ThemeProvider } from '../theme/ThemeProvider'
 import { Board } from './Board'
 import { applyToggleDone } from '../data/selectors'
 import { makeMockTasks } from '../data/mockTasks'
+import { OfflineContext } from '../data/offlineContext'
 import type { Task } from '../types/task'
 
 // Mimics BoardPage's data ownership with local state (no Supabase) so Board stays hermetic.
@@ -36,6 +37,47 @@ function Harness() {
 }
 
 const renderBoard = () => render(<Harness />)
+
+const renderOffline = () =>
+  render(
+    <OfflineContext.Provider
+      value={{ readOnly: true, savedAt: Date.parse('2026-07-27T12:41:00Z') }}
+    >
+      <Harness />
+    </OfflineContext.Provider>,
+  )
+
+// DndContext always mounts its own hidden `role="status"` live region (dnd-kit's screen-reader
+// drag announcer, @dnd-kit/accessibility's LiveRegion) regardless of drag activity or offline
+// state — it renders with empty text content until a drag actually fires an announcement. So
+// `getByRole('status')` alone is ambiguous (matches both it and the OfflineBanner); scope to the
+// one with non-empty text to find the banner specifically.
+const visibleStatus = () => screen.queryAllByRole('status').find((el) => el.textContent?.trim())
+
+test('offline shows a banner naming when the board was saved', () => {
+  renderOffline()
+  expect(visibleStatus()).toHaveTextContent(/offline/i)
+})
+
+test('offline disables the add-task affordance', () => {
+  renderOffline()
+  expect(screen.getByRole('button', { name: '+ New task' })).toBeDisabled()
+})
+
+// dnd-kit's useDraggable/useSortable puts `aria-disabled` on the SortableCard wrapper (role
+// "button") straight from the `disabled` option passed in, so this is an observable proxy for
+// "drag is off" without simulating an actual pointer drag.
+test('offline disables drag via the DragDisabledContext', () => {
+  renderOffline()
+  const card = screen.getByText('Renew passport').closest('[role="button"]')
+  expect(card).toHaveAttribute('aria-disabled', 'true')
+})
+
+test('online leaves the board fully interactive', () => {
+  renderBoard()
+  expect(visibleStatus()).toBeUndefined()
+  expect(screen.getByRole('button', { name: '+ New task' })).toBeEnabled()
+})
 
 test('renders the calendar board with mock tasks and an inbox', () => {
   renderBoard()

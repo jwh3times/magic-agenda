@@ -1,7 +1,17 @@
-import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import {
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from 'react'
 import { DndContext, DragOverlay } from '@dnd-kit/core'
 import { useTheme } from '../theme/ThemeProvider'
 import { DragDisabledContext } from '../dnd/dragContext'
+import { OfflineContext } from '../data/offlineContext'
+import { OfflineBanner } from './OfflineBanner'
 import { rootStyle, blobStyles } from '../theme/chrome'
 import { MONTHS_LONG, addDays, addMonths, formatWeekRange, startOfWeek, ymd } from '../lib/dates'
 import { useIsMobile } from '../lib/useMediaQuery'
@@ -93,6 +103,7 @@ export function Board({
 }: BoardProps) {
   const { theme, conf } = useTheme()
   const isMobile = useIsMobile()
+  const { readOnly, savedAt } = useContext(OfflineContext)
   const [view, setView] = useState<ViewName>(() => readBoardView() ?? initialView ?? 'calendar')
   const [anchor, setAnchor] = useState(() => new Date())
   const [pop, setPop] = useState<PopId>(null)
@@ -208,7 +219,10 @@ export function Board({
         onSignOut={onSignOut}
         onOpenSettings={onOpenSettings}
         overdueCount={overdueCount}
+        addDisabled={readOnly}
       />
+
+      {readOnly && <OfflineBanner savedAt={savedAt} />}
 
       <SearchFilterBar query={filter} onChange={setFilter} />
 
@@ -220,7 +234,7 @@ export function Board({
         onDragEnd={dnd.onDragEnd}
         onDragCancel={dnd.onDragCancel}
       >
-        <DragDisabledContext.Provider value={filterActive}>
+        <DragDisabledContext.Provider value={filterActive || readOnly}>
           <div
             style={{
               display: 'flex',
@@ -291,6 +305,7 @@ export function Board({
           onSave={handleSave}
           onDelete={handleDelete}
           onClose={() => setEditing(null)}
+          readOnly={readOnly}
         />
       )}
     </div>
