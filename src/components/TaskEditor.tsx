@@ -669,7 +669,7 @@ export function TaskEditor({
         </div>
       </div>
 
-      {scopePrompt && (
+      {scopePrompt && !readOnly && (
         <div
           style={{
             position: 'fixed',

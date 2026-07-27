@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { afterEach, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
@@ -71,6 +71,24 @@ test('offline disables drag via the DragDisabledContext', () => {
   renderOffline()
   const card = screen.getByText('Renew passport').closest('[role="button"]')
   expect(card).toHaveAttribute('aria-disabled', 'true')
+})
+
+// TaskCard renders the pin/done toggles as plain <button>s only when handed a handler, falling
+// back to a non-interactive <span> otherwise (see TaskCard.tsx) — this is the same mechanism
+// the drag test above relies on, applied to the two per-card mutation affordances the brief
+// missed (a coordinator-flagged Critical: neither was gated on readOnly).
+test('offline disables the per-card done and pin toggles', () => {
+  renderOffline()
+  const card = screen.getByText('Renew passport').closest('[role="button"]') as HTMLElement
+  expect(within(card).queryByRole('button', { name: 'Pin' })).not.toBeInTheDocument()
+  expect(within(card).queryByRole('button', { name: 'Mark done' })).not.toBeInTheDocument()
+})
+
+test('online keeps the per-card done and pin toggles interactive', () => {
+  renderBoard()
+  const card = screen.getByText('Renew passport').closest('[role="button"]') as HTMLElement
+  expect(within(card).getByRole('button', { name: 'Pin' })).toBeEnabled()
+  expect(within(card).getByRole('button', { name: 'Mark done' })).toBeEnabled()
 })
 
 test('online leaves the board fully interactive', () => {

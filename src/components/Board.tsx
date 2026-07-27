@@ -185,8 +185,10 @@ export function Board({
 
   const handlers: BoardHandlers = {
     onOpen: openTask,
-    onToggleDone: handleToggle,
-    onTogglePin: handlePin,
+    // Undefined (not a no-op) while read-only: TaskCard already falls back to a non-interactive
+    // <span> when no handler is passed, so this is the existing affordance, not a new one.
+    onToggleDone: readOnly ? undefined : handleToggle,
+    onTogglePin: readOnly ? undefined : handlePin,
     onAddDay: (dateStr) => setEditing({ task: newTaskTemplate(dateStr, 'todo'), isNew: true }),
     onAddInbox: () => setEditing({ task: newTaskTemplate('inbox', 'todo'), isNew: true }),
     onAddStatus: (status) => setEditing({ task: newTaskTemplate('inbox', status), isNew: true }),
