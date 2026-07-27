@@ -17,7 +17,10 @@ export function BoardPage() {
   const t = useTasks(userId)
   const { settings, loading: settingsLoading, saveTheme } = useSettingsContext()
 
-  if (!user || settingsLoading || !settings) return <Spinner />
+  // Gate on the resolved user id, not on `user`/`session`: ProtectedRoute has already made the
+  // auth decision. On the offline-boot fallback (no session, offline, snapshot present) there is
+  // no `user`, but `userId` (session id, else the last-known id) is what the board actually needs.
+  if (!userId || settingsLoading || !settings) return <Spinner />
 
   return (
     <ThemeProvider initial={settings.theme} onThemeChange={saveTheme}>
