@@ -15,7 +15,14 @@ const SettingsContext = createContext<UseSettings | null>(null)
  * flashed one. Hoisting it here means one fetch and one channel per session.
  *
  * It therefore also mounts for signed-out visitors on the landing page; `useSettings` no-ops on an
- * empty `userId` so they cost no query and no subscription. `SettingsProvider.test.tsx` pins that.
+ * empty `userId`. That is NOT the same as "every signed-out visitor" — it is empty only for one who
+ * never signed in on this device (no stored `ma-last-user`), so a first-time visitor still costs no
+ * query and no subscription (`SettingsProvider.test.tsx` pins that). A visitor whose session vanished
+ * WITHOUT a `SIGNED_OUT` event — the offline-drop case the board/settings offline fallback exists
+ * for — keeps a non-empty `readLastUserId()`, so returning online while still signed out DOES fire a
+ * `user_settings` query and open a realtime channel from this landing page. Not a leak: RLS scopes
+ * both to rows the caller owns, and an unauthenticated request returns nothing. `SettingsProvider.test.tsx`
+ * pins that widened case too, so it can't silently regress into an actual empty-string guard.
  *
  * `useTasks` is deliberately NOT hoisted alongside it: `BoardPage` is lazy-loaded to keep dnd-kit
  * and the board data layer out of the entry chunk, and lifting `useTasks` up here would pull them

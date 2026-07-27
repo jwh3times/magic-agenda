@@ -46,8 +46,10 @@ beforeEach(() => {
 })
 
 // The provider sits above <Routes>, so it also mounts for the public landing page. Without an
-// empty-userId guard it would fire a user_settings query for every signed-out visitor.
-test('a signed-out visitor triggers no settings query and no realtime channel', async () => {
+// empty-userId guard it would fire a user_settings query for every signed-out visitor. This is
+// specifically the visitor who never signed in on this device: no session AND no `ma-last-user`,
+// so `useSettings('')` takes the no-op branch.
+test('a signed-out visitor who never signed in triggers no settings query and no realtime channel', async () => {
   h.user.current = null
   render(
     <SettingsProvider>
@@ -57,6 +59,24 @@ test('a signed-out visitor triggers no settings query and no realtime channel', 
   await waitFor(() => expect(screen.getByTestId('a')).toHaveTextContent('none'))
   expect(h.from).not.toHaveBeenCalled()
   expect(h.channelFn).not.toHaveBeenCalled()
+})
+
+// The widened case the docstring now calls out: a session that vanished WITHOUT a SIGNED_OUT
+// event (the offline-drop this whole feature exists for) leaves `ma-last-user` behind, so a
+// signed-out visitor with that stale id DOES fire a query and open a channel here — unlike the
+// never-signed-in visitor above. Not a leak (RLS returns nothing to an unauthenticated request),
+// but a real, deliberate widening that must not silently regress back to "never queries at all".
+test('a signed-out visitor with a stale remembered id still fires a query', async () => {
+  h.user.current = null
+  localStorage.setItem('ma-last-user', 'user-1')
+  render(
+    <SettingsProvider>
+      <Consumer label="a" />
+    </SettingsProvider>,
+  )
+  await waitFor(() => expect(screen.getByTestId('a')).toHaveTextContent('glass'))
+  expect(h.from).toHaveBeenCalled()
+  expect(h.channelFn).toHaveBeenCalled()
 })
 
 // The point of hoisting: `/` and `/settings` share one fetch and one channel instead of tearing

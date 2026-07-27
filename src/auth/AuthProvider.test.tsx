@@ -62,10 +62,25 @@ test('the recovery flag survives a remount (page reload) via sessionStorage', as
   expect(sessionStorage.getItem('ma-password-recovery')).toBeNull()
 })
 
-test('SIGNED_OUT clears the remembered board view', async () => {
+test('SIGNED_OUT clears the remembered board view and every offline snapshot', async () => {
+  // The snapshot clearing is what makes storing task text at rest acceptable (see
+  // src/data/snapshot.ts); this is the test that would fail if a future refactor of the
+  // SIGNED_OUT block dropped it.
   sessionStorage.setItem('ma-board-view', 'week')
+  localStorage.setItem(
+    'ma-snapshot-board',
+    JSON.stringify({ v: 1, userId: 'u1', savedAt: 1, tasks: [], templates: [] }),
+  )
+  localStorage.setItem(
+    'ma-snapshot-settings',
+    JSON.stringify({ v: 1, userId: 'u1', settings: { theme: 'cork', defaultView: 'calendar' } }),
+  )
+  localStorage.setItem('ma-last-user', 'u1')
   const { result } = renderHook(() => useAuth(), { wrapper })
   await waitFor(() => expect(result.current.loading).toBe(false))
   act(() => h.capture.handler!('SIGNED_OUT', null))
   expect(sessionStorage.getItem('ma-board-view')).toBeNull()
+  expect(localStorage.getItem('ma-snapshot-board')).toBeNull()
+  expect(localStorage.getItem('ma-snapshot-settings')).toBeNull()
+  expect(localStorage.getItem('ma-last-user')).toBeNull()
 })
