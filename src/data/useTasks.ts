@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateA
 import { supabase } from '../lib/supabase'
 import { errorMessage } from '../lib/errors'
 import { rowToTask, taskToRow } from './mappers'
+import { readBoardSnapshot, writeBoardSnapshot } from './snapshot'
 import { applyRollForward, applyToggleDone } from './selectors'
 import { applyTaskChange, payloadToChange } from './realtime'
 import { instanceOrigin, isFromOccurrenceOnward, missingInstances } from './recurrence'
@@ -41,6 +42,10 @@ export interface UseTasks {
   deleteOccurrence: (instance: Task) => Promise<void>
   /** Delete this occurrence and all later ones (caps recur_until, or removes the series). */
   deleteSeriesFuture: (instance: Task) => Promise<void>
+  /** True when the board is hydrated from the offline snapshot: reads work, writes are blocked. */
+  offline: boolean
+  /** When that snapshot was taken (epoch ms), for the offline banner. Null when online. */
+  savedAt: number | null
 }
 
 function makeInstance(tmpl: Task, day: string): Task {
@@ -75,6 +80,8 @@ export function useTasks(userId: string): UseTasks {
   const [tasks, _setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [offline, setOffline] = useState(false)
+  const [savedAt, setSavedAt] = useState<number | null>(null)
   const tasksRef = useRef<Task[]>([])
   const templatesRef = useRef<Task[]>([])
   const inFlight = useRef(false)
@@ -147,6 +154,23 @@ export function useTasks(userId: string): UseTasks {
     [setTasks, userId, markWrites],
   )
 
+  /**
+   * Fall back to the last-known board. Deliberately does NOT materialize: materialize()
+   * inserts rows, and running it against snapshot-hydrated state on a flaky connection can
+   * duplicate instances and hit tasks_recur_instance_uniq (23505). Offline is read-only, so
+   * there is nothing to materialize for anyway.
+   */
+  const hydrateFromSnapshot = useCallback(() => {
+    const snap = readBoardSnapshot(userId)
+    if (!snap) return false
+    templatesRef.current = snap.templates
+    setTasks(snap.tasks)
+    setSavedAt(snap.savedAt)
+    setOffline(true)
+    setError(null)
+    return true
+  }, [userId, setTasks])
+
   const reload = useCallback(async () => {
     // Guard against concurrent loads (notably React StrictMode's double-invoked effect),
     // which would materialize the same instances twice and hit the unique index.
@@ -157,24 +181,50 @@ export function useTasks(userId: string): UseTasks {
     try {
       const { data, error: err } = await supabase.from('tasks').select('*')
       if (err) {
+        if (hydrateFromSnapshot()) return
         setError(err.message)
         return
       }
       const all = (data ?? []).map(rowToTask)
       templatesRef.current = all.filter(isTemplate)
       const instances = all.filter((t) => !isTemplate(t))
+      setOffline(false)
+      setSavedAt(null)
       setTasks(instances)
       // Pass the freshly-loaded instances directly: tasksRef.current is not yet updated here.
       await materialize(templatesRef.current, instances)
+    } catch (e) {
+      // postgrest resolves fetch failures rather than throwing, so this is defensive: a future
+      // .throwOnError() must not turn an offline boot into an unhandled rejection.
+      if (hydrateFromSnapshot()) return
+      setError(errorMessage(e))
     } finally {
       setLoading(false)
       inFlight.current = false
     }
-  }, [setTasks, materialize])
+  }, [setTasks, materialize, hydrateFromSnapshot])
 
   useEffect(() => {
+    // reload() batches through the PostgREST client, which resolves fetch failures as
+    // `{ error }` rather than throwing, and nothing before its first `await` can throw
+    // synchronously — so neither its own setState calls nor the ones the try/catch can reach
+    // ever fire synchronously within this effect (same reasoning as useSettings.ts's disable
+    // of this rule).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void reload()
   }, [reload, userId])
+
+  // Persist the board for offline reads. Debounced because optimistic CRUD churns `tasks`;
+  // a rolled-back write re-renders the restored state and the next tick writes that, so this
+  // is self-correcting and needs no "confirmed" bookkeeping. Suppressed while offline so
+  // savedAt never claims to be fresher than the data.
+  useEffect(() => {
+    if (!userId || offline || loading) return
+    const id = window.setTimeout(() => {
+      writeBoardSnapshot(userId, tasksRef.current, templatesRef.current)
+    }, 1000)
+    return () => window.clearTimeout(id)
+  }, [userId, offline, loading, tasks])
 
   // Live changes from other devices/sessions. Sub-epoch bumps force a fresh
   // channel after an error (with backoff); reload() covers anything missed.
@@ -619,5 +669,7 @@ export function useTasks(userId: string): UseTasks {
     updateSeries,
     deleteOccurrence,
     deleteSeriesFuture,
+    offline,
+    savedAt,
   }
 }

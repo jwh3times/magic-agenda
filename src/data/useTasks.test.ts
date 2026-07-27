@@ -4,9 +4,14 @@ import { NO_RECUR, type Task } from '../types/task'
 import { addDays, parseDay, ymd } from '../lib/dates'
 
 const h = vi.hoisted(() => {
-  const capture: { handler: ((p: unknown) => void) | null; rows: unknown[] } = {
+  const capture: {
+    handler: ((p: unknown) => void) | null
+    rows: unknown[]
+    selectError: { message: string } | null
+  } = {
     handler: null,
     rows: [],
+    selectError: null,
   }
   const ok = () => Promise.resolve({ data: null, error: null })
   // Stable spies so tests can assert on the rows reload/materialize/updateSeries write.
@@ -38,7 +43,7 @@ const h = vi.hoisted(() => {
 vi.mock('../lib/supabase', () => ({
   supabase: {
     from: vi.fn(() => ({
-      select: vi.fn(() => Promise.resolve({ data: h.capture.rows, error: null })),
+      select: vi.fn(() => Promise.resolve({ data: h.capture.rows, error: h.capture.selectError })),
       insert: h.insert,
       upsert: h.upsert,
       update: vi.fn(() => ({ eq: h.updateEq })),
@@ -76,6 +81,10 @@ const serverRow = (over: Record<string, unknown> = {}) => ({
   ...over,
 })
 
+import { rowToTask } from './mappers'
+
+const serverTask = (over: Record<string, unknown> = {}) => rowToTask(serverRow(over))
+
 const appTask = (over: Partial<Task>): Task => ({
   id: 't1',
   title: 'server',
@@ -97,6 +106,7 @@ const appTask = (over: Partial<Task>): Task => ({
 beforeEach(() => {
   h.capture.handler = null
   h.capture.rows = [serverRow()]
+  h.capture.selectError = null
   h.insert.mockClear()
   h.upsert.mockClear()
   h.updateEq.mockReset()
@@ -347,4 +357,65 @@ test('a failing trim-delete on updateSeries still materializes the widened windo
   ])
   // ...and the failure is now surfaced instead of failing silently.
   expect(result.current.error).toBe('trim failed')
+})
+
+test('a failed load hydrates from the snapshot and materializes nothing', async () => {
+  localStorage.setItem(
+    'ma-snapshot-board',
+    JSON.stringify({
+      v: 1,
+      userId: 'u1',
+      savedAt: 1_770_000_000_000,
+      tasks: [{ ...serverTask(), id: 'cached' }],
+      templates: [{ ...serverTask(), id: 'tmpl', recurFreq: 'daily', recurParentId: null }],
+    }),
+  )
+  h.capture.selectError = { message: 'FetchError: Failed to fetch' }
+
+  const { result } = renderHook(() => useTasks('u1'))
+
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  expect(result.current.tasks.map((t) => t.id)).toEqual(['cached'])
+  expect(result.current.offline).toBe(true)
+  expect(result.current.savedAt).toBe(1_770_000_000_000)
+  expect(result.current.error).toBeNull()
+  // The dangerous one: materialize() inserts rows, and running it over snapshot state
+  // risks duplicate instances against tasks_recur_instance_uniq (23505).
+  expect(h.insert).not.toHaveBeenCalled()
+})
+
+test('a failed load with no snapshot still surfaces the error', async () => {
+  h.capture.selectError = { message: 'FetchError: Failed to fetch' }
+  const { result } = renderHook(() => useTasks('u1'))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  expect(result.current.offline).toBe(false)
+  expect(result.current.error).toContain('Failed to fetch')
+})
+
+test('a successful load writes a snapshot', async () => {
+  h.capture.rows = [serverRow()]
+  const { result } = renderHook(() => useTasks('u1'))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  await waitFor(() => expect(localStorage.getItem('ma-snapshot-board')).not.toBeNull())
+  const snap = JSON.parse(localStorage.getItem('ma-snapshot-board')!)
+  expect(snap.userId).toBe('u1')
+  expect(snap.tasks).toHaveLength(1)
+})
+
+test('reconnecting clears offline mode', async () => {
+  localStorage.setItem(
+    'ma-snapshot-board',
+    JSON.stringify({ v: 1, userId: 'u1', savedAt: 1, tasks: [], templates: [] }),
+  )
+  h.capture.selectError = { message: 'FetchError: Failed to fetch' }
+  const { result } = renderHook(() => useTasks('u1'))
+  await waitFor(() => expect(result.current.offline).toBe(true))
+
+  h.capture.selectError = null
+  h.capture.rows = [serverRow()]
+  act(() => {
+    window.dispatchEvent(new Event('online'))
+  })
+  await waitFor(() => expect(result.current.offline).toBe(false))
+  expect(result.current.tasks).toHaveLength(1)
 })
