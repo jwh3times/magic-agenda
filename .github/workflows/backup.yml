@@ -73,6 +73,12 @@ jobs:
       #  - public data: the board itself (tasks, user_settings).
       #  - auth data: `supabase db dump` EXCLUDES Supabase-managed schemas by default. Without
       #    this file every restored task would reference a user id that no longer exists.
+      #
+      # pg_dump warns here about a circular foreign key on `tasks` — that is `recur_parent_id`
+      # referencing `tasks(id)` (the recurrence template link, init.sql:42), and it is expected.
+      # The consequence is on RESTORE, not on dump: a --data-only load can violate the FK depending
+      # on row order, so the runbook loads data with `session_replication_role = replica`. Do not
+      # "fix" this warning by dropping the auth/public split.
       - name: Dump schema, public data, and auth data
         run: |
           mkdir -p backup
@@ -85,15 +91,41 @@ jobs:
       - name: Verify the dumps contain what a restore needs
         run: |
           fail() { echo "::error::$1"; exit 1; }
+
+          # Normalise `COPY "public"."tasks" (...)` and `INSERT INTO public.tasks (...)` down to
+          # `public.tasks`. The CLI quotes identifiers, so a literal `grep 'public.tasks'` does NOT
+          # match — that over-strict check failed the first real run against a perfectly good dump.
+          # The trailing filter keeps only things shaped like an identifier: COPY payload rows are
+          # raw user data, and a task titled "INSERT INTO ..." would otherwise print to this log,
+          # which is public.
+          tables() {
+            grep -oE '^(COPY|INSERT INTO) +[^ (]+' "$1" \
+              | awk '{ print $NF }' \
+              | tr -d '"' \
+              | grep -E '^[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*$' \
+              | sort -u
+          }
+          has_table() { tables "$1" | grep -qx "$2"; }
+
           for f in schema data auth; do
             [ -s "backup/$f.sql" ] || fail "backup/$f.sql is empty or missing"
           done
+
           grep -q 'CREATE TABLE' backup/schema.sql \
             || fail "schema.sql contains no CREATE TABLE — the schema was not captured"
-          grep -q 'public.tasks' backup/data.sql \
-            || fail "data.sql contains no public.tasks — no board data was captured"
-          grep -q 'auth.users' backup/auth.sql \
-            || fail "auth.sql contains no auth.users — accounts were not captured, so a restore would orphan every task"
+
+          # Table names only — never row values.
+          echo "Tables captured in data.sql:"; tables backup/data.sql | head -20
+          echo "Tables captured in auth.sql:"; tables backup/auth.sql | head -20
+
+          # Note the limit of this check: pg_dump emits a COPY statement even for an empty table, so
+          # this proves the table was captured, not that it holds rows. Row counts are verified on
+          # restore (see the runbook), which is the only place they can be checked meaningfully.
+          has_table backup/data.sql public.tasks \
+            || fail "data.sql does not contain public.tasks — no board data was captured"
+          has_table backup/auth.sql auth.users \
+            || fail "auth.sql does not contain auth.users — accounts were not captured, so a restore would orphan every task"
+
           echo "Dump sizes (bytes):"
           wc -c backup/*.sql
 

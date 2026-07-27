@@ -22,6 +22,22 @@ outage.
 Order matters: loading `data.sql` before `auth.sql` fails on foreign keys, or silently orphans rows
 if constraints are deferred.
 
+### The circular foreign key on `tasks`
+
+`tasks.recur_parent_id` references `tasks(id)` — a recurring series is a hidden template row plus
+instance rows pointing back at it (`init.sql:42`). That makes `tasks` self-referential, and `pg_dump`
+says so on every run:
+
+```
+pg_dump: warning: there are circular foreign-key constraints on this table:
+pg_dump: detail: tasks
+```
+
+This is expected and not a problem with the backup. It is a problem with the **restore**: a
+`--data-only` load inserts rows in dump order, so an instance row can arrive before the template it
+references and fail with a foreign-key violation. The load below therefore disables FK triggers for
+the session. Do not skip that — and do not "fix" the warning by changing what gets dumped.
+
 ## 1. Get the bundle and open it
 
 ```bash
@@ -61,12 +77,21 @@ psql "$PGURI" -v ON_ERROR_STOP=1 -f schema.sql
 # 2. Accounts BEFORE board data — see the table above.
 psql "$PGURI" -v ON_ERROR_STOP=1 -f auth.sql
 
-# 3. Board data.
-psql "$PGURI" -v ON_ERROR_STOP=1 -f data.sql
+# 3. Board data, with foreign-key triggers off for the session so the self-referencing
+#    tasks.recur_parent_id cannot fail on row order. Both commands must run in ONE psql session —
+#    session_replication_role does not survive across invocations.
+psql "$PGURI" -v ON_ERROR_STOP=1 --single-transaction \
+  -c "SET session_replication_role = replica;" \
+  -f data.sql
 ```
 
 `-v ON_ERROR_STOP=1` is not optional: without it `psql` continues past failures and you end up with
-a partial restore that looks like it worked.
+a partial restore that looks like it worked. `--single-transaction` means a mid-file failure rolls
+back cleanly instead of leaving half the board loaded.
+
+If `SET session_replication_role` is refused (it needs sufficient privilege — the `postgres` role on
+Supabase has it), the fallback is to load `data.sql` as-is and re-run it: the first pass inserts the
+template rows it can, the second resolves the references that failed. Verify counts either way.
 
 ## 4. Verify before declaring victory
 
@@ -78,7 +103,17 @@ select count(*) from public.user_settings;
 select count(*) from public.tasks t
   left join auth.users u on u.id = t.user_id
  where u.id is null;   -- must be 0
+
+-- And no recurring instance may reference a template that did not come back. This is the check
+-- that catches a restore done with FK triggers disabled but rows missing — the failure the
+-- disabled triggers would otherwise have hidden:
+select count(*) from public.tasks t
+  left join public.tasks p on p.id = t.recur_parent_id
+ where t.recur_parent_id is not null and p.id is null;   -- must be 0
 ```
+
+If either count is non-zero, do not put the project back in front of users — the restore is
+incomplete, and disabled FK triggers mean the database will not tell you again.
 
 Then sign in as a real user and confirm a board renders, a task saves, and realtime still syncs.
 

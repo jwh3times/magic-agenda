@@ -12,6 +12,31 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.26] - 2026-07-27
+
+### Fixed
+
+- **The backup job's own verification rejected a perfectly good dump.** The first real run of the
+  v1.2.25 workflow failed with "data.sql contains no public.tasks". The dumps were fine — the
+  Supabase CLI quotes identifiers, so the file says `COPY "public"."tasks"`, and the check used
+  `grep 'public.tasks'`, where `.` matches exactly one character and cannot span `"."`. The check
+  now normalises `COPY "public"."tasks"` / `INSERT INTO public.tasks` to a bare `public.tasks`
+  before comparing, and prints the captured table names on both success and failure so the next
+  surprise is diagnosable from the log. Those names are filtered to identifier-shaped strings and
+  matched only at line start, because `COPY` payload rows are user data and this log is public.
+
+### Security
+
+- **The restore procedure would have failed on the recurrence foreign key.** `pg_dump` warns on
+  every run that `tasks` has a circular foreign-key constraint — that is `recur_parent_id`
+  referencing `tasks(id)`, the hidden-template link. The consequence lands on restore, not on
+  dump: a `--data-only` load inserts rows in file order, so a recurring instance can arrive before
+  its template and abort the load on a foreign-key violation. The runbook now loads board data with
+  `session_replication_role = replica` inside a single transaction, explains the warning so it is
+  not "fixed" by changing what gets dumped, and adds a post-restore check for instances whose
+  template did not come back — the exact corruption that disabling FK triggers would otherwise
+  hide. Found by running the backup for real rather than by reading it.
+
 ## [1.2.25] - 2026-07-26
 
 ### Added
@@ -525,7 +550,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.25...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.26...HEAD
+[1.2.26]: https://github.com/jwh3times/magic-agenda/compare/v1.2.25...v1.2.26
 [1.2.25]: https://github.com/jwh3times/magic-agenda/compare/v1.2.24...v1.2.25
 [1.2.24]: https://github.com/jwh3times/magic-agenda/compare/v1.2.23...v1.2.24
 [1.2.23]: https://github.com/jwh3times/magic-agenda/compare/v1.2.22...v1.2.23
