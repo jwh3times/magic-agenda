@@ -37,15 +37,19 @@ vi.mock('../auth/AuthProvider', () => ({
   }),
 }))
 
+import { SettingsProvider } from '../data/SettingsProvider'
 import { SettingsPage } from './SettingsPage'
 
 beforeEach(() => h.upsert.mockClear())
 
+// Settings live in a provider above <Routes> (see SettingsProvider), so the page needs it in scope.
 function renderPage() {
   return render(
-    <MemoryRouter>
-      <SettingsPage />
-    </MemoryRouter>,
+    <SettingsProvider>
+      <MemoryRouter>
+        <SettingsPage />
+      </MemoryRouter>
+    </SettingsProvider>,
   )
 }
 
