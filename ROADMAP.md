@@ -165,6 +165,7 @@ Total rough effort for the remaining items: ~7–11 weeks of focused solo work.
       `…supabase.co` callback host on the free tier. Supabase custom domain (paid add-on): CNAME
       `auth.magicagenda.app`, activate, update `VITE_SUPABASE_URL` in Pages env, redeploy. No code
       change. Blocked on the Supabase plan decision — a cost call.
+
 ## Phase 6 — Bigger bets
 
 Larger efforts that fit the app's direction but are not near-term.

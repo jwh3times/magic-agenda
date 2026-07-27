@@ -3,7 +3,6 @@ import { Link } from 'react-router'
 import type { ThemeName } from '../types/task'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
 import { useIsMobile } from '../lib/useMediaQuery'
-import logoDark from '../assets/logo-dark.svg'
 
 // The preview drags in TaskCard, cardStyles, chrome and the mock board — ~30 kB that the hero,
 // the copy, and the CTA do not need. Loading it separately keeps the entry chunk (which every
@@ -72,7 +71,23 @@ export function Landing() {
             gap: 16,
           }}
         >
-          <img src={logoDark} alt="Magic Agenda" style={{ height: 34, display: 'block' }} />
+          {/* The app name is real text, not just the logo's alt attribute, and the mark beside it is
+              the same one uploaded to the OAuth consent screen. Google's branding verification
+              checks that the name on the home page matches the configured app name and that the
+              logo identifies the brand — neither can be satisfied by an <img> whose wordmark lives
+              inside an SVG the DOM never sees (and which renders lowercase "magic agenda"). */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <img
+              src="/apple-touch-icon.png"
+              alt=""
+              width={32}
+              height={32}
+              style={{ display: 'block', borderRadius: 8 }}
+            />
+            <span style={{ fontSize: 19, fontWeight: 800, letterSpacing: '-0.3px' }}>
+              Magic Agenda
+            </span>
+          </div>
           <Link
             to="/login"
             style={{
@@ -108,8 +123,8 @@ export function Landing() {
               opacity: 0.72,
             }}
           >
-            A drag-and-drop task board that feels like a corkboard, not a spreadsheet. Three themes,
-            recurring tasks, due times — synced across every device.
+            Magic Agenda is a drag-and-drop task board that feels like a corkboard, not a
+            spreadsheet. Three themes, recurring tasks, due times — synced across every device.
           </p>
           <div
             style={{

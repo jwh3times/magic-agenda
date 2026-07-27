@@ -12,6 +12,34 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.29] - 2026-07-27
+
+### Fixed
+
+- **The landing page was invisible to anything that doesn't run JavaScript.** This app is a
+  client-rendered SPA, so the served `<body>` is an empty `<div id="root">` — every word of v1.2.28's
+  landing page arrives only after the bundle executes. A crawler that doesn't evaluate JS therefore
+  saw a blank page, which is indistinguishable from the two failures the landing page was built to
+  fix ("your home page is behind a login page" and "does not explain the purpose of your app").
+  `index.html` now ships a `<noscript>` block carrying the app name, the purpose, and links to sign
+  in, Privacy, and Terms. No visual change for real users; the built HTML now contains the app name
+  and the purpose sentence as static text.
+
+- **The app name appeared nowhere on the page as text.** Google also rejected the site because the
+  OAuth consent screen's app name didn't match the home page's. It couldn't have: the header logo is
+  an `<img>`, so "Magic Agenda" existed only as an `alt` attribute and a footer copyright line — and
+  the wordmark inside that SVG renders lowercase "magic agenda" where the DOM can't read it at all.
+  The header now shows the icon mark beside **Magic Agenda** as real text, matching the configured
+  app name exactly, and the hero sentence names the app so the name and the purpose are stated
+  together. A test pins it.
+
+### Docs
+
+- The landing-page spec's follow-up predicted that any remaining verification failure would be
+  domain ownership rather than page content. That was wrong, and the entry now says so along with
+  what the real gaps were — including the escalation if content is still the problem next time
+  (pre-render the route at build time, rather than adding more meta tags).
+
 ## [1.2.28] - 2026-07-27
 
 ### Added
@@ -614,7 +642,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.28...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.29...HEAD
+[1.2.29]: https://github.com/jwh3times/magic-agenda/compare/v1.2.28...v1.2.29
 [1.2.28]: https://github.com/jwh3times/magic-agenda/compare/v1.2.27...v1.2.28
 [1.2.27]: https://github.com/jwh3times/magic-agenda/compare/v1.2.26...v1.2.27
 [1.2.26]: https://github.com/jwh3times/magic-agenda/compare/v1.2.25...v1.2.26
