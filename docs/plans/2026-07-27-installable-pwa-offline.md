@@ -63,7 +63,7 @@ reuses the existing `DragDisabledContext`.
   - `interface BoardSnapshot { v: 1; userId: string; savedAt: number; tasks: Task[]; templates: Task[] }`
   - `interface SettingsSnapshot { v: 1; userId: string; settings: Settings }`
 
-- [ ] **Step 1: Make tests isolated from `localStorage`**
+- [ ] **Step 1: Give the test environment a `localStorage`, then isolate it**
 
 `src/test/setup.ts` clears `sessionStorage` only. Snapshots live in `localStorage`, so without this
 one test's snapshot leaks into the next. Replace the `afterEach` body:
@@ -74,6 +74,18 @@ afterEach(() => {
   localStorage.clear()
 })
 ```
+
+**This environment has no `localStorage` to clear.** Measured on Node v26.4.0 with vitest 4.1.10:
+`globalThis === window`, and **neither** `globalThis.localStorage` nor `window.localStorage` is
+defined, although the `Storage` constructor is. So `setup.ts` must also install a minimal
+`localStorage` polyfill, guarded by `if (typeof globalThis.localStorage === 'undefined')` so it
+no-ops the day the environment supplies one.
+
+The consequence to write down beside it: a polyfill's methods are **own properties**, not
+`Storage.prototype` methods, so `vi.spyOn(Storage.prototype, 'setItem')` silently fails to
+intercept. Any test that forces a storage failure must spy on the live storage object
+(`vi.spyOn(localStorage, 'setItem')`) — and must be proven to bite, by making the code under test
+rethrow once and watching the test fail.
 
 - [ ] **Step 2: Write the failing tests**
 
