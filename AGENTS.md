@@ -276,6 +276,12 @@ leaves the job. Never add a step that uploads anything unencrypted, and never ec
 the log — the verify step prints table names only, matched at line start and identifier-filtered,
 because `COPY` payload rows are user data.
 
-Restoring is not just "load the file": `tasks.recur_parent_id` self-references and
-`on_auth_user_created` seeds a conflicting `user_settings` row, so data loads under
-`session_replication_role = replica`. Full procedure: `docs/runbooks/restore-from-backup.md`.
+Restoring is not just "load the file": `on_auth_user_created` seeds a conflicting `user_settings`
+row, so data loads under `session_replication_role = replica` — which `data.sql` already sets on its
+own line 1. Three findings from the first real rehearsal (2026-07-27) that contradict what this file
+used to say: the `tasks.recur_parent_id` self-reference is **not** a restore hazard (the CLI emits one
+multi-row `INSERT` per table, so FK checks defer to end of statement — verified at 5,064 rows);
+`schema.sql` **cannot** carry `on_auth_user_created`, because that trigger sits on `auth.users` and
+the dump is `public`-only, so restoring from it alone leaves new signups with no settings row; and the
+direct `db.<ref>.supabase.co` host is IPv6-only, so a restore needs the Session pooler. Full
+procedure, including what to verify: `docs/runbooks/restore-from-backup.md`.
