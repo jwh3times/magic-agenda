@@ -57,7 +57,8 @@ export function Toast({
       }}
     >
       <span style={{ flex: 1 }}>
-        {tone === 'error' && <strong style={{ fontWeight: 700 }}>Couldn’t sync.</strong>} {message}
+        {tone === 'error' && <strong style={{ fontWeight: 700 }}>Couldn’t sync. </strong>}
+        {message}
       </span>
       {action && (
         <button
