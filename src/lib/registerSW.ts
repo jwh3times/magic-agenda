@@ -29,23 +29,36 @@ export function applyUpdate(): void {
 }
 
 export function registerServiceWorker(): void {
-  // React StrictMode double-invokes effects in development; registering twice is harmless
-  // but noisy, and the guard also makes the behaviour testable.
+  // Idempotency guard. Its only current call site is a plain function call in main.tsx, at
+  // module scope outside the React tree, so React StrictMode's effect double-invocation does not
+  // actually apply here — nothing calls this twice today. The guard still earns its keep: it
+  // protects any future call from inside a component (where StrictMode WOULD double-invoke it),
+  // and it is what makes "call it twice, register once" testable.
   if (registered) return
+  // No /sw.js exists outside a production build (`devOptions.enabled` is false — see
+  // vite.config.ts), so registering in dev just 404s. Skip it rather than let that reject.
+  if (!import.meta.env.PROD) return
   if (!('serviceWorker' in navigator)) return
   registered = true
-  void navigator.serviceWorker.register('/sw.js').then((registration) => {
-    if (registration.waiting) announce(registration.waiting)
-    registration.addEventListener('updatefound', () => {
-      const installing = registration.installing
-      if (!installing) return
-      installing.addEventListener('statechange', () => {
-        // `controller` is null on the very first install — that is not an update, it is the
-        // worker taking over for the first time, and prompting for it would be nonsense.
-        if (installing.state === 'installed' && navigator.serviceWorker.controller) {
-          announce(installing)
-        }
+  navigator.serviceWorker
+    .register('/sw.js')
+    .then((registration) => {
+      if (registration.waiting) announce(registration.waiting)
+      registration.addEventListener('updatefound', () => {
+        const installing = registration.installing
+        if (!installing) return
+        installing.addEventListener('statechange', () => {
+          // `controller` is null on the very first install — that is not an update, it is the
+          // worker taking over for the first time, and prompting for it would be nonsense.
+          if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+            announce(installing)
+          }
+        })
       })
     })
-  })
+    .catch(() => {
+      // Unsupported browser, blocked by policy, a bad scope — none of these should throw an
+      // unhandled rejection into the console. The app works fully without a worker; registering
+      // one is an enhancement, never a requirement.
+    })
 }
