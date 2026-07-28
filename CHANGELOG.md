@@ -12,6 +12,39 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.33] - 2026-07-27
+
+### Docs
+
+- **Audited `ROADMAP.md` against the code and corrected three sketches that had drifted from the
+  repo they describe.** Every remaining item is genuinely unbuilt — that part held — but the
+  implementation notes had aged badly in ways that would have misled whoever picked them up:
+  - **6.1 (iCal feed)** planned to add "a new `Functions Test` CI job". That job already exists:
+    `ci.yml` runs `deno test` from inside `supabase/functions`, and it is already required.
+  - **5.6 (custom auth domain)** read "blocked on the Supabase plan decision". The decision was
+    priced on 2026-07-26 — Pro at $25/mo plus a $10/mo per-project add-on — and went the other
+    way: the nightly encrypted `pg_dump` shipped in v1.2.25 bought back Pro's strongest benefit
+    for nothing. It is deferred **by** decision, not awaiting one.
+  - **4.1 (week-start & timezone)** claimed "dates are effectively UTC today". They are
+    browser-local: `lib/dates.ts` builds every `YYYY-MM-DD` from `getFullYear`/`getMonth`/
+    `getDate` and `parseDay` returns a local `Date`, so a single-device user is already correct.
+    What is actually missing is a _stored_ timezone, which is what the server-side reminder
+    sender in 3.2 needs — an Edge Function has no browser to ask.
+
+- **Two real gaps were tracked nowhere and are now roadmap items.**
+  - **4.8, two-factor (TOTP) enrollment UI.** `supabase/config.toml` has `enroll_enabled` and
+    `verify_enabled` true in production while nothing in `src/` calls `supabase.auth.mfa.*` — a
+    capability live on the server that the app cannot reach. Needs no config change.
+  - **5.8, leaked-password protection (HIBP).** The one open finding from the security reviews,
+    previously visible only in the git-ignored `private/` directory, so the public roadmap implied
+    it did not exist.
+
+- **`AGENTS.md` had drifted the same way.** It described three board views where `ViewName` has
+  four (calendar, week, agenda, kanban), omitted the `Landing` page shipped in v1.2.28, and still
+  said `BoardPage` wires `useSettings(userId)` — v1.2.32 moved that to a `SettingsProvider` above
+  `<Routes>`, with `useTasks` deliberately left un-hoisted so `BoardPage` stays lazy and keeps
+  dnd-kit out of the entry chunk.
+
 ## [1.2.32] - 2026-07-27
 
 ### Changed
@@ -739,7 +772,10 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.30...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.33...HEAD
+[1.2.33]: https://github.com/jwh3times/magic-agenda/compare/v1.2.32...v1.2.33
+[1.2.32]: https://github.com/jwh3times/magic-agenda/compare/v1.2.31...v1.2.32
+[1.2.31]: https://github.com/jwh3times/magic-agenda/compare/v1.2.30...v1.2.31
 [1.2.30]: https://github.com/jwh3times/magic-agenda/compare/v1.2.29...v1.2.30
 [1.2.29]: https://github.com/jwh3times/magic-agenda/compare/v1.2.28...v1.2.29
 [1.2.28]: https://github.com/jwh3times/magic-agenda/compare/v1.2.27...v1.2.28
