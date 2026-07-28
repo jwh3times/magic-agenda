@@ -12,6 +12,97 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.33] - 2026-07-27
+
+### Added
+
+- **Installable, offline-readable PWA.** The app now has a web manifest (name, standalone display,
+  a maskable icon) and a hand-authored service worker, so it can be added to a phone's Home Screen
+  and still shows your board with no network. `vite-plugin-pwa` runs in `injectManifest` mode —
+  workbox ships nothing at runtime; every caching rule in `src/sw.ts` is code we wrote and can
+  reason about. **Navigations are network-first, always**: a service worker is the one deployed
+  artifact a merge to `main` can't reach directly, and cache-first navigation would let a bad
+  deploy make itself permanent on any device that had already installed the worker. Only
+  content-hashed build assets and the two Google Fonts hosts are cache-first. `*.supabase.co` is
+  never written to any cache, over `https` or `wss` — a cache is a bucket shared by every profile
+  on the device, and caching an authenticated response would leak one user's data to the next
+  (`src/sw/policy.ts`, unit-tested in `src/sw/policy.test.ts`, since `src/sw.ts` itself can't run
+  under jsdom).
+
+  Offline read is a last-known snapshot, not a live sync: `src/data/snapshot.ts` keeps two
+  versioned `localStorage` envelopes (board — tasks, hidden recurrence templates, `savedAt`; and
+  settings), each keyed to the signed-in user id and cleared on sign-out. `useTasks` writes the
+  board snapshot after every successful server load and, on a **failed** load, hydrates from it
+  read-only — deliberately skipping recurrence `materialize()`, since replaying it against
+  snapshot data would insert duplicate instances and hit `tasks_recur_instance_uniq` (Postgres
+  23505) the moment the real load succeeds. `useSettings` falls back to its own snapshot on a
+  failed load rather than silently resetting the theme to defaults. While hydrated from a
+  snapshot, the board is read-only (an offline banner; drag, add, and per-card done/pin are all
+  disabled) via a small `OfflineContext`. A new-version toast (`UpdatePrompt`) offers a waiting
+  worker without ever auto-reloading a tab out from under someone.
+
+  Rollback path if a bad worker ever ships: `docs/runbooks/service-worker-rollback.md`.
+
+### Fixed
+
+Several defects surfaced during implementation, all found by writing tests or by review before
+merge — worth recording because they show what "offline read" actually required, beyond the
+service worker itself:
+
+- **The offline fallback was wired to `ProtectedRoute`, which never guards the board.**
+  `ProtectedRoute` wraps only `/settings`; the board lives at `/` behind `HomeRoute`, which makes
+  its own `session ? <BoardPage/> : <Landing/>` decision and never consulted the offline branch at
+  all. The feature was inert at the one route it exists for until `HomeRoute` got the same
+  `!online && !passwordRecovery && hasBoardSnapshot(...)` branch, in the same relative order as its
+  existing password-recovery guard — the two guards must stay mirrored or this regresses silently
+  again.
+- **`BoardPage` and `SettingsPage` both re-derived their own gate from `session`/`user`,** which is
+  `null` on exactly the offline-boot path `ProtectedRoute`/`HomeRoute` now admit. `BoardPage` spun
+  on its loading spinner forever instead of showing the hydrated snapshot; `SettingsPage`'s `!user`
+  check did the same. Both now gate on a resolved `userId` (the session id, else
+  `readLastUserId()`) — the id the data layer already keys off — instead of re-answering "are we
+  signed in" a second time.
+- **A stale `ma-last-user` widens what a signed-out visitor's landing-page mount does.**
+  `SettingsProvider` sits above the router so `/` and `/settings` share one settings fetch and
+  channel; its no-op guard on an empty `userId` only covers a visitor who never signed in on this
+  device. Someone whose session vanished without a `SIGNED_OUT` event (the exact case this feature
+  exists for) still has a remembered id, so returning online while still signed out now fires a
+  `user_settings` query and opens a realtime channel from the public landing page. Not a leak — RLS
+  scopes both to rows the caller owns, and an unauthenticated request returns nothing — but a real,
+  deliberate behavior change from what the code comment used to claim, corrected and pinned by
+  tests.
+- **The `SIGNED_OUT` snapshot/last-user clearing — the privacy justification for storing task text
+  at rest — had no test.** It works, but nothing would have caught a future refactor dropping it.
+  Extended `AuthProvider.test.tsx` to assert both snapshot envelopes and `ma-last-user` are gone
+  after sign-out.
+- **`ProtectedRoute`'s offline branch didn't check `passwordRecovery`.** A lingering recovery flag
+  from an interrupted flow could in principle ride the offline branch straight to the board,
+  bypassing the "set a new password first" guard. Closed with the same `!passwordRecovery` check
+  `HomeRoute` needed anyway.
+- **The precache manifest can list `index.html` and `/index.html` as two different strings.**
+  `vite-plugin-pwa`'s injected manifest emits root-relative URLs with no leading slash; deduping the
+  precache list on the raw strings missed that `"index.html"` and the worker's own `SHELL` constant
+  (`"/index.html"`) resolve to the same request, and `cache.addAll` throws `duplicate requests` on a
+  batch containing two entries that resolve identically — failing `install` on every load. Fixed by
+  resolving every entry to an absolute URL before deduping.
+
+### Docs
+
+- New living runbook: `docs/runbooks/service-worker-rollback.md` — how to recognize a stuck
+  worker, the kill-switch worker that clears every cache and unregisters itself, how to ship it, how
+  to confirm recovery, and the honest limit (a tab that never revisits keeps the old worker forever).
+- `AGENTS.md` gained an Architecture subsection on the PWA/offline subsystem: the worker is
+  authored, not generated; why navigations are network-first; the never-cache-Supabase rule and
+  where its test lives; the `/sw.js` CSP scope; the two snapshot envelopes and sign-out clearing;
+  and `tsconfig.worker.json` as a third project-reference sibling.
+- `README.md` now mentions installability and offline read in the feature list.
+- ROADMAP.md: item 3.1 (installable PWA + offline read) has shipped — removed from the Phase 3 list
+  and the build-order table, recorded in the header paragraph alongside 5.1/5.2/5.3 and 5.7. Item
+  3.2 (reminders) now depends on 4.1 only.
+- Flagged for the next dated review in `private/`, not fixed here: storing task text at rest in
+  `localStorage` (mitigated by clearing it on sign-out) is a new position for this app and belongs
+  in the accepted-risk record, argued, rather than only inside this PR.
+
 ## [1.2.32] - 2026-07-27
 
 ### Changed
@@ -151,7 +242,7 @@ No unreleased changes.
   theme tokens using the mock board already in the repo — genuine rotation, pins, DONE stamps,
   per-theme shadows — with a Cork / Neon-Brutalist / Aurora-Glass toggle beneath it. Nothing to
   capture, commit at 2×, or re-take when the UI changes; it cannot drift from the product because it
-  *is* the product rendering. The toggle is local to the page and never writes to your saved theme.
+  _is_ the product rendering. The toggle is local to the page and never writes to your saved theme.
 
 - **Privacy and Terms are reachable from the board itself** (ROADMAP 5.3), in the inbox foot. The
   roadmap suggested the mobile toolbar overflow, but no overflow menu exists and the phone toolbar
@@ -183,7 +274,7 @@ No unreleased changes.
 - **The documented restore had two ways to fail, both found by reading a successful backup's log.**
   The first green run printed the tables it captured, which showed `data.sql` already contained the
   `auth` schema — `supabase db dump --data-only` includes Supabase-managed schemas, even though the
-  *schema* dump excludes them. The separate `--schema auth` dump added in v1.2.25 was therefore a
+  _schema_ dump excludes them. The separate `--schema auth` dump added in v1.2.25 was therefore a
   strict subset of `data.sql` (16 KB inside 19 KB), and the runbook's "load `auth.sql`, then
   `data.sql`" would have inserted `auth.users` twice and aborted on a duplicate key — during an
   outage, halfway through a restore.
@@ -251,7 +342,7 @@ No unreleased changes.
 
 - **`docs/runbooks/restore-from-backup.md`** — the restore procedure, including the ordering trap
   (`auth.sql` before `data.sql`, or foreign keys fail), what to do differently for partial data loss
-  versus a lost project, what a restored database does *not* carry (auth config, OAuth client), and
+  versus a lost project, what a restored database does _not_ carry (auth config, OAuth client), and
   a standing instruction to rehearse it against a throwaway project. `docs/` now distinguishes its
   historical `plans/` and `specs/` from `runbooks/`, which is living documentation.
 
@@ -272,7 +363,7 @@ No unreleased changes.
 
 - **`AGENTS.md` now tells agents that `private/` exists.** The security reviews are git-ignored and
   local to the maintainer's checkout, so an agent had no way to learn that the redirect wildcard,
-  tokens in `localStorage`, and the realtime DELETE fan-out are *argued, accepted* risks rather than
+  tokens in `localStorage`, and the realtime DELETE fan-out are _argued, accepted_ risks rather than
   bugs to fix — and reviews that live nowhere discoverable get re-litigated or silently undone.
 
 ## [1.2.23] - 2026-07-26
@@ -320,7 +411,7 @@ No unreleased changes.
   Finding 2 — Low, accepted). The migration's comment described it only as a client-correctness
   quirk. It now states that DELETE events are fanned out to every subscriber with no owner check
   (Postgres cannot check access to an already-deleted row), that payloads are capped at primary
-  keys — for `user_settings` that key *is* the auth user id — and records the two standing rules
+  keys — for `user_settings` that key _is_ the auth user id — and records the two standing rules
   that keep it Low: never put a secret or semantically meaningful value in the primary key of a
   published table, and never disable RLS on one. `AGENTS.md` carries the same rules. Comment-only;
   no schema change, and `db push` treats the already-applied migration as a no-op.
