@@ -9,7 +9,9 @@ const BOARD_KEY = 'ma-snapshot-board'
 const SETTINGS_KEY = 'ma-snapshot-settings'
 
 // Bump on any shape change. A mismatched envelope is dropped, never migrated.
-const V = 1
+// v2: Settings gained weekStart + timezone (roadmap 4.1). Dropping costs nothing in practice —
+// getting this code at all requires a network navigation, and that same load rewrites both.
+const V = 2
 
 export interface BoardSnapshot {
   v: typeof V
