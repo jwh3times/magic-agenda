@@ -23,8 +23,9 @@ in one timezone is already correct. Two things are missing:
 
 "Today" is derived ad-hoc in two forms:
 
-- **Six `ymd(new Date())` call sites** — `Board.tsx` ×2 (the `visibleOverdue` memo, the roll-forward
-  handler), `CalendarView.tsx`, `AgendaView.tsx`, `TaskCard.tsx`, `useTasks.ts`.
+- **Seven `ymd(new Date())` call sites** — `Board.tsx` ×2 (the `visibleOverdue` memo, the
+  roll-forward handler), `CalendarView.tsx`, `WeekView.tsx`, `AgendaView.tsx`, `TaskCard.tsx`,
+  `useTasks.ts`.
 - **Two bare `new Date()` anchor sites in `Board.tsx`** — the initial `anchor` state and `onToday`.
   These are a distinct case: with a stored timezone, `new Date()` can be a different calendar day
   than the user's "today", so the Today button would land on the wrong week or month.
@@ -115,8 +116,9 @@ load rewrites both envelopes.
 New `src/data/TodayProvider.tsx`, mounted inside `<SettingsProvider>` in `App.tsx`. It reads
 `useSettingsContext()` and computes `todayYmd(settings?.timezone)`.
 
-Five of the six `ymd(new Date())` call sites become `useToday()` — `Board.tsx` ×2,
-`CalendarView.tsx`, `AgendaView.tsx`, `TaskCard.tsx`. The sixth, `useTasks.ts`, deliberately stays
+Six of the seven `ymd(new Date())` call sites become `useToday()` — `Board.tsx` ×2,
+`CalendarView.tsx`, `WeekView.tsx`, `AgendaView.tsx`, `TaskCard.tsx`. The seventh, `useTasks.ts`,
+deliberately stays
 browser-local (see below).
 
 The two anchor sites in `Board.tsx` become `parseDay(today)`: the initial `anchor` state and

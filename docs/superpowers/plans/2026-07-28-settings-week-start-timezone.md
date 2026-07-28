@@ -1002,8 +1002,14 @@ git commit -m "feat(dates): TodayProvider publishes timezone-aware today"
 
 ### Task 6: Route the board's "today" through `useToday()`
 
-Five of the six `ymd(new Date())` call sites, plus the two bare `new Date()` anchor sites.
-`useTasks.ts` is deliberately **left alone** — see Step 5.
+Six of the seven `ymd(new Date())` call sites, plus the two bare `new Date()` anchor sites.
+
+> **Correction (found during execution):** this task's original text listed only six call sites and
+> omitted `src/components/WeekView.tsx:22`, which highlights "today" exactly as `CalendarView` does.
+> The omission was an authoring miscount, not an intentional exclusion. Left unconverted it ships two
+> different "today"s on one board — Week view on browser time, Calendar view on the configured zone.
+> `WeekView.tsx` is converted here too.
+> `useTasks.ts` is deliberately **left alone** — see Step 5.
 
 **Files:**
 
