@@ -173,6 +173,32 @@ columns, and a collapsible full-width Inbox docked under the board. The shell he
 fallback, so do not move it back into `rootStyle`. Form fields use >=16px text on mobile (smaller
 triggers iOS Safari's focus zoom).
 
+### Dates are timezone-aware through one context, week start through one prop
+
+`lib/dates.ts` still builds every `YYYY-MM-DD` from local `Date` parts, but "today" no longer comes
+from an ad-hoc `ymd(new Date())`. It comes from `todayYmd(tz)` (pinned to the
+`en-US-u-ca-gregory` locale so a non-Gregorian ambient locale cannot yield a Buddhist-era year),
+published by `TodayProvider` and read with `useToday()`. The provider re-evaluates on a 60s timer
+and on `visibilitychange`, so a board left open across midnight rolls over on its own.
+
+`user_settings.timezone` is an IANA id where **NULL means "follow the browser"**, which is what
+every pre-4.1 row means and why a single-device user sees no change. Item 3.2's server-side sender
+cannot read NULL as "browser" — it has no browser — so that flow must prompt for a concrete zone
+rather than auto-capturing one here.
+
+Two settings, two delivery mechanisms, on purpose: `today` goes through a **context** because
+`TaskCard` is four levels deep (`CalendarView → DayCell → SortableCard → TaskCard`), while
+`weekStart` is a **prop** (`BoardPage → Board → CalendarView`) because it travels two levels and is
+a parameter of a pure function. `TodayContext` lives in `todayContext.ts`, apart from the provider
+component, so it stays a hook-only module (`react-refresh/only-export-components`); its default is
+browser-local today, which is what lets every component test render unwrapped.
+
+One call site is deliberately **not** converted: `useTasks`'s `materialize()` keeps browser-local
+time, because it only anchors a 90-day rolling horizon and re-running materialization on a settings
+change risks duplicate instance rows (23505). `CellMeta.dow` carries each cell's real weekday so
+`WeekView` can label a rotated week without knowing `weekStart`; weekend shading stays absolute
+Sat/Sun and never rotates.
+
 ### Theming is an inline-style-object model, not CSS
 
 Ported verbatim from the prototype. `theme/constants.ts` (CAT/COLORS/STATUS/PAPER), `theme/themeConf.ts`

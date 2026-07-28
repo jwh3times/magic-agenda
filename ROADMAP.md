@@ -18,13 +18,13 @@ realtime multi-device sync) **shipped 2026-07-05**, and Phase 2 (Scheduling dept
 pinned notes, overdue handling & roll-forward, export/import) **shipped 2026-07-06** — see
 [CHANGELOG.md](./CHANGELOG.md) — and their sections have been removed below; remaining
 dependencies on them are satisfied. Items **5.7 (branded auth emails, 2026-07-26)**, **5.1 / 5.2 /
-5.3 (public landing page, Google mark, in-app legal links, 2026-07-27)**, and **3.1 (installable
-PWA, offline read, 2026-07-27)** shipped and have been removed the same way.
+5.3 (public landing page, Google mark, in-app legal links, 2026-07-27)**, **3.1 (installable
+PWA, offline read, 2026-07-27)**, and **4.1 (settings: week-start & timezone, 2026-07-28)** shipped
+and have been removed the same way.
 
 | Order | Item                             | Pri | Size | Hard dependencies      |
 | ----- | -------------------------------- | --- | ---- | ---------------------- |
-| 4.1   | Settings: week-start & timezone  | P3  | M    | —                      |
-| 3.2   | Reminders / notifications        | P2  | XL   | 4.1                    |
+| 3.2   | Reminders / notifications        | P2  | XL   | —                      |
 | 4.2   | Custom labels / categories       | P2  | XL   | —                      |
 | 4.3   | Richer recurrence                | P3  | L    | —                      |
 | 4.4   | Quick-add & keyboard shortcuts   | P3  | L    | —                      |
@@ -40,7 +40,7 @@ PWA, offline read, 2026-07-27)** shipped and have been removed the same way.
 | 6.3   | Attachments                      | P3  | L    | —                      |
 | 6.2   | Shared / collaborative boards    | P3  | XL   | 5.4, ideally 4.2       |
 
-Total rough effort for the remaining items: ~7–11 weeks of focused solo work.
+Total rough effort for the remaining items: ~7–10 weeks of focused solo work.
 
 ## Conventions that apply to every item
 
@@ -73,22 +73,12 @@ Total rough effort for the remaining items: ~7–11 weeks of focused solo work.
       `PushManager.subscribe` (VAPID). Sender: `pg_cron` invoking an Edge Function every 5 minutes —
       query tasks due in the window (service role), send via a Deno `web-push` port, delete dead
       subscriptions on 404/410. iOS needs the PWA installed to Home Screen (16.4+) — surface in the
-      settings copy. Do **after** 4.1's timezone setting or reminders fire in UTC. Depends on
-      4.1.
+      settings copy. 4.1 shipped the stored timezone; note that NULL means "follow the browser",
+      which a server-side sender cannot resolve — prompt for a concrete zone when enabling
+      reminders.
 
 ## Phase 4 — Productivity & personalization
 
-- [ ] **Settings: week-start & timezone** · **P3** · M — completes the settings page. Dates are
-      **browser-local** today, not UTC: `lib/dates.ts` builds every `YYYY-MM-DD` from
-      `getFullYear`/`getMonth`/`getDate` and `parseDay` returns a local `Date`, so a single-device
-      user is already correct. What is missing is a _stored_ timezone — which is what a server-side
-      sender (3.2, an Edge Function with no browser to ask) and cross-timezone travel both need.
-      Schema: `user_settings.week_start int not null default 0`,
-      `user_settings.timezone text` (IANA, NULL = browser). `startOfWeek`, `buildWeekCells`,
-      `buildMonthGrid` take a `weekStart` param (pure — test-first; weekday headers rotate);
-      "today" moves behind `todayYmd(tz?)` in `lib/dates.ts` using `Intl.DateTimeFormat`. Risk:
-      `weekStart` touches month-grid padding math — extend the existing selector tests for
-      Monday-start.
 - [ ] **Custom labels / categories** · **P2** · XL — `category` is a hardcoded 5-value enum; let
       users define their own labels and colors. The deepest data change on the list — three PRs:
   1. Schema + backfill: `labels` table (`id, user_id, name, dot_color, position`, owner-only RLS);
