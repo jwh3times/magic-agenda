@@ -4,11 +4,12 @@ This file provides guidance to coding agents when working with code in this repo
 
 ## What this is
 
-Magic Agenda is a drag-and-drop task board (day / week / kanban views, recurring tasks, three visual
-themes) built as a pure React + TypeScript SPA on Supabase (Postgres + Auth), deployed to Cloudflare
-Pages at [magicagenda.app](https://magicagenda.app). Pages live in `src/pages/`: `BoardPage` (the app),
-`SettingsPage`, `Login`, `AuthCallback`, `AuthConfirm`, `ResetPassword`, and the static legal pages
-`Privacy` / `Terms` (both rendered through `src/components/LegalLayout.tsx`).
+Magic Agenda is a drag-and-drop task board (calendar / week / agenda / kanban views — the four
+`ViewName`s — recurring tasks, three visual themes) built as a pure React + TypeScript SPA on Supabase
+(Postgres + Auth), deployed to Cloudflare Pages at [magicagenda.app](https://magicagenda.app). Pages
+live in `src/pages/`: `BoardPage` (the app), `SettingsPage`, `Landing` (the public marketing page at
+`/` for signed-out visitors), `Login`, `AuthCallback`, `AuthConfirm`, `ResetPassword`, and the static
+legal pages `Privacy` / `Terms` (both rendered through `src/components/LegalLayout.tsx`).
 
 ## Commands
 
@@ -100,18 +101,29 @@ session (the residual session-fixation guard). `AuthProvider` / `ProtectedRoute`
 
 ### Data ownership: `BoardPage` owns state, `Board` is prop-driven
 
-`pages/BoardPage.tsx` wires `useTasks(userId, hasSession)` + `useSettings(userId, hasSession)`
-(via `SettingsProvider`) + `ThemeProvider` and passes tasks and every mutation down to
-`components/Board.tsx` as props. Both hooks take `userId` and `hasSession` as separate arguments
-on purpose: `userId` may resolve from the last-known id in `localStorage` with no live session
-behind it (the offline-boot fallback), which is fine for _reading_ a snapshot, but a snapshot
-_write_ requires the stricter `hasSession` — see the docstrings on `useTasks`/`useSettings`
-for the failure mode this guards against. `Board` holds only **UI** state (view, anchor date,
-editing modal, pop animation, filter). This decoupling is deliberate: it keeps `Board` testable
-without Supabase (`Board.test.tsx` renders it with a stateful `Harness`). `useTasks` is the
-single source of truth for board tasks: optimistic CRUD with rollback, plus `persistReorder`
-(upserts only the changed lanes). To follow a write end-to-end, read `BoardPage` -> `Board` ->
-`useTasks`.
+`pages/BoardPage.tsx` wires `useTasks(userId, hasSession)` + `useSettingsContext()` +
+`ThemeProvider` and passes tasks and every mutation down to `components/Board.tsx` as props.
+`Board` holds only **UI** state (view, anchor date, editing modal, pop animation, filter). This
+decoupling is deliberate: it keeps `Board` testable without Supabase (`Board.test.tsx` renders it
+with a stateful `Harness`). `useTasks` is the single source of truth for board tasks: optimistic
+CRUD with rollback, plus `persistReorder` (upserts only the changed lanes). To follow a write
+end-to-end, read `BoardPage` -> `Board` -> `useTasks`.
+
+Settings are **session-scoped, not page-scoped**: `SettingsProvider` (`src/data/SettingsProvider.tsx`)
+owns the single `useSettings(userId, hasSession)` call above `<Routes>` in `App.tsx`, so navigating
+between `/` and `/settings` no longer refetches or rebuilds the realtime channel. It mounts for
+signed-out visitors too, which is why `useSettings` no-ops on an empty `userId`. `useTasks` is
+deliberately **not** hoisted with it — `BoardPage` is lazy-loaded to keep dnd-kit and the board data
+layer out of the entry chunk.
+
+**Both hooks take `userId` and `hasSession` as separate arguments on purpose.** `userId` may resolve
+from the last-known id in `localStorage` with no live session behind it (the offline-boot fallback),
+which is fine for _reading_ a snapshot — but a snapshot _write_ requires the stricter `hasSession`.
+Collapsing the two is not hypothetical: a signed-out visitor with a stale `ma-last-user` queries
+`user_settings` from the public landing page, RLS returns zero rows **with no error**, and treating
+that as "no row yet" overwrites the user's saved settings snapshot with `DEFAULTS`. The same
+conflation lets a sessionless reconnect persist an empty board. See the docstrings on
+`useTasks`/`useSettings`.
 `useTasks` and `useSettings` also subscribe to Supabase realtime (`postgres_changes`,
 per-user channel): remote changes flow through the pure reducer in `src/data/realtime.ts`
 (instance dedupe by `(recurParentId, recurOriginDay)`, templates routed to `templatesRef`),
