@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { SettingsProvider } from './data/SettingsProvider'
+import { TodayProvider } from './data/TodayProvider'
 import { Spinner } from './components/Spinner'
 import { UpdatePrompt } from './components/UpdatePrompt'
 import { Login } from './pages/Login'
@@ -70,28 +71,30 @@ export default function App() {
       {/* Above <Routes>: `/` and `/settings` are mutually exclusive, so a per-page hook refetched
           settings and rebuilt the realtime channel on every navigation between them. */}
       <SettingsProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/auth/confirm" element={<AuthConfirm />} />
-            <Route path="/auth/reset" element={<ResetPassword />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <Suspense fallback={<Spinner label="Loading…" />}>
-                    <SettingsPage />
-                  </Suspense>
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/" element={<HomeRoute />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </BrowserRouter>
+        <TodayProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/auth/confirm" element={<AuthConfirm />} />
+              <Route path="/auth/reset" element={<ResetPassword />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route
+                path="/settings"
+                element={
+                  <ProtectedRoute>
+                    <Suspense fallback={<Spinner label="Loading…" />}>
+                      <SettingsPage />
+                    </Suspense>
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/" element={<HomeRoute />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </TodayProvider>
         <UpdatePrompt />
       </SettingsProvider>
     </AuthProvider>
