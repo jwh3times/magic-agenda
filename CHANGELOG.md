@@ -19,6 +19,9 @@ No unreleased changes.
 - Settings → Dates: choose which day your week starts on (Sunday, Monday, or Saturday) and set your
   timezone. The timezone decides which day counts as "today" for the board's today highlight,
   overdue badges, and roll-forward; "Automatic" follows whatever browser you are on.
+- Exported backups now include the week start and timezone alongside the theme and default view, so
+  a downloaded file is a complete record of your settings. Import is unchanged — it still restores
+  tasks and repeating series only.
 
 ### Fixed
 
