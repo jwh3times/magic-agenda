@@ -1,7 +1,8 @@
 import { useTheme } from '../theme/ThemeProvider'
 import { boardChrome, scrollbars, weekdayStyle } from '../theme/chrome'
 import { buildWeekCells, notesForDay } from '../data/selectors'
-import { ymd, WEEKDAYS_SHORT } from '../lib/dates'
+import { WEEKDAYS_SHORT } from '../lib/dates'
+import { useToday } from '../data/todayContext'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { DayCell } from './DayCell'
 import type { Task } from '../types/task'
@@ -19,7 +20,7 @@ export function WeekView({ weekStart, tasks, handlers, pop }: WeekViewProps) {
   const isMobile = useIsMobile()
   const b = boardChrome(theme, conf)
   const wd = weekdayStyle(theme, conf)
-  const cells = buildWeekCells(weekStart, ymd(new Date()))
+  const cells = buildWeekCells(weekStart, useToday())
 
   if (isMobile) {
     // Phones: the seven days stack vertically (one scrollable column), each with its own label.

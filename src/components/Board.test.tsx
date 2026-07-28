@@ -234,3 +234,32 @@ test('opens on the month of the configured today, not the browser clock', () => 
     vi.useRealTimers()
   }
 })
+
+test('week view highlights the cell for the configured today, not the browser clock', async () => {
+  localStorage.clear() // readBoardView() wins over initialView; force the calendar view.
+  // `shouldAdvanceTime` so dnd-kit's and Board's own timers still fire normally under fake time.
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  vi.setSystemTime(new Date('2026-07-28T12:00:00Z'))
+  try {
+    const user = userEvent.setup()
+    render(
+      <TodayContext.Provider value="2026-03-15">
+        <Harness />
+      </TodayContext.Provider>,
+    )
+    await user.click(screen.getByRole('button', { name: 'Week' }))
+
+    // 2026-03-15 is a Sunday, so it is the first cell of its own week — the browser clock's
+    // today (Jul 28, a different week entirely) never appears on screen at all, so the only way
+    // this assertion can pass is if the pinned context date drove the highlight.
+    const pinnedCell = screen.getByText('15')
+    expect(pinnedCell).toHaveStyle({ background: 'rgba(184,71,46,.14)' })
+
+    // None of the other six day-number cells in the week carry that highlight.
+    for (const dayNum of ['16', '17', '18', '19', '20', '21']) {
+      expect(screen.getByText(dayNum)).not.toHaveStyle({ background: 'rgba(184,71,46,.14)' })
+    }
+  } finally {
+    vi.useRealTimers()
+  }
+})
