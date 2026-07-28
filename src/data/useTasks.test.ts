@@ -4,9 +4,14 @@ import { NO_RECUR, type Task } from '../types/task'
 import { addDays, parseDay, ymd } from '../lib/dates'
 
 const h = vi.hoisted(() => {
-  const capture: { handler: ((p: unknown) => void) | null; rows: unknown[] } = {
+  const capture: {
+    handler: ((p: unknown) => void) | null
+    rows: unknown[]
+    selectError: { message: string } | null
+  } = {
     handler: null,
     rows: [],
+    selectError: null,
   }
   const ok = () => Promise.resolve({ data: null, error: null })
   // Stable spies so tests can assert on the rows reload/materialize/updateSeries write.
@@ -38,7 +43,7 @@ const h = vi.hoisted(() => {
 vi.mock('../lib/supabase', () => ({
   supabase: {
     from: vi.fn(() => ({
-      select: vi.fn(() => Promise.resolve({ data: h.capture.rows, error: null })),
+      select: vi.fn(() => Promise.resolve({ data: h.capture.rows, error: h.capture.selectError })),
       insert: h.insert,
       upsert: h.upsert,
       update: vi.fn(() => ({ eq: h.updateEq })),
@@ -76,6 +81,10 @@ const serverRow = (over: Record<string, unknown> = {}) => ({
   ...over,
 })
 
+import { rowToTask } from './mappers'
+
+const serverTask = (over: Record<string, unknown> = {}) => rowToTask(serverRow(over))
+
 const appTask = (over: Partial<Task>): Task => ({
   id: 't1',
   title: 'server',
@@ -97,6 +106,7 @@ const appTask = (over: Partial<Task>): Task => ({
 beforeEach(() => {
   h.capture.handler = null
   h.capture.rows = [serverRow()]
+  h.capture.selectError = null
   h.insert.mockClear()
   h.upsert.mockClear()
   h.updateEq.mockReset()
@@ -109,7 +119,7 @@ beforeEach(() => {
 })
 
 test('a stale echo of our own write does not clobber optimistic state', async () => {
-  const { result } = renderHook(() => useTasks('u1'))
+  const { result } = renderHook(() => useTasks('u1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
 
   await act(async () => {
@@ -129,7 +139,7 @@ test('a stale echo of our own write does not clobber optimistic state', async ()
 })
 
 test('a change from another device is applied', async () => {
-  const { result } = renderHook(() => useTasks('u1'))
+  const { result } = renderHook(() => useTasks('u1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
 
   act(() => {
@@ -143,7 +153,7 @@ test('a change from another device is applied', async () => {
 })
 
 test('a burst of remote events all apply (series creation from another device)', async () => {
-  const { result } = renderHook(() => useTasks('u1'))
+  const { result } = renderHook(() => useTasks('u1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
 
   act(() => {
@@ -173,7 +183,7 @@ test('reload does not re-insert instances the board already loaded (no duplicate
     serverRow({ id: 'tpl1', recur_freq: 'daily', day: today, recur_until: today }),
     serverRow({ id: 'i1', recur_parent_id: 'tpl1', recur_origin_day: today, day: today }),
   ]
-  const { result } = renderHook(() => useTasks('u1'))
+  const { result } = renderHook(() => useTasks('u1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
 
   // The lone occurrence is already covered by i1, so materialize must insert nothing. The bug:
@@ -195,7 +205,7 @@ test('updateSeries "this and future" persists the edited content to existing ins
       at_time: '09:00:00',
     }),
   ]
-  const { result } = renderHook(() => useTasks('u1'))
+  const { result } = renderHook(() => useTasks('u1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
   h.upsert.mockClear()
 
@@ -230,7 +240,7 @@ test('rollForward moves overdue tasks to today and upserts only them', async () 
     serverRow({ id: 't1', day: '2020-01-01', order_index: 0 }),
     serverRow({ id: 't2', day: '2026-07-10', order_index: 2 }),
   ]
-  const { result } = renderHook(() => useTasks('u1'))
+  const { result } = renderHook(() => useTasks('u1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
 
   await act(async () => {
@@ -247,7 +257,7 @@ test('rollForward with onlyIds moves only the given overdue tasks', async () => 
     serverRow({ id: 't2', day: '2020-01-02', order_index: 1 }),
     serverRow({ id: 't3', day: '2026-07-10', order_index: 2 }),
   ]
-  const { result } = renderHook(() => useTasks('u1'))
+  const { result } = renderHook(() => useTasks('u1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
 
   await act(async () => {
@@ -266,7 +276,7 @@ test('rollForward with onlyIds moves only the given overdue tasks', async () => 
 })
 
 test('a thrown/rejected write rolls back the optimistic change and sets error, same as a resolved { error }', async () => {
-  const { result } = renderHook(() => useTasks('u1'))
+  const { result } = renderHook(() => useTasks('u1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
   expect(result.current.tasks.find((t) => t.id === 't1')?.done).toBe(false)
 
@@ -289,7 +299,7 @@ test('a failing recurSkip write on deleteOccurrence still removes the occurrence
     serverRow({ id: 'tpl1', recur_freq: 'daily', day: today, recur_until: today }),
     serverRow({ id: 'i1', recur_parent_id: 'tpl1', recur_origin_day: today, day: today }),
   ]
-  const { result } = renderHook(() => useTasks('u1'))
+  const { result } = renderHook(() => useTasks('u1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
 
   // The template's recurSkip update rejects (e.g. a network fault) — this was previously
@@ -314,7 +324,7 @@ test('a failing trim-delete on updateSeries still materializes the widened windo
     serverRow({ id: 'tpl1', recur_freq: 'daily', day: today, recur_until: today }),
     serverRow({ id: 'i1', recur_parent_id: 'tpl1', recur_origin_day: today, day: today }),
   ]
-  const { result } = renderHook(() => useTasks('u1'))
+  const { result } = renderHook(() => useTasks('u1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
   h.insert.mockClear()
 
@@ -347,4 +357,118 @@ test('a failing trim-delete on updateSeries still materializes the widened windo
   ])
   // ...and the failure is now surfaced instead of failing silently.
   expect(result.current.error).toBe('trim failed')
+})
+
+test('a failed load hydrates from the snapshot and materializes nothing', async () => {
+  localStorage.setItem(
+    'ma-snapshot-board',
+    JSON.stringify({
+      v: 1,
+      userId: 'u1',
+      savedAt: 1_770_000_000_000,
+      tasks: [{ ...serverTask(), id: 'cached' }],
+      templates: [{ ...serverTask(), id: 'tmpl', recurFreq: 'daily', recurParentId: null }],
+    }),
+  )
+  h.capture.selectError = { message: 'FetchError: Failed to fetch' }
+
+  const { result } = renderHook(() => useTasks('u1', true))
+
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  expect(result.current.tasks.map((t) => t.id)).toEqual(['cached'])
+  expect(result.current.offline).toBe(true)
+  expect(result.current.savedAt).toBe(1_770_000_000_000)
+  expect(result.current.error).toBeNull()
+  // Templates live outside the `tasks` list (in templatesRef), so this is the only way to prove
+  // hydrateFromSnapshot() actually restored them — dropping that assignment would leave every
+  // other assertion in this test passing while silently losing the concept of the series.
+  expect(result.current.getTemplate('tmpl')).toBeDefined()
+  // The dangerous one: materialize() inserts rows, and running it over snapshot state
+  // risks duplicate instances against tasks_recur_instance_uniq (23505).
+  expect(h.insert).not.toHaveBeenCalled()
+})
+
+test('a failed load with no snapshot still surfaces the error', async () => {
+  h.capture.selectError = { message: 'FetchError: Failed to fetch' }
+  const { result } = renderHook(() => useTasks('u1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  expect(result.current.offline).toBe(false)
+  expect(result.current.error).toContain('Failed to fetch')
+})
+
+test('a failed load with no snapshot does not poison storage with an empty board', async () => {
+  h.capture.selectError = { message: 'FetchError: Failed to fetch' }
+  const { result } = renderHook(() => useTasks('u1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  // Advance well past the writer's 1s debounce so this proves no write ever happens, rather
+  // than merely racing a write that just hasn't fired yet. If a server load never succeeds,
+  // writing `{ tasks: [], templates: [] }` here would read back as valid, freshly-saved offline
+  // data on the very next failed load — indistinguishable from a genuinely empty board.
+  await new Promise((r) => setTimeout(r, 1500))
+  expect(localStorage.getItem('ma-snapshot-board')).toBeNull()
+})
+
+test('a successful load writes a snapshot', async () => {
+  h.capture.rows = [serverRow()]
+  const { result } = renderHook(() => useTasks('u1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  await waitFor(() => expect(localStorage.getItem('ma-snapshot-board')).not.toBeNull())
+  const snap = JSON.parse(localStorage.getItem('ma-snapshot-board')!)
+  expect(snap.userId).toBe('u1')
+  expect(snap.tasks).toHaveLength(1)
+  // Proves templatesRef.current is actually threaded into the write call, not just the tasks.
+  expect(snap.templates).toEqual([])
+})
+
+test('reconnecting clears offline mode', async () => {
+  localStorage.setItem(
+    'ma-snapshot-board',
+    JSON.stringify({ v: 1, userId: 'u1', savedAt: 1, tasks: [], templates: [] }),
+  )
+  h.capture.selectError = { message: 'FetchError: Failed to fetch' }
+  const { result } = renderHook(() => useTasks('u1', true))
+  await waitFor(() => expect(result.current.offline).toBe(true))
+
+  h.capture.selectError = null
+  h.capture.rows = [serverRow()]
+  act(() => {
+    window.dispatchEvent(new Event('online'))
+  })
+  await waitFor(() => expect(result.current.offline).toBe(false))
+  expect(result.current.tasks).toHaveLength(1)
+})
+
+// FIX 2 bite-proof. A session that vanished without SIGNED_OUT leaves the board hydrated from
+// snapshot (offline, read-only). When connectivity returns but there is still no session,
+// `reload()` succeeds against RLS with `{ data: [], error: null }` — a "successful" load that
+// authenticated nothing. Before the fix, that flipped `hasLoadedFromServer` and let the debounced
+// writer overwrite the real snapshot with an empty board, so the *next* offline boot would show
+// nothing under an "Offline" banner instead of the last-known tasks.
+test('reconnecting while sessionless does not poison the board snapshot with an empty board', async () => {
+  const existing = {
+    v: 1,
+    userId: 'u1',
+    savedAt: 1,
+    tasks: [{ ...serverTask(), id: 'cached' }],
+    templates: [],
+  }
+  localStorage.setItem('ma-snapshot-board', JSON.stringify(existing))
+  h.capture.selectError = { message: 'FetchError: Failed to fetch' }
+  const { result } = renderHook(() => useTasks('u1', false))
+  await waitFor(() => expect(result.current.offline).toBe(true))
+  expect(result.current.tasks.map((t) => t.id)).toEqual(['cached'])
+
+  // Network returns, but there is still no session: RLS answers the reload with `[]` and no
+  // error rather than an error.
+  h.capture.selectError = null
+  h.capture.rows = []
+  act(() => {
+    window.dispatchEvent(new Event('online'))
+  })
+  await waitFor(() => expect(result.current.offline).toBe(false))
+
+  // Advance well past the writer's 1s debounce so this proves no write ever happens, rather than
+  // merely racing a write that just hasn't fired yet (see the equivalent failed-load test above).
+  await new Promise((r) => setTimeout(r, 1500))
+  expect(JSON.parse(localStorage.getItem('ma-snapshot-board')!)).toEqual(existing)
 })

@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
-import { expect, test, vi } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest'
 
 const auth = vi.hoisted(() => ({
   current: {
@@ -16,6 +16,16 @@ const auth = vi.hoisted(() => ({
 vi.mock('./AuthProvider', () => ({ useAuth: () => auth.current }))
 
 import { ProtectedRoute } from './ProtectedRoute'
+
+function setOnLine(value: boolean) {
+  Object.defineProperty(navigator, 'onLine', { value, configurable: true })
+}
+
+afterEach(() => {
+  setOnLine(true)
+  auth.current.session = { user: { id: 'u1' } }
+  auth.current.passwordRecovery = false
+})
 
 function renderAt(path: string) {
   return render(
@@ -46,5 +56,48 @@ test('redirects a recovery session to /auth/reset instead of the board', () => {
   auth.current.passwordRecovery = true
   renderAt('/')
   expect(screen.getByText('reset page')).toBeInTheDocument()
+  expect(screen.queryByText('the board')).not.toBeInTheDocument()
+})
+
+test('redirects to login when signed out and online', () => {
+  auth.current.session = null
+  renderAt('/')
+  expect(screen.getByText('login page')).toBeInTheDocument()
+})
+
+test('renders the board offline when a snapshot exists for the last user', () => {
+  auth.current.session = null
+  localStorage.setItem('ma-last-user', 'u1')
+  localStorage.setItem(
+    'ma-snapshot-board',
+    JSON.stringify({ v: 1, userId: 'u1', savedAt: 1, tasks: [], templates: [] }),
+  )
+  setOnLine(false)
+  renderAt('/')
+  expect(screen.getByText('the board')).toBeInTheDocument()
+})
+
+test('still redirects offline when there is no snapshot', () => {
+  auth.current.session = null
+  setOnLine(false)
+  renderAt('/')
+  expect(screen.getByText('login page')).toBeInTheDocument()
+})
+
+test('a lingering recovery flag blocks the offline fallback too, even with a snapshot', () => {
+  // Defense in depth: this state (no session, offline, snapshot present, recovery flag still
+  // set from an interrupted recovery flow) should be unreachable in practice, but the offline
+  // branch must not be the one that lets it through — it exists because of a real
+  // session-fixation finding.
+  auth.current.session = null
+  auth.current.passwordRecovery = true
+  localStorage.setItem('ma-last-user', 'u1')
+  localStorage.setItem(
+    'ma-snapshot-board',
+    JSON.stringify({ v: 1, userId: 'u1', savedAt: 1, tasks: [], templates: [] }),
+  )
+  setOnLine(false)
+  renderAt('/')
+  expect(screen.getByText('login page')).toBeInTheDocument()
   expect(screen.queryByText('the board')).not.toBeInTheDocument()
 })

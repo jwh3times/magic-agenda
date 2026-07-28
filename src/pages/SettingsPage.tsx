@@ -8,6 +8,7 @@ import { DataSection } from '../components/DataSection'
 import { Spinner } from '../components/Spinner'
 import { useSettingsContext } from '../data/SettingsProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
+import { readLastUserId } from '../lib/lastUser'
 import type { ViewName } from '../types/task'
 
 export interface SectionContext {
@@ -32,8 +33,13 @@ const SECTIONS: SettingsSection[] = [
 export function SettingsPage() {
   const { user } = useAuth()
   const { settings, loading, saveTheme, saveView } = useSettingsContext()
+  // Same reasoning as BoardPage: ProtectedRoute has already made the auth decision, and on the
+  // offline-boot fallback (no session, offline, snapshot present) there is no `user`, but this
+  // page still needs a resolved id — `readLastUserId()` is what `SettingsProvider` used to fetch
+  // `settings` in the first place.
+  const userId = user?.id ?? readLastUserId()
 
-  if (!user || loading || !settings) return <Spinner />
+  if (!userId || loading || !settings) return <Spinner />
 
   return (
     <ThemeProvider initial={settings.theme} onThemeChange={saveTheme}>

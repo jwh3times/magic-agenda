@@ -101,19 +101,29 @@ session (the residual session-fixation guard). `AuthProvider` / `ProtectedRoute`
 
 ### Data ownership: `BoardPage` owns state, `Board` is prop-driven
 
-`pages/BoardPage.tsx` wires `useTasks(userId)` + `useSettingsContext()` + `ThemeProvider` and passes
-tasks and every mutation down to `components/Board.tsx` as props. `Board` holds only **UI** state
-(view, anchor date, editing modal, pop animation, filter). This decoupling is deliberate: it keeps
-`Board` testable without Supabase (`Board.test.tsx` renders it with a stateful `Harness`). `useTasks`
-is the single source of truth for board tasks: optimistic CRUD with rollback, plus `persistReorder`
-(upserts only the changed lanes). To follow a write end-to-end, read `BoardPage` -> `Board` -> `useTasks`.
+`pages/BoardPage.tsx` wires `useTasks(userId, hasSession)` + `useSettingsContext()` +
+`ThemeProvider` and passes tasks and every mutation down to `components/Board.tsx` as props.
+`Board` holds only **UI** state (view, anchor date, editing modal, pop animation, filter). This
+decoupling is deliberate: it keeps `Board` testable without Supabase (`Board.test.tsx` renders it
+with a stateful `Harness`). `useTasks` is the single source of truth for board tasks: optimistic
+CRUD with rollback, plus `persistReorder` (upserts only the changed lanes). To follow a write
+end-to-end, read `BoardPage` -> `Board` -> `useTasks`.
 
 Settings are **session-scoped, not page-scoped**: `SettingsProvider` (`src/data/SettingsProvider.tsx`)
-owns the single `useSettings` call above `<Routes>` in `App.tsx`, so navigating between `/` and
-`/settings` no longer refetches or rebuilds the realtime channel. It mounts for signed-out visitors
-too, which is why `useSettings` no-ops on an empty `userId`. `useTasks` is deliberately **not**
-hoisted with it — `BoardPage` is lazy-loaded to keep dnd-kit and the board data layer out of the
-entry chunk.
+owns the single `useSettings(userId, hasSession)` call above `<Routes>` in `App.tsx`, so navigating
+between `/` and `/settings` no longer refetches or rebuilds the realtime channel. It mounts for
+signed-out visitors too, which is why `useSettings` no-ops on an empty `userId`. `useTasks` is
+deliberately **not** hoisted with it — `BoardPage` is lazy-loaded to keep dnd-kit and the board data
+layer out of the entry chunk.
+
+**Both hooks take `userId` and `hasSession` as separate arguments on purpose.** `userId` may resolve
+from the last-known id in `localStorage` with no live session behind it (the offline-boot fallback),
+which is fine for _reading_ a snapshot — but a snapshot _write_ requires the stricter `hasSession`.
+Collapsing the two is not hypothetical: a signed-out visitor with a stale `ma-last-user` queries
+`user_settings` from the public landing page, RLS returns zero rows **with no error**, and treating
+that as "no row yet" overwrites the user's saved settings snapshot with `DEFAULTS`. The same
+conflation lets a sessionless reconnect persist an empty board. See the docstrings on
+`useTasks`/`useSettings`.
 `useTasks` and `useSettings` also subscribe to Supabase realtime (`postgres_changes`,
 per-user channel): remote changes flow through the pure reducer in `src/data/realtime.ts`
 (instance dedupe by `(recurParentId, recurOriginDay)`, templates routed to `templatesRef`),
@@ -171,6 +181,65 @@ Ported verbatim from the prototype. `theme/constants.ts` (CAT/COLORS/STATUS/PAPE
 plain style objects with per-theme branching (rotation, pins, hard vs. soft shadows, blur). Three
 themes: `cork` / `brutal` / `glass`. **Do not refactor this to CSS variables**: the look depends on the
 branching that CSS vars cannot express cleanly.
+
+### Installable PWA and offline read: authored worker, network-first navigation
+
+`src/sw.ts` is **hand-authored, not generated.** `vite-plugin-pwa` runs in `injectManifest` mode
+(`vite.config.ts`), which only supplies `self.__WB_MANIFEST` (the precache URL list) — none of
+workbox's runtime-caching strategies ship in the built worker; every `fetch` handler in `sw.ts` is
+ours. The load-bearing decision is that **navigations are network-first**
+(`isNavigation()` in `src/sw/policy.ts`, dispatched from `sw.ts`'s `fetch` listener): a service
+worker is the one deployed artifact a merge to `main` cannot reach directly, since it lives on the
+user's device and only updates when the browser byte-compares `/sw.js` on a later navigation. If
+navigations were cache-first, a bad deploy could make itself permanent for anyone who installed
+the worker before the fix shipped — see `docs/runbooks/service-worker-rollback.md`, which exists
+specifically because that failure mode has no other way back. Only content-hashed build assets
+under `/assets/` and the two Google Fonts hosts are cache-first (`isCacheFirst()`); everything else,
+including `/index.html` itself, goes to the network first and falls back to cache only when the
+fetch throws.
+
+**`*.supabase.co` is never written to any cache, over any scheme** (`isNeverCached()` — matches
+both `https://` REST calls and the `wss://` realtime socket). A cache is a single, unscoped bucket
+shared by every profile that has ever used the browser profile; caching an authenticated Supabase
+response would leak one user's data to the next person who opens the app on that device. This
+predicate is checked before the navigation branch, so it wins even for a Supabase URL that also
+looks like a navigation. The rule and its edge cases (a lookalike hostname, `wss://`) are pinned in
+`src/sw/policy.test.ts` — `src/sw.ts` itself cannot be unit-tested (no service-worker runtime in
+jsdom), so this pure-predicate split is what makes the policy testable at all. Do not weaken or
+delete these tests; they are the single most load-bearing check in this subsystem.
+
+`public/_headers` scopes a **second, wider `connect-src`** to the `/sw.js` response path only,
+adding `fonts.googleapis.com`/`fonts.gstatic.com` — the worker's own `fetch()` calls to cache those
+fonts are governed by `connect-src`, not `font-src`, and the intent is to widen that only for the
+one script that needs it rather than opening `connect-src` for every page. **This is not yet
+confirmed**: nobody has verified how Cloudflare Pages resolves two `_headers` rules that both match
+`/sw.js` and set the same header — if it emits both instead of the more-specific rule replacing the
+less-specific one, browsers enforce the _intersection_, `connect-src` keeps the `/*` block's value
+without the font hosts, and the worker's `fetch()` for the Google Fonts stylesheet is CSP-blocked
+(which, since `isCacheFirst()` has no network-failure fallback, fails that stylesheet for every
+controlled page). Check on a Cloudflare Pages preview deploy with the worker active: a `connect-src`
+violation in the console naming `fonts.googleapis.com` means it failed. If so, widen the site-wide
+`connect-src` directive instead and record why in `public/_headers`, rather than relying on the
+scoped block.
+
+Offline read uses two versioned `localStorage` envelopes, both in `src/data/snapshot.ts` and both
+keyed to the signed-in user id: a board snapshot (tasks, the hidden recurrence templates, and a
+`savedAt` timestamp) and a settings snapshot. A version or user-id mismatch drops the envelope
+rather than migrating it. **Both are cleared on `SIGNED_OUT`** (`AuthProvider`) — that clearing is
+the entire justification for storing task text at rest in `localStorage` in the first place; see
+the dated security review in `private/` before changing what gets persisted or when it's cleared.
+`useTasks` hydrates from the board snapshot only when a server load fails, and deliberately
+**skips `materialize()`** on that path — running recurrence materialization over snapshot state
+would insert duplicate instance rows and hit `tasks_recur_instance_uniq` (Postgres 23505) the
+moment connectivity returns and the real load reruns. `useSettings` falls back to the settings
+snapshot on a failed load too, instead of silently resetting the user's theme to `DEFAULTS`.
+
+`tsconfig.worker.json` is a **third project-reference sibling** (alongside the app and node
+configs): it gives `src/sw.ts` and `src/sw/policy.ts` the WebWorker lib with no DOM, so the worker
+can't accidentally reference `window` or `document`. Its `include` is an explicit two-file list,
+not a glob, specifically to keep `src/sw/policy.test.ts` out of this project — that test typechecks
+today only by accident, and the first ambient-globals or DOM-typed assertion added to it would
+break `tsc -b` from a project it has no business being part of.
 
 ### `design/Task Board.dc.html` is the source of truth, reference-only
 

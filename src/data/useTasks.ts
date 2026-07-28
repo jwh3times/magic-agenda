@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateA
 import { supabase } from '../lib/supabase'
 import { errorMessage } from '../lib/errors'
 import { rowToTask, taskToRow } from './mappers'
+import { readBoardSnapshot, writeBoardSnapshot } from './snapshot'
 import { applyRollForward, applyToggleDone } from './selectors'
 import { applyTaskChange, payloadToChange } from './realtime'
 import { instanceOrigin, isFromOccurrenceOnward, missingInstances } from './recurrence'
@@ -41,6 +42,10 @@ export interface UseTasks {
   deleteOccurrence: (instance: Task) => Promise<void>
   /** Delete this occurrence and all later ones (caps recur_until, or removes the series). */
   deleteSeriesFuture: (instance: Task) => Promise<void>
+  /** True when the board is showing the last-known local snapshot instead of a live server load. */
+  offline: boolean
+  /** When that snapshot was taken (epoch ms), for the offline banner. Null when online. */
+  savedAt: number | null
 }
 
 function makeInstance(tmpl: Task, day: string): Task {
@@ -71,13 +76,32 @@ function makeInstance(tmpl: Task, day: string): Task {
 // (recur_parent_id, recur_origin_day) unique index and keeps the StrictMode double-insert guard sound.
 const instanceKey = (t: Task) => `${t.recurParentId}|${instanceOrigin(t)}`
 
-export function useTasks(userId: string): UseTasks {
+/**
+ * `userId` is only a resolved id for *reading* — it may be the last-known id from
+ * `readLastUserId()` with no live session behind it, which is what lets an offline boot look up
+ * its snapshot. `hasSession` is the separate, stricter signal for *writing*: true only when there
+ * is an actual authenticated session. The two diverge for a signed-out visitor whose session
+ * vanished without a `SIGNED_OUT` event: `userId` stays non-empty while `hasSession` is false, and
+ * a `reload()` in that state succeeds against RLS with `[]` and no error — a "successful" load
+ * that authenticated nothing. See `hasLoadedFromServer` below.
+ */
+export function useTasks(userId: string, hasSession: boolean): UseTasks {
   const [tasks, _setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [offline, setOffline] = useState(false)
+  const [savedAt, setSavedAt] = useState<number | null>(null)
   const tasksRef = useRef<Task[]>([])
   const templatesRef = useRef<Task[]>([])
   const inFlight = useRef(false)
+  // Set true only by reload()'s success path, and only when that load actually happened under a
+  // real session — never by hydrateFromSnapshot(), and never by a sessionless reload's empty
+  // `{ data: [], error: null }` (RLS answering "nothing" is not the same as "board confirmed
+  // empty"). Gates the snapshot writer so neither a failed load with no prior snapshot NOR an
+  // unauthenticated-but-"successful" reload can write an empty board that then reads back as
+  // "recently saved offline data" on the next boot, permanently masking the fact that we've never
+  // actually talked to the server on this user's behalf.
+  const hasLoadedFromServer = useRef(false)
 
   // Ids this client just wrote, with expiry. Realtime echoes of our own writes are
   // skipped so they can't clobber newer optimistic state (e.g. during rapid drags).
@@ -147,6 +171,23 @@ export function useTasks(userId: string): UseTasks {
     [setTasks, userId, markWrites],
   )
 
+  /**
+   * Fall back to the last-known board. Deliberately does NOT materialize: materialize()
+   * inserts rows, and running it against snapshot-hydrated state on a flaky connection can
+   * duplicate instances and hit tasks_recur_instance_uniq (23505). Offline is read-only, so
+   * there is nothing to materialize for anyway.
+   */
+  const hydrateFromSnapshot = useCallback(() => {
+    const snap = readBoardSnapshot(userId)
+    if (!snap) return false
+    templatesRef.current = snap.templates
+    setTasks(snap.tasks)
+    setSavedAt(snap.savedAt)
+    setOffline(true)
+    setError(null)
+    return true
+  }, [userId, setTasks])
+
   const reload = useCallback(async () => {
     // Guard against concurrent loads (notably React StrictMode's double-invoked effect),
     // which would materialize the same instances twice and hit the unique index.
@@ -157,24 +198,67 @@ export function useTasks(userId: string): UseTasks {
     try {
       const { data, error: err } = await supabase.from('tasks').select('*')
       if (err) {
+        if (hydrateFromSnapshot()) return
         setError(err.message)
         return
       }
       const all = (data ?? []).map(rowToTask)
       templatesRef.current = all.filter(isTemplate)
       const instances = all.filter((t) => !isTemplate(t))
+      if (hasSession) hasLoadedFromServer.current = true
+      setOffline(false)
+      setSavedAt(null)
       setTasks(instances)
       // Pass the freshly-loaded instances directly: tasksRef.current is not yet updated here.
       await materialize(templatesRef.current, instances)
+    } catch (e) {
+      // postgrest resolves fetch failures rather than throwing, so this is defensive: a future
+      // .throwOnError() must not turn an offline boot into an unhandled rejection.
+      if (hydrateFromSnapshot()) return
+      setError(errorMessage(e))
     } finally {
       setLoading(false)
       inFlight.current = false
     }
-  }, [setTasks, materialize])
+  }, [setTasks, materialize, hydrateFromSnapshot, hasSession])
 
   useEffect(() => {
+    // `void reload()` runs reload's synchronous prefix (before its first `await`) inline, and
+    // that prefix does call `setLoading(true)` and `setError(null)` — the rule is right that a
+    // setState call happens during this effect's execution. It's safe here because that call
+    // fires once, not in a loop: on the initial mount both are value-identical to the initial
+    // `useState(true)` / `useState<string | null>(null)`, so React's Object.is bailout means
+    // neither actually triggers a re-render; and `reload` is referentially stable — `setTasks`
+    // and `markWrites` are `useCallback(…, [])`, `hydrateFromSnapshot` depends only on
+    // `[userId, setTasks]` — so calling it can't change this effect's own dependencies and
+    // re-fire it. Unlike useSettings.ts's disable of this same rule (which covers one direct
+    // `setSettings(null)` call), this one blankets an entire async function: any new synchronous
+    // setState added to reload()'s pre-await prefix is silently un-linted, so re-verify this
+    // reasoning before adding one.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void reload()
   }, [reload, userId])
+
+  // Persist the board for offline reads. Debounced because optimistic CRUD churns `tasks`;
+  // a rolled-back write re-renders the restored state and the next tick writes that, so this
+  // is self-correcting and needs no "confirmed" bookkeeping. Suppressed while offline so
+  // savedAt never claims to be fresher than the data. Also suppressed until a server load has
+  // actually succeeded under a real session (hasLoadedFromServer, which reload() only sets when
+  // `hasSession` is true) — otherwise either a failed load with no existing snapshot, OR a
+  // sessionless reload succeeding against RLS with `[]`, would write `{ tasks: [], templates: [] }`,
+  // and that empty envelope would read back as valid, freshly-saved offline data on the next boot —
+  // indistinguishable from a genuinely empty board and permanently hiding the fact we never
+  // actually reached the server on this user's behalf. `hasSession` is also checked directly here
+  // (not just via the ref): the ref can only ever have been set true by a *past* authenticated
+  // load, but a session can end mid-mount without unmounting the hook, and a write must reflect
+  // the *current* session, not a historical one.
+  useEffect(() => {
+    if (!userId || !hasSession || offline || loading || !hasLoadedFromServer.current) return
+    const id = window.setTimeout(() => {
+      writeBoardSnapshot(userId, tasksRef.current, templatesRef.current)
+    }, 1000)
+    return () => window.clearTimeout(id)
+  }, [userId, hasSession, offline, loading, tasks])
 
   // Live changes from other devices/sessions. Sub-epoch bumps force a fresh
   // channel after an error (with backoff); reload() covers anything missed.
@@ -619,5 +703,7 @@ export function useTasks(userId: string): UseTasks {
     updateSeries,
     deleteOccurrence,
     deleteSeriesFuture,
+    offline,
+    savedAt,
   }
 }

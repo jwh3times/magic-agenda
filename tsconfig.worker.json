@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "WebWorker"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+
+    /* No DOM here, and no app-only ambient types (vitest/jest-dom) leaking into the worker */
+    "types": []
+  },
+  // Explicit files, not "src/sw/**/*.ts": that glob would sweep in src/sw/policy.test.ts, which
+  // typechecks today only by accident (it imports expect/test explicitly and asserts nothing
+  // DOM-dependent) — the first ambient-globals or DOM-typed assertion added there would fail
+  // tsc -b with a baffling error from a project the test has no business being in.
+  "include": ["src/sw.ts", "src/sw/policy.ts"]
+}

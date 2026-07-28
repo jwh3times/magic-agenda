@@ -39,6 +39,9 @@ of three hand‑built themes.
   Row‑Level Security; optimistic updates with rollback.
 - **Works on your phone** — responsive layouts for every view (stacked week, swipeable kanban,
   collapsible inbox, bottom‑sheet editor) and long‑press touch drag‑and‑drop.
+- **Installable, and readable offline** — add it to your Home Screen for a standalone app; with no
+  network, the last‑synced board renders read‑only from a local snapshot instead of a dead login
+  screen.
 
 ## Tech stack
 

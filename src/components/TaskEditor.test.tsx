@@ -148,3 +148,44 @@ test('toggling the pin on a non-recurring task saves via the normal (no-prompt) 
   expect(onSave).toHaveBeenCalledTimes(1)
   expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ pinned: true }))
 })
+
+// Narrow race: scopePrompt can only be opened via Save/Delete, which read-only already hides —
+// but if the network drops while the prompt is already open on a recurring task, its "This
+// occurrence" / "This and all future" buttons call onSave/onDelete directly and were ungated.
+test('hides an open scope prompt if the board goes read-only mid-interaction', async () => {
+  const user = userEvent.setup()
+  const onSave = vi.fn()
+  const { rerender } = render(
+    <ThemeProvider>
+      <TaskEditor
+        initial={mkInstance()}
+        isNew={false}
+        onSave={onSave}
+        onDelete={vi.fn()}
+        onClose={vi.fn()}
+      />
+    </ThemeProvider>,
+  )
+
+  await user.clear(screen.getByPlaceholderText('Task title…'))
+  await user.type(screen.getByPlaceholderText('Task title…'), 'Water the ferns')
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  expect(screen.getByText('Save repeating task')).toBeInTheDocument()
+
+  rerender(
+    <ThemeProvider>
+      <TaskEditor
+        initial={mkInstance()}
+        isNew={false}
+        onSave={onSave}
+        onDelete={vi.fn()}
+        onClose={vi.fn()}
+        readOnly
+      />
+    </ThemeProvider>,
+  )
+
+  expect(screen.queryByText('Save repeating task')).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'This and all future' })).not.toBeInTheDocument()
+  expect(onSave).not.toHaveBeenCalled()
+})

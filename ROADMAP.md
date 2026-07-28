@@ -17,15 +17,14 @@ Phases 0 and 1 (Edge Function scaffolding, settings page shell, password reset, 
 realtime multi-device sync) **shipped 2026-07-05**, and Phase 2 (Scheduling depth — due times,
 pinned notes, overdue handling & roll-forward, export/import) **shipped 2026-07-06** — see
 [CHANGELOG.md](./CHANGELOG.md) — and their sections have been removed below; remaining
-dependencies on them are satisfied. Items **5.7 (branded auth emails, 2026-07-26)** and **5.1 / 5.2 /
-5.3 (public landing page, Google mark, in-app legal links, 2026-07-27)** shipped and have been
-removed the same way.
+dependencies on them are satisfied. Items **5.7 (branded auth emails, 2026-07-26)**, **5.1 / 5.2 /
+5.3 (public landing page, Google mark, in-app legal links, 2026-07-27)**, and **3.1 (installable
+PWA, offline read, 2026-07-27)** shipped and have been removed the same way.
 
 | Order | Item                             | Pri | Size | Hard dependencies      |
 | ----- | -------------------------------- | --- | ---- | ---------------------- |
-| 3.1   | Installable PWA + offline read   | P2  | L    | —                      |
 | 4.1   | Settings: week-start & timezone  | P3  | M    | —                      |
-| 3.2   | Reminders / notifications        | P2  | XL   | 3.1, 4.1               |
+| 3.2   | Reminders / notifications        | P2  | XL   | 4.1                    |
 | 4.2   | Custom labels / categories       | P2  | XL   | —                      |
 | 4.3   | Richer recurrence                | P3  | L    | —                      |
 | 4.4   | Quick-add & keyboard shortcuts   | P3  | L    | —                      |
@@ -66,17 +65,6 @@ Total rough effort for the remaining items: ~7–11 weeks of focused solo work.
 
 ## Phase 3 — PWA & notifications
 
-- [ ] **Installable PWA + offline** · **P2** · L — no manifest or service worker today. Use
-      `vite-plugin-pwa` (generateSW): manifest + maskable icons in `public/`; precache the app
-      shell with `navigateFallback: index.html`; runtime-cache Google Fonts. **Never cache Supabase
-      API responses in the SW** — auth-scoped data in a shared cache is a footgun. Offline data:
-      last-known board snapshot in `localStorage` (written on every successful `reload()`/
-      mutation); on boot without network, hydrate in **read-only mode** ("Offline — changes
-      disabled" banner) — a write-queue/reconciler is explicitly out of scope (XL; revisit after
-      realtime soaks). Update flow: `registerType: 'prompt'` + a "New version — refresh" toast.
-      Realtime sync (shipped) already reloads on `online`, so offline snapshots and reconnects
-      compose. Verify install on real
-      iOS/Android.
 - [ ] **Reminders / notifications** · **P2** · XL — web push (email fallback later); the
       highest-ops item on the list. Schema: `push_subscriptions` table (owner-only RLS) +
       `tasks.last_notified_at timestamptz` (prevents re-sends) +
@@ -86,7 +74,7 @@ Total rough effort for the remaining items: ~7–11 weeks of focused solo work.
       query tasks due in the window (service role), send via a Deno `web-push` port, delete dead
       subscriptions on 404/410. iOS needs the PWA installed to Home Screen (16.4+) — surface in the
       settings copy. Do **after** 4.1's timezone setting or reminders fire in UTC. Depends on
-      3.1, 4.1.
+      4.1.
 
 ## Phase 4 — Productivity & personalization
 

@@ -43,10 +43,20 @@ export interface TaskEditorProps {
   onSave: (task: Task, scope?: RecurScope) => void
   onDelete: (task: Task, scope?: RecurScope) => void
   onClose: () => void
+  /** True while hydrated from an offline snapshot: every field is disabled and there is no way
+   * to save or delete, since a write against a dead network would fail silently. */
+  readOnly?: boolean
 }
 
 /** The task editor modal — ported from the prototype's buildEditor + markup. */
-export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEditorProps) {
+export function TaskEditor({
+  initial,
+  isNew,
+  onSave,
+  onDelete,
+  onClose,
+  readOnly,
+}: TaskEditorProps) {
   const { theme, conf } = useTheme()
   const isMobile = useIsMobile()
   const [draft, setDraft] = useState<Task>(initial)
@@ -220,12 +230,14 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
             onChange={(e) => patch({ title: e.target.value })}
             placeholder="Task title…"
             autoFocus
+            disabled={readOnly}
             style={{ ...inputBase, fontSize: '17px', fontWeight: 700, marginBottom: '10px' }}
           />
           <textarea
             value={draft.description}
             onChange={(e) => patch({ description: e.target.value })}
             placeholder="Add a short description…"
+            disabled={readOnly}
             style={{ ...inputBase, minHeight: '62px', resize: 'vertical', lineHeight: 1.45 }}
           />
 
@@ -337,6 +349,7 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
                       ),
                     })
                   }
+                  disabled={readOnly}
                   style={{
                     flex: 1,
                     padding: '8px 10px',
@@ -397,6 +410,7 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
                   }
                 }}
                 placeholder="Add a subtask and press Enter…"
+                disabled={readOnly}
                 style={{
                   flex: 1,
                   padding: '8px 10px',
@@ -478,6 +492,7 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
               type="date"
               value={isScheduled(draft.day) ? draft.day : ''}
               onChange={(e) => patch({ day: e.target.value || 'inbox' })}
+              disabled={readOnly}
               style={{
                 padding: '9px 12px',
                 borderRadius: '9px',
@@ -495,6 +510,7 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
               aria-label="Due time"
               value={draft.atTime ?? ''}
               onChange={(e) => patch({ atTime: e.target.value || null })}
+              disabled={readOnly}
               style={{
                 padding: '9px 12px',
                 borderRadius: '9px',
@@ -551,6 +567,7 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
             <select
               value={draft.recurFreq}
               onChange={(e) => patch({ recurFreq: e.target.value as RecurFreq })}
+              disabled={readOnly}
               style={{
                 padding: '9px 12px',
                 borderRadius: '9px',
@@ -578,6 +595,7 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
                   onChange={(e) =>
                     patch({ recurInterval: Math.max(1, Number(e.target.value) || 1) })
                   }
+                  disabled={readOnly}
                   style={{ ...inputBase, width: 60, padding: '8px 10px' }}
                 />
                 <span style={{ fontSize: 13, color: sub }}>{recurUnit}</span>
@@ -586,6 +604,7 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
                   type="date"
                   value={draft.recurUntil ?? ''}
                   onChange={(e) => patch({ recurUntil: e.target.value || null })}
+                  disabled={readOnly}
                   style={{
                     padding: '9px 12px',
                     borderRadius: '9px',
@@ -623,7 +642,7 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
               borderTop: `1px solid ${border}`,
             }}
           >
-            {!isNew && (
+            {!isNew && !readOnly && (
               <button
                 type="button"
                 onClick={attemptDelete}
@@ -636,19 +655,21 @@ export function TaskEditor({ initial, isNew, onSave, onDelete, onClose }: TaskEd
             <button type="button" onClick={onClose} style={btn(fieldBg, fg)}>
               Cancel
             </button>
-            <button
-              type="button"
-              onClick={attemptSave}
-              disabled={!titleOk}
-              style={btn(conf.accent, conf.accentFg, { opacity: titleOk ? 1 : 0.5 })}
-            >
-              {isNew ? 'Add task' : 'Save'}
-            </button>
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={attemptSave}
+                disabled={!titleOk}
+                style={btn(conf.accent, conf.accentFg, { opacity: titleOk ? 1 : 0.5 })}
+              >
+                {isNew ? 'Add task' : 'Save'}
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {scopePrompt && (
+      {scopePrompt && !readOnly && (
         <div
           style={{
             position: 'fixed',

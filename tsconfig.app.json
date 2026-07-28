@@ -23,5 +23,10 @@
     /* Test globals + jest-dom matchers */
     "types": ["vitest/globals", "@testing-library/jest-dom"]
   },
-  "include": ["src"]
+  "include": ["src"],
+  // sw.ts runs under the WebWorker lib (tsconfig.worker.json), not DOM — typechecking it here too
+  // would fight that project over the type of shared globals like `self`. src/sw/policy.ts stays
+  // included here (as well as in the worker project) because src/sw/policy.test.ts, a Vitest test,
+  // imports it from this project.
+  "exclude": ["src/sw.ts"]
 }
