@@ -13,7 +13,15 @@ import { DragDisabledContext } from '../dnd/dragContext'
 import { OfflineContext } from '../data/offlineContext'
 import { OfflineBanner } from './OfflineBanner'
 import { rootStyle, blobStyles } from '../theme/chrome'
-import { MONTHS_LONG, addDays, addMonths, formatWeekRange, startOfWeek, ymd } from '../lib/dates'
+import {
+  MONTHS_LONG,
+  addDays,
+  addMonths,
+  formatWeekRange,
+  parseDay,
+  startOfWeek,
+} from '../lib/dates'
+import { useToday } from '../data/todayContext'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { readBoardView, writeBoardView } from '../lib/viewStorage'
 import { useBoardDnd } from '../dnd/useBoardDnd'
@@ -105,7 +113,8 @@ export function Board({
   const isMobile = useIsMobile()
   const { readOnly, savedAt } = useContext(OfflineContext)
   const [view, setView] = useState<ViewName>(() => readBoardView() ?? initialView ?? 'calendar')
-  const [anchor, setAnchor] = useState(() => new Date())
+  const today = useToday()
+  const [anchor, setAnchor] = useState(() => parseDay(today))
   const [pop, setPop] = useState<PopId>(null)
   const [editing, setEditing] = useState<Editing | null>(null)
   const [filter, setFilter] = useState<FilterQuery>(EMPTY_FILTER)
@@ -113,7 +122,7 @@ export function Board({
 
   const filterActive = isFilterActive(filter)
   const visibleTasks = useMemo(() => applyFilters(tasks, filter), [tasks, filter])
-  const visibleOverdue = useMemo(() => overdueTasks(visibleTasks, ymd(new Date())), [visibleTasks])
+  const visibleOverdue = useMemo(() => overdueTasks(visibleTasks, today), [visibleTasks, today])
   const overdueCount = visibleOverdue.length
 
   const dnd = useBoardDnd(view, tasks, setTasks, persistReorder)
@@ -202,7 +211,7 @@ export function Board({
 
   const onPrev = () => setAnchor((a) => (view === 'week' ? addDays(a, -7) : addMonths(a, -1)))
   const onNext = () => setAnchor((a) => (view === 'week' ? addDays(a, 7) : addMonths(a, 1)))
-  const onToday = () => setAnchor(new Date())
+  const onToday = () => setAnchor(parseDay(today))
 
   return (
     <div className="app-root" style={rootStyle(conf)}>
@@ -257,7 +266,7 @@ export function Board({
                 pop={pop}
                 onRollForward={
                   rollForward
-                    ? () => rollForward(ymd(new Date()), new Set(visibleOverdue.map((t) => t.id)))
+                    ? () => rollForward(today, new Set(visibleOverdue.map((t) => t.id)))
                     : undefined
                 }
               />

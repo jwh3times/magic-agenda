@@ -1,7 +1,7 @@
 import { useTheme } from '../theme/ThemeProvider'
 import { boardChrome, scrollbars, weekdayStyle } from '../theme/chrome'
 import { buildMonthGrid, notesForDay } from '../data/selectors'
-import { ymd } from '../lib/dates'
+import { useToday } from '../data/todayContext'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { DayCell } from './DayCell'
 import type { Task } from '../types/task'
@@ -20,7 +20,7 @@ export function CalendarView({ viewY, viewM, tasks, handlers, pop }: CalendarVie
   const isMobile = useIsMobile()
   const b = boardChrome(theme, conf)
   const wd = weekdayStyle(theme, conf)
-  const { weekdays, cells } = buildMonthGrid(viewY, viewM, ymd(new Date()))
+  const { weekdays, cells } = buildMonthGrid(viewY, viewM, useToday())
 
   const monthGrid = (
     <>

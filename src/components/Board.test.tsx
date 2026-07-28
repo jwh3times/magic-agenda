@@ -8,6 +8,7 @@ import { Board } from './Board'
 import { applyToggleDone } from '../data/selectors'
 import { makeMockTasks } from '../data/mockTasks'
 import { OfflineContext } from '../data/offlineContext'
+import { TodayContext } from '../data/todayContext'
 import type { Task } from '../types/task'
 
 // Mimics BoardPage's data ownership with local state (no Supabase) so Board stays hermetic.
@@ -212,4 +213,24 @@ test('switching views remembers the choice per tab', async () => {
   renderBoard()
   await user.click(screen.getByRole('button', { name: 'Week' }))
   expect(sessionStorage.getItem('ma-board-view')).toBe('week')
+})
+
+test('opens on the month of the configured today, not the browser clock', () => {
+  localStorage.clear() // readBoardView() wins over initialView; force the calendar view.
+  // `shouldAdvanceTime` so dnd-kit's and Board's own timers still fire normally under fake time.
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  vi.setSystemTime(new Date('2026-07-28T12:00:00Z'))
+  try {
+    render(
+      <TodayContext.Provider value="2026-03-15">
+        <Harness />
+      </TodayContext.Provider>,
+    )
+    // The browser clock says July; the user's timezone-resolved today is in March. Asserting the
+    // absence of July is the half that actually proves `new Date()` is no longer the source.
+    expect(screen.getByText('March 2026')).toBeInTheDocument()
+    expect(screen.queryByText('July 2026')).not.toBeInTheDocument()
+  } finally {
+    vi.useRealTimers()
+  }
 })
