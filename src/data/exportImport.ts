@@ -6,6 +6,8 @@ export const EXPORT_VERSION = 1 as const
 export interface ExportSettings {
   theme: string
   defaultView: string
+  weekStart: number
+  timezone: string | null
 }
 
 /** The on-disk backup shape — app-domain Task objects, never DB rows. */

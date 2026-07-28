@@ -72,6 +72,8 @@ export function DataSection() {
         {
           theme: settingsRes.data?.theme ?? 'cork',
           defaultView: settingsRes.data?.default_view ?? 'calendar',
+          weekStart: settingsRes.data?.week_start ?? 0,
+          timezone: settingsRes.data?.timezone ?? null,
         },
         new Date().toISOString(),
       )

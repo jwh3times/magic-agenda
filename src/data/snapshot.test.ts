@@ -53,7 +53,7 @@ test('refuses an envelope from an older version', () => {
 })
 
 test('refuses a payload whose shape is wrong', () => {
-  localStorage.setItem('ma-snapshot-board', JSON.stringify({ v: 1, userId: 'u1', tasks: 'nope' }))
+  localStorage.setItem('ma-snapshot-board', JSON.stringify({ v: 2, userId: 'u1', tasks: 'nope' }))
   expect(readBoardSnapshot('u1')).toBeNull()
 })
 
