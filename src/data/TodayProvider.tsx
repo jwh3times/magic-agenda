@@ -13,12 +13,29 @@ const TICK_MS = 60_000
  * asleep for a day would come back stale. `setState` only fires when the string actually
  * changes, so the overwhelmingly common case — same day, every tick — never re-renders anything.
  *
+ * `today` is also corrected **during render** when `tz` changes, not only from an effect — React's
+ * documented "adjusting state when a prop changes" pattern: calling `setState` mid-render, guarded
+ * by comparing against a previous-value state variable, makes React discard this render and
+ * re-run the component before it commits or renders children. That matters because
+ * `SettingsProvider` finishing its load (tz becoming known) and a gated child mounting for the
+ * first time (e.g. `Board`) can land in the very same commit: without the mid-render correction,
+ * that child would read whatever stale `today` state this component's own `useState` initializer
+ * produced back when `tz` was still null — its `useState(() => parseDay(today))` anchor
+ * initializer only ever runs once, on the render where it first mounts, so it would never get
+ * another chance to pick up the corrected date.
+ *
  * Must be mounted inside `<SettingsProvider>`; `useSettingsContext` throws otherwise.
  */
 export function TodayProvider({ children }: { children: ReactNode }) {
   const { settings } = useSettingsContext()
   const tz = settings?.timezone ?? null
   const [today, setToday] = useState(() => todayYmd(tz))
+  const [lastTz, setLastTz] = useState(tz)
+
+  if (lastTz !== tz) {
+    setLastTz(tz)
+    setToday(todayYmd(tz))
+  }
 
   useEffect(() => {
     const sync = () =>
@@ -26,9 +43,9 @@ export function TodayProvider({ children }: { children: ReactNode }) {
         const next = todayYmd(tz)
         return next === prev ? prev : next
       })
-    // Runs immediately too: the useState initializer only ever saw the first `tz`, so this is
-    // what picks up a timezone the user just changed (or one that arrived over realtime).
-    sync()
+    // No immediate call here: the render-phase adjustment above already corrects `today` the
+    // instant `tz` changes, before this effect even runs. This interval + listener exist only for
+    // midnight rollover — the calendar day changing underneath an unchanged `tz`.
     const id = window.setInterval(sync, TICK_MS)
     document.addEventListener('visibilitychange', sync)
     return () => {

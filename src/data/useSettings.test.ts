@@ -115,12 +115,21 @@ test('a remote settings event arriving right after a local save is suppressed', 
 test('a failed load falls back to the snapshot, not to DEFAULTS', async () => {
   localStorage.setItem(
     'ma-snapshot-settings',
-    JSON.stringify({ v: 2, userId: 'u1', settings: { theme: 'glass', defaultView: 'kanban' } }),
+    JSON.stringify({
+      v: 2,
+      userId: 'u1',
+      settings: { theme: 'glass', defaultView: 'kanban', weekStart: 1, timezone: 'Europe/London' },
+    }),
   )
   h.capture.result = { data: null, error: { message: 'FetchError: Failed to fetch' } }
   const { result } = renderHook(() => useSettings('u1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
-  expect(result.current.settings).toEqual({ theme: 'glass', defaultView: 'kanban' })
+  expect(result.current.settings).toEqual({
+    theme: 'glass',
+    defaultView: 'kanban',
+    weekStart: 1,
+    timezone: 'Europe/London',
+  })
 })
 
 test('a failed load with no snapshot falls back to DEFAULTS', async () => {
@@ -162,7 +171,11 @@ test('saving a theme updates the snapshot', async () => {
 test('an empty row with no session does not overwrite the existing snapshot', async () => {
   localStorage.setItem(
     'ma-snapshot-settings',
-    JSON.stringify({ v: 1, userId: 'u1', settings: { theme: 'brutal', defaultView: 'kanban' } }),
+    JSON.stringify({
+      v: 2,
+      userId: 'u1',
+      settings: { theme: 'brutal', defaultView: 'kanban', weekStart: 1, timezone: 'Europe/London' },
+    }),
   )
   h.capture.result = { data: null, error: null }
   const { result } = renderHook(() => useSettings('u1', false))
@@ -178,6 +191,8 @@ test('an empty row with no session does not overwrite the existing snapshot', as
   expect(JSON.parse(localStorage.getItem('ma-snapshot-settings')!).settings).toEqual({
     theme: 'brutal',
     defaultView: 'kanban',
+    weekStart: 1,
+    timezone: 'Europe/London',
   })
 })
 
