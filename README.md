@@ -31,8 +31,14 @@ of three hand‑built themes.
   card.
 - **Overdue handling** — unfinished past‑due tasks get a red accent, a count badge on the Today
   button, and an Agenda "Overdue" group with one‑click "Move all to today".
+- **Week start & timezone** — pick which day your week starts on (Sunday, Monday, or Saturday) and
+  set your timezone from the full IANA list, or leave it "Automatic" to follow the browser, in
+  Settings → Dates. The timezone decides which day counts as "today" for the board's today‑highlight,
+  overdue badges, and roll‑forward, so a traveling user's board stays on their home date; the week
+  start re‑pads the month grid and rotates the weekday headers.
 - **Export & import** — back up your whole board as JSON from Settings → Data, and import it back
-  in additively (fresh ids, recurring series links preserved).
+  in additively (fresh ids, recurring series links preserved); the export also carries your week
+  start and timezone alongside theme and default view.
 - **A public front door** — signed out, `magicagenda.app` is a landing page with a live, themed
   preview of the real board (rendered, not screenshotted); signed in, the same URL is your board.
 - **Accounts & sync** — email/password and Google sign‑in; every task is private to you via Postgres

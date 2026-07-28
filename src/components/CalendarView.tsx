@@ -1,7 +1,7 @@
 import { useTheme } from '../theme/ThemeProvider'
 import { boardChrome, scrollbars, weekdayStyle } from '../theme/chrome'
 import { buildMonthGrid, notesForDay } from '../data/selectors'
-import { ymd } from '../lib/dates'
+import { useToday } from '../data/todayContext'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { DayCell } from './DayCell'
 import type { Task } from '../types/task'
@@ -10,17 +10,26 @@ import type { BoardHandlers, PopId } from './boardHandlers'
 export interface CalendarViewProps {
   viewY: number
   viewM: number
+  /** 0=Sunday … 6=Saturday. */
+  weekStart?: number
   tasks: Task[]
   handlers: BoardHandlers
   pop: PopId
 }
 
-export function CalendarView({ viewY, viewM, tasks, handlers, pop }: CalendarViewProps) {
+export function CalendarView({
+  viewY,
+  viewM,
+  weekStart = 0,
+  tasks,
+  handlers,
+  pop,
+}: CalendarViewProps) {
   const { theme, conf } = useTheme()
   const isMobile = useIsMobile()
   const b = boardChrome(theme, conf)
   const wd = weekdayStyle(theme, conf)
-  const { weekdays, cells } = buildMonthGrid(viewY, viewM, ymd(new Date()))
+  const { weekdays, cells } = buildMonthGrid(viewY, viewM, useToday(), weekStart)
 
   const monthGrid = (
     <>

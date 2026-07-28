@@ -8,12 +8,13 @@ import { Board } from './Board'
 import { applyToggleDone } from '../data/selectors'
 import { makeMockTasks } from '../data/mockTasks'
 import { OfflineContext } from '../data/offlineContext'
+import { TodayContext } from '../data/todayContext'
 import type { Task } from '../types/task'
 
 // Mimics BoardPage's data ownership with local state (no Supabase) so Board stays hermetic.
 // MemoryRouter is here because the inbox foot links to /privacy and /terms (ROADMAP 5.3); Board
 // still owns no data and touches no network.
-function Harness() {
+function Harness({ weekStart }: { weekStart?: number }) {
   const [tasks, setTasks] = useState<Task[]>(makeMockTasks)
   return (
     <MemoryRouter>
@@ -30,6 +31,7 @@ function Harness() {
           updateSeries={() => {}}
           deleteOccurrence={() => {}}
           deleteSeriesFuture={() => {}}
+          weekStart={weekStart}
         />
       </ThemeProvider>
     </MemoryRouter>
@@ -212,4 +214,62 @@ test('switching views remembers the choice per tab', async () => {
   renderBoard()
   await user.click(screen.getByRole('button', { name: 'Week' }))
   expect(sessionStorage.getItem('ma-board-view')).toBe('week')
+})
+
+test('opens on the month of the configured today, not the browser clock', () => {
+  localStorage.clear() // readBoardView() wins over initialView; force the calendar view.
+  // `shouldAdvanceTime` so dnd-kit's and Board's own timers still fire normally under fake time.
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  vi.setSystemTime(new Date('2026-07-28T12:00:00Z'))
+  try {
+    render(
+      <TodayContext.Provider value="2026-03-15">
+        <Harness />
+      </TodayContext.Provider>,
+    )
+    // The browser clock says July; the user's timezone-resolved today is in March. Asserting the
+    // absence of July is the half that actually proves `new Date()` is no longer the source.
+    expect(screen.getByText('March 2026')).toBeInTheDocument()
+    expect(screen.queryByText('July 2026')).not.toBeInTheDocument()
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+test('renders a Monday-start month grid when configured', () => {
+  localStorage.clear() // same reason as the anchor test: force the calendar view.
+  render(<Harness weekStart={1} />)
+  const headers = screen.getAllByText(/^(Sun|Mon|Tue|Wed|Thu|Fri|Sat)$/)
+  expect(headers).toHaveLength(7)
+  expect(headers[0]).toHaveTextContent('Mon')
+  expect(headers[6]).toHaveTextContent('Sun')
+})
+
+test('week view highlights the cell for the configured today, not the browser clock', async () => {
+  localStorage.clear() // readBoardView() wins over initialView; force the calendar view.
+  // `shouldAdvanceTime` so dnd-kit's and Board's own timers still fire normally under fake time.
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  vi.setSystemTime(new Date('2026-07-28T12:00:00Z'))
+  try {
+    const user = userEvent.setup()
+    render(
+      <TodayContext.Provider value="2026-03-15">
+        <Harness />
+      </TodayContext.Provider>,
+    )
+    await user.click(screen.getByRole('button', { name: 'Week' }))
+
+    // 2026-03-15 is a Sunday, so it is the first cell of its own week — the browser clock's
+    // today (Jul 28, a different week entirely) never appears on screen at all, so the only way
+    // this assertion can pass is if the pinned context date drove the highlight.
+    const pinnedCell = screen.getByText('15')
+    expect(pinnedCell).toHaveStyle({ background: 'rgba(184,71,46,.14)' })
+
+    // None of the other six day-number cells in the week carry that highlight.
+    for (const dayNum of ['16', '17', '18', '19', '20', '21']) {
+      expect(screen.getByText(dayNum)).not.toHaveStyle({ background: 'rgba(184,71,46,.14)' })
+    }
+  } finally {
+    vi.useRealTimers()
+  }
 })

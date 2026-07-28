@@ -140,6 +140,10 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
    */
   const materialize = useCallback(
     async (templates: Task[], board: Task[] = tasksRef.current) => {
+      // Browser-local on purpose, not the user's configured zone: this only anchors a 90-day
+      // rolling materialization horizon, where a ±1-day shift at the far end is immaterial.
+      // Threading the timezone in would re-run materialization whenever settings change, for
+      // no behavioral gain — and a spurious re-run risks duplicate instance rows (23505).
       const today = ymd(new Date())
       const instances: Task[] = []
       for (const tmpl of templates) {

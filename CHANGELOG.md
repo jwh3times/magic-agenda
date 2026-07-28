@@ -12,6 +12,24 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.36] - 2026-07-28
+
+### Added
+
+- Settings → Dates: choose which day your week starts on (Sunday, Monday, or Saturday) and set your
+  timezone. The timezone decides which day counts as "today" for the board's today highlight,
+  overdue badges, and roll-forward; "Automatic" follows whatever browser you are on.
+- Exported backups now include the week start and timezone alongside the theme and default view, so
+  a downloaded file is a complete record of your settings. Import is unchanged — it still restores
+  tasks and repeating series only.
+
+### Fixed
+
+- A board left open across midnight now rolls over to the new day on its own instead of keeping
+  yesterday highlighted until a reload.
+- The week view's weekday labels are derived from each cell's real date, so they stay correct when
+  the week does not start on Sunday.
+
 ## [1.2.35] - 2026-07-27
 
 ### Fixed

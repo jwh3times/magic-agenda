@@ -117,20 +117,26 @@ export type Database = {
         Row: {
           default_view: string
           theme: string
+          timezone: string | null
           updated_at: string
           user_id: string
+          week_start: number
         }
         Insert: {
           default_view?: string
           theme?: string
+          timezone?: string | null
           updated_at?: string
           user_id: string
+          week_start?: number
         }
         Update: {
           default_view?: string
           theme?: string
+          timezone?: string | null
           updated_at?: string
           user_id?: string
+          week_start?: number
         }
         Relationships: []
       }

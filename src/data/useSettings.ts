@@ -6,15 +6,26 @@ import type { ThemeName, ViewName } from '../types/task'
 export interface Settings {
   theme: ThemeName
   defaultView: ViewName
+  /** 0=Sunday … 6=Saturday. */
+  weekStart: number
+  /** IANA id; null means "follow the browser". */
+  timezone: string | null
 }
 
-const DEFAULTS: Settings = { theme: 'cork', defaultView: 'calendar' }
+const DEFAULTS: Settings = {
+  theme: 'cork',
+  defaultView: 'calendar',
+  weekStart: 0,
+  timezone: null,
+}
 
 export interface UseSettings {
   settings: Settings | null
   loading: boolean
   saveTheme: (theme: ThemeName) => void
   saveView: (view: ViewName) => void
+  saveWeekStart: (weekStart: number) => void
+  saveTimezone: (timezone: string | null) => void
 }
 
 /**
@@ -88,7 +99,14 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
         // persists the snapshot. Do not drop it from the deps as a "redundant re-fetch".
         apply(
           data
-            ? { theme: data.theme as ThemeName, defaultView: data.default_view as ViewName }
+            ? {
+                theme: data.theme as ThemeName,
+                defaultView: data.default_view as ViewName,
+                // `??` rather than a plain read: during the deploy window between the migration
+                // and the Pages build, a row can come back without these columns at all.
+                weekStart: data.week_start ?? 0,
+                timezone: data.timezone ?? null,
+              }
             : DEFAULTS,
           hasSession,
         )
@@ -111,13 +129,25 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
         { event: '*', schema: 'public', table: 'user_settings', filter: `user_id=eq.${userId}` },
         (payload) => {
           if (Date.now() - lastLocalWrite.current < 3000) return
-          const row = payload.new as { theme?: string; default_view?: string } | null
+          const row = payload.new as {
+            theme?: string
+            default_view?: string
+            week_start?: number
+            timezone?: string | null
+          } | null
           if (!row?.theme || !row.default_view) return
           const next: Settings = {
             theme: row.theme as ThemeName,
             defaultView: row.default_view as ViewName,
+            weekStart: row.week_start ?? 0,
+            timezone: row.timezone ?? null,
           }
-          if (next.theme === ref.current.theme && next.defaultView === ref.current.defaultView)
+          if (
+            next.theme === ref.current.theme &&
+            next.defaultView === ref.current.defaultView &&
+            next.weekStart === ref.current.weekStart &&
+            next.timezone === ref.current.timezone
+          )
             return
           apply(next)
         },
@@ -137,7 +167,13 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
       void supabase
         .from('user_settings')
         .upsert(
-          { user_id: userId, theme: next.theme, default_view: next.defaultView },
+          {
+            user_id: userId,
+            theme: next.theme,
+            default_view: next.defaultView,
+            week_start: next.weekStart,
+            timezone: next.timezone,
+          },
           { onConflict: 'user_id' },
         )
         .then(
@@ -155,6 +191,14 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
     (view: ViewName) => persist({ ...ref.current, defaultView: view }),
     [persist],
   )
+  const saveWeekStart = useCallback(
+    (weekStart: number) => persist({ ...ref.current, weekStart }),
+    [persist],
+  )
+  const saveTimezone = useCallback(
+    (timezone: string | null) => persist({ ...ref.current, timezone }),
+    [persist],
+  )
 
-  return { settings, loading, saveTheme, saveView }
+  return { settings, loading, saveTheme, saveView, saveWeekStart, saveTimezone }
 }

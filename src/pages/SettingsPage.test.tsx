@@ -68,7 +68,13 @@ test('changing the default view persists it', async () => {
   const select = await screen.findByLabelText('Default view')
   await userEvent.selectOptions(select, 'kanban')
   expect(h.upsert).toHaveBeenCalledWith(
-    { user_id: 'user-1', theme: 'cork', default_view: 'kanban' },
+    {
+      user_id: 'user-1',
+      theme: 'cork',
+      default_view: 'kanban',
+      week_start: 0,
+      timezone: null,
+    },
     { onConflict: 'user_id' },
   )
 })

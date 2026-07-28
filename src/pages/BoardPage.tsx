@@ -47,6 +47,7 @@ export function BoardPage() {
               deleteOccurrence={t.deleteOccurrence}
               deleteSeriesFuture={t.deleteSeriesFuture}
               initialView={settings.defaultView}
+              weekStart={settings.weekStart}
               onSignOut={signOut}
               onOpenSettings={() => navigate('/settings')}
               rollForward={t.rollForward}

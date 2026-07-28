@@ -36,7 +36,7 @@ const instance = mk({
   checklist: [{ id: 'c2', text: 'sub', done: true }],
 })
 const plain = mk({ id: 'plain-1', atTime: '09:30', pinned: true })
-const settings = { theme: 'cork', defaultView: 'calendar' }
+const settings = { theme: 'cork', defaultView: 'calendar', weekStart: 0, timezone: null }
 
 test('serialize → parse round-trips', () => {
   const json = serializeExport([plain, instance], [template], settings, '2026-07-10T00:00:00Z')

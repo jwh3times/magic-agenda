@@ -1,7 +1,8 @@
 import type { CSSProperties } from 'react'
 import { useTheme } from '../theme/ThemeProvider'
 import { agendaGroups, notesForDay, overdueTasks } from '../data/selectors'
-import { formatAgendaDate, ymd } from '../lib/dates'
+import { formatAgendaDate } from '../lib/dates'
+import { useToday } from '../data/todayContext'
 import { TaskCard } from './TaskCard'
 import { INBOX, type Task } from '../types/task'
 import type { BoardHandlers, PopId } from './boardHandlers'
@@ -16,7 +17,7 @@ export interface AgendaViewProps {
 /** Flat chronological list grouped by date (+ an Unscheduled group). Cards are click-to-edit. */
 export function AgendaView({ tasks, handlers, pop, onRollForward }: AgendaViewProps) {
   const { conf } = useTheme()
-  const today = ymd(new Date())
+  const today = useToday()
   const overdue = overdueTasks(tasks, today)
   const overdueIds = new Set(overdue.map((t) => t.id))
   const groups = agendaGroups(tasks.filter((t) => !overdueIds.has(t.id)))

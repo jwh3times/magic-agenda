@@ -76,7 +76,12 @@ test('a valid file shows a summary; confirming inserts templates before instance
   const template = mk({ id: 'tpl-1', recurFreq: 'daily' })
   const instance = mk({ id: 'inst-1', recurParentId: 'tpl-1', recurOriginDay: '2026-07-10' })
   importFile(
-    serializeExport([instance], [template], { theme: 'cork', defaultView: 'calendar' }, 'x'),
+    serializeExport(
+      [instance],
+      [template],
+      { theme: 'cork', defaultView: 'calendar', weekStart: 0, timezone: null },
+      'x',
+    ),
   )
 
   await screen.findByText(/1 task.*1 repeating series/i)
@@ -105,7 +110,12 @@ test('a batch failure keeps the remapped batches; retrying resumes without re-in
   const template = mk({ id: 'tpl-1', recurFreq: 'daily' })
   const instance = mk({ id: 'inst-1', recurParentId: 'tpl-1', recurOriginDay: '2026-07-10' })
   importFile(
-    serializeExport([instance], [template], { theme: 'cork', defaultView: 'calendar' }, 'x'),
+    serializeExport(
+      [instance],
+      [template],
+      { theme: 'cork', defaultView: 'calendar', weekStart: 0, timezone: null },
+      'x',
+    ),
   )
   await screen.findByText(/1 task.*1 repeating series/i)
 
@@ -142,7 +152,12 @@ test('a thrown (rejected) insert keeps the resume state and clears busy, like a 
   const template = mk({ id: 'tpl-1', recurFreq: 'daily' })
   const instance = mk({ id: 'inst-1', recurParentId: 'tpl-1', recurOriginDay: '2026-07-10' })
   importFile(
-    serializeExport([instance], [template], { theme: 'cork', defaultView: 'calendar' }, 'x'),
+    serializeExport(
+      [instance],
+      [template],
+      { theme: 'cork', defaultView: 'calendar', weekStart: 0, timezone: null },
+      'x',
+    ),
   )
   await screen.findByText(/1 task.*1 repeating series/i)
 

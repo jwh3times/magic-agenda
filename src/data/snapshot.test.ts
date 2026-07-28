@@ -53,7 +53,7 @@ test('refuses an envelope from an older version', () => {
 })
 
 test('refuses a payload whose shape is wrong', () => {
-  localStorage.setItem('ma-snapshot-board', JSON.stringify({ v: 1, userId: 'u1', tasks: 'nope' }))
+  localStorage.setItem('ma-snapshot-board', JSON.stringify({ v: 2, userId: 'u1', tasks: 'nope' }))
   expect(readBoardSnapshot('u1')).toBeNull()
 })
 
@@ -77,7 +77,12 @@ test('a failed write is swallowed', () => {
 
 test('settings round-trip and clear together with the board', () => {
   writeBoardSnapshot('u1', [task('a')], [])
-  writeSettingsSnapshot('u1', { theme: 'glass', defaultView: 'kanban' })
+  writeSettingsSnapshot('u1', {
+    theme: 'glass',
+    defaultView: 'kanban',
+    weekStart: 0,
+    timezone: null,
+  })
   expect(readSettingsSnapshot('u1')?.settings.theme).toBe('glass')
   clearSnapshots()
   expect(readBoardSnapshot('u1')).toBeNull()
