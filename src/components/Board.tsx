@@ -61,6 +61,8 @@ export interface BoardProps {
   deleteOccurrence: (instance: Task) => void
   deleteSeriesFuture: (instance: Task) => void
   initialView?: ViewName
+  /** 0=Sunday … 6=Saturday. Passed rather than contexted: it only travels two levels. */
+  weekStart?: number
   onSignOut?: () => void
   onOpenSettings?: () => void
   rollForward?: (todayStr: string, onlyIds?: ReadonlySet<string>) => void
@@ -105,6 +107,7 @@ export function Board({
   deleteOccurrence,
   deleteSeriesFuture,
   initialView,
+  weekStart = 0,
   onSignOut,
   onOpenSettings,
   rollForward,
@@ -205,9 +208,10 @@ export function Board({
 
   const year = anchor.getFullYear()
   const month = anchor.getMonth()
-  const weekStart = startOfWeek(anchor)
+  const weekStartDate = startOfWeek(anchor, weekStart)
   const showNav = view === 'calendar' || view === 'week'
-  const navLabel = view === 'week' ? formatWeekRange(weekStart) : `${MONTHS_LONG[month]} ${year}`
+  const navLabel =
+    view === 'week' ? formatWeekRange(weekStartDate) : `${MONTHS_LONG[month]} ${year}`
 
   const onPrev = () => setAnchor((a) => (view === 'week' ? addDays(a, -7) : addMonths(a, -1)))
   const onNext = () => setAnchor((a) => (view === 'week' ? addDays(a, 7) : addMonths(a, 1)))
@@ -283,7 +287,7 @@ export function Board({
               >
                 {view === 'week' ? (
                   <WeekView
-                    weekStart={weekStart}
+                    weekStart={weekStartDate}
                     tasks={visibleTasks}
                     handlers={handlers}
                     pop={pop}
@@ -292,6 +296,7 @@ export function Board({
                   <CalendarView
                     viewY={year}
                     viewM={month}
+                    weekStart={weekStart}
                     tasks={visibleTasks}
                     handlers={handlers}
                     pop={pop}

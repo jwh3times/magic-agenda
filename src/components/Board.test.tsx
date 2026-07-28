@@ -14,7 +14,7 @@ import type { Task } from '../types/task'
 // Mimics BoardPage's data ownership with local state (no Supabase) so Board stays hermetic.
 // MemoryRouter is here because the inbox foot links to /privacy and /terms (ROADMAP 5.3); Board
 // still owns no data and touches no network.
-function Harness() {
+function Harness({ weekStart }: { weekStart?: number }) {
   const [tasks, setTasks] = useState<Task[]>(makeMockTasks)
   return (
     <MemoryRouter>
@@ -31,6 +31,7 @@ function Harness() {
           updateSeries={() => {}}
           deleteOccurrence={() => {}}
           deleteSeriesFuture={() => {}}
+          weekStart={weekStart}
         />
       </ThemeProvider>
     </MemoryRouter>
@@ -233,6 +234,15 @@ test('opens on the month of the configured today, not the browser clock', () => 
   } finally {
     vi.useRealTimers()
   }
+})
+
+test('renders a Monday-start month grid when configured', () => {
+  localStorage.clear() // same reason as the anchor test: force the calendar view.
+  render(<Harness weekStart={1} />)
+  const headers = screen.getAllByText(/^(Sun|Mon|Tue|Wed|Thu|Fri|Sat)$/)
+  expect(headers).toHaveLength(7)
+  expect(headers[0]).toHaveTextContent('Mon')
+  expect(headers[6]).toHaveTextContent('Sun')
 })
 
 test('week view highlights the cell for the configured today, not the browser clock', async () => {

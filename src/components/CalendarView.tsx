@@ -10,17 +10,26 @@ import type { BoardHandlers, PopId } from './boardHandlers'
 export interface CalendarViewProps {
   viewY: number
   viewM: number
+  /** 0=Sunday … 6=Saturday. */
+  weekStart?: number
   tasks: Task[]
   handlers: BoardHandlers
   pop: PopId
 }
 
-export function CalendarView({ viewY, viewM, tasks, handlers, pop }: CalendarViewProps) {
+export function CalendarView({
+  viewY,
+  viewM,
+  weekStart = 0,
+  tasks,
+  handlers,
+  pop,
+}: CalendarViewProps) {
   const { theme, conf } = useTheme()
   const isMobile = useIsMobile()
   const b = boardChrome(theme, conf)
   const wd = weekdayStyle(theme, conf)
-  const { weekdays, cells } = buildMonthGrid(viewY, viewM, useToday())
+  const { weekdays, cells } = buildMonthGrid(viewY, viewM, useToday(), weekStart)
 
   const monthGrid = (
     <>
