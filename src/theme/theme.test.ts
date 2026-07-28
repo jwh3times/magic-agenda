@@ -146,6 +146,7 @@ describe('scrollbars', () => {
       const meta = {
         dateStr: '2026-07-24',
         dayNum: 24,
+        dow: 5,
         inMonth: true,
         isToday: false,
         isWeekend: false,

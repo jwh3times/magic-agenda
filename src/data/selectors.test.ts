@@ -83,6 +83,56 @@ describe('buildWeekCells', () => {
   })
 })
 
+describe('buildMonthGrid week start', () => {
+  // March 2026 begins on a Sunday — the sharp case. Sunday-start needs zero leading padding;
+  // Monday-start needs a full six days of it. An off-by-one here silently shifts every task.
+  it('pads from the configured first day', () => {
+    const sun = buildMonthGrid(2026, 2, '2026-03-15')
+    expect(sun.cells[0].dateStr).toBe('2026-03-01')
+
+    const mon = buildMonthGrid(2026, 2, '2026-03-15', 1)
+    expect(mon.cells[0].dateStr).toBe('2026-02-23')
+    expect(mon.cells[6].dateStr).toBe('2026-03-01')
+
+    const sat = buildMonthGrid(2026, 2, '2026-03-15', 6)
+    expect(sat.cells[0].dateStr).toBe('2026-02-28')
+  })
+
+  it('rotates the weekday headers and always returns 42 cells', () => {
+    expect(buildMonthGrid(2026, 2, '2026-03-15').weekdays[0]).toBe('Sun')
+    expect(buildMonthGrid(2026, 2, '2026-03-15', 1).weekdays).toEqual([
+      'Mon',
+      'Tue',
+      'Wed',
+      'Thu',
+      'Fri',
+      'Sat',
+      'Sun',
+    ])
+    expect(buildMonthGrid(2026, 2, '2026-03-15', 1).cells).toHaveLength(42)
+    expect(buildMonthGrid(2026, 2, '2026-03-15', 6).cells).toHaveLength(42)
+  })
+
+  it('keeps weekend shading on the real Sat/Sun regardless of week start', () => {
+    const mon = buildMonthGrid(2026, 2, '2026-03-15', 1)
+    // Monday-start: positions 5 and 6 of each row are Sat and Sun.
+    expect(mon.cells[5].isWeekend).toBe(true)
+    expect(mon.cells[6].isWeekend).toBe(true)
+    expect(mon.cells[0].isWeekend).toBe(false)
+  })
+})
+
+describe('CellMeta.dow', () => {
+  it('carries the real weekday so views can label a rotated week', () => {
+    const mon = buildMonthGrid(2026, 2, '2026-03-15', 1)
+    expect(mon.cells[0].dow).toBe(1) // 2026-02-23 is a Monday
+    expect(mon.cells[6].dow).toBe(0) // 2026-03-01 is a Sunday
+
+    const week = buildWeekCells(new Date(2026, 6, 27), '2026-07-28') // Monday 2026-07-27
+    expect(week.map((c) => c.dow)).toEqual([1, 2, 3, 4, 5, 6, 0])
+  })
+})
+
 describe('agendaGroups', () => {
   it('groups scheduled tasks by day ascending, excluding inbox', () => {
     const tasks = [

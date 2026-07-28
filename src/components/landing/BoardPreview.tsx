@@ -68,6 +68,7 @@ function PreviewGrid({ columns }: { columns: number }) {
         const meta = {
           dateStr,
           dayNum: d.getDate(),
+          dow: d.getDay(),
           inMonth: true,
           isToday: dateStr === today,
           isWeekend: d.getDay() === 0 || d.getDay() === 6,

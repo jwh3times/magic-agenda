@@ -36,10 +36,10 @@ export function WeekView({ weekStart, tasks, handlers, pop }: WeekViewProps) {
             gap: theme === 'brutal' ? 0 : 8,
           }}
         >
-          {cells.map((meta, i) => (
+          {cells.map((meta) => (
             <div key={meta.dateStr} style={{ flex: 'none' }}>
               <div style={wd}>
-                {WEEKDAYS_SHORT[i]} {meta.dayNum}
+                {WEEKDAYS_SHORT[meta.dow]} {meta.dayNum}
               </div>
               <div style={{ display: 'grid', minHeight: 96 }}>
                 <DayCell
@@ -59,9 +59,9 @@ export function WeekView({ weekStart, tasks, handlers, pop }: WeekViewProps) {
   return (
     <div style={b.boardWrap}>
       <div style={b.weekRow}>
-        {cells.map((meta, i) => (
+        {cells.map((meta) => (
           <div key={meta.dateStr} style={wd}>
-            {WEEKDAYS_SHORT[i]} {meta.dayNum}
+            {WEEKDAYS_SHORT[meta.dow]} {meta.dayNum}
           </div>
         ))}
       </div>

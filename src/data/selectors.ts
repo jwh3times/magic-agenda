@@ -1,5 +1,5 @@
 import type { Status, Task } from '../types/task'
-import { addDays, isScheduled, ymd, WEEKDAYS_SHORT } from '../lib/dates'
+import { addDays, isScheduled, ymd, weekdayLabels } from '../lib/dates'
 
 /** Tasks on a given day (or 'inbox'), sorted by their calendar order. Ported from `notesForDay`. */
 export function notesForDay(tasks: Task[], day: string, excludeId?: string): Task[] {
@@ -16,6 +16,8 @@ export function tasksForStatus(tasks: Task[], status: Status, excludeId?: string
 export interface CellMeta {
   dateStr: string
   dayNum: number
+  /** The cell's real weekday, 0=Sunday. Lets a view label a rotated week without knowing weekStart. */
+  dow: number
   inMonth: boolean
   isToday: boolean
   isWeekend: boolean
@@ -27,39 +29,49 @@ export interface MonthGrid {
 }
 
 /**
- * The 42-cell (7×6) month grid metadata, starting on the Sunday of the week containing
- * the 1st. Ported from the prototype's `buildCells` (data half only — styling lives in chrome).
+ * The 42-cell (7×6) month grid metadata, starting on the `weekStart` weekday of the week
+ * containing the 1st. Ported from the prototype's `buildCells` (data half only).
  */
-export function buildMonthGrid(viewY: number, viewM: number, todayStr: string): MonthGrid {
+export function buildMonthGrid(
+  viewY: number,
+  viewM: number,
+  todayStr: string,
+  weekStart = 0,
+): MonthGrid {
   const first = new Date(viewY, viewM, 1)
-  const start = addDays(first, -first.getDay())
+  const start = addDays(first, -((first.getDay() - weekStart + 7) % 7))
   const cells: CellMeta[] = []
   for (let i = 0; i < 42; i++) {
     const d = addDays(start, i)
     const ds = ymd(d)
+    const dow = d.getDay()
     cells.push({
       dateStr: ds,
       dayNum: d.getDate(),
+      dow,
       inMonth: d.getMonth() === viewM,
       isToday: ds === todayStr,
-      isWeekend: d.getDay() === 0 || d.getDay() === 6,
+      // Weekend is absolute Sat/Sun — it does not rotate with the configured week start.
+      isWeekend: dow === 0 || dow === 6,
     })
   }
-  return { weekdays: WEEKDAYS_SHORT, cells }
+  return { weekdays: weekdayLabels(weekStart), cells }
 }
 
-/** The 7 cells (Sun..Sat) of the week starting at `weekStart`. */
+/** The 7 cells of the week starting at `weekStart` (a date — the caller already applied the offset). */
 export function buildWeekCells(weekStart: Date, todayStr: string): CellMeta[] {
   const cells: CellMeta[] = []
   for (let i = 0; i < 7; i++) {
     const d = addDays(weekStart, i)
     const ds = ymd(d)
+    const dow = d.getDay()
     cells.push({
       dateStr: ds,
       dayNum: d.getDate(),
+      dow,
       inMonth: true,
       isToday: ds === todayStr,
-      isWeekend: d.getDay() === 0 || d.getDay() === 6,
+      isWeekend: dow === 0 || dow === 6,
     })
   }
   return cells
