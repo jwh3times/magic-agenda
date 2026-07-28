@@ -50,8 +50,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setPasswordRecovery(false)
         // Next sign-in should land on the default view, not the signed-out user's last view.
         clearBoardView()
-        // Task text at rest is acceptable only because it does not outlive the session on this
-        // device. Account deletion signs out too, so it lands here as well.
+        // Task text at rest is acceptable only because it does not outlive an explicit sign-out
+        // on this device — a session that simply vanishes (offline, expiry, a dropped refresh)
+        // leaves the snapshot in place on purpose, since that's what the offline board reads.
+        // Account deletion signs out too, so it lands here as well.
         clearSnapshots()
         clearLastUserId()
       }
