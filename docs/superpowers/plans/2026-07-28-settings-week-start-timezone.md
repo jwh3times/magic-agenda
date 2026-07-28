@@ -292,7 +292,11 @@ export function supportedTimezones(): string[] {
   if (typeof supported !== 'function') return FALLBACK_TIMEZONES
   try {
     const zones = supported.call(Intl, 'timeZone')
-    return zones.length > 0 ? zones : FALLBACK_TIMEZONES
+    const result = zones.length > 0 ? zones : FALLBACK_TIMEZONES
+    // `supportedValuesOf` returns canonical IANA zones, which include 'Etc/UTC' but not bare
+    // 'UTC' — yet 'UTC' is what a user scans the picker for, and `todayYmd('UTC')` accepts it.
+    if (!result.includes('UTC')) return ['UTC', ...result]
+    return result
   } catch {
     return FALLBACK_TIMEZONES
   }
