@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { CAT, COLORS, STATUS, PAPER } from './constants'
 import { themeConf } from './themeConf'
+import { boardChrome, cellChrome, inboxChrome, columnChrome, scrollbars } from './chrome'
 import { rotOf, cardStyles } from './cardStyles'
 import { NO_RECUR, type Task, type ThemeName } from '../types/task'
 
@@ -116,5 +117,50 @@ describe('cardStyles', () => {
     expect(String(s.chipStyle.background)).toContain('rgba(224,82,74')
     const plain = cardStyles('cork', task(), 'kanban')
     expect(String(plain.wrap.boxShadow)).not.toContain('#e0524a')
+  })
+})
+
+describe('scrollbars', () => {
+  // Firefox ignores ::-webkit-scrollbar entirely, so the global rules in index.css never applied
+  // there and it fell back to a bulky platform default. `scrollbar-width`/`scrollbar-color` are
+  // standard properties, so they belong in the inline style objects with the rest of the theming.
+  it('is thin, with a themed thumb on a transparent track, for every theme', () => {
+    for (const t of THEMES) {
+      const s = scrollbars(themeConf(t))
+      expect(s.scrollbarWidth).toBe('thin')
+      expect(s.scrollbarColor).toBe(`${themeConf(t).scrollThumb} transparent`)
+      expect(themeConf(t).scrollThumb).toMatch(/^(#|rgba?\()/)
+    }
+  })
+
+  it('gives each theme its own thumb rather than one shared grey', () => {
+    const thumbs = THEMES.map((t) => themeConf(t).scrollThumb)
+    expect(new Set(thumbs).size).toBe(THEMES.length)
+  })
+
+  // Every surface that can overflow must carry it — one missed container is one bulky
+  // Firefox scrollbar in the middle of an otherwise themed board.
+  it('is applied to every scrollable container in the chrome layer', () => {
+    for (const t of THEMES) {
+      const conf = themeConf(t)
+      const meta = {
+        dateStr: '2026-07-24',
+        dayNum: 24,
+        inMonth: true,
+        isToday: false,
+        isWeekend: false,
+      }
+      const containers = [
+        boardChrome(t, conf).grid,
+        cellChrome(t, conf, meta, false).notesWrap,
+        inboxChrome(t, conf).inboxList,
+        columnChrome(t, conf, STATUS[0], false).listStyle,
+      ]
+      for (const c of containers) {
+        expect(c.overflow).toBe('auto')
+        expect(c.scrollbarWidth).toBe('thin')
+        expect(c.scrollbarColor).toBe(`${conf.scrollThumb} transparent`)
+      }
+    }
   })
 })

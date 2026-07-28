@@ -12,6 +12,15 @@ body {
   font-family: system-ui, sans-serif;
   background: #13151c;
 }
+/* Scrollbar FALLBACK only — do not treat these as the app's scrollbar styling.
+   `::-webkit-scrollbar` is a webkit/blink pseudo-element that Firefox ignores outright, which is
+   why a themed board there used to show a bulky unthemed platform scrollbar. The real styling is
+   `scrollbars()` in `theme/chrome.ts`, which sets the standard `scrollbar-width`/`scrollbar-color`
+   per theme and is spread into every container that can overflow. These rules exist purely for
+   engines without standard support (Safari < 18.2, Chrome < 121); where both are understood the
+   standard properties win, so this grey is never what a modern browser renders. Theme-aware
+   styling cannot live here — pseudo-elements can't read inline styles, and the theming layer is
+   deliberately inline style objects rather than CSS variables (see AGENTS.md). */
 ::-webkit-scrollbar {
   width: 9px;
   height: 9px;

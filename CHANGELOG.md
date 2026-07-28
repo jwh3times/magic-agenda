@@ -12,6 +12,35 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.35] - 2026-07-27
+
+### Fixed
+
+- **Firefox rendered a bulky, unthemed platform scrollbar inside day cells, the inbox, and kanban
+  columns.** The app's only scrollbar styling was the `::-webkit-scrollbar` block in `index.css`,
+  which is a webkit/blink pseudo-element that Firefox ignores outright — so every scrollable
+  surface fell back to the OS default, light and heavy against a dark board and matching no theme.
+
+  Scrollbars are now themed the same way as everything else: `scrollbars(conf)` in
+  `theme/chrome.ts` sets the **standard** `scrollbar-width: thin` and a per-theme
+  `scrollbar-color`, and is spread into every container that can overflow — the month grid, a day
+  cell's note list, the inbox list, a kanban column, and the two mobile-only scrollers in
+  `WeekView`/`CalendarView`. Standard properties are expressible in an inline style object, so this
+  fits the existing inline-style theming rather than working around it, and the new `scrollThumb`
+  token gives each theme its own thumb (warm ink on cork, flat near-black on brutal, cool light on
+  glass) instead of one shared grey.
+
+  The `::-webkit-scrollbar` rules stay as a fallback for engines without standard support (Safari
+  < 18.2, Chrome < 121). Where both are understood the standard properties win, so on a current
+  browser the thumb is now theme-coloured rather than the old fixed grey, and one pixel wider.
+
+  Worth recording, since it was the reported suspicion: the scrollbars **appearing** is not new and
+  was not caused by the public landing page. `overflow: auto` on a day cell's note list dates to the
+  original calendar-view commit, and the landing-page change touched no board sizing file — its only
+  `TaskCard` edit swaps a `<button>` for a `<span>` when no handler is passed, which the real board
+  never does. Two cards exceeding a fixed-height month cell has always scrolled; only the styling
+  was broken.
+
 ## [1.2.34] - 2026-07-27
 
 ### Added
@@ -862,7 +891,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.34...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.35...HEAD
+[1.2.35]: https://github.com/jwh3times/magic-agenda/compare/v1.2.34...v1.2.35
 [1.2.34]: https://github.com/jwh3times/magic-agenda/compare/v1.2.33...v1.2.34
 [1.2.33]: https://github.com/jwh3times/magic-agenda/compare/v1.2.32...v1.2.33
 [1.2.32]: https://github.com/jwh3times/magic-agenda/compare/v1.2.31...v1.2.32

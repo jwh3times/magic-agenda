@@ -1,5 +1,5 @@
 import { useTheme } from '../theme/ThemeProvider'
-import { boardChrome, weekdayStyle } from '../theme/chrome'
+import { boardChrome, scrollbars, weekdayStyle } from '../theme/chrome'
 import { buildWeekCells, notesForDay } from '../data/selectors'
 import { ymd, WEEKDAYS_SHORT } from '../lib/dates'
 import { useIsMobile } from '../lib/useMediaQuery'
@@ -30,6 +30,7 @@ export function WeekView({ weekStart, tasks, handlers, pop }: WeekViewProps) {
             flex: 1,
             minHeight: 0,
             overflowY: 'auto',
+            ...scrollbars(conf),
             display: 'flex',
             flexDirection: 'column',
             gap: theme === 'brutal' ? 0 : 8,

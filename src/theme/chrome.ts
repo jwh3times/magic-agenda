@@ -4,6 +4,22 @@ import type { ThemeConf } from './themeConf'
 import type { CellMeta } from '../data/selectors'
 import type { StatusDef } from './constants'
 
+/**
+ * Thin, theme-matched scrollbars for any container that can overflow.
+ *
+ * `scrollbar-width`/`scrollbar-color` are standard properties, so unlike the `::-webkit-scrollbar`
+ * rules in `index.css` they work in Firefox — which ignores that pseudo-element entirely and was
+ * therefore rendering a bulky platform default in the middle of a themed board. Being standard
+ * properties, they also belong in the inline style objects with the rest of the theming rather
+ * than in a stylesheet.
+ *
+ * The `index.css` rules stay as the fallback for engines without standard support (Safari < 18.2,
+ * Chrome < 121). Where both are understood the standard properties win, which is what we want.
+ */
+export function scrollbars(conf: ThemeConf): CSSProperties {
+  return { scrollbarWidth: 'thin', scrollbarColor: `${conf.scrollThumb} transparent` }
+}
+
 // Chrome (page shell / board / cell / inbox / column) styles, ported verbatim from the
 // prototype's buildUI / buildCells / buildColumns. `satisfies` validates every value as a
 // CSSProperties while keeping precise keys for consumers.
@@ -268,6 +284,7 @@ export function boardChrome(theme: ThemeName, conf: ThemeConf) {
       gridAutoRows: '1fr',
       gap: brutal ? '0' : '6px',
       overflow: 'auto',
+      ...scrollbars(conf),
     },
   } satisfies Record<string, CSSProperties>
 }
@@ -364,6 +381,7 @@ export function cellChrome(theme: ThemeName, conf: ThemeConf, meta: CellMeta, is
       flexDirection: 'column',
       gap: '7px',
       overflow: 'auto',
+      ...scrollbars(conf),
       flex: 1,
       minHeight: 0,
     },
@@ -426,6 +444,7 @@ export function inboxChrome(theme: ThemeName, conf: ThemeConf) {
       flex: 1,
       minHeight: 0,
       overflow: 'auto',
+      ...scrollbars(conf),
       display: 'flex',
       flexDirection: 'column',
       gap: '13px',
@@ -538,6 +557,7 @@ export function columnChrome(theme: ThemeName, conf: ThemeConf, col: StatusDef, 
       flex: 1,
       minHeight: 0,
       overflow: 'auto',
+      ...scrollbars(conf),
       display: 'flex',
       flexDirection: 'column',
       gap: '12px',
