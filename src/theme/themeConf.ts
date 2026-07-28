@@ -28,6 +28,8 @@ export interface ThemeConf {
   cellOut: string
   numFg: string
   weekendBg: string
+  /** Scrollbar thumb. Standard `scrollbar-color`, so Firefox honours it too. */
+  scrollThumb: string
 }
 
 const CORK: ThemeConf = {
@@ -58,6 +60,7 @@ const CORK: ThemeConf = {
   cellOut: 'rgba(120,90,55,.12)',
   numFg: '#3a2611',
   weekendBg: 'rgba(120,90,55,.06)',
+  scrollThumb: 'rgba(74,50,22,.38)',
 }
 
 const BRUTAL: ThemeConf = {
@@ -88,6 +91,7 @@ const BRUTAL: ThemeConf = {
   cellOut: '#EDE9DA',
   numFg: '#111',
   weekendBg: '#FBF7E4',
+  scrollThumb: 'rgba(17,17,17,.55)',
 }
 
 const GLASS: ThemeConf = {
@@ -117,6 +121,7 @@ const GLASS: ThemeConf = {
   cellOut: 'rgba(255,255,255,.012)',
   numFg: 'rgba(234,240,255,.85)',
   weekendBg: 'rgba(255,255,255,.02)',
+  scrollThumb: 'rgba(234,240,255,.28)',
 }
 
 const CONF: Record<ThemeName, ThemeConf> = { cork: CORK, brutal: BRUTAL, glass: GLASS }

@@ -1,5 +1,5 @@
 import { useTheme } from '../theme/ThemeProvider'
-import { boardChrome, weekdayStyle } from '../theme/chrome'
+import { boardChrome, scrollbars, weekdayStyle } from '../theme/chrome'
 import { buildMonthGrid, notesForDay } from '../data/selectors'
 import { ymd } from '../lib/dates'
 import { useIsMobile } from '../lib/useMediaQuery'
@@ -55,6 +55,7 @@ export function CalendarView({ viewY, viewM, tasks, handlers, pop }: CalendarVie
             flex: 1,
             minHeight: 0,
             overflowX: 'auto',
+            ...scrollbars(conf),
             display: 'flex',
             flexDirection: 'column',
           }}

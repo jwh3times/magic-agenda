@@ -182,6 +182,18 @@ plain style objects with per-theme branching (rotation, pins, hard vs. soft shad
 themes: `cork` / `brutal` / `glass`. **Do not refactor this to CSS variables**: the look depends on the
 branching that CSS vars cannot express cleanly.
 
+Scrollbars are themed the same way, via `scrollbars(conf)` in `chrome.ts` — spread into every
+container that can overflow (the month `grid`, a day cell's `notesWrap`, `inboxList`, a kanban
+column's `listStyle`, and the two mobile-only scrollers in `WeekView` / `CalendarView`). It works
+because `scrollbar-width` and `scrollbar-color` are **standard** properties and so are expressible
+in an inline style object; the per-theme thumb is the `scrollThumb` token. The
+`::-webkit-scrollbar` rules in `index.css` are only a fallback for engines without standard support
+— Firefox ignores that pseudo-element entirely, which is exactly why a themed board there used to
+render a bulky grey platform scrollbar. Add `scrollbars(conf)` to any new scrollable surface, and
+do not try to make the `index.css` rules theme-aware: pseudo-elements cannot read inline styles,
+and reaching for CSS variables to bridge that is the refactor the paragraph above forbids.
+`theme.test.ts` asserts every container in `chrome.ts` that sets `overflow: auto` also carries it.
+
 ### Installable PWA and offline read: authored worker, network-first navigation
 
 `src/sw.ts` is **hand-authored, not generated.** `vite-plugin-pwa` runs in `injectManifest` mode
