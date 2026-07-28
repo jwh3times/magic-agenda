@@ -100,8 +100,13 @@ session (the residual session-fixation guard). `AuthProvider` / `ProtectedRoute`
 
 ### Data ownership: `BoardPage` owns state, `Board` is prop-driven
 
-`pages/BoardPage.tsx` wires `useTasks(userId)` + `useSettings(userId)` + `ThemeProvider` and passes
-tasks and every mutation down to `components/Board.tsx` as props. `Board` holds only **UI** state (view,
+`pages/BoardPage.tsx` wires `useTasks(userId, hasSession)` + `useSettings(userId, hasSession)` (via
+`SettingsProvider`) + `ThemeProvider` and passes tasks and every mutation down to `components/Board.tsx`
+as props. Both hooks take `userId` and `hasSession` as separate arguments on purpose: `userId` may
+resolve from the last-known id in `localStorage` with no live session behind it (the offline-boot
+fallback), which is fine for _reading_ a snapshot, but a snapshot _write_ requires the stricter
+`hasSession` — see the docstrings on `useTasks`/`useSettings` for the failure mode that guards
+against. `Board` holds only **UI** state (view,
 anchor date, editing modal, pop animation, filter). This decoupling is deliberate: it keeps `Board`
 testable without Supabase (`Board.test.tsx` renders it with a stateful `Harness`). `useTasks` is the
 single source of truth for board tasks: optimistic CRUD with rollback, plus `persistReorder` (upserts
@@ -192,8 +197,17 @@ delete these tests; they are the single most load-bearing check in this subsyste
 
 `public/_headers` scopes a **second, wider `connect-src`** to the `/sw.js` response path only,
 adding `fonts.googleapis.com`/`fonts.gstatic.com` — the worker's own `fetch()` calls to cache those
-fonts are governed by `connect-src`, not `font-src`, and widening the site-wide policy for that
-would open `connect-src` for every page rather than just the one script that needs it.
+fonts are governed by `connect-src`, not `font-src`, and the intent is to widen that only for the
+one script that needs it rather than opening `connect-src` for every page. **This is not yet
+confirmed**: nobody has verified how Cloudflare Pages resolves two `_headers` rules that both match
+`/sw.js` and set the same header — if it emits both instead of the more-specific rule replacing the
+less-specific one, browsers enforce the _intersection_, `connect-src` keeps the `/*` block's value
+without the font hosts, and the worker's `fetch()` for the Google Fonts stylesheet is CSP-blocked
+(which, since `isCacheFirst()` has no network-failure fallback, fails that stylesheet for every
+controlled page). Check on a Cloudflare Pages preview deploy with the worker active: a `connect-src`
+violation in the console naming `fonts.googleapis.com` means it failed. If so, widen the site-wide
+`connect-src` directive instead and record why in `public/_headers`, rather than relying on the
+scoped block.
 
 Offline read uses two versioned `localStorage` envelopes, both in `src/data/snapshot.ts` and both
 keyed to the signed-in user id: a board snapshot (tasks, the hidden recurrence templates, and a
