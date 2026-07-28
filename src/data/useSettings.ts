@@ -78,6 +78,14 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
         // overwrite the settings snapshot with DEFAULTS — a signed-out visitor with a stale
         // `ma-last-user` must not clobber the real snapshot just because `userId` resolved to
         // something. `apply`'s persist is therefore gated on `hasSession`, not on `userId`.
+        //
+        // The row-present branch can legitimately see `hasSession === false` too: supabase-js
+        // attaches the persisted access token independently of `AuthProvider`'s React state, and
+        // `SettingsProvider` mounts above the auth-loading gate, so the first query here can fire
+        // with `hasSession === false` and still come back with the user's real row — which this
+        // then declines to persist. That's fine only because `hasSession` is in this effect's
+        // dependency array below: when it flips to true the effect reruns and the second query
+        // persists the snapshot. Do not drop it from the deps as a "redundant re-fetch".
         apply(
           data
             ? { theme: data.theme as ThemeName, defaultView: data.default_view as ViewName }

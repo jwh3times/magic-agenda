@@ -100,17 +100,18 @@ session (the residual session-fixation guard). `AuthProvider` / `ProtectedRoute`
 
 ### Data ownership: `BoardPage` owns state, `Board` is prop-driven
 
-`pages/BoardPage.tsx` wires `useTasks(userId, hasSession)` + `useSettings(userId, hasSession)` (via
-`SettingsProvider`) + `ThemeProvider` and passes tasks and every mutation down to `components/Board.tsx`
-as props. Both hooks take `userId` and `hasSession` as separate arguments on purpose: `userId` may
-resolve from the last-known id in `localStorage` with no live session behind it (the offline-boot
-fallback), which is fine for _reading_ a snapshot, but a snapshot _write_ requires the stricter
-`hasSession` — see the docstrings on `useTasks`/`useSettings` for the failure mode that guards
-against. `Board` holds only **UI** state (view,
-anchor date, editing modal, pop animation, filter). This decoupling is deliberate: it keeps `Board`
-testable without Supabase (`Board.test.tsx` renders it with a stateful `Harness`). `useTasks` is the
-single source of truth for board tasks: optimistic CRUD with rollback, plus `persistReorder` (upserts
-only the changed lanes). To follow a write end-to-end, read `BoardPage` -> `Board` -> `useTasks`.
+`pages/BoardPage.tsx` wires `useTasks(userId, hasSession)` + `useSettings(userId, hasSession)`
+(via `SettingsProvider`) + `ThemeProvider` and passes tasks and every mutation down to
+`components/Board.tsx` as props. Both hooks take `userId` and `hasSession` as separate arguments
+on purpose: `userId` may resolve from the last-known id in `localStorage` with no live session
+behind it (the offline-boot fallback), which is fine for _reading_ a snapshot, but a snapshot
+_write_ requires the stricter `hasSession` — see the docstrings on `useTasks`/`useSettings`
+for the failure mode this guards against. `Board` holds only **UI** state (view, anchor date,
+editing modal, pop animation, filter). This decoupling is deliberate: it keeps `Board` testable
+without Supabase (`Board.test.tsx` renders it with a stateful `Harness`). `useTasks` is the
+single source of truth for board tasks: optimistic CRUD with rollback, plus `persistReorder`
+(upserts only the changed lanes). To follow a write end-to-end, read `BoardPage` -> `Board` ->
+`useTasks`.
 `useTasks` and `useSettings` also subscribe to Supabase realtime (`postgres_changes`,
 per-user channel): remote changes flow through the pure reducer in `src/data/realtime.ts`
 (instance dedupe by `(recurParentId, recurOriginDay)`, templates routed to `templatesRef`),
