@@ -30,7 +30,9 @@ const SettingsContext = createContext<UseSettings | null>(null)
  */
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
-  const value = useSettings(user?.id ?? readLastUserId())
+  // `userId` is fine to resolve from the stale `ma-last-user` for a lookup; `hasSession` is the
+  // separate, stricter signal useSettings needs before it may persist anything (see its docstring).
+  const value = useSettings(user?.id ?? readLastUserId(), Boolean(user))
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>
 }
 

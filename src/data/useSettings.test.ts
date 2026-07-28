@@ -49,7 +49,7 @@ beforeEach(() => {
 })
 
 test('saveTheme fires the upsert request so the theme persists across reloads', async () => {
-  const { result } = renderHook(() => useSettings('user-1'))
+  const { result } = renderHook(() => useSettings('user-1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
 
   act(() => {
@@ -66,7 +66,7 @@ test('saveTheme fires the upsert request so the theme persists across reloads', 
 })
 
 test('a settings change from another device is applied', async () => {
-  const { result } = renderHook(() => useSettings('user-1'))
+  const { result } = renderHook(() => useSettings('user-1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
 
   act(() => {
@@ -80,7 +80,7 @@ test('a settings change from another device is applied', async () => {
 })
 
 test('a remote settings event arriving right after a local save is suppressed', async () => {
-  const { result } = renderHook(() => useSettings('user-1'))
+  const { result } = renderHook(() => useSettings('user-1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
 
   act(() => {
@@ -102,29 +102,50 @@ test('a failed load falls back to the snapshot, not to DEFAULTS', async () => {
     JSON.stringify({ v: 1, userId: 'u1', settings: { theme: 'glass', defaultView: 'kanban' } }),
   )
   h.capture.result = { data: null, error: { message: 'FetchError: Failed to fetch' } }
-  const { result } = renderHook(() => useSettings('u1'))
+  const { result } = renderHook(() => useSettings('u1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
   expect(result.current.settings).toEqual({ theme: 'glass', defaultView: 'kanban' })
 })
 
 test('a failed load with no snapshot falls back to DEFAULTS', async () => {
   h.capture.result = { data: null, error: { message: 'FetchError: Failed to fetch' } }
-  const { result } = renderHook(() => useSettings('u1'))
+  const { result } = renderHook(() => useSettings('u1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
   expect(result.current.settings).toEqual({ theme: 'cork', defaultView: 'calendar' })
 })
 
 test('a genuinely empty row still means DEFAULTS, and is snapshotted', async () => {
   h.capture.result = { data: null, error: null }
-  const { result } = renderHook(() => useSettings('u1'))
+  const { result } = renderHook(() => useSettings('u1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
   expect(result.current.settings).toEqual({ theme: 'cork', defaultView: 'calendar' })
   expect(JSON.parse(localStorage.getItem('ma-snapshot-settings')!).settings.theme).toBe('cork')
 })
 
 test('saving a theme updates the snapshot', async () => {
-  const { result } = renderHook(() => useSettings('u1'))
+  const { result } = renderHook(() => useSettings('u1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
   act(() => result.current.saveTheme('brutal'))
   expect(JSON.parse(localStorage.getItem('ma-snapshot-settings')!).settings.theme).toBe('brutal')
+})
+
+// FIX 1 bite-proof: an empty row with no error is what an unauthenticated `select` under RLS
+// also looks like. `hasSession: false` models a resolved userId (e.g. from a stale `ma-last-user`)
+// with no real session behind it — that must not be treated as "confirmed no settings row" and
+// must not clobber whatever snapshot is already on disk.
+test('an empty row with no session does not overwrite the existing snapshot', async () => {
+  localStorage.setItem(
+    'ma-snapshot-settings',
+    JSON.stringify({ v: 1, userId: 'u1', settings: { theme: 'brutal', defaultView: 'kanban' } }),
+  )
+  h.capture.result = { data: null, error: null }
+  const { result } = renderHook(() => useSettings('u1', false))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  // The hook still renders something sane locally (DEFAULTS) rather than hanging...
+  expect(result.current.settings).toEqual({ theme: 'cork', defaultView: 'calendar' })
+  // ...but the on-disk snapshot, which the next offline boot reads, must be untouched.
+  expect(JSON.parse(localStorage.getItem('ma-snapshot-settings')!).settings).toEqual({
+    theme: 'brutal',
+    defaultView: 'kanban',
+  })
 })

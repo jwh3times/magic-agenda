@@ -2,8 +2,11 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, expect, test, vi } from 'vitest'
 
 const h = vi.hoisted(() => {
-  const maybeSingle = vi.fn(() =>
-    Promise.resolve({ data: { theme: 'glass', default_view: 'kanban' }, error: null }),
+  // Typed to allow a `data: null` resolution too (the FIX 1 bite-proof overrides it once with
+  // that shape), not just the default authenticated-row response below.
+  const maybeSingle = vi.fn(
+    (): Promise<{ data: { theme: string; default_view: string } | null; error: null }> =>
+      Promise.resolve({ data: { theme: 'glass', default_view: 'kanban' }, error: null }),
   )
   const channel: Record<string, unknown> = {}
   channel.on = vi.fn(() => channel)
@@ -77,6 +80,29 @@ test('a signed-out visitor with a stale remembered id still fires a query', asyn
   await waitFor(() => expect(screen.getByTestId('a')).toHaveTextContent('glass'))
   expect(h.from).toHaveBeenCalled()
   expect(h.channelFn).toHaveBeenCalled()
+})
+
+// FIX 1 bite-proof. Unauthenticated PostgREST under RLS resolves `{ data: null, error: null }` —
+// indistinguishable, from useSettings' point of view, from "this authenticated user genuinely has
+// no settings row yet". Before the fix, that empty-row branch always persisted DEFAULTS to
+// `ma-snapshot-settings`, so a signed-out visitor whose session vanished without a SIGNED_OUT event
+// (leaving `ma-last-user` behind) would silently overwrite the real snapshot with cork/calendar —
+// exactly the regression Task 3 fixed for the *error* case, reopened here for the *empty* case.
+test('a signed-out visitor with a stale remembered id does not overwrite the settings snapshot on an empty row', async () => {
+  h.user.current = null
+  localStorage.setItem('ma-last-user', 'user-1')
+  const existing = { v: 1, userId: 'user-1', settings: { theme: 'brutal', defaultView: 'kanban' } }
+  localStorage.setItem('ma-snapshot-settings', JSON.stringify(existing))
+  h.maybeSingle.mockResolvedValueOnce({ data: null, error: null })
+  render(
+    <SettingsProvider>
+      <Consumer label="a" />
+    </SettingsProvider>,
+  )
+  // The hook still resolves (to DEFAULTS) rather than hanging...
+  await waitFor(() => expect(screen.getByTestId('a')).toHaveTextContent('cork'))
+  // ...but the on-disk snapshot, which the next offline boot reads, must be untouched.
+  expect(JSON.parse(localStorage.getItem('ma-snapshot-settings')!)).toEqual(existing)
 })
 
 // The point of hoisting: `/` and `/settings` share one fetch and one channel instead of tearing

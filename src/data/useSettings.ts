@@ -17,8 +17,17 @@ export interface UseSettings {
   saveView: (view: ViewName) => void
 }
 
-/** Loads + persists the user's theme and default view. A signup trigger seeds the row. */
-export function useSettings(userId: string): UseSettings {
+/**
+ * Loads + persists the user's theme and default view. A signup trigger seeds the row.
+ *
+ * `userId` is only a resolved id for *reading* — it is fine to be the last-known id from
+ * `readLastUserId()` with no live session behind it (that's what lets an offline boot look up
+ * its snapshot). `hasSession` is the separate, stricter signal for *writing*: true only when
+ * there is an actual authenticated session. The two diverge for a signed-out visitor whose
+ * session vanished without a `SIGNED_OUT` event — `userId` stays non-empty (from the stale
+ * `ma-last-user`) while `hasSession` is false. See the `data === null` branch below.
+ */
+export function useSettings(userId: string, hasSession: boolean): UseSettings {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [loading, setLoading] = useState(true)
   const ref = useRef<Settings>(DEFAULTS)
@@ -63,17 +72,24 @@ export function useSettings(userId: string): UseSettings {
           setLoading(false)
           return
         }
+        // No error and no row: under RLS this is indistinguishable between "authenticated user
+        // who genuinely has no settings row yet" and "no session at all" (an unauthenticated
+        // select resolves `{ data: null, error: null }`, not an error). Only the former should
+        // overwrite the settings snapshot with DEFAULTS — a signed-out visitor with a stale
+        // `ma-last-user` must not clobber the real snapshot just because `userId` resolved to
+        // something. `apply`'s persist is therefore gated on `hasSession`, not on `userId`.
         apply(
           data
             ? { theme: data.theme as ThemeName, defaultView: data.default_view as ViewName }
             : DEFAULTS,
+          hasSession,
         )
         setLoading(false)
       })
     return () => {
       active = false
     }
-  }, [userId, apply])
+  }, [userId, hasSession, apply])
 
   // Live settings changes from other devices. Skip events shortly after a local
   // persist — the echo of our own upsert could otherwise transiently revert a
