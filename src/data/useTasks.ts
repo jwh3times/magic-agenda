@@ -76,7 +76,16 @@ function makeInstance(tmpl: Task, day: string): Task {
 // (recur_parent_id, recur_origin_day) unique index and keeps the StrictMode double-insert guard sound.
 const instanceKey = (t: Task) => `${t.recurParentId}|${instanceOrigin(t)}`
 
-export function useTasks(userId: string): UseTasks {
+/**
+ * `userId` is only a resolved id for *reading* — it may be the last-known id from
+ * `readLastUserId()` with no live session behind it, which is what lets an offline boot look up
+ * its snapshot. `hasSession` is the separate, stricter signal for *writing*: true only when there
+ * is an actual authenticated session. The two diverge for a signed-out visitor whose session
+ * vanished without a `SIGNED_OUT` event: `userId` stays non-empty while `hasSession` is false, and
+ * a `reload()` in that state succeeds against RLS with `[]` and no error — a "successful" load
+ * that authenticated nothing. See `hasLoadedFromServer` below.
+ */
+export function useTasks(userId: string, hasSession: boolean): UseTasks {
   const [tasks, _setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -85,10 +94,13 @@ export function useTasks(userId: string): UseTasks {
   const tasksRef = useRef<Task[]>([])
   const templatesRef = useRef<Task[]>([])
   const inFlight = useRef(false)
-  // Set true only by reload()'s success path — never by hydrateFromSnapshot(). Gates the
-  // snapshot writer so a failed load with no prior snapshot can't write an empty board that
-  // then reads back as "recently saved offline data" on the next failed load, permanently
-  // masking the fact that we've never actually talked to the server.
+  // Set true only by reload()'s success path, and only when that load actually happened under a
+  // real session — never by hydrateFromSnapshot(), and never by a sessionless reload's empty
+  // `{ data: [], error: null }` (RLS answering "nothing" is not the same as "board confirmed
+  // empty"). Gates the snapshot writer so neither a failed load with no prior snapshot NOR an
+  // unauthenticated-but-"successful" reload can write an empty board that then reads back as
+  // "recently saved offline data" on the next boot, permanently masking the fact that we've never
+  // actually talked to the server on this user's behalf.
   const hasLoadedFromServer = useRef(false)
 
   // Ids this client just wrote, with expiry. Realtime echoes of our own writes are
@@ -193,7 +205,7 @@ export function useTasks(userId: string): UseTasks {
       const all = (data ?? []).map(rowToTask)
       templatesRef.current = all.filter(isTemplate)
       const instances = all.filter((t) => !isTemplate(t))
-      hasLoadedFromServer.current = true
+      if (hasSession) hasLoadedFromServer.current = true
       setOffline(false)
       setSavedAt(null)
       setTasks(instances)
@@ -208,7 +220,7 @@ export function useTasks(userId: string): UseTasks {
       setLoading(false)
       inFlight.current = false
     }
-  }, [setTasks, materialize, hydrateFromSnapshot])
+  }, [setTasks, materialize, hydrateFromSnapshot, hasSession])
 
   useEffect(() => {
     // `void reload()` runs reload's synchronous prefix (before its first `await`) inline, and
@@ -231,17 +243,22 @@ export function useTasks(userId: string): UseTasks {
   // a rolled-back write re-renders the restored state and the next tick writes that, so this
   // is self-correcting and needs no "confirmed" bookkeeping. Suppressed while offline so
   // savedAt never claims to be fresher than the data. Also suppressed until a server load has
-  // actually succeeded this session (hasLoadedFromServer): otherwise a failed load with no
-  // existing snapshot would write `{ tasks: [], templates: [] }`, and that empty envelope would
-  // read back as valid, freshly-saved offline data on the next failed load — indistinguishable
-  // from a genuinely empty board and permanently hiding the fact we never reached the server.
+  // actually succeeded under a real session (hasLoadedFromServer, which reload() only sets when
+  // `hasSession` is true) — otherwise either a failed load with no existing snapshot, OR a
+  // sessionless reload succeeding against RLS with `[]`, would write `{ tasks: [], templates: [] }`,
+  // and that empty envelope would read back as valid, freshly-saved offline data on the next boot —
+  // indistinguishable from a genuinely empty board and permanently hiding the fact we never
+  // actually reached the server on this user's behalf. `hasSession` is also checked directly here
+  // (not just via the ref): the ref can only ever have been set true by a *past* authenticated
+  // load, but a session can end mid-mount without unmounting the hook, and a write must reflect
+  // the *current* session, not a historical one.
   useEffect(() => {
-    if (!userId || offline || loading || !hasLoadedFromServer.current) return
+    if (!userId || !hasSession || offline || loading || !hasLoadedFromServer.current) return
     const id = window.setTimeout(() => {
       writeBoardSnapshot(userId, tasksRef.current, templatesRef.current)
     }, 1000)
     return () => window.clearTimeout(id)
-  }, [userId, offline, loading, tasks])
+  }, [userId, hasSession, offline, loading, tasks])
 
   // Live changes from other devices/sessions. Sub-epoch bumps force a fresh
   // channel after an error (with backoff); reload() covers anything missed.

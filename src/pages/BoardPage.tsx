@@ -15,7 +15,9 @@ export function BoardPage() {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
   const userId = user?.id ?? readLastUserId()
-  const t = useTasks(userId)
+  // `userId` may resolve from the stale last-known id with no live session behind it (the
+  // offline-boot fallback); `useTasks` needs that distinction to know a write is safe.
+  const t = useTasks(userId, Boolean(user))
   const { settings, loading: settingsLoading, saveTheme } = useSettingsContext()
 
   // Gate on the resolved user id, not on `user`/`session`: ProtectedRoute has already made the
