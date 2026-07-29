@@ -2,36 +2,62 @@
 # Cloudflare serves this file verbatim (it is copied from public/ into dist/ at build).
 # Docs: https://developers.cloudflare.com/pages/configuration/headers/
 #
-# CSP notes (validated against the production build, 2026-06-30):
-#   - script-src 'self'      — the Vite build emits only external module chunks from our origin;
-#                              there are no inline <script> tags, so no hash/unsafe-inline is needed.
+# CSP notes (validated against the production build, 2026-06-30; revised 2026-07-28):
+#   - script-src 'self' + one sha256 + static.cloudflareinsights.com — see the Web Analytics
+#                              note below. The Vite build itself emits only external module
+#                              chunks from our origin and no inline <script>.
 #   - style-src 'unsafe-inline' — the theming layer is an inline-style-object model, and the
 #                              Google Fonts stylesheet is loaded from fonts.googleapis.com.
 #   - connect-src ...supabase.co — Supabase REST (https) + Realtime (wss).
-#   - img-src data:          — Vite may inline small SVG assets as data: URIs.
+#   - connect-src fonts.*      — the SERVICE WORKER's own fetch() for the Google Fonts stylesheet
+#                              and font files. See the scoped-block post-mortem below.
+#   - img-src data:            — Vite may inline small SVG assets as data: URIs.
 # If the Cloudflare preview deploy shows CSP violations in the console, relax the offending
 # directive (or switch to Content-Security-Policy-Report-Only to observe first).
+#
+# ---------------------------------------------------------------------------------------------
+# WHY connect-src TRUSTS THE FONT HOSTS SITE-WIDE (post-mortem, 2026-07-28)
+#
+# The page's own <link> to the Google Fonts stylesheet is governed by style-src, which has always
+# allowed it. The SERVICE WORKER's fetch() of that same URL is governed by connect-src, which did
+# not. Until v1.2.37 this file tried to widen connect-src for the worker alone, via a second rule
+# scoped to the /sw.js response path, on the theory that only that one script needed it.
+#
+# THAT DID NOT WORK, and it is now confirmed in production, not theorised: with the worker active,
+# the console showed
+#     Failed to load 'https://fonts.googleapis.com/css2?family=...'.
+#     A ServiceWorker passed a promise to FetchEvent.respondWith() that rejected with
+#     'TypeError: NetworkError when attempting to fetch resource.'
+# The scoped block does not replace the site-wide one for a /sw.js request, so the worker's
+# fetch stayed bound by the narrower connect-src and was refused.
+#
+# It only bit RETURNING visitors: on a first visit the worker is not yet controlling the page, the
+# fonts load normally and land in the HTTP cache, so a preview-deploy smoke test looks fine. On the
+# next visit the worker intercepts, its fetch is blocked, and — because cacheFirst had no
+# network-failure fallback — the rejection propagated and the whole stylesheet failed. Typography
+# silently fell back to system fonts.
+#
+# Fix: trust the two font hosts in the site-wide connect-src (they were already trusted for
+# style-src/font-src, so nothing new enters the trust set) and delete the scoped block. Do NOT
+# reintroduce a per-path CSP rule here expecting it to override this one — it does not.
+# src/sw.ts's cacheFirst also gained a fallback so a refused fetch degrades one asset instead of
+# failing the page.
+#
+# ---------------------------------------------------------------------------------------------
+# CLOUDFLARE WEB ANALYTICS
+#
+# Pages auto-injects the Web Analytics beacon: an inline loader plus a script from
+# static.cloudflareinsights.com, which reports to cloudflareinsights.com. Under script-src 'self'
+# both were blocked, so analytics collected nothing from the day it was switched on.
+#
+# The sha256 below is the hash of Cloudflare's injected INLINE loader. It is Cloudflare's snippet,
+# not ours, so a beacon update can change it and silently re-break analytics (the page itself keeps
+# working — only the beacon fails). If the console reports a blocked inline script again, copy the
+# hash the browser prints in that message into script-src here. Nothing else depends on it.
 
 /*
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
-
-# The service worker runs under this file's CSP, and it fetch()es Google Fonts to cache them —
-# governed by connect-src, not font-src. Intent: scope that widening to the worker's own response
-# path instead of the site-wide directive, since only sw.js needs it. Both hosts are already
-# trusted for style-src/font-src above, so nothing new enters the trust set either way.
-#
-# NOT YET CONFIRMED: it is unverified whether Cloudflare Pages emits both matching header rules
-# (the site-wide block above and this one) or has this one replace the other for a /sw.js request.
-# If Pages emits both, browsers enforce the *intersection* of two same-name directives, which
-# would silently drop the font hosts from connect-src for sw.js — the worker's fetch() for the
-# Google Fonts stylesheet would then be CSP-blocked, and because cacheFirst has no network-failure
-# fallback, that fails the stylesheet for every controlled page. Check a Cloudflare Pages preview
-# deploy with the worker active: look for a connect-src violation in the console naming
-# fonts.googleapis.com. If it fails, widen the site-wide connect-src directive above instead (and
-# record why here) rather than relying on this scoped block.
-/sw.js
-  Content-Security-Policy: default-src 'self'; script-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' data:; object-src 'none'; base-uri 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-jgs8w4t+uLh9rWeOIxx1EwRzhZxBbFdg11vxhWHiA8s=' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://fonts.googleapis.com https://fonts.gstatic.com https://cloudflareinsights.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'

@@ -80,12 +80,30 @@ async function networkFirst(request: Request): Promise<Response> {
 async function cacheFirst(request: Request): Promise<Response> {
   const cached = await caches.match(request)
   if (cached) return cached
-  const res = await fetch(request)
-  if (res.ok || res.type === 'opaque') {
-    const cache = await caches.open(RUNTIME)
-    await cache.put(request, res.clone())
+  try {
+    const res = await fetch(request)
+    if (res.ok || res.type === 'opaque') {
+      const cache = await caches.open(RUNTIME)
+      await cache.put(request, res.clone())
+    }
+    return res
+  } catch {
+    // The fetch was refused outright — CSP, offline, DNS. This branch must never rethrow.
+    //
+    // It exists because of a real production failure (v1.2.36): the worker's fetch of the Google
+    // Fonts stylesheet was CSP-blocked by a too-narrow connect-src, this function had no catch,
+    // and the rejection reached respondWith() — which turns ONE unavailable asset into a hard
+    // NetworkError for the page, taking out the whole stylesheet for every controlled visitor.
+    // The connect-src is fixed (see public/_headers), but the fragility was the real defect: any
+    // future font-host outage would do the same. Fail soft instead.
+    //
+    // Retry the cache ignoring the query string first. Google Fonts URLs carry a long `family=`
+    // query, so a previously cached response for a near-identical URL is a better answer than
+    // nothing. Otherwise return a network error for THIS request only — the page survives, the
+    // one asset does not.
+    const stale = await caches.match(request, { ignoreSearch: true })
+    return stale ?? Response.error()
   }
-  return res
 }
 
 sw.addEventListener('fetch', (event) => {

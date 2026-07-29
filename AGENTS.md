@@ -246,19 +246,36 @@ looks like a navigation. The rule and its edge cases (a lookalike hostname, `wss
 jsdom), so this pure-predicate split is what makes the policy testable at all. Do not weaken or
 delete these tests; they are the single most load-bearing check in this subsystem.
 
-`public/_headers` scopes a **second, wider `connect-src`** to the `/sw.js` response path only,
-adding `fonts.googleapis.com`/`fonts.gstatic.com` — the worker's own `fetch()` calls to cache those
-fonts are governed by `connect-src`, not `font-src`, and the intent is to widen that only for the
-one script that needs it rather than opening `connect-src` for every page. **This is not yet
-confirmed**: nobody has verified how Cloudflare Pages resolves two `_headers` rules that both match
-`/sw.js` and set the same header — if it emits both instead of the more-specific rule replacing the
-less-specific one, browsers enforce the _intersection_, `connect-src` keeps the `/*` block's value
-without the font hosts, and the worker's `fetch()` for the Google Fonts stylesheet is CSP-blocked
-(which, since `isCacheFirst()` has no network-failure fallback, fails that stylesheet for every
-controlled page). Check on a Cloudflare Pages preview deploy with the worker active: a `connect-src`
-violation in the console naming `fonts.googleapis.com` means it failed. If so, widen the site-wide
-`connect-src` directive instead and record why in `public/_headers`, rather than relying on the
-scoped block.
+`public/_headers` trusts `fonts.googleapis.com`/`fonts.gstatic.com` in the **site-wide**
+`connect-src`. That is deliberate and was arrived at the hard way — do not "tighten" it back to a
+per-path rule. The asymmetry to understand: the page's own `<link>` to the Google Fonts stylesheet
+is governed by `style-src` (always allowed), but the **service worker's** `fetch()` of that same
+URL is governed by `connect-src`. Until v1.2.37 this file tried to widen `connect-src` for the
+worker alone via a second rule scoped to the `/sw.js` response path. **That does not work, and it
+is now confirmed in production, not theorised**: a scoped `_headers` rule does not replace the
+site-wide one for that request, so the worker's fetch stayed bound by the narrower directive and
+was refused —
+
+```
+Failed to load 'https://fonts.googleapis.com/css2?family=…'.
+A ServiceWorker passed a promise to FetchEvent.respondWith() that rejected with
+'TypeError: NetworkError when attempting to fetch resource.'
+```
+
+It only bit **returning** visitors, which is why it survived a preview-deploy smoke test: on a
+first visit the worker is not yet controlling the page, so the fonts load normally and land in the
+HTTP cache; on the next visit the worker intercepts and is blocked. Because `cacheFirst` had no
+network-failure fallback, that rejection reached `respondWith()` and took out the whole stylesheet
+for every controlled page — typography silently degraded to system fonts. `cacheFirst` now catches:
+it retries the cache with `ignoreSearch` (Google Fonts URLs carry a long `family=` query) and
+otherwise returns `Response.error()`, so a refused fetch costs one asset instead of the page. **That
+catch is load-bearing — a `throw` there is a page-level outage, not a missing font.**
+
+`script-src` also carries a sha256 for Cloudflare's auto-injected Web Analytics inline loader plus
+`static.cloudflareinsights.com`, with `cloudflareinsights.com` in `connect-src`. The hash is
+Cloudflare's snippet, not ours: a beacon update can change it and silently re-break analytics (the
+app is unaffected). If the console reports a blocked inline script, copy the hash from that message
+into `script-src`.
 
 Offline read uses two versioned `localStorage` envelopes, both in `src/data/snapshot.ts` and both
 keyed to the signed-in user id: a board snapshot (tasks, the hidden recurrence templates, and a
