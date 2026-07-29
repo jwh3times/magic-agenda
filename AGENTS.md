@@ -358,6 +358,26 @@ the Data API roles") is the backstop that catches one that doesn't. Note `anon` 
 deliberately: RLS, not the grant, is what denies it, and `useSettings` depends on an
 unauthenticated select returning zero rows rather than an error.
 
+That fail-closed premise was **not** true in production until `20260729190000`. Production
+carried `pg_default_acl` entries granting `anon` and `authenticated` full DML on every future
+table in `public` — inherited from the legacy auto-expose era, and invisible to CI, which always
+builds a fresh database whose defaults are already restrictive. Any table shipped without
+`enable row level security` would have been world-readable and writable through the public anon
+key. That migration revokes them for the `postgres` role, which is what both migrations and the
+Studio table editor (pg-meta connects as `postgres`) create through. **`authenticated` is revoked
+for the same reason as `anon`, not as belt-and-braces**: signup is open, so `authenticated` is
+`anon` plus one free registration. `service_role` is deliberately left alone — the Edge Functions
+hold the service key precisely to cross this boundary.
+
+**One residual gap, by necessity:** `supabase_admin` carries the same permissive defaults and
+`postgres` is not a member of that role, so the migration's second statement raises
+`insufficient_privilege` and is skipped with a notice. Tables the Supabase platform itself
+creates in `public` as `supabase_admin` are still auto-granted. Closing that needs the dashboard
+or support, not a migration. The fifth structural test ("a newly created table is NOT reachable
+by the Data API roles by default") creates a real table and reads the privileges it landed with,
+so it guards the `postgres` path against regression — but it connects as `postgres` and cannot
+see the `supabase_admin` path.
+
 ## When changing auth config
 
 `supabase/config.toml`'s `[auth]` tree describes **production** exactly (site URL, redirect

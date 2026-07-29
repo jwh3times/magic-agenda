@@ -53,23 +53,21 @@ were added as their own effort rather than a roadmap feature — see
   more than that the tests work against one developer's Docker. Promote it with
   `gh api -X PUT repos/jwh3times/magic-agenda/rulesets/18273908` sending the **full** rules array;
   the legacy branch-protection API 404s on this repo.
-- **Verify production's `pg_default_acl`.** `20260729100000_explicit_data_api_grants.sql`
-  deliberately carries no `alter default privileges`, so a table added without a grant is
-  unreachable — a loud `42501` rather than a silently world-readable table. That property was
-  verified empirically, but on a **fresh local stack**. Production predates the change and may
-  still carry permissive default-ACL entries from the legacy auto-expose era, in which case the
-  guarantee holds locally and in CI but not where it matters. The `RLS` job structurally cannot
-  catch this — it always runs against a newly created stack, whose baseline is already
-  restrictive. One read-only query settles it (connect through the **Session pooler**; the direct
-  `db.<ref>.supabase.co` host is IPv6-only):
+- **~~Verify production's `pg_default_acl`~~ — answered 2026-07-29, and it was the bad case.**
+  Production carried entries granting `anon` and `authenticated` `arwdDxtm` (full DML) on every
+  future table in `public`, for both the `postgres` and `supabase_admin` creator roles. So the
+  fail-closed premise of `20260729100000_explicit_data_api_grants.sql` — verified on a fresh local
+  stack, never in production — was false where it mattered: any table shipped without
+  `enable row level security` would have been world-readable and writable through the public anon
+  key. `20260729190000_revoke_permissive_default_privileges.sql` revokes them for `postgres`, the
+  role both migrations and the Studio table editor create through.
 
-  ```sql
-  select defaclrole::regrole, defaclnamespace::regnamespace, defaclobjtype, defaclacl
-    from pg_default_acl;
-  ```
-
-  If `anon` or `authenticated` appear with `r` (SELECT) against tables in `public`, a follow-up
-  migration using `alter default privileges ... revoke` is warranted.
+  **Residual gap, still open and not closeable from a migration:** the same entries exist for
+  `supabase_admin`, and `postgres` is not a member of that role, so the revoke raises
+  `insufficient_privilege` and is skipped with a notice in the deploy log. Tables the Supabase
+  platform itself creates in `public` are therefore still auto-granted. Closing it needs the
+  dashboard or Supabase support. Narrow in practice — this project's tables are all created as
+  `postgres` — but it is the one part of the boundary that no test or migration here can reach.
 - **Part 2 (Playwright end-to-end coverage)** of the same effort is specced but not yet built —
   see `docs/superpowers/specs/2026-07-28-test-coverage-rls-and-e2e-design.md`. Part 1 already
   widened the unit suite's exclude to `tests/**`, so `tests/e2e/` will not be swept into

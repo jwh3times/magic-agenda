@@ -12,6 +12,20 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.42] - 2026-07-29
+
+### Security
+
+- Closed a latent hole in how new database tables get exposed. The database was still carrying a
+  rule, inherited from an older Supabase default, that automatically granted read **and write**
+  access on every newly created table to both signed-out visitors and any signed-in account. No
+  existing data was ever exposed — every current table is protected by row-level security — but
+  any table added in future would have arrived wide open, with nothing preventing a leak except
+  remembering to switch that protection on. New tables are now unreachable until access is
+  granted deliberately, which fails loudly instead of silently.
+- Added a test that creates a real table and checks what access it lands with, so the protection
+  above cannot quietly regress.
+
 ## [1.2.41] - 2026-07-29
 
 ### Docs
@@ -961,7 +975,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.41...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.42...HEAD
+[1.2.42]: https://github.com/jwh3times/magic-agenda/compare/v1.2.41...v1.2.42
 [1.2.41]: https://github.com/jwh3times/magic-agenda/compare/v1.2.40...v1.2.41
 [1.2.40]: https://github.com/jwh3times/magic-agenda/compare/v1.2.39...v1.2.40
 [1.2.39]: https://github.com/jwh3times/magic-agenda/compare/v1.2.38...v1.2.39

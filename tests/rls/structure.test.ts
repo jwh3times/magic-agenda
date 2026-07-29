@@ -115,3 +115,44 @@ test('every table in public is reachable by the Data API roles', async () => {
   expect(rows.filter((r) => !r.anon).map((r) => r.relname)).toEqual([])
   expect(rows.filter((r) => !r.authenticated).map((r) => r.relname)).toEqual([])
 })
+
+test('a newly created table is NOT reachable by the Data API roles by default', async () => {
+  // The mirror of the test above, and the reason 20260729190000 exists. That one asserts today's
+  // tables ARE reachable; this asserts tomorrow's are NOT reachable by accident.
+  //
+  // Production carried `pg_default_acl` entries granting anon/authenticated full DML on every
+  // future table in `public`, so a table shipped without `enable row level security` would have
+  // been world-readable AND writable through the public anon key, with nothing but memory
+  // preventing it. Confirmed by querying production directly on 2026-07-29, then revoked.
+  //
+  // This creates a real table and reads the privileges it actually landed with, rather than
+  // inspecting `pg_default_acl` -- the template is one step removed from the thing that matters,
+  // and a test that reads it would pass on any fresh stack whether or not the migration ran. The
+  // CREATE is rolled back, so nothing survives the test.
+  //
+  // Scope, stated honestly: this connects as `postgres`, the role migrations and the Studio table
+  // editor (pg-meta, PG_META_DB_USER=postgres) both create through, so it covers every table this
+  // project will realistically add. `supabase_admin` still carries permissive defaults and
+  // 20260729190000 cannot revoke them -- `postgres` is not a member of that role, so the
+  // statement raises insufficient_privilege and is skipped by design, with a notice. Tables the
+  // Supabase platform itself creates in `public` as `supabase_admin` therefore remain
+  // auto-granted. That gap is real, narrow, documented in the migration and ROADMAP.md, and not
+  // closeable from a migration.
+  const { anon, authenticated } = await withPg(async (pg) => {
+    await pg.query('begin')
+    try {
+      await pg.query('create table public.default_privs_probe (id int)')
+      const res = await pg.query<{ anon: boolean; authenticated: boolean }>(
+        `select has_table_privilege('anon', 'public.default_privs_probe', 'select') as anon,
+                has_table_privilege('authenticated', 'public.default_privs_probe', 'select')
+                  as authenticated`,
+      )
+      return res.rows[0]
+    } finally {
+      await pg.query('rollback')
+    }
+  })
+
+  expect(anon).toBe(false)
+  expect(authenticated).toBe(false)
+})
