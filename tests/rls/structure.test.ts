@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest'
 import { withPg } from './helpers'
+import { isSecurityInvoker } from './reloptions'
 
 // RLS is this project's ONLY authorization boundary and the anon key is public by design, so a
 // table that reaches the Data API without RLS is a data leak, not a bug. These four tests need
@@ -61,17 +62,10 @@ test('no security-definer views are exposed in public', async () => {
     return res.rows
   })
 
-  // reloptions stores the spelling used at DDL time, so `security_invoker = on` is exactly as
-  // safe as `security_invoker=true` and must not read as a definer view. Normalising here is
-  // what stops the first false positive from tempting someone to weaken the test in a hurry.
-  const TRUTHY = new Set(['true', 'on', 'yes', '1'])
-  const isInvoker = (options: string[] | null) =>
-    (options ?? []).some((o) => {
-      const [key, value] = o.split('=')
-      return key.trim() === 'security_invoker' && TRUTHY.has((value ?? '').trim().toLowerCase())
-    })
-
-  const definerViews = rows.filter((r) => !isInvoker(r.options)).map((r) => r.relname)
+  // The spelling normalisation lives in reloptions.ts and is tested directly in
+  // reloptions.test.ts -- there are no views in `public` today, so this assertion runs over an
+  // empty set and cannot exercise that parsing on its own.
+  const definerViews = rows.filter((r) => !isSecurityInvoker(r.options)).map((r) => r.relname)
   expect(definerViews).toEqual([])
 })
 
@@ -85,10 +79,14 @@ test('every table in public is reachable by the Data API roles', async () => {
   // This does NOT duplicate the ALTER DEFAULT PRIVILEGES in that migration: default privileges
   // only apply to objects created by the role that ran it, so a table created any other way
   // still lands ungranted and only this assertion catches it.
+  // Both roles, not just `authenticated`. The migration grants them together, so a table that
+  // reached only one of them is a mistake -- and checking a single role would let a table that
+  // is invisible to signed-out visitors pass a test whose name promises "the Data API roles".
   const rows = await withPg(async (pg) => {
-    const res = await pg.query<{ relname: string; granted: boolean }>(
+    const res = await pg.query<{ relname: string; anon: boolean; authenticated: boolean }>(
       `select c.relname,
-              has_table_privilege('authenticated', c.oid, 'select') as granted
+              has_table_privilege('anon', c.oid, 'select') as anon,
+              has_table_privilege('authenticated', c.oid, 'select') as authenticated
          from pg_class c
          join pg_namespace n on n.oid = c.relnamespace
         where n.nspname = 'public'
@@ -98,6 +96,7 @@ test('every table in public is reachable by the Data API roles', async () => {
     return res.rows
   })
 
-  const ungranted = rows.filter((r) => !r.granted).map((r) => r.relname)
-  expect(ungranted).toEqual([])
+  expect(rows.length).toBeGreaterThan(0)
+  expect(rows.filter((r) => !r.anon).map((r) => r.relname)).toEqual([])
+  expect(rows.filter((r) => !r.authenticated).map((r) => r.relname)).toEqual([])
 })
