@@ -367,6 +367,9 @@ export default function setup(): void {
         `Underlying error: ${err instanceof Error ? err.message : String(err)}\n` +
         'If no stack is running, start one with:  npm run test:rls:up\n' +
         'Stop it later with:  npm run test:rls:down',
+      // `cause` as well as the interpolated message: eslint's preserve-caught-error requires it,
+      // and it keeps the original stack reachable for anyone debugging the failure.
+      { cause: err },
     )
   }
 
