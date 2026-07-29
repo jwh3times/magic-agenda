@@ -29,6 +29,7 @@ export default function setup(): void {
         `Underlying error: ${err instanceof Error ? err.message : String(err)}\n` +
         'If no stack is running, start one with:  npm run test:rls:up\n' +
         'Stop it later with:  npm run test:rls:down',
+      { cause: err },
     )
   }
 

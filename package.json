@@ -24,8 +24,8 @@
     "test:rls:up": "npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy",
     "test:rls:down": "npx supabase stop",
     "lint": "eslint .",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" vitest.rls.config.ts",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" vitest.rls.config.ts",
     "codex:sync": "node scripts/sync-codex.mjs",
     "codex:check": "node scripts/sync-codex.mjs --check"
   },
