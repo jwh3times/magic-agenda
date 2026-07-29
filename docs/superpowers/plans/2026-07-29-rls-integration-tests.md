@@ -109,8 +109,12 @@ alter default privileges in schema public
 
 - [ ] **Step 2: Verify it applies to a fresh database**
 
-Run: `npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy`
-Then: `npx supabase db reset`
+The `supabase` devDependency is not installed until Task 2, so pin the version **inline** here —
+otherwise this first stack is started by whatever `npx` fetches as `latest`, and the pin that
+Task 2 establishes would not describe the stack already running:
+
+Run: `npx supabase@2.110.0 start -x studio,edge-runtime,logflare,vector,imgproxy`
+Then: `npx supabase@2.110.0 db reset`
 Expected: all nine migrations apply with no error, ending with `20260729100000_explicit_data_api_grants`.
 
 The first `supabase start` pulls Docker images and can take several minutes. If it fails complaining about a missing `env()` variable, set dummy values in your shell (`RESEND_API_KEY=dummy`, `GOOGLE_OAUTH_CLIENT_SECRET=dummy`) — **never the real ones**. If it fails on a missing `supabase/seed.sql`, create an empty one and note it in your report.
