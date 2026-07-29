@@ -40,13 +40,14 @@
 
 **Modified**
 
-| File                                                      | Change                                                                          |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `vite.config.ts`                                          | Exclude `tests/rls/**`; change the dummy Supabase URL off the live local port.  |
-| `tsconfig.json`                                           | Add a reference to `tsconfig.test.json`.                                        |
-| `package.json`                                            | `test:rls`, `test:rls:up`, `test:rls:down` scripts; `pg` + `@types/pg` devDeps. |
-| `.github/workflows/ci.yml`                                | New `RLS` job.                                                                  |
-| `AGENTS.md` / `README.md` / `ROADMAP.md` / `CHANGELOG.md` | Docs.                                                                           |
+| File                                                      | Change                                                                                        |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `vite.config.ts`                                          | Exclude `tests/rls/**`; change the dummy Supabase URL off the live local port.                |
+| `tsconfig.json`                                           | Add a reference to `tsconfig.test.json`.                                                      |
+| `tsconfig.node.json`                                      | Add `vitest.rls.config.ts` to `include` — otherwise it is untypechecked.                      |
+| `package.json`                                            | `test:rls*` scripts; widened prettier globs; `pg`, `@types/pg`, `@types/node`, `supabase` devDeps. |
+| `.github/workflows/ci.yml`                                | New `RLS` job.                                                                                |
+| `AGENTS.md` / `README.md` / `ROADMAP.md` / `CHANGELOG.md` | Docs.                                                                                         |
 
 ---
 
@@ -94,6 +95,16 @@ grant select, insert, update, delete on public.user_settings
 
 grant usage, select on all sequences in schema public
   to anon, authenticated, service_role;
+
+-- Future tables, so that forgetting is survivable. "Any migration adding a table must grant it"
+-- is documentation, not enforcement; this makes the default correct. It is NOT a substitute for
+-- the check in tests/rls/structure.test.ts: default privileges apply only to objects created by
+-- the role this runs as, so a table created by any other role still lands ungranted.
+alter default privileges in schema public
+  grant select, insert, update, delete on tables to anon, authenticated, service_role;
+
+alter default privileges in schema public
+  grant usage, select on sequences to anon, authenticated, service_role;
 ```
 
 - [ ] **Step 2: Verify it applies to a fresh database**
@@ -228,11 +239,32 @@ Add it to `tsconfig.json`'s references:
 }
 ```
 
+Then close the other hole: `tsconfig.node.json:21` reads `"include": ["vite.config.ts"]`, so the new
+`vitest.rls.config.ts` would land in no project at all — recreating, at the repo root, exactly the
+untypechecked-TS gap that `tsconfig.test.json` exists to close. It belongs in the node project (same
+environment, same `vitest/config` import). Change that line to:
+
+```json
+  "include": ["vite.config.ts", "vitest.rls.config.ts"]
+```
+
 - [ ] **Step 5: Add scripts and dependencies**
 
 ```bash
-npm i -D pg @types/pg
+npm i -D pg @types/pg @types/node supabase@2.110.0
 ```
+
+All four are required, none conditional:
+
+- `@types/node` is **not** installed today, not even transitively — `tsconfig.test.json` needs it
+  both for `"types": [..., "node"]` (TS2688) and for the harness's `node:child_process` /
+  `node:crypto` imports.
+- `supabase` is pinned **exact** (no `^`) and is what makes the CLI version real rather than
+  decorative. `npx supabase` resolves a local binary when one exists and otherwise installs
+  `latest` from the registry — so without this devDependency, every `npx supabase` in this plan
+  (here, in `globalSetup`, and in CI) would silently float to whatever released most recently,
+  which is the exact thing that can rename a `supabase status -o json` key and turn an unrelated
+  PR red. Pinning here covers local runs and CI with one mechanism.
 
 In `package.json`, add these three scripts after `"test:watch"`:
 
@@ -244,18 +276,23 @@ In `package.json`, add these three scripts after `"test:watch"`:
 
 `test:rls` deliberately does **not** start a stack. Starting and stopping Docker per test run is slow and surprising; `globalSetup` fails with an actionable message instead.
 
+Leave the `format` / `format:check` globs alone for now — they are widened to cover the new files in
+Task 5, once `tests/` actually contains something. Prettier exits non-zero on a glob that matches
+nothing, so widening them here would break `format:check` for the next two tasks.
+
 - [ ] **Step 6: Verify the hermetic boundary still holds**
 
 Run: `npm test`
 Expected: PASS, and the summary still reports **48 test files / 357 tests** — the same as before. A higher file count means the exclude in Step 2 is not working and the RLS tests are being swept in.
 
 Run: `npx tsc -b`
-Expected: clean. If it errors that `@types/node` is missing, add it: `npm i -D @types/node`.
+Expected: clean — `tsconfig.test.json` has no files to check yet, and `vitest.rls.config.ts` is
+typechecked through `tsconfig.node.json`.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add vitest.rls.config.ts tsconfig.test.json tsconfig.json vite.config.ts package.json package-lock.json
+git add vitest.rls.config.ts tsconfig.test.json tsconfig.json tsconfig.node.json vite.config.ts package.json package-lock.json
 git commit -m "test: add the RLS vitest project and harden the hermetic boundary"
 ```
 
@@ -295,7 +332,8 @@ import { execFileSync } from 'node:child_process'
 export default function setup(): void {
   let raw: string
   try {
-    // shell: true so this works on Windows, where `npx` is `npx.cmd`.
+    // `npx supabase` resolves the exact-pinned devDependency, not a registry `latest` -- see
+    // package.json. shell: true so this works on Windows, where `npx` is `npx.cmd`.
     raw = execFileSync('npx', ['supabase', 'status', '-o', 'json'], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -315,7 +353,7 @@ export default function setup(): void {
     if (!status[key]) {
       throw new Error(
         `\`supabase status -o json\` did not report ${key}. ` +
-          'Key names have changed across CLI majors -- check the CLI version pinned in ci.yml.',
+          'Key names have changed across CLI majors -- check the `supabase` version pinned in package.json.',
       )
     }
   }
@@ -444,7 +482,8 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  await deleteTestUser(user)
+  // Guarded: if beforeAll threw, an unguarded delete throws a TypeError over the real error.
+  if (user) await deleteTestUser(user)
 })
 
 // The canary. If this fails with 42501 "permission denied", the Data API grants are missing --
@@ -503,7 +542,12 @@ These need no knowledge of any particular table, which is exactly why they are t
 
 - Consumes: `withPg` from `tests/rls/helpers.ts` (Task 3).
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **Step 1: Write the pinning tests**
+
+These are characterization tests, not red-then-green TDD: they are expected to pass immediately
+against the current schema, because their job is to pin behaviour that is already correct so a
+_future_ change cannot break it silently. Do not manufacture a failure to satisfy a red-first
+habit — Step 3 is where these are proven to have teeth, empirically.
 
 Create `tests/rls/structure.test.ts`:
 
@@ -512,7 +556,7 @@ import { expect, test } from 'vitest'
 import { withPg } from './helpers'
 
 // RLS is this project's ONLY authorization boundary and the anon key is public by design, so a
-// table that reaches the Data API without RLS is a data leak, not a bug. These three tests need
+// table that reaches the Data API without RLS is a data leak, not a bug. These four tests need
 // no knowledge of what any table is for -- they keep holding as the schema grows.
 
 test('every table in public has row-level security enabled', async () => {
@@ -571,37 +615,93 @@ test('no security-definer views are exposed in public', async () => {
     return res.rows
   })
 
-  const definerViews = rows
-    .filter((r) => !(r.options ?? []).some((o) => o === 'security_invoker=true'))
-    .map((r) => r.relname)
+  // reloptions stores the spelling used at DDL time, so `security_invoker = on` is exactly as
+  // safe as `security_invoker=true` and must not read as a definer view. Normalising here is
+  // what stops the first false positive from tempting someone to weaken the test in a hurry.
+  const TRUTHY = new Set(['true', 'on', 'yes', '1'])
+  const isInvoker = (options: string[] | null) =>
+    (options ?? []).some((o) => {
+      const [key, value] = o.split('=')
+      return key.trim() === 'security_invoker' && TRUTHY.has((value ?? '').trim().toLowerCase())
+    })
+
+  const definerViews = rows.filter((r) => !isInvoker(r.options)).map((r) => r.relname)
   expect(definerViews).toEqual([])
+})
+
+test('every table in public is reachable by the Data API roles', async () => {
+  // The companion to the RLS test above, and the only thing here that guards the 2026-10-30
+  // cliff. `auto_expose_new_tables` is unset, so a new table with flawless RLS and no GRANT is
+  // simply invisible to the app -- a 42501 that looks nothing like a missing grant. Without this
+  // test, "the catch-alls keep working as the schema grows" would be true for RLS and false for
+  // grants, which is the exact failure the grants migration was written to prevent.
+  //
+  // This does NOT duplicate the ALTER DEFAULT PRIVILEGES in that migration: default privileges
+  // only apply to objects created by the role that ran it, so a table created any other way
+  // still lands ungranted and only this assertion catches it.
+  const rows = await withPg(async (pg) => {
+    const res = await pg.query<{ relname: string; granted: boolean }>(
+      `select c.relname,
+              has_table_privilege('authenticated', c.oid, 'select') as granted
+         from pg_class c
+         join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public'
+          and c.relkind in ('r', 'p')
+        order by c.relname`,
+    )
+    return res.rows
+  })
+
+  const ungranted = rows.filter((r) => !r.granted).map((r) => r.relname)
+  expect(ungranted).toEqual([])
 })
 ```
 
 - [ ] **Step 2: Run them**
 
 Run: `npm run test:rls`
-Expected: PASS, 5 tests total (2 from Task 3, 3 here).
+Expected: PASS, 6 tests total (2 from Task 3, 4 here).
 
-- [ ] **Step 3: Prove the catch-all actually catches**
+- [ ] **Step 3: Prove the catch-alls actually catch**
 
-A structural test that cannot fail is worse than none. Verify it empirically:
+A structural test that cannot fail is worse than none. Verify empirically, in two stages, which
+between them exercise three of the four assertions. Abbreviate the psql call first:
 
 ```bash
+PSQL="docker exec -i supabase_db_magic-agenda psql -U postgres -d postgres -c"
 npx supabase db reset
-# Temporarily create an unprotected table on the running stack:
-docker exec -i supabase_db_magic-agenda psql -U postgres -d postgres -c "create table public.leaky (id int);"
-npm run test:rls
 ```
 
-Expected: the first test FAILS, naming `leaky`. Then clean up and confirm green again:
+Stage 1 — an unprotected table:
 
 ```bash
-docker exec -i supabase_db_magic-agenda psql -U postgres -d postgres -c "drop table public.leaky;"
+$PSQL "create table public.leaky (id int);"
 npm run test:rls
 ```
 
-If the container name differs, find it with `docker ps --format '{{.Names}}' | grep supabase_db`. Record the outcome in your report — this step is the evidence the test has teeth.
+Expected: the **RLS-enabled** test FAILS, naming `leaky`. The grants test still passes here, and
+that is correct rather than a miss: the migration's `alter default privileges` ran as `postgres`
+and so does this `create table`, so `leaky` is granted automatically — which is precisely the
+behaviour that clause exists to produce.
+
+Stage 2 — protected but ungranted, the post-2026-10-30 failure mode:
+
+```bash
+$PSQL "alter table public.leaky enable row level security; revoke all on public.leaky from anon, authenticated, service_role;"
+npm run test:rls
+```
+
+Expected: the **RLS-enabled** test now passes, while the **has-a-policy** and **Data API
+reachable** tests both FAIL, naming `leaky`.
+
+Clean up and confirm green again:
+
+```bash
+$PSQL "drop table public.leaky;"
+npm run test:rls
+```
+
+If the container name differs, find it with `docker ps --format '{{.Names}}' | grep supabase_db`. Record both stages' outcomes in your report — this step is the evidence the tests have teeth.
 
 - [ ] **Step 4: Commit**
 
@@ -622,7 +722,11 @@ git commit -m "test(rls): schema-wide RLS, policy, and view catch-alls"
 
 - Consumes: `createTestUser`, `deleteTestUser`, `anonClient`, `TestUser` from `tests/rls/helpers.ts` (Task 3).
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **Step 1: Write the pinning tests**
+
+As in Task 4, these characterize a schema that is already correct and are expected to pass on the
+first run — the current policies really do carry the `with check` clauses these assert. Do not
+manufacture a red state. Step 2 says what to do if one genuinely fails.
 
 Create `tests/rls/policies.test.ts`:
 
@@ -648,8 +752,11 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  await deleteTestUser(alice)
-  await deleteTestUser(bob)
+  // Guarded: if bob's creation throws, an unguarded delete throws a TypeError over the real
+  // error AND leaks alice onto a stack that outlives the run.
+  for (const user of [alice, bob]) {
+    if (user) await deleteTestUser(user)
+  }
 })
 
 test("bob cannot see alice's task", async () => {
@@ -744,14 +851,31 @@ test('an anonymous client cannot write', async () => {
 - [ ] **Step 2: Run them**
 
 Run: `npm run test:rls`
-Expected: PASS, 14 tests total.
+Expected: PASS, 15 tests total.
 
-If either the forged-insert or the transfer test fails by getting `error === null`, **the policy is wrong, not the test** — stop and report it. Both are expected to pass against the current schema.
+If either the forged-insert or the transfer test fails by getting `error === null`, **the policy is wrong, not the test** — stop and report it. Both are expected to pass against the current schema: `tasks_insert_own` and `tasks_update_own` both carry `with check (auth.uid() = user_id)` in `supabase/migrations/20260629120000_init.sql:59-62`.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: Bring the new files under Prettier**
+
+Now that `tests/` has files, widen the `format` / `format:check` globs in `package.json` (they are
+`src`-only today, which would leave these the only unformatted TS in the repo). Widen **only to
+the new paths** — every file they match is authored by this plan, so this cannot turn the required
+`Format` job red on a pre-existing file. In particular they must not start matching
+`vite.config.ts`, which has never been format-checked:
+
+```json
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" vitest.rls.config.ts",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" vitest.rls.config.ts",
+```
+
+Then run `npm run format` and `npm run format:check`. Expected: clean.
+
+- [ ] **Step 4: Commit**
 
 ```bash
-git add tests/rls/policies.test.ts
+# `tests` rather than the one file: `npm run format` above may have reformatted the harness and
+# the earlier test files, which were written before Prettier covered them.
+git add tests package.json
 git commit -m "test(rls): cross-user isolation, forged ownership, and anon behaviour"
 ```
 
@@ -765,36 +889,51 @@ git commit -m "test(rls): cross-user isolation, forged ownership, and anon behav
 
 - [ ] **Step 1: Add the job**
 
-Append to the `jobs:` map in `.github/workflows/ci.yml`, following the existing jobs' shape (`actions/checkout@v7`, `actions/setup-node@v7` with `node-version-file: .nvmrc` and `cache: npm`):
+Append to the `jobs:` map in `.github/workflows/ci.yml`, following the existing jobs' shape (`actions/checkout@v7`, `actions/setup-node@v7` with `node-version-file: .nvmrc` and `cache: npm`).
+
+**Indentation matters:** job keys sit at two spaces under `jobs:` (see `ci.yml:18`, `:30`). The
+block below is already indented for a direct paste — do not dedent it, or `RLS` becomes a
+top-level key and the workflow silently stops defining the job.
 
 ```yaml
-RLS:
-  runs-on: ubuntu-latest
-  steps:
-    - uses: actions/checkout@v7
-    - uses: actions/setup-node@v7
-      with:
-        node-version-file: .nvmrc
-        cache: npm
-    - run: npm ci
-    - uses: supabase/setup-cli@v3
-      with:
-        # Pinned, not `latest` (which the Config job uses): `supabase status -o json` key names
-        # have changed across CLI majors, and tests/rls/globalSetup.ts reads them. A CLI release
-        # should not be able to turn this job red on an unrelated PR.
-        version: 2.110.0
-    - name: Start a local stack
-      # Only the database, auth, and PostgREST are needed; skipping the rest cuts minutes off
-      # a cold runner. The env values are DUMMIES: config.toml references these via env() and
-      # the CLI parses the whole file on every command. Never pass the real RESEND_API_KEY --
-      # config.toml enables SMTP against smtp.resend.com, so a local GoTrue holding the real
-      # key could send real email from a test run.
-      run: npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy
-      env:
-        RESEND_API_KEY: dummy-not-a-real-key
-        GOOGLE_OAUTH_CLIENT_SECRET: dummy-not-a-real-secret
-    - name: Run the RLS suite
-      run: npm run test:rls
+  RLS:
+    runs-on: ubuntu-latest
+    # A wedged image pull would otherwise hold a runner for the 360-minute default.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      # This installs the pinned CLI too. Deliberately NO `supabase/setup-cli` step here, unlike
+      # the Config job: every Supabase call in this job and in tests/rls/globalSetup.ts goes
+      # through `npx supabase`, and `npx` prefers a local binary but silently installs `latest`
+      # from the registry when there is none -- so a setup-cli pin would be ignored and the
+      # version would float. `supabase` is an exact-pinned devDependency instead, which pins CI
+      # and local runs with one mechanism. If you add setup-cli back, change these to bare
+      # `supabase` or the pin does nothing.
+      - run: npm ci
+      - name: Start a local stack
+        # Only the database, auth, and PostgREST are needed; skipping the rest cuts minutes off
+        # a cold runner. Every value below is a DUMMY: config.toml references these via env().
+        # RESEND_API_KEY and GOOGLE_OAUTH_CLIENT_SECRET are the load-bearing two -- never pass
+        # the real RESEND_API_KEY, since config.toml enables SMTP against smtp.resend.com and a
+        # local GoTrue holding the real key could send real email from a test run. The rest are
+        # cheap insurance: the Config job passes today with only those two set, so the CLI does
+        # tolerate unresolved env() at parse time, but this job actually STARTS storage
+        # (config.toml:147-149) rather than only parsing the file.
+        run: npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy
+        env:
+          RESEND_API_KEY: dummy-not-a-real-key
+          GOOGLE_OAUTH_CLIENT_SECRET: dummy-not-a-real-secret
+          OPENAI_API_KEY: dummy-not-a-real-key
+          S3_HOST: dummy.local
+          S3_REGION: local
+          S3_ACCESS_KEY: dummy-access-key
+          S3_SECRET_KEY: dummy-secret-key
+      - name: Run the RLS suite
+        run: npm run test:rls
 ```
 
 - [ ] **Step 2: Do NOT make it required yet**
@@ -843,29 +982,39 @@ that project.
 `npm run test:rls` is a **separate Vitest project** (`vitest.rls.config.ts`) running integration
 tests in `tests/rls/` against a real local stack — start one with `npm run test:rls:up`. It is
 where the authorization boundary is actually exercised: RLS is the only thing standing between
-one user's rows and another's, and every unit test mocks it away. Three of its tests are
+one user's rows and another's, and every unit test mocks it away. Four of its tests are
 schema-wide catch-alls that need no knowledge of any particular table (RLS enabled everywhere,
-every RLS-enabled table has a policy, no security-definer views) — those are what keep working
-as the schema grows.
+every RLS-enabled table has a policy, no security-definer views, every table reachable by the
+Data API roles) — those are what keep working as the schema grows. The CLI is pinned as an exact
+`supabase` devDependency rather than through `supabase/setup-cli`, because every call goes
+through `npx`, which ignores a PATH binary in favour of a local one and otherwise installs
+`latest`.
 
 **Data API grants are explicit** (`20260729100000_explicit_data_api_grants.sql`) and must stay
 that way. `config.toml` leaves `auto_expose_new_tables` unset, so a new table is unreachable
 through PostgREST until it is granted — and that compatibility flag is removed on 2026-10-30.
-**Any migration adding a table must add its grants too**, or the app gets `42501` on a table
-whose RLS policies are perfectly correct. Note `anon` is granted deliberately: RLS, not the
-grant, is what denies it, and `useSettings` depends on an unauthenticated select returning zero
-rows rather than an error.
+That migration sets `alter default privileges` so a table created by the migration role is
+granted automatically, but **a migration adding a table should still grant it explicitly**:
+default privileges bind to the creating role, and the failure mode is a `42501` on a table whose
+RLS policies are perfectly correct. The fourth structural test is the backstop that makes this
+loud rather than mysterious. Note `anon` is granted deliberately: RLS, not the grant, is what
+denies it, and `useSettings` depends on an unauthenticated select returning zero rows rather
+than an error.
 ```
 
 - [ ] **Step 2: Add the commands to `README.md`**
 
-In the commands block, after the existing `npm test` lines:
+The commands live in a markdown **table** under `## Scripts` (`README.md:129-138`), not a bash
+block. Add three rows after `npm run test:watch`, keeping the existing column alignment:
 
-```bash
-npm run test:rls:up    # start a local Supabase stack (Docker)
-npm run test:rls       # RLS integration tests against that stack
-npm run test:rls:down  # stop it
+```markdown
+| `npm run test:rls:up`   | Start a local Supabase stack for the RLS tests (Docker) |
+| `npm run test:rls`      | Run the RLS integration tests against that stack        |
+| `npm run test:rls:down` | Stop the local stack                                    |
 ```
+
+Prettier reformats the whole table's padding, so run `npm run format` if the alignment drifts —
+though note `README.md` is outside the format globs, so this is cosmetic only.
 
 - [ ] **Step 3: Add the changelog entry**
 
@@ -878,8 +1027,8 @@ Confirm the target version first: `node scripts/next-version.mjs` → expected `
 
 - Row-Level Security — the only thing isolating one account's tasks and settings from another's —
   now has automated tests. They run against a real local Postgres, covering cross-user isolation,
-  forged ownership on insert and update, anonymous access, and three schema-wide checks that fail
-  if any future table ships without RLS or a policy.
+  forged ownership on insert and update, anonymous access, and four schema-wide checks that fail
+  if any future table ships without RLS, without a policy, or without its Data API grants.
 - Data API grants are now explicit in a migration. Supabase is retiring the compatibility setting
   that auto-exposed new tables on 2026-10-30; without this, any table added after that date would
   have been unreachable by the app despite correct RLS policies.
@@ -908,7 +1057,7 @@ git commit -m "docs: RLS integration tests and explicit Data API grants (v1.2.38
 ## Final Verification
 
 - [ ] `npm test` — 48 files / 357 tests, unchanged, with **no** stack running
-- [ ] `npm run test:rls:up && npm run test:rls` — 14 tests pass
+- [ ] `npm run test:rls:up && npm run test:rls` — 15 tests pass
 - [ ] `npm run format:check && npm run lint && npx tsc -b && npm run build` — clean
 - [ ] `node scripts/check-changelog.mjs` and `npm run codex:check` — pass
 - [ ] The `RLS` job appears and is green on the PR
