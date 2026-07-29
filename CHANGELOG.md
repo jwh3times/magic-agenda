@@ -12,6 +12,21 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.37] - 2026-07-28
+
+### Fixed
+
+- Returning visitors were being served the site in fallback system fonts. The service worker's
+  request for the Google Fonts stylesheet was blocked by a too-narrow `connect-src`, and because
+  the worker's cache-first path had no failure fallback, the whole stylesheet failed for every
+  page it controlled. First-time visitors never saw it — the worker only takes over from the
+  second visit onward, which is why it survived a preview-deploy check.
+- The service worker now degrades instead of breaking when it cannot fetch a cacheable asset: it
+  retries the cache ignoring the query string, then gives up on that one asset rather than failing
+  the page.
+- Cloudflare Web Analytics now actually collects. Its injected beacon had been blocked by
+  `script-src` since it was enabled, so it had never reported anything.
+
 ## [1.2.36] - 2026-07-28
 
 ### Added
@@ -909,7 +924,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.35...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.37...HEAD
+[1.2.37]: https://github.com/jwh3times/magic-agenda/compare/v1.2.36...v1.2.37
+[1.2.36]: https://github.com/jwh3times/magic-agenda/compare/v1.2.35...v1.2.36
 [1.2.35]: https://github.com/jwh3times/magic-agenda/compare/v1.2.34...v1.2.35
 [1.2.34]: https://github.com/jwh3times/magic-agenda/compare/v1.2.33...v1.2.34
 [1.2.33]: https://github.com/jwh3times/magic-agenda/compare/v1.2.32...v1.2.33
