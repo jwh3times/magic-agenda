@@ -187,3 +187,42 @@ jobs:
           fi
           echo "config push failed before reaching any confirmation prompt."
           exit "$code"
+
+  RLS:
+    runs-on: ubuntu-latest
+    # A wedged image pull would otherwise hold a runner for the 360-minute default.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      # This installs the pinned CLI too. Deliberately NO `supabase/setup-cli` step here, unlike
+      # the Config job: every Supabase call in this job and in tests/rls/globalSetup.ts goes
+      # through `npx supabase`, and `npx` prefers a local binary but silently installs `latest`
+      # from the registry when there is none -- so a setup-cli pin would be ignored and the
+      # version would float. `supabase` is an exact-pinned devDependency instead, which pins CI
+      # and local runs with one mechanism. If you add setup-cli back, change these to bare
+      # `supabase` or the pin does nothing.
+      - run: npm ci
+      - name: Start a local stack
+        # Only the database, auth, and PostgREST are needed; skipping the rest cuts minutes off
+        # a cold runner. Every value below is a DUMMY: config.toml references these via env().
+        # RESEND_API_KEY and GOOGLE_OAUTH_CLIENT_SECRET are the load-bearing two -- never pass
+        # the real RESEND_API_KEY, since config.toml enables SMTP against smtp.resend.com and a
+        # local GoTrue holding the real key could send real email from a test run. The rest are
+        # cheap insurance: the Config job passes today with only those two set, so the CLI does
+        # tolerate unresolved env() at parse time, but this job actually STARTS storage
+        # (config.toml:147-149) rather than only parsing the file.
+        run: npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy
+        env:
+          RESEND_API_KEY: dummy-not-a-real-key
+          GOOGLE_OAUTH_CLIENT_SECRET: dummy-not-a-real-secret
+          OPENAI_API_KEY: dummy-not-a-real-key
+          S3_HOST: dummy.local
+          S3_REGION: local
+          S3_ACCESS_KEY: dummy-access-key
+          S3_SECRET_KEY: dummy-secret-key
+      - name: Run the RLS suite
+        run: npm run test:rls
