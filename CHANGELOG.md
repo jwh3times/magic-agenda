@@ -12,6 +12,30 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.40] - 2026-07-29
+
+### Internal
+
+- Row-Level Security — the only thing isolating one account's tasks and settings from another's —
+  now has automated tests. They run against a real local Postgres, covering cross-user isolation,
+  forged ownership on insert and update, anonymous access, and four schema-wide checks that fail
+  if any future table ships without RLS, without a policy, or without its Data API grants.
+- Data API grants are now explicit in a migration. Supabase is retiring the compatibility setting
+  that auto-exposed new tables on 2026-10-30; without this, any table added after that date would
+  have been unreachable by the app despite correct RLS policies.
+
+## [1.2.39] - 2026-07-29
+
+### Internal
+
+- **`jsdom` (dev) 29.1.1 → 30.0.1.** (#103)
+
+## [1.2.38] - 2026-07-29
+
+### Internal
+
+- **`@supabase/supabase-js` 2.110.8 → 2.111.0.** (#110)
+
 ## [1.2.37] - 2026-07-28
 
 ### Fixed
@@ -924,7 +948,10 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.37...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.40...HEAD
+[1.2.40]: https://github.com/jwh3times/magic-agenda/compare/v1.2.39...v1.2.40
+[1.2.39]: https://github.com/jwh3times/magic-agenda/compare/v1.2.38...v1.2.39
+[1.2.38]: https://github.com/jwh3times/magic-agenda/compare/v1.2.37...v1.2.38
 [1.2.37]: https://github.com/jwh3times/magic-agenda/compare/v1.2.36...v1.2.37
 [1.2.36]: https://github.com/jwh3times/magic-agenda/compare/v1.2.35...v1.2.36
 [1.2.35]: https://github.com/jwh3times/magic-agenda/compare/v1.2.34...v1.2.35
