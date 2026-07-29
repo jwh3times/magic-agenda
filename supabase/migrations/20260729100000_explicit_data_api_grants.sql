@@ -5,9 +5,13 @@
 -- explicit GRANTs -- the new cloud default. No earlier migration grants anything; production
 -- works only because its tables were created under the legacy auto-expose behaviour. That
 -- compatibility flag is REMOVED on 2026-10-30, so this file is what keeps the Data API working
--- for anything added after that date. It is a no-op against production: a reviewer confirmed
--- production already carries the `pg_default_acl` entries that grant these two tables to
--- anon/authenticated/service_role, so restating the grants here changes nothing there.
+-- for anything added after that date. GRANT is idempotent, so this is a no-op wherever the
+-- privileges already exist. Be precise about what was actually verified, though: these grants
+-- were confirmed in `pg_class.relacl` on a LOCAL stack. Production was never inspected. Note
+-- that `pg_default_acl` is a CREATE-time template and grants an existing table nothing, so
+-- `relacl` is what would have to be read there -- see ROADMAP.md for the open question about
+-- production's own `pg_default_acl` entries, which bear on the paragraph at the bottom of this
+-- comment.
 --
 -- `anon` genuinely needs SELECT here, and RLS -- not the grant -- is what denies it. An
 -- unauthenticated select must resolve to zero rows with NO error: `useSettings` branches on

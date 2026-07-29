@@ -322,8 +322,9 @@ change that would escalate the leak from primary keys to full deleted rows. See 
 
 `npm test` is the fast unit/component suite: Vitest under jsdom with Supabase mocked, and it is
 **hermetic by contract** — it must never need Docker, a database, or a network. `vite.config.ts`
-injects dummy `VITE_SUPABASE_*` values to enforce that, pointed at an unbindable port so an
-unmocked call fails loudly rather than reaching the local stack. Keep `tests/**` excluded from
+injects dummy `VITE_SUPABASE_*` values to enforce that, pointed at port 1 — privileged, and
+nothing listens there — so an unmocked call fails fast with `ECONNREFUSED` rather than reaching
+the local stack, which is live whenever `test:rls` is running. Keep `tests/**` excluded from
 that project.
 
 `npm run test:rls` is a **separate Vitest project** (`vitest.rls.config.ts`) running integration
