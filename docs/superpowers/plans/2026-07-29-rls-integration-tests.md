@@ -334,7 +334,7 @@ git commit -m "test: add the RLS vitest project and harden the hermetic boundary
 Create `tests/rls/globalSetup.ts`:
 
 ```ts
-import { execFileSync } from 'node:child_process'
+import { execSync } from 'node:child_process'
 
 /**
  * Reads the running local stack's URLs and keys once, before any test file.
@@ -347,16 +347,23 @@ export default function setup(): void {
   let raw: string
   try {
     // `npx supabase` resolves the exact-pinned devDependency, not a registry `latest` -- see
-    // package.json. shell: true so this works on Windows, where `npx` is `npx.cmd`.
-    raw = execFileSync('npx', ['supabase', 'status', '-o', 'json'], {
+    // package.json. execSync rather than execFileSync with an args array: it always runs through
+    // a shell, which is what makes `npx` work on Windows where it is really `npx.cmd`, and
+    // execFileSync given BOTH an args array and shell:true is deprecated (DEP0190) and prints a
+    // warning on every single run. The command is a fixed literal -- nothing is interpolated into
+    // it, so there is no injection surface.
+    raw = execSync('npx supabase status -o json', {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
-      shell: true,
     })
-  } catch {
+  } catch (err) {
+    // Bind the cause. "No stack running" is only one of the ways this can fail; a wrong CLI
+    // version, a spawn failure, or a non-JSON stderr blob all land here too, and reporting those
+    // as "none is running" sends a developer to `test:rls:up`, which fixes none of them.
     throw new Error(
-      'RLS tests need a local Supabase stack, and none is running.\n' +
-        'Start one with:  npm run test:rls:up\n' +
+      'RLS tests need a local Supabase stack, and `npx supabase status` failed.\n' +
+        `Underlying error: ${err instanceof Error ? err.message : String(err)}\n` +
+        'If no stack is running, start one with:  npm run test:rls:up\n' +
         'Stop it later with:  npm run test:rls:down',
     )
   }
