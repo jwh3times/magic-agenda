@@ -1083,7 +1083,11 @@ where the authorization boundary is actually exercised: RLS is the only thing st
 one user's rows and another's, and every unit test mocks it away. Four of its tests are
 schema-wide catch-alls that need no knowledge of any particular table (RLS enabled everywhere,
 every RLS-enabled table has a policy, no security-definer views, every table reachable by the
-Data API roles) — those are what keep working as the schema grows. The CLI is pinned as an exact
+Data API roles) — those are what keep working as the schema grows. One of the four, the
+definer-view check, asserts over an **empty set** today because `public` holds no views, so the
+option-spelling parser it depends on lives in `tests/rls/reloptions.ts` and is tested directly in
+`reloptions.test.ts` — the same split that makes `src/sw/policy.ts` testable when `src/sw.ts`
+itself cannot be. The CLI is pinned as an exact
 `supabase` devDependency rather than through `supabase/setup-cli`, because every call goes
 through `npx`, which ignores a PATH binary in favour of a local one and otherwise installs
 `latest`.
