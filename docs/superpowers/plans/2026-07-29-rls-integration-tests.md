@@ -290,8 +290,18 @@ Run: `npm test`
 Expected: PASS, and the summary still reports **48 test files / 357 tests** — the same as before. A higher file count means the exclude in Step 2 is not working and the RLS tests are being swept in.
 
 Run: `npx tsc -b`
-Expected: clean — `tsconfig.test.json` has no files to check yet, and `vitest.rls.config.ts` is
-typechecked through `tsconfig.node.json`.
+Expected: **one error, and it is the expected one** —
+`error TS18003: No inputs were found in config file 'tsconfig.test.json'`. `include: ["tests"]`
+matches nothing until Task 3 creates the first file there, and TypeScript treats an empty project
+as an error unconditionally; there is no setting that suppresses it within this task's constraints
+(`composite` is forbidden here, and adding a placeholder file to silence a transient error is
+worse than the error). Task 3 resolves it by existing.
+
+This does mean this one commit leaves `npm run build` failing. That is accepted: it is an
+intermediate commit on a feature branch, CI only builds the PR head, and the very next task fixes
+it. **Verify `tsc -b` is clean at the end of Task 3** — if it is not, something beyond TS18003 is
+wrong. Confirm the only error here is TS18003 on `tsconfig.test.json`; any other error is a real
+failure and must be fixed before committing.
 
 - [ ] **Step 7: Commit**
 
