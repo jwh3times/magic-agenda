@@ -41,6 +41,18 @@ npm run dev
    There is deliberately **no local equivalent of the `Config` check**. It previews
    `supabase config push` against the production project, and the Supabase CLI has no `--dry-run` —
    running it locally would apply your changes to production. Let CI preview it in the PR.
+
+   `npm test` is deliberately hermetic — it mocks Supabase and never needs Docker, a database, or a
+   network, so it says nothing about whether Row-Level Security itself still holds. If you touched
+   a policy, a grant, or anything under `supabase/migrations/`, also run the separate integration
+   suite against a real local stack:
+   ```bash
+   npm run test:rls:up   # starts a local Supabase stack (Docker; slow on the first run)
+   npm run test:rls      # runs tests/rls/** against it
+   npm run test:rls:down # stop it when you're done
+   ```
+   This is not yet one of the required checks above — see [Testing
+   layers](./AGENTS.md#testing-layers) in AGENTS.md for why and what it covers.
 5. Open a Pull Request against `main` and fill in the template. The **`Format`, `Test`, `Build`,
    `Functions`, `Agents`, `Changelog`, and `Config`** checks plus **CodeQL** must pass and any review
    threads must be resolved before it can merge — no approvals are required, so you can self‑merge
@@ -107,7 +119,10 @@ missing, edited, or left over from a deleted source. See
 
 - **Tests are required.** Pure logic (`src/data`, `src/dnd`, `src/theme`) is unit‑tested with Vitest;
   prefer **test‑first** for new behaviour and bug fixes (write a failing test, then make it pass).
-  Reproduce bugs with a failing test before fixing.
+  Reproduce bugs with a failing test before fixing. That unit suite mocks Supabase entirely, so
+  Row‑Level Security — the app's only authorization boundary — has its own separate integration
+  suite instead (`tests/rls/`, `npm run test:rls`, against a real local stack); see the note in
+  step 4 above.
 - **TypeScript strict** — no `any` escape hatches without good reason; `npm run build` type‑checks.
 - **Formatting & linting** — Prettier + ESLint. Run `npm run format` before committing; `npm run
 format:check` and `npm run lint` must both pass (together they are the CI `Format` check).
@@ -143,7 +158,10 @@ and only uses the service-role key after that check.
 - Deploy: automatic on merge to `main` via the `Deploy Functions` workflow.
 
 Node tooling deliberately ignores this directory (`eslint.config.js` ignores,
-Vitest `test.exclude`) — Deno code doesn't parse under the Node toolchain.
+Vitest `test.exclude`) — Deno code doesn't parse under the Node toolchain. That same
+`test.exclude` (in `vite.config.ts`) also carves out `tests/**`, which is not Deno code but a
+second, non-hermetic Vitest project (`tests/rls/`, run separately via `npm run test:rls`) — see
+above and [Testing layers](./AGENTS.md#testing-layers) in AGENTS.md.
 
 ## Project layout
 

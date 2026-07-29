@@ -318,6 +318,45 @@ to an already-deleted row), and **never `disable row level security`** on one �
 change that would escalate the leak from primary keys to full deleted rows. See the header comment on
 `supabase/migrations/20260704090000_realtime_tasks.sql`.
 
+## Testing layers
+
+`npm test` is the fast unit/component suite: Vitest under jsdom with Supabase mocked, and it is
+**hermetic by contract** — it must never need Docker, a database, or a network. `vite.config.ts`
+injects dummy `VITE_SUPABASE_*` values to enforce that, pointed at an unbindable port so an
+unmocked call fails loudly rather than reaching the local stack. Keep `tests/**` excluded from
+that project.
+
+`npm run test:rls` is a **separate Vitest project** (`vitest.rls.config.ts`) running integration
+tests in `tests/rls/` against a real local stack — start one with `npm run test:rls:up`. It is
+where the authorization boundary is actually exercised: RLS is the only thing standing between
+one user's rows and another's, and every unit test mocks it away. Four of its tests are
+schema-wide catch-alls that need no knowledge of any particular table (RLS enabled everywhere,
+every RLS-enabled table has a policy, no security-definer views, every table reachable by the
+Data API roles) — those are what keep working as the schema grows. One of the four, the
+definer-view check, asserts over an **empty set** today because `public` holds no views, so the
+option-spelling parser it depends on lives in `tests/rls/reloptions.ts` and is tested directly in
+`reloptions.test.ts` — the same split that makes `src/sw/policy.ts` testable when `src/sw.ts`
+itself cannot be, but the parity is not exact: `policy.test.ts` runs inside `npm test`, the
+**required** `Test` job, on every PR, while `reloptions.test.ts` runs only under `npm run
+test:rls` — a job that is not required and has, as of this writing, never executed in CI. Until
+that changes, `isSecurityInvoker` has real test coverage on paper but nothing gating a merge on
+it. The CLI is pinned as an exact
+`supabase` devDependency rather than through `supabase/setup-cli`, because every call goes
+through `npx`, which ignores a PATH binary in favour of a local one and otherwise installs
+`latest`.
+
+**Data API grants are explicit, per table, full stop** (`20260729100000_explicit_data_api_grants.sql`)
+and must stay that way. `config.toml` leaves `auto_expose_new_tables` unset, so a new table is
+unreachable through PostgREST until it is granted — and that compatibility flag is removed on
+2026-10-30. The migration deliberately carries no `alter default privileges`: that clause would
+auto-grant every table some future migration creates, forever, which turns "forgot to enable RLS
+on a new table" into a silently world-readable table instead of a loud `42501` — the opposite of
+this repo's default-deny model. A migration that adds a table must grant it explicitly right there;
+the fourth structural test (`tests/rls/structure.test.ts`, "every table in public is reachable by
+the Data API roles") is the backstop that catches one that doesn't. Note `anon` is granted
+deliberately: RLS, not the grant, is what denies it, and `useSettings` depends on an
+unauthenticated select returning zero rows rather than an error.
+
 ## When changing auth config
 
 `supabase/config.toml`'s `[auth]` tree describes **production** exactly (site URL, redirect

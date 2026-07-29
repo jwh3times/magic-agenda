@@ -42,6 +42,20 @@ and have been removed the same way.
 
 Total rough effort for the remaining items: ~7–10 weeks of focused solo work.
 
+**Test coverage, not a numbered item:** RLS integration tests (`tests/rls/`, `npm run test:rls`)
+were added as their own effort rather than a roadmap feature — see
+`docs/superpowers/plans/2026-07-29-rls-integration-tests.md`. Two follow-ups:
+
+- **Promote the `RLS` CI job to a required check** once it has reported green on a few PRs — it
+  is deliberately not required yet. It has also **never actually run**: the plan's own step to
+  push the branch and confirm the job goes green was not done in the session that wrote it,
+  because pushing was out of scope there. A local pass only proves the tests work against a
+  developer's own Docker; it does not prove `supabase start` succeeds on a clean GitHub Actions
+  runner against the dummy `env()` values the job supplies. Whoever ships this branch must watch
+  that first run before trusting it.
+- **Part 2 (Playwright end-to-end coverage)** of the same effort is specced but not yet built —
+  see `docs/superpowers/specs/2026-07-28-test-coverage-rls-and-e2e-design.md`.
+
 ## Conventions that apply to every item
 
 - **One PR per item** (or per slice of an L/XL item); `main` is PR-only and merging deploys to
