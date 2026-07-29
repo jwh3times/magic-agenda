@@ -35,7 +35,9 @@
 | `tests/rls/globalSetup.ts`                                        | Reads the running stack's URLs and keys into `process.env`; fails loudly if no stack. |
 | `tests/rls/helpers.ts`                                            | Client factories, test-user lifecycle, `pg` connection.                               |
 | `tests/rls/grants.test.ts`                                        | The canary: proves the Data API grants work at all.                                   |
-| `tests/rls/structure.test.ts`                                     | Schema-wide catch-alls (RLS enabled, policies exist, no definer views).               |
+| `tests/rls/reloptions.ts`                                         | Pure `isSecurityInvoker` predicate, split out so it can be tested directly.           |
+| `tests/rls/reloptions.test.ts`                                    | Direct tests for that predicate — the definer-view check runs over an empty set.      |
+| `tests/rls/structure.test.ts`                                     | Schema-wide catch-alls (RLS enabled, policies exist, no definer views, grants).       |
 | `tests/rls/policies.test.ts`                                      | Per-policy behavior: isolation, forged owner, ownership transfer, anon.               |
 
 **Modified**
@@ -572,9 +574,83 @@ habit — Step 3 is where these are proven to have teeth, empirically.
 
 Create `tests/rls/structure.test.ts`:
 
+First create `tests/rls/reloptions.ts`, the one piece of parsing in this file that the database
+cannot exercise:
+
+```ts
+/**
+ * Does a relation's `reloptions` array mark it `security_invoker`?
+ *
+ * Split into its own module so it can be tested directly. There are no views in `public` today,
+ * so the definer-view assertion in structure.test.ts runs over an EMPTY SET -- it would never
+ * execute this parsing, which is the one piece of logic standing between a definer view and the
+ * Data API the day someone adds one. Same reasoning as `src/sw/policy.ts`: pulling the pure
+ * predicate out is what makes the rule testable at all.
+ *
+ * `reloptions` stores the spelling used at DDL time, so `security_invoker = on` is exactly as
+ * safe as `security_invoker=true`. Anything unrecognised is treated as NOT invoker, which fails
+ * safe: the view is flagged for a human to look at rather than silently trusted.
+ */
+const TRUTHY = new Set(['true', 'on', 'yes', '1'])
+
+export function isSecurityInvoker(options: string[] | null): boolean {
+  return (options ?? []).some((o) => {
+    const [key, value] = o.split('=')
+    return key.trim() === 'security_invoker' && TRUTHY.has((value ?? '').trim().toLowerCase())
+  })
+}
+```
+
+Then `tests/rls/reloptions.test.ts`:
+
+```ts
+import { expect, test } from 'vitest'
+import { isSecurityInvoker } from './reloptions'
+
+// These need no database. They exist because the definer-view assertion in structure.test.ts
+// asserts over zero rows today -- without them this parsing would ship completely untested.
+
+test('recognises every boolean spelling Postgres stores', () => {
+  for (const opt of [
+    'security_invoker=true',
+    'security_invoker=on',
+    'security_invoker=yes',
+    'security_invoker=1',
+  ]) {
+    expect(isSecurityInvoker([opt])).toBe(true)
+  }
+})
+
+test('tolerates the spacing of `WITH (security_invoker = on)`', () => {
+  expect(isSecurityInvoker(['security_invoker = on'])).toBe(true)
+  expect(isSecurityInvoker(['  security_invoker=TRUE  '])).toBe(true)
+})
+
+test('finds the option among unrelated reloptions', () => {
+  expect(isSecurityInvoker(['check_option=cascaded', 'security_invoker=true'])).toBe(true)
+})
+
+test('treats a definer view as not invoker', () => {
+  expect(isSecurityInvoker(null)).toBe(false)
+  expect(isSecurityInvoker([])).toBe(false)
+  expect(isSecurityInvoker(['check_option=local'])).toBe(false)
+  expect(isSecurityInvoker(['security_invoker=false'])).toBe(false)
+  expect(isSecurityInvoker(['security_invoker=off'])).toBe(false)
+})
+
+test('fails safe on an unrecognised spelling', () => {
+  // Postgres accepts `t` on input but does not store it. If that ever changes, this returns
+  // false -- flagging a SAFE view for review rather than trusting an unsafe one.
+  expect(isSecurityInvoker(['security_invoker=t'])).toBe(false)
+})
+```
+
+Then `tests/rls/structure.test.ts`:
+
 ```ts
 import { expect, test } from 'vitest'
 import { withPg } from './helpers'
+import { isSecurityInvoker } from './reloptions'
 
 // RLS is this project's ONLY authorization boundary and the anon key is public by design, so a
 // table that reaches the Data API without RLS is a data leak, not a bug. These four tests need
@@ -636,17 +712,10 @@ test('no security-definer views are exposed in public', async () => {
     return res.rows
   })
 
-  // reloptions stores the spelling used at DDL time, so `security_invoker = on` is exactly as
-  // safe as `security_invoker=true` and must not read as a definer view. Normalising here is
-  // what stops the first false positive from tempting someone to weaken the test in a hurry.
-  const TRUTHY = new Set(['true', 'on', 'yes', '1'])
-  const isInvoker = (options: string[] | null) =>
-    (options ?? []).some((o) => {
-      const [key, value] = o.split('=')
-      return key.trim() === 'security_invoker' && TRUTHY.has((value ?? '').trim().toLowerCase())
-    })
-
-  const definerViews = rows.filter((r) => !isInvoker(r.options)).map((r) => r.relname)
+  // The spelling normalisation lives in reloptions.ts and is tested directly in
+  // reloptions.test.ts -- there are no views in `public` today, so this assertion runs over an
+  // empty set and cannot exercise that parsing on its own.
+  const definerViews = rows.filter((r) => !isSecurityInvoker(r.options)).map((r) => r.relname)
   expect(definerViews).toEqual([])
 })
 
@@ -660,10 +729,14 @@ test('every table in public is reachable by the Data API roles', async () => {
   // This does NOT duplicate the ALTER DEFAULT PRIVILEGES in that migration: default privileges
   // only apply to objects created by the role that ran it, so a table created any other way
   // still lands ungranted and only this assertion catches it.
+  // Both roles, not just `authenticated`. The migration grants them together, so a table that
+  // reached only one of them is a mistake -- and checking a single role would let a table that
+  // is invisible to signed-out visitors pass a test whose name promises "the Data API roles".
   const rows = await withPg(async (pg) => {
-    const res = await pg.query<{ relname: string; granted: boolean }>(
+    const res = await pg.query<{ relname: string; anon: boolean; authenticated: boolean }>(
       `select c.relname,
-              has_table_privilege('authenticated', c.oid, 'select') as granted
+              has_table_privilege('anon', c.oid, 'select') as anon,
+              has_table_privilege('authenticated', c.oid, 'select') as authenticated
          from pg_class c
          join pg_namespace n on n.oid = c.relnamespace
         where n.nspname = 'public'
@@ -673,15 +746,16 @@ test('every table in public is reachable by the Data API roles', async () => {
     return res.rows
   })
 
-  const ungranted = rows.filter((r) => !r.granted).map((r) => r.relname)
-  expect(ungranted).toEqual([])
+  expect(rows.length).toBeGreaterThan(0)
+  expect(rows.filter((r) => !r.anon).map((r) => r.relname)).toEqual([])
+  expect(rows.filter((r) => !r.authenticated).map((r) => r.relname)).toEqual([])
 })
 ```
 
 - [ ] **Step 2: Run them**
 
 Run: `npm run test:rls`
-Expected: PASS, 6 tests total (2 from Task 3, 4 here).
+Expected: PASS, 11 tests total (2 from Task 3, 4 structural here, 5 `reloptions` here).
 
 - [ ] **Step 3: Prove the catch-alls actually catch**
 
@@ -727,7 +801,7 @@ If the container name differs, find it with `docker ps --format '{{.Names}}' | g
 - [ ] **Step 4: Commit**
 
 ```bash
-git add tests/rls/structure.test.ts
+git add tests/rls/structure.test.ts tests/rls/reloptions.ts tests/rls/reloptions.test.ts
 git commit -m "test(rls): schema-wide RLS, policy, and view catch-alls"
 ```
 
@@ -872,7 +946,7 @@ test('an anonymous client cannot write', async () => {
 - [ ] **Step 2: Run them**
 
 Run: `npm run test:rls`
-Expected: PASS, 15 tests total.
+Expected: PASS, 20 tests total.
 
 If either the forged-insert or the transfer test fails by getting `error === null`, **the policy is wrong, not the test** — stop and report it. Both are expected to pass against the current schema: `tasks_insert_own` and `tasks_update_own` both carry `with check (auth.uid() = user_id)` in `supabase/migrations/20260629120000_init.sql:59-62`.
 
@@ -1078,7 +1152,7 @@ git commit -m "docs: RLS integration tests and explicit Data API grants (v1.2.38
 ## Final Verification
 
 - [ ] `npm test` — 48 files / 357 tests, unchanged, with **no** stack running
-- [ ] `npm run test:rls:up && npm run test:rls` — 15 tests pass
+- [ ] `npm run test:rls:up && npm run test:rls` — 20 tests pass
 - [ ] `npm run format:check && npm run lint && npx tsc -b && npm run build` — clean
 - [ ] `node scripts/check-changelog.mjs` and `npm run codex:check` — pass
 - [ ] The `RLS` job appears and is green on the PR
