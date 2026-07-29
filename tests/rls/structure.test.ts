@@ -5,6 +5,10 @@ import { isSecurityInvoker } from './reloptions'
 // RLS is this project's ONLY authorization boundary and the anon key is public by design, so a
 // table that reaches the Data API without RLS is a data leak, not a bug. These four tests need
 // no knowledge of what any table is for -- they keep holding as the schema grows.
+//
+// All four catch-alls below are scoped to `n.nspname = 'public'` only. If `[api] schemas` in
+// config.toml ever grows beyond `public`, these queries will not follow it -- they would need a
+// matching update.
 
 test('every table in public has row-level security enabled', async () => {
   const rows = await withPg(async (pg) => {
@@ -27,6 +31,11 @@ test('every table in public has row-level security enabled', async () => {
 test('every RLS-enabled table has at least one policy', async () => {
   // RLS on with zero policies is default-deny: safe, but it breaks the app silently, which is
   // its own kind of outage and much harder to diagnose than a loud permission error.
+  //
+  // This counts any `pg_policy` row at all, regardless of `polroles` -- it does not check that a
+  // policy actually grants the Data API roles anything, only that the table is not silently
+  // policy-less. So it is a "silent default-deny outage" detector, not a security assertion; the
+  // behavioural tests in policies.test.ts are what pin the actual security property.
   const rows = await withPg(async (pg) => {
     const res = await pg.query<{ relname: string; policy_count: string }>(
       `select c.relname, count(p.polname) as policy_count
@@ -65,6 +74,12 @@ test('no security-definer views are exposed in public', async () => {
   // The spelling normalisation lives in reloptions.ts and is tested directly in
   // reloptions.test.ts -- there are no views in `public` today, so this assertion runs over an
   // empty set and cannot exercise that parsing on its own.
+  //
+  // `c.relkind in ('v', 'm')` sweeps materialized views in too, and a matview can never carry
+  // `security_invoker` (Postgres has no such option for them) -- so any future matview fails this
+  // test unconditionally. That is the correct outcome, not a bug to fix: a matview in `public` is
+  // reachable through PostgREST with the definer's rights and RLS cannot be applied to it, so it
+  // should always be flagged for a human to look at rather than silently trusted.
   const definerViews = rows.filter((r) => !isSecurityInvoker(r.options)).map((r) => r.relname)
   expect(definerViews).toEqual([])
 })
@@ -76,9 +91,9 @@ test('every table in public is reachable by the Data API roles', async () => {
   // test, "the catch-alls keep working as the schema grows" would be true for RLS and false for
   // grants, which is the exact failure the grants migration was written to prevent.
   //
-  // This does NOT duplicate the ALTER DEFAULT PRIVILEGES in that migration: default privileges
-  // only apply to objects created by the role that ran it, so a table created any other way
-  // still lands ungranted and only this assertion catches it.
+  // The migration grants explicitly per table -- there is no ALTER DEFAULT PRIVILEGES to fall
+  // back on (deliberately: see the header comment on that migration). This test is what catches
+  // a table that was added without its grant.
   // Both roles, not just `authenticated`. The migration grants them together, so a table that
   // reached only one of them is a mistake -- and checking a single role would let a table that
   // is invisible to signed-out visitors pass a test whose name promises "the Data API roles".

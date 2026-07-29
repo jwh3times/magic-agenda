@@ -336,21 +336,26 @@ Data API roles) — those are what keep working as the schema grows. One of the 
 definer-view check, asserts over an **empty set** today because `public` holds no views, so the
 option-spelling parser it depends on lives in `tests/rls/reloptions.ts` and is tested directly in
 `reloptions.test.ts` — the same split that makes `src/sw/policy.ts` testable when `src/sw.ts`
-itself cannot be. The CLI is pinned as an exact
+itself cannot be, but the parity is not exact: `policy.test.ts` runs inside `npm test`, the
+**required** `Test` job, on every PR, while `reloptions.test.ts` runs only under `npm run
+test:rls` — a job that is not required and has, as of this writing, never executed in CI. Until
+that changes, `isSecurityInvoker` has real test coverage on paper but nothing gating a merge on
+it. The CLI is pinned as an exact
 `supabase` devDependency rather than through `supabase/setup-cli`, because every call goes
 through `npx`, which ignores a PATH binary in favour of a local one and otherwise installs
 `latest`.
 
-**Data API grants are explicit** (`20260729100000_explicit_data_api_grants.sql`) and must stay
-that way. `config.toml` leaves `auto_expose_new_tables` unset, so a new table is unreachable
-through PostgREST until it is granted — and that compatibility flag is removed on 2026-10-30.
-That migration sets `alter default privileges` so a table created by the migration role is
-granted automatically, but **a migration adding a table should still grant it explicitly**:
-default privileges bind to the creating role, and the failure mode is a `42501` on a table whose
-RLS policies are perfectly correct. The fourth structural test is the backstop that makes this
-loud rather than mysterious. Note `anon` is granted deliberately: RLS, not the grant, is what
-denies it, and `useSettings` depends on an unauthenticated select returning zero rows rather
-than an error.
+**Data API grants are explicit, per table, full stop** (`20260729100000_explicit_data_api_grants.sql`)
+and must stay that way. `config.toml` leaves `auto_expose_new_tables` unset, so a new table is
+unreachable through PostgREST until it is granted — and that compatibility flag is removed on
+2026-10-30. The migration deliberately carries no `alter default privileges`: that clause would
+auto-grant every table some future migration creates, forever, which turns "forgot to enable RLS
+on a new table" into a silently world-readable table instead of a loud `42501` — the opposite of
+this repo's default-deny model. A migration that adds a table must grant it explicitly right there;
+the fourth structural test (`tests/rls/structure.test.ts`, "every table in public is reachable by
+the Data API roles") is the backstop that catches one that doesn't. Note `anon` is granted
+deliberately: RLS, not the grant, is what denies it, and `useSettings` depends on an
+unauthenticated select returning zero rows rather than an error.
 
 ## When changing auth config
 

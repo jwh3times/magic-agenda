@@ -79,14 +79,25 @@ Create `supabase/migrations/20260729100000_explicit_data_api_grants.sql`:
 -- explicit GRANTs -- the new cloud default. No earlier migration grants anything; production
 -- works only because its tables were created under the legacy auto-expose behaviour. That
 -- compatibility flag is REMOVED on 2026-10-30, so this file is what keeps the Data API working
--- for anything added after that date. It is a no-op against production, where these grants
--- already exist.
+-- for anything added after that date. It is a no-op against production: a reviewer confirmed
+-- production already carries the `pg_default_acl` entries that grant these two tables to
+-- anon/authenticated/service_role, so restating the grants here changes nothing there.
 --
 -- `anon` genuinely needs SELECT here, and RLS -- not the grant -- is what denies it. An
 -- unauthenticated select must resolve to zero rows with NO error: `useSettings` branches on
 -- exactly that distinction (an error means "fall back to the snapshot", no rows means "no
 -- settings row yet"). Revoking anon would turn empty results into 42501 errors and silently
 -- change that behaviour. tests/rls/policies.test.ts pins it.
+--
+-- Deliberately NO `alter default privileges` in this file. That clause would auto-grant every
+-- table ever created afterward by the role running migrations, forever -- so "forgot to enable
+-- row-level security on a new table" would degrade from a loud `42501` into a silently
+-- world-readable table through the public anon key, in a repo whose entire model is that every
+-- table default-denies until proven otherwise. Without it, a new table is simply unreachable
+-- until it is granted right here, in this file: a loud error a developer hits the moment they
+-- touch the Data API, not a leak someone discovers later. The structural test in
+-- tests/rls/structure.test.ts ("every table in public is reachable by the Data API roles") is the
+-- backstop that catches a table which shipped without its grant.
 grant usage on schema public to anon, authenticated, service_role;
 
 grant select, insert, update, delete on public.tasks
@@ -97,17 +108,14 @@ grant select, insert, update, delete on public.user_settings
 
 grant usage, select on all sequences in schema public
   to anon, authenticated, service_role;
-
--- Future tables, so that forgetting is survivable. "Any migration adding a table must grant it"
--- is documentation, not enforcement; this makes the default correct. It is NOT a substitute for
--- the check in tests/rls/structure.test.ts: default privileges apply only to objects created by
--- the role this runs as, so a table created by any other role still lands ungranted.
-alter default privileges in schema public
-  grant select, insert, update, delete on tables to anon, authenticated, service_role;
-
-alter default privileges in schema public
-  grant usage, select on sequences to anon, authenticated, service_role;
 ```
+
+> **Post-execution note:** the two `alter default privileges` statements originally planned here
+> were removed in the final fix wave (2026-07-29) at the human reviewer's direction: they made a
+> forgotten `enable row level security` on a future table silently world-readable instead of a
+> loud `42501`. The migration file, `AGENTS.md`, and `tests/rls/structure.test.ts`'s fourth-test
+> comment were all updated to match; see that commit for the full rationale. The SQL block above
+> reflects the final, shipped state.
 
 - [ ] **Step 2: Verify it applies to a fresh database**
 
@@ -729,9 +737,9 @@ test('every table in public is reachable by the Data API roles', async () => {
   // test, "the catch-alls keep working as the schema grows" would be true for RLS and false for
   // grants, which is the exact failure the grants migration was written to prevent.
   //
-  // This does NOT duplicate the ALTER DEFAULT PRIVILEGES in that migration: default privileges
-  // only apply to objects created by the role that ran it, so a table created any other way
-  // still lands ungranted and only this assertion catches it.
+  // The migration grants explicitly per table -- there is no ALTER DEFAULT PRIVILEGES to fall
+  // back on (deliberately: see the header comment on that migration). This test is what catches
+  // a table that was added without its grant.
   // Both roles, not just `authenticated`. The migration grants them together, so a table that
   // reached only one of them is a mistake -- and checking a single role would let a table that
   // is invisible to signed-out visitors pass a test whose name promises "the Data API roles".
@@ -781,6 +789,12 @@ Expected: the **RLS-enabled** test FAILS, naming `leaky`. The grants test still 
 that is correct rather than a miss: the migration's `alter default privileges` ran as `postgres`
 and so does this `create table`, so `leaky` is granted automatically — which is precisely the
 behaviour that clause exists to produce.
+
+> **Post-execution note:** this described the migration as it stood when Task 4 ran. The `alter
+> default privileges` clauses were removed in the 2026-07-29 fix wave (see the note on Task 1), so
+> re-running Stage 1 against the current migration would now fail **both** the RLS-enabled test
+> and the Data API reachability test for `leaky` — there is no default-privileges clause left to
+> auto-grant it. That is the intended, fail-closed behaviour; it does not change Stage 2 below.
 
 Stage 2 — protected but ungranted, the post-2026-10-30 failure mode:
 
@@ -1087,22 +1101,32 @@ Data API roles) — those are what keep working as the schema grows. One of the 
 definer-view check, asserts over an **empty set** today because `public` holds no views, so the
 option-spelling parser it depends on lives in `tests/rls/reloptions.ts` and is tested directly in
 `reloptions.test.ts` — the same split that makes `src/sw/policy.ts` testable when `src/sw.ts`
-itself cannot be. The CLI is pinned as an exact
+itself cannot be, but the parity is not exact: `policy.test.ts` runs inside `npm test`, the
+**required** `Test` job, on every PR, while `reloptions.test.ts` runs only under `npm run
+test:rls` — a job that is not required and has, as of this writing, never executed in CI. Until
+that changes, `isSecurityInvoker` has real test coverage on paper but nothing gating a merge on
+it. The CLI is pinned as an exact
 `supabase` devDependency rather than through `supabase/setup-cli`, because every call goes
 through `npx`, which ignores a PATH binary in favour of a local one and otherwise installs
 `latest`.
 
-**Data API grants are explicit** (`20260729100000_explicit_data_api_grants.sql`) and must stay
-that way. `config.toml` leaves `auto_expose_new_tables` unset, so a new table is unreachable
-through PostgREST until it is granted — and that compatibility flag is removed on 2026-10-30.
-That migration sets `alter default privileges` so a table created by the migration role is
-granted automatically, but **a migration adding a table should still grant it explicitly**:
-default privileges bind to the creating role, and the failure mode is a `42501` on a table whose
-RLS policies are perfectly correct. The fourth structural test is the backstop that makes this
-loud rather than mysterious. Note `anon` is granted deliberately: RLS, not the grant, is what
-denies it, and `useSettings` depends on an unauthenticated select returning zero rows rather
-than an error.
+**Data API grants are explicit, per table, full stop** (`20260729100000_explicit_data_api_grants.sql`)
+and must stay that way. `config.toml` leaves `auto_expose_new_tables` unset, so a new table is
+unreachable through PostgREST until it is granted — and that compatibility flag is removed on
+2026-10-30. The migration deliberately carries no `alter default privileges`: that clause would
+auto-grant every table some future migration creates, forever, which turns "forgot to enable RLS
+on a new table" into a silently world-readable table instead of a loud `42501` — the opposite of
+this repo's default-deny model. A migration that adds a table must grant it explicitly right there;
+the fourth structural test (`tests/rls/structure.test.ts`, "every table in public is reachable by
+the Data API roles") is the backstop that catches one that doesn't. Note `anon` is granted
+deliberately: RLS, not the grant, is what denies it, and `useSettings` depends on an
+unauthenticated select returning zero rows rather than an error.
 ```
+
+> **Post-execution note:** the `AGENTS.md` text above reflects the final, shipped state after the
+> 2026-07-29 fix wave. The version originally drafted here (which promised `alter default
+> privileges` made "forgetting survivable," and drew an exact parity with `src/sw/policy.ts`) was
+> corrected before merge; see the Task 1 post-execution note and `AGENTS.md`'s own history for why.
 
 - [ ] **Step 2: Add the commands to `README.md`**
 
