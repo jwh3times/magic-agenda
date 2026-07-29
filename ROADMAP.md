@@ -44,17 +44,36 @@ Total rough effort for the remaining items: ~7–10 weeks of focused solo work.
 
 **Test coverage, not a numbered item:** RLS integration tests (`tests/rls/`, `npm run test:rls`)
 were added as their own effort rather than a roadmap feature — see
-`docs/superpowers/plans/2026-07-29-rls-integration-tests.md`. Two follow-ups:
+`docs/superpowers/plans/2026-07-29-rls-integration-tests.md`. Three follow-ups:
 
-- **Promote the `RLS` CI job to a required check** once it has reported green on a few PRs — it
-  is deliberately not required yet. It has also **never actually run**: the plan's own step to
-  push the branch and confirm the job goes green was not done in the session that wrote it,
-  because pushing was out of scope there. A local pass only proves the tests work against a
-  developer's own Docker; it does not prove `supabase start` succeeds on a clean GitHub Actions
-  runner against the dummy `env()` values the job supplies. Whoever ships this branch must watch
-  that first run before trusting it.
+- **Promote the `RLS` CI job to a required check.** It is deliberately not required yet, but the
+  reason to wait has passed: the job first ran on PR #113 (v1.2.40, 2026-07-29) and went green in
+  1m38s, which is the only thing that could confirm `supabase start` succeeds on a clean GitHub
+  Actions runner against the dummy `env()` values the job supplies — a local pass never proved
+  more than that the tests work against one developer's Docker. Promote it with
+  `gh api -X PUT repos/jwh3times/magic-agenda/rulesets/18273908` sending the **full** rules array;
+  the legacy branch-protection API 404s on this repo.
+- **Verify production's `pg_default_acl`.** `20260729100000_explicit_data_api_grants.sql`
+  deliberately carries no `alter default privileges`, so a table added without a grant is
+  unreachable — a loud `42501` rather than a silently world-readable table. That property was
+  verified empirically, but on a **fresh local stack**. Production predates the change and may
+  still carry permissive default-ACL entries from the legacy auto-expose era, in which case the
+  guarantee holds locally and in CI but not where it matters. The `RLS` job structurally cannot
+  catch this — it always runs against a newly created stack, whose baseline is already
+  restrictive. One read-only query settles it (connect through the **Session pooler**; the direct
+  `db.<ref>.supabase.co` host is IPv6-only):
+
+  ```sql
+  select defaclrole::regrole, defaclnamespace::regnamespace, defaclobjtype, defaclacl
+    from pg_default_acl;
+  ```
+
+  If `anon` or `authenticated` appear with `r` (SELECT) against tables in `public`, a follow-up
+  migration using `alter default privileges ... revoke` is warranted.
 - **Part 2 (Playwright end-to-end coverage)** of the same effort is specced but not yet built —
-  see `docs/superpowers/specs/2026-07-28-test-coverage-rls-and-e2e-design.md`.
+  see `docs/superpowers/specs/2026-07-28-test-coverage-rls-and-e2e-design.md`. Part 1 already
+  widened the unit suite's exclude to `tests/**`, so `tests/e2e/` will not be swept into
+  `npm test`.
 
 ## Conventions that apply to every item
 

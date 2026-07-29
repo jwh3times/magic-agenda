@@ -12,6 +12,19 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.41] - 2026-07-29
+
+### Docs
+
+- Corrected three claims left over from the RLS test work. The grants migration said production's
+  privileges had been confirmed, when only a local stack was ever inspected — and cited
+  `pg_default_acl`, which is a template consulted when a table is created and grants an existing
+  table nothing. Whether production still carries permissive default-ACL entries from before the
+  Data API change is now recorded as an open question in the roadmap, because the CI job cannot
+  answer it: that job always builds a fresh database, whose defaults are already restrictive.
+- The roadmap said the `RLS` job had never run. It ran on the previous release and passed, so the
+  remaining step is promoting it to a required check.
+
 ## [1.2.40] - 2026-07-29
 
 ### Internal
@@ -948,7 +961,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.40...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.41...HEAD
+[1.2.41]: https://github.com/jwh3times/magic-agenda/compare/v1.2.40...v1.2.41
 [1.2.40]: https://github.com/jwh3times/magic-agenda/compare/v1.2.39...v1.2.40
 [1.2.39]: https://github.com/jwh3times/magic-agenda/compare/v1.2.38...v1.2.39
 [1.2.38]: https://github.com/jwh3times/magic-agenda/compare/v1.2.37...v1.2.38
