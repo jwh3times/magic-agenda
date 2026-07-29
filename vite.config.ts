@@ -50,10 +50,14 @@ export default defineConfig({
     setupFiles: './src/test/setup.ts',
     css: false,
     // Deno tests, not Vitest tests — run with `deno test supabase/functions`.
-    exclude: [...configDefaults.exclude, 'supabase/functions/**'],
-    // Hermetic: tests never touch the real project (getSession is local-only anyway).
+    // Vitest's default `include` matches the whole repo, so without this the RLS integration
+    // tests would be swept into `npm test` -- which must never need Docker or a database.
+    exclude: [...configDefaults.exclude, 'supabase/functions/**', 'tests/rls/**'],
+    // Hermetic: tests never touch a real project (getSession is local-only anyway).
+    // Port 1 is privileged and unbindable, so an unmocked call fails loudly. Do NOT use
+    // 54321 here -- that is the local Supabase stack's port and it is live during `test:rls`.
     env: {
-      VITE_SUPABASE_URL: 'http://localhost:54321',
+      VITE_SUPABASE_URL: 'http://127.0.0.1:1',
       VITE_SUPABASE_ANON_KEY: 'test-anon-key',
     },
   },
