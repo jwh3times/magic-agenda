@@ -275,9 +275,12 @@ test('week view highlights the cell for the configured today, not the browser cl
 })
 
 test('the board exposes the landmarks a screen reader navigates by', () => {
-  renderBoard()
+  // A tag-level check for <search>, not getByRole('search'): aria-query 5.3.0 has no <search>
+  // mapping, so jsdom cannot resolve the implicit landmark role (see SearchFilterBar.test.tsx for
+  // the full rationale — same component, same constraint).
+  const { container } = renderBoard()
   expect(screen.getByRole('banner')).toBeInTheDocument()
-  expect(screen.getByRole('search')).toBeInTheDocument()
+  expect(container.querySelector('search')).not.toBeNull()
   expect(screen.getByRole('main')).toBeInTheDocument()
   expect(screen.getByRole('complementary', { name: 'Inbox' })).toBeInTheDocument()
 })

@@ -30,13 +30,7 @@ export function SearchFilterBar({ query, onChange }: SearchFilterBarProps) {
   const active = isFilterActive(query)
 
   return (
-    // Explicit role is redundant in real browsers/axe-core (the <search> element already implies
-    // it), but @testing-library/dom's getByRole resolves implicit roles via aria-query, and
-    // aria-query 5.3.2 (latest as of writing) has no entry for <search> — verified against its
-    // published elementRoleMap. Without this, `screen.getByRole('search')` fails under jsdom even
-    // though the landmark is present. Keep the <search> tag; do not revert to a bare <div>.
     <search
-      role="search"
       style={{
         display: 'flex',
         alignItems: 'center',
