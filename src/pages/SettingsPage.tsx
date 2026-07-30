@@ -91,17 +91,19 @@ function SettingsShell({ defaultView, onChangeView }: SectionContext) {
           </h1>
         </header>
 
-        {SECTIONS.map((s) => (
-          <section key={s.id} aria-labelledby={`settings-${s.id}`} style={card}>
-            <h2
-              id={`settings-${s.id}`}
-              style={{ margin: '0 0 12px', fontSize: 17, fontFamily: conf.title }}
-            >
-              {s.title}
-            </h2>
-            {s.render({ defaultView, onChangeView })}
-          </section>
-        ))}
+        <main style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {SECTIONS.map((s) => (
+            <section key={s.id} aria-labelledby={`settings-${s.id}`} style={card}>
+              <h2
+                id={`settings-${s.id}`}
+                style={{ margin: '0 0 12px', fontSize: 17, fontFamily: conf.title }}
+              >
+                {s.title}
+              </h2>
+              {s.render({ defaultView, onChangeView })}
+            </section>
+          ))}
+        </main>
 
         <footer style={{ fontSize: 13, opacity: 0.7, display: 'flex', gap: 14 }}>
           <Link to="/privacy" style={{ color: 'inherit' }}>

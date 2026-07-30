@@ -30,7 +30,7 @@ export function SearchFilterBar({ query, onChange }: SearchFilterBarProps) {
   const active = isFilterActive(query)
 
   return (
-    <div
+    <search
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -42,12 +42,14 @@ export function SearchFilterBar({ query, onChange }: SearchFilterBarProps) {
       }}
     >
       <input
+        aria-label="Search tasks"
         value={query.text}
         onChange={(e) => onChange({ ...query, text: e.target.value })}
         placeholder="Search tasks…"
         style={{ ...control, flex: '1 1 220px', minWidth: 160 }}
       />
       <select
+        aria-label="Filter by category"
         value={query.category}
         onChange={(e) => onChange({ ...query, category: e.target.value as Category | 'all' })}
         style={{ ...control, ...(isMobile && { flex: '1 1 40%', minWidth: 0 }) }}
@@ -60,6 +62,7 @@ export function SearchFilterBar({ query, onChange }: SearchFilterBarProps) {
         ))}
       </select>
       <select
+        aria-label="Filter by status"
         value={query.status}
         onChange={(e) => onChange({ ...query, status: e.target.value as Status | 'all' })}
         style={{ ...control, ...(isMobile && { flex: '1 1 40%', minWidth: 0 }) }}
@@ -99,6 +102,6 @@ export function SearchFilterBar({ query, onChange }: SearchFilterBarProps) {
           Clear
         </button>
       )}
-    </div>
+    </search>
   )
 }

@@ -25,8 +25,8 @@
     "test:rls:down": "npx supabase stop",
     "test:e2e": "playwright test",
     "lint": "eslint .",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" playwright.config.ts vitest.rls.config.ts",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" playwright.config.ts vitest.rls.config.ts",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" \"scripts/*.ts\" playwright.config.ts vitest.rls.config.ts",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" \"scripts/*.ts\" playwright.config.ts vitest.rls.config.ts",
     "codex:sync": "node scripts/sync-codex.mjs",
     "codex:check": "node scripts/sync-codex.mjs --check"
   },

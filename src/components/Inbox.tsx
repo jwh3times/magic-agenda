@@ -27,7 +27,8 @@ export function Inbox({ tasks, handlers, pop }: InboxProps) {
   const showBody = !isMobile || !collapsed
 
   return (
-    <div
+    <aside
+      aria-label="Inbox"
       style={{
         ...c.inbox,
         ...(isMobile && { width: '100%', flex: 'none', maxHeight: collapsed ? undefined : '34vh' }),
@@ -95,6 +96,6 @@ export function Inbox({ tasks, handlers, pop }: InboxProps) {
           </div>
         </>
       )}
-    </div>
+    </aside>
   )
 }

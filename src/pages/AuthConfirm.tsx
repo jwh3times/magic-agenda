@@ -50,19 +50,17 @@ export function AuthConfirm() {
   if (refused) {
     return (
       <div style={authPage}>
-        <div style={authCard}>
-          <img
-            src={logoDark}
-            alt="Magic Agenda"
-            style={{ height: 110, display: 'block', margin: '0 0 6px' }}
-          />
+        <main style={authCard}>
+          <h1 style={{ margin: '0 0 6px' }}>
+            <img src={logoDark} alt="Magic Agenda" style={{ height: 110, display: 'block' }} />
+          </h1>
           <p style={{ margin: '0 0 18px', fontSize: 14, lineHeight: 1.5, opacity: 0.75 }}>
             You’re already signed in, so this confirmation link wasn’t used.
           </p>
           <Link to="/" style={{ color: '#a78bfa', fontWeight: 700, fontSize: 14 }}>
             Back to your board
           </Link>
-        </div>
+        </main>
       </div>
     )
   }
@@ -70,12 +68,10 @@ export function AuthConfirm() {
   if (verifyError || (!session && !tokenHash)) {
     return (
       <div style={authPage}>
-        <div style={authCard}>
-          <img
-            src={logoDark}
-            alt="Magic Agenda"
-            style={{ height: 110, display: 'block', margin: '0 0 6px' }}
-          />
+        <main style={authCard}>
+          <h1 style={{ margin: '0 0 6px' }}>
+            <img src={logoDark} alt="Magic Agenda" style={{ height: 110, display: 'block' }} />
+          </h1>
           <p style={{ margin: '0 0 18px', fontSize: 14, lineHeight: 1.5, opacity: 0.75 }}>
             This confirmation link is invalid or has expired. Try signing in — if your account is
             already confirmed it will work; otherwise sign up again for a fresh link.
@@ -83,7 +79,7 @@ export function AuthConfirm() {
           <Link to="/login" style={{ color: '#a78bfa', fontWeight: 700, fontSize: 14 }}>
             Back to sign in
           </Link>
-        </div>
+        </main>
       </div>
     )
   }

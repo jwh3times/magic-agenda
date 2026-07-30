@@ -86,3 +86,9 @@ test('signup points the confirmation email at /auth/confirm and drops "then sign
   // Confirmation now signs the user in — the old copy said "…, then sign in."
   expect(await screen.findByText('Check your email to confirm your account.')).toBeInTheDocument()
 })
+
+test('the sign-in card is a main landmark with the page heading', () => {
+  renderLogin()
+  expect(screen.getByRole('main')).toBeInTheDocument()
+  expect(screen.getByRole('heading', { level: 1, name: 'Magic Agenda' })).toBeInTheDocument()
+})

@@ -377,13 +377,16 @@ evict a queued PR. Seeding uses the anon key and that account's own credentials 
 key must never enter CI.** All three skip conditions (non-PR events, fork PRs, runs without secrets)
 report success from inside a step, never a job-level `if:`.
 
-Three non-obvious constraints on the specs themselves, each of which cost a real debugging pass:
+Five non-obvious constraints on the specs themselves. Four cost a real debugging pass; the fifth
+is a deliberate tradeoff worth understanding before it costs one:
 
 - **Seed data is dated relative to today.** `Board` anchors on today and `CalendarView` renders a
   fixed 42-cell grid around that month, so an absolutely-dated row is in the database and on no
-  screen. Where the a11y baseline needs a stable CSS-target shape, `page.clock` is pinned and the
-  seed anchor pinned to match — the two must move together, because the clock moves only the browser
-  while `seedBoard` runs in the test process in real time.
+  screen. The a11y baseline no longer keys on CSS target paths, but `page.clock` is still pinned
+  and the seed anchor pinned to match — for a different reason: `brutal` flags the trailing
+  out-of-month cells, and how many of those the fixed 42-cell grid carries is a function of the
+  month, so an unpinned clock moves a `color-contrast` count. The two must move together, because
+  the clock moves only the browser while `seedBoard` runs in the test process in real time.
 - **`document.fonts.check()` cannot detect the CSP regression.** It returns true for a family with no
   `FontFace` registered at all, which is exactly the broken state. The font assertion iterates
   `document.fonts` instead. (There is also no font named `Inter` in this app.)
@@ -393,6 +396,22 @@ Three non-obvious constraints on the specs themselves, each of which cost a real
   both ways. The offline test therefore aborts only Supabase, which is the actual condition
   `useTasks` guards. No browser-level test here covers the worker serving the shell offline;
   `src/sw/policy.test.ts` covers that policy.
+- **A scan that races a loading state scores clean, it does not merely miss content.** `<Spinner/>`
+  is `position: fixed; inset: 0`, and axe's `isModalOpen()` heuristic treats any absolute/fixed
+  element covering ≥75% of the viewport as an open modal. `landmark-one-main` and
+  `page-has-heading-one` both carry `passForModal: true`, so they pass for free against a loading
+  screen. That is how the original baseline came to hold a single `region: #root` entry for
+  `settings` and nothing else: it never scanned the settings page. Every scan waits for real
+  content, and `FREEZE_ANIMATION` is injected before every scan because `page.clock` does not stop
+  CSS animations and a drifting glass blob turns a `color-contrast` violation into an `incomplete`.
+- **The a11y baseline asserts counts by strict equality, in both directions.** A count that rose is
+  a regression; a count that FELL means the baseline is stale and the lower number must be
+  committed. That second direction is deliberate — tolerating it is what lets a ratchet's ceiling
+  drift above reality — but it has one confusing consequence: any merge that lands without an E2E
+  run (a non-PR event, a fork PR, a Dependabot PR) and incidentally reduces a count leaves the next
+  human PR red for a number it did not cause. The fix is always to commit the lower number.
+  Regeneration in practice means reading the counts out of the CI log: `E2E_A11Y_UPDATE_BASELINE=1`
+  still works but needs the E2E account's credentials, which exist only as repository secrets.
 
 **Data API grants are explicit, per table, full stop** (`20260729100000_explicit_data_api_grants.sql`)
 and must stay that way. `config.toml` leaves `auto_expose_new_tables` unset, so a new table is

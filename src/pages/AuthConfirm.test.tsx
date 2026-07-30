@@ -96,3 +96,12 @@ test('a missing token shows the error card without calling verifyOtp', () => {
   ).toBeInTheDocument()
   expect(h.verifyOtp).not.toHaveBeenCalled()
 })
+
+// ——— landmarks ———
+
+test('the error card is a main landmark with the page heading', () => {
+  // Default beforeEach state (no session, no token) renders the invalid-link card directly.
+  render(pageTree())
+  expect(screen.getByRole('main')).toBeInTheDocument()
+  expect(screen.getByRole('heading', { level: 1, name: 'Magic Agenda' })).toBeInTheDocument()
+})

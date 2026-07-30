@@ -44,15 +44,8 @@ Total rough effort for the remaining items: ~7–10 weeks of focused solo work.
 
 **Test coverage, not a numbered item:** RLS integration tests (`tests/rls/`, `npm run test:rls`)
 were added as their own effort rather than a roadmap feature — see
-`docs/superpowers/plans/2026-07-29-rls-integration-tests.md`. Three follow-ups:
+`docs/superpowers/plans/2026-07-29-rls-integration-tests.md`. Two follow-ups:
 
-- **Promote the `RLS` CI job to a required check.** It is deliberately not required yet, but the
-  reason to wait has passed: the job first ran on PR #113 (v1.2.40, 2026-07-29) and went green in
-  1m38s, which is the only thing that could confirm `supabase start` succeeds on a clean GitHub
-  Actions runner against the dummy `env()` values the job supplies — a local pass never proved
-  more than that the tests work against one developer's Docker. Promote it with
-  `gh api -X PUT repos/jwh3times/magic-agenda/rulesets/18273908` sending the **full** rules array;
-  the legacy branch-protection API 404s on this repo.
 - **~~Verify production's `pg_default_acl`~~ — answered 2026-07-29, and it was the bad case.**
   Production carried entries granting `anon` and `authenticated` `arwdDxtm` (full DML) on every
   future table in `public`, for both the `postgres` and `supabase_admin` creator roles. So the
@@ -69,22 +62,16 @@ were added as their own effort rather than a roadmap feature — see
   dashboard or Supabase support. Narrow in practice — this project's tables are all created as
   `postgres` — but it is the one part of the boundary that no test or migration here can reach.
 - **Part 2A (Playwright smoke + a11y) has shipped** in v1.2.43 — `tests/e2e/`, driven against the
-  PR's Cloudflare Pages preview. Three follow-ups remain:
-  - **Promote `E2E` to a required check** once it has reported green on a real PR. Ruleset
-    `18273908`; the API `PUT` **replaces** the whole `rules` array, so GET it, add `E2E` to the
-    existing `required_status_checks` rule, and PUT the full array back. A partial PUT silently drops
-    the other branch protections.
+  PR's Cloudflare Pages preview. Two follow-ups remain:
   - **Part 2B (visual regression)** is still unbuilt — see
     `docs/superpowers/specs/2026-07-29-e2e-smoke-a11y-design.md`. Pin `@playwright/test` out of
     Dependabot's reach at that point, since a Playwright upgrade invalidates every screenshot
     baseline.
-  - **Schedule a11y remediation.** The committed baseline records **202** existing violations:
-    `region` 163, `color-contrast` 16, `nested-interactive` 9, `select-name` 6, `landmark-one-main` 4,
-    `page-has-heading-one` 4. By surface: board-brutal 67, board-cork 61, board-glass 60, login 10,
-    landing 3, settings 1. The `region` count dominates and is largely one structural cause (board
-    content not inside a landmark), so it is likely far less work than 163 suggests. Contrast sits
-    inside `theme/themeConf.ts`, a deliberate verbatim port of the prototype, so treat that as a
-    design decision rather than a defect.
+  - **A11y remediation has shipped.** The structural rules are cleared — `region`, `landmark-one-main`,
+    `page-has-heading-one` and `select-name`, 177 of the 202 originally baselined. What remains is
+    `color-contrast` 16 and `nested-interactive` 9, both deliberately deferred: contrast lives in
+    `theme/themeConf.ts`, a verbatim port of the prototype, and nested-interactive needs `src/dnd`
+    changes. See `docs/superpowers/specs/2026-07-30-a11y-landmarks-design.md`.
 - **No browser-level coverage of offline shell serving.** The service worker demonstrably serves
   precached assets with the network down, but Playwright's CDP offline emulation fails a top-level
   navigation before the worker is consulted, so the deployed offline-boot path cannot be exercised

@@ -250,7 +250,7 @@ export function Board({
         onDragCancel={dnd.onDragCancel}
       >
         <DragDisabledContext.Provider value={filterActive || readOnly}>
-          <div
+          <main
             style={{
               display: 'flex',
               gap: isMobile ? 10 : 18,
@@ -305,7 +305,7 @@ export function Board({
                 <Inbox tasks={visibleTasks} handlers={handlers} pop={pop} />
               </div>
             )}
-          </div>
+          </main>
         </DragDisabledContext.Provider>
 
         <DragOverlay>

@@ -154,3 +154,12 @@ test('refuses to redeem over an existing non-recovery session', () => {
   ).toBeInTheDocument()
   expect(h.verifyOtp).not.toHaveBeenCalled()
 })
+
+// ——— landmarks ———
+
+test('the reset-password card is a main landmark with the page heading', () => {
+  // Default beforeEach state (a live recovery session, no token) renders the form directly.
+  renderPage()
+  expect(screen.getByRole('main')).toBeInTheDocument()
+  expect(screen.getByRole('heading', { level: 1, name: 'Magic Agenda' })).toBeInTheDocument()
+})

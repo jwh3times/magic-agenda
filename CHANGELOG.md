@@ -12,6 +12,25 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.45] - 2026-07-30
+
+### Fixed
+
+- **Accessibility: every page now has landmarks and a level-one heading.** The board exposes
+  `banner` / `search` / `main` / `complementary`, the two filter selects and the search box have
+  accessible names, and the login, settings and legal pages have a `main` landmark. This clears 177
+  of the 202 violations the a11y baseline recorded.
+- The settings page was never actually being scanned for accessibility — the check raced the page
+  load and measured the loading spinner, which axe treats as an open modal and therefore exempts
+  from the page-level rules.
+
+### Changed
+
+- The a11y baseline records per-surface, per-rule counts instead of CSS selector paths, so it is no
+  longer invalidated by unrelated UI changes (810 lines to 42). Counts are asserted by strict
+  equality: a count that falls means the baseline is stale and the lower number should be committed.
+- `@axe-core/playwright` and `@playwright/test` are isolated in their own Dependabot group.
+
 ## [1.2.44] - 2026-07-30
 
 ### Security
@@ -1006,7 +1025,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.42...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.45...HEAD
+[1.2.45]: https://github.com/jwh3times/magic-agenda/compare/v1.2.44...v1.2.45
 [1.2.44]: https://github.com/jwh3times/magic-agenda/compare/v1.2.43...v1.2.44
 [1.2.43]: https://github.com/jwh3times/magic-agenda/compare/v1.2.42...v1.2.43
 [1.2.42]: https://github.com/jwh3times/magic-agenda/compare/v1.2.41...v1.2.42

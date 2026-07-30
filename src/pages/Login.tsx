@@ -118,12 +118,10 @@ export function Login() {
 
   return (
     <div style={authPage}>
-      <div style={authCard}>
-        <img
-          src={logoDark}
-          alt="Magic Agenda"
-          style={{ height: 110, display: 'block', margin: '0 0 6px' }}
-        />
+      <main style={authCard}>
+        <h1 style={{ margin: '0 0 6px' }}>
+          <img src={logoDark} alt="Magic Agenda" style={{ height: 110, display: 'block' }} />
+        </h1>
         <p style={{ margin: '0 0 22px', opacity: 0.55, fontSize: 14 }}>
           {mode === 'signin'
             ? 'Welcome back — sign in to your board.'
@@ -272,7 +270,7 @@ export function Login() {
             Terms
           </Link>
         </div>
-      </div>
+      </main>
     </div>
   )
 }
