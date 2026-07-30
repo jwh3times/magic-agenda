@@ -359,6 +359,17 @@ link shape and the URL convention are undocumented, so the pure derivation is un
 `scripts/preview-url.test.mjs` and fails loudly rather than guessing. The fallback, if Cloudflare
 changes either, is their deployments API with an API token.
 
+**Playwright traces are GPG-encrypted before upload, and that is not optional.** A trace records the
+Supabase request headers verbatim, including `authorization: Bearer <JWT>` in full for the E2E
+account — and this repository is public, so anything a job uploads is downloadable by anyone. It is
+the same constraint that makes `backup.yml` encrypt its dump, and the fix is deliberately the same
+shape (`--symmetric --cipher-algo AES256`, a no-op check, a round-trip check). If
+`E2E_TRACE_GPG_PASSPHRASE` is absent the traces are **discarded, not uploaded** — losing a debug
+artifact beats leaking a credential, and gpg would otherwise cheerfully "encrypt" with an empty
+passphrase. Do not replace this with a plain upload of `test-results/`. The general rule: **treat
+every artifact this repo uploads as public**, and check what a new one actually contains before
+adding it.
+
 E2E drives **one dedicated account in the production project**, so runs are serialised twice:
 `workers: 1` within a run, and a `concurrency` group across PRs — scoped to `pull_request` events, so
 a push to `main` (where the job only gate-skips) cannot occupy the group's single pending slot and

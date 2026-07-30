@@ -12,6 +12,21 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.44] - 2026-07-30
+
+### Security
+
+- **The end-to-end test debugging files are now encrypted before they are uploaded.** When one of
+  those browser tests fails, it saves a recording of the run to help diagnose it. That recording
+  turned out to include the login token for the dedicated test account, written out in full — and
+  because this repository is public, anything the build uploads can be downloaded by anyone. The
+  exposure was small (the token stops working after an hour, and it only ever had access to that one
+  throwaway test account, never to anyone's real data), but a working credential should not be
+  sitting in a world-readable file at all. The recording is now scrambled with a password before it
+  leaves the build, the same way the nightly database backups have been since v1.2.25. If that
+  password is missing the recording is **discarded rather than uploaded**, so the failure mode is
+  losing a debugging aid instead of leaking a credential.
+
 ## [1.2.43] - 2026-07-29
 
 ### Internal
@@ -992,6 +1007,7 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
 [Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.42...HEAD
+[1.2.44]: https://github.com/jwh3times/magic-agenda/compare/v1.2.43...v1.2.44
 [1.2.43]: https://github.com/jwh3times/magic-agenda/compare/v1.2.42...v1.2.43
 [1.2.42]: https://github.com/jwh3times/magic-agenda/compare/v1.2.41...v1.2.42
 [1.2.41]: https://github.com/jwh3times/magic-agenda/compare/v1.2.40...v1.2.41
