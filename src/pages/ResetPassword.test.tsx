@@ -163,3 +163,11 @@ test('the reset-password card is a main landmark with the page heading', () => {
   expect(screen.getByRole('main')).toBeInTheDocument()
   expect(screen.getByRole('heading', { level: 1, name: 'Magic Agenda' })).toBeInTheDocument()
 })
+
+test('the logo is fluid so it cannot overflow the card', () => {
+  // Default beforeEach state (a live recovery session, no token) renders the form directly.
+  renderPage()
+  const logo = screen.getByAltText('Magic Agenda')
+  expect(logo.style.maxWidth).toBe('100%')
+  expect(logo.style.height).toBe('auto')
+})

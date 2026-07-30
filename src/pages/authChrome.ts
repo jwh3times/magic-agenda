@@ -4,12 +4,32 @@ import type { CSSProperties } from 'react'
 export const authPage: CSSProperties = {
   minHeight: '100%',
   display: 'grid',
+  // Without an explicit column the implicit one is `auto`, which sizes to the item's max-content —
+  // and that is driven by the logo. authCard's `width: min(400px, 100%)` then resolves its 100%
+  // against that inflated column instead of the viewport, which is how a 390px phone ended up with
+  // a 400px card and 59px of horizontal page overflow. minmax(0, 1fr) caps the column at the
+  // container, so the percentage means what it looks like it means.
+  gridTemplateColumns: 'minmax(0, 1fr)',
   placeItems: 'center',
   padding: 20,
   background:
     'radial-gradient(1200px 600px at 70% -10%, rgba(124,92,255,.25), transparent 60%), #0b0f1f',
   fontFamily: 'system-ui, sans-serif',
   color: '#eaf0ff',
+}
+
+/**
+ * The wordmark on every auth card.
+ *
+ * `height: auto` is load-bearing, not a default. The source is 900×260, so a fixed `height: 110`
+ * gives a used width of 381px with no way to shrink — 37px past the card's 344px content box at
+ * every viewport width, and 59px past the viewport itself below ~450px. Clamping the width while
+ * keeping the fixed height would squash the image instead, because `object-fit` defaults to `fill`.
+ */
+export const authLogo: CSSProperties = {
+  maxWidth: '100%',
+  height: 'auto',
+  display: 'block',
 }
 
 export const authCard: CSSProperties = {

@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { errorMessage } from '../lib/errors'
 import { useAuth } from '../auth/AuthProvider'
 import { Spinner } from '../components/Spinner'
-import { authCard, authPage } from './authChrome'
+import { authCard, authLogo, authPage } from './authChrome'
 import logoDark from '../assets/logo-dark.svg'
 
 /**
@@ -52,7 +52,7 @@ export function AuthConfirm() {
       <div style={authPage}>
         <main style={authCard}>
           <h1 style={{ margin: '0 0 6px' }}>
-            <img src={logoDark} alt="Magic Agenda" style={{ height: 110, display: 'block' }} />
+            <img src={logoDark} alt="Magic Agenda" style={authLogo} />
           </h1>
           <p style={{ margin: '0 0 18px', fontSize: 14, lineHeight: 1.5, opacity: 0.75 }}>
             You’re already signed in, so this confirmation link wasn’t used.
@@ -70,7 +70,7 @@ export function AuthConfirm() {
       <div style={authPage}>
         <main style={authCard}>
           <h1 style={{ margin: '0 0 6px' }}>
-            <img src={logoDark} alt="Magic Agenda" style={{ height: 110, display: 'block' }} />
+            <img src={logoDark} alt="Magic Agenda" style={authLogo} />
           </h1>
           <p style={{ margin: '0 0 18px', fontSize: 14, lineHeight: 1.5, opacity: 0.75 }}>
             This confirmation link is invalid or has expired. Try signing in — if your account is
