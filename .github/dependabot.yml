@@ -90,6 +90,27 @@ updates:
         update-types:
           - "major"
 
+      # The E2E toolchain, isolated from the daily catch-all — all update types, not just majors.
+      #
+      # The `E2E` job CANNOT RUN on a Dependabot PR: GitHub withholds regular repository secrets
+      # from the `dependabot` actor, so HAS_SECRETS is "false", the gate step takes its
+      # `!= "true"` branch, and the job reports success having scanned nothing. An axe rule change
+      # or a bundled-Chromium change therefore merges green and lands red on the NEXT HUMAN PR —
+      # the same shape as the Changelog-backfill trap in AGENTS.md.
+      #
+      # The counts-keyed baseline does not defuse this. Selector-path churn stops mattering, but
+      # the old ratchet failed only on INCREASES and tolerated a bump that reduced a count; strict
+      # equality does not. A @playwright/test bump changes the bundled Chromium, which moves
+      # color-contrast counts in BOTH directions. Grouping makes such a change attributable to one
+      # obvious PR; it does not make it survivable.
+      #
+      # axe-core is transitive under @axe-core/playwright and Dependabot does not open
+      # indirect-only npm PRs, so naming the two direct packages captures the family.
+      e2e-toolchain:
+        patterns:
+          - "@axe-core/playwright"
+          - "@playwright/test"
+
       # One PR for all remaining minor + patch bumps; ungrouped majors (e.g.
       # @supabase/supabase-js, react-router, prettier, jsdom) open individually.
       npm-minor-and-patch:
