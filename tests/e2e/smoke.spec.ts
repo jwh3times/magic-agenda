@@ -155,3 +155,44 @@ test.describe('signed in', () => {
     await expect(page.getByText(SEEDED_TITLES[0])).toBeVisible()
   })
 })
+
+/**
+ * No horizontal overflow on a phone, on every route a signed-out visitor can reach.
+ *
+ * The bug this guards was live in production and invisible to every other layer: a 900×260 logo
+ * pinned to `height: 110` is 381px wide and cannot shrink, so /login, /auth/reset and /auth/confirm
+ * each pushed the document 59px past a 390px viewport. The a11y scan cannot see it — axe has no
+ * rule for "wider than the viewport" — and jsdom cannot, having no layout engine.
+ *
+ * The h1 wait is not decoration. Several of these routes render a full-screen `<Spinner/>` while
+ * loading, and a fixed-position overlay does NOT overflow horizontally — so scanning too early
+ * would pass vacuously against a loading screen. Every one of the six routes has exactly one
+ * level-one heading once it has rendered.
+ */
+test.describe('phone-width layout', () => {
+  test.use({
+    storageState: { cookies: [], origins: [] },
+    viewport: { width: 390, height: 844 },
+  })
+
+  const PUBLIC_ROUTES = ['/', '/login', '/privacy', '/terms', '/auth/reset', '/auth/confirm']
+
+  for (const route of PUBLIC_ROUTES) {
+    test(`${route} does not overflow horizontally at 390px`, async ({ page }) => {
+      await page.goto(route)
+      await page.getByRole('heading', { level: 1 }).first().waitFor()
+      await page.evaluate(async () => {
+        await document.fonts.ready
+      })
+      const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        clientWidth: document.documentElement.clientWidth,
+      }))
+      expect(
+        scrollWidth,
+        `${route} is ${scrollWidth - clientWidth}px wider than the 390px viewport. Something in ` +
+          'the page cannot shrink — check for a fixed-width or intrinsically-sized element.',
+      ).toBeLessThanOrEqual(clientWidth)
+    })
+  }
+})
