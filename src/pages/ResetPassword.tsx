@@ -48,12 +48,10 @@ export function ResetPassword() {
   if (!showForm && session) {
     return (
       <div style={authPage}>
-        <div style={authCard}>
-          <img
-            src={logoDark}
-            alt="Magic Agenda"
-            style={{ height: 110, display: 'block', margin: '0 0 6px' }}
-          />
+        <main style={authCard}>
+          <h1 style={{ margin: '0 0 6px' }}>
+            <img src={logoDark} alt="Magic Agenda" style={{ height: 110, display: 'block' }} />
+          </h1>
           <p style={{ margin: '0 0 18px', fontSize: 14, lineHeight: 1.5, opacity: 0.75 }}>
             You’re already signed in, so this reset link wasn’t used. To reset a password, sign out
             first and request a new link.
@@ -61,7 +59,7 @@ export function ResetPassword() {
           <Link to="/" style={{ color: '#a78bfa', fontWeight: 700, fontSize: 14 }}>
             Back to your board
           </Link>
-        </div>
+        </main>
       </div>
     )
   }
@@ -71,12 +69,10 @@ export function ResetPassword() {
   if (!showForm) {
     return (
       <div style={authPage}>
-        <div style={authCard}>
-          <img
-            src={logoDark}
-            alt="Magic Agenda"
-            style={{ height: 110, display: 'block', margin: '0 0 6px' }}
-          />
+        <main style={authCard}>
+          <h1 style={{ margin: '0 0 6px' }}>
+            <img src={logoDark} alt="Magic Agenda" style={{ height: 110, display: 'block' }} />
+          </h1>
           <p style={{ margin: '0 0 18px', fontSize: 14, lineHeight: 1.5, opacity: 0.75 }}>
             This password reset link is invalid or has expired. Request a new one from the sign-in
             page.
@@ -84,7 +80,7 @@ export function ResetPassword() {
           <Link to="/login" style={{ color: '#a78bfa', fontWeight: 700, fontSize: 14 }}>
             Back to sign in
           </Link>
-        </div>
+        </main>
       </div>
     )
   }
@@ -116,12 +112,10 @@ export function ResetPassword() {
 
   return (
     <div style={authPage}>
-      <div style={authCard}>
-        <img
-          src={logoDark}
-          alt="Magic Agenda"
-          style={{ height: 110, display: 'block', margin: '0 0 6px' }}
-        />
+      <main style={authCard}>
+        <h1 style={{ margin: '0 0 6px' }}>
+          <img src={logoDark} alt="Magic Agenda" style={{ height: 110, display: 'block' }} />
+        </h1>
         <p style={{ margin: '0 0 22px', opacity: 0.55, fontSize: 14 }}>
           Choose a new password for your account.
         </p>
@@ -155,7 +149,7 @@ export function ResetPassword() {
             {busy ? 'Please wait…' : 'Set new password'}
           </button>
         </form>
-      </div>
+      </main>
     </div>
   )
 }
