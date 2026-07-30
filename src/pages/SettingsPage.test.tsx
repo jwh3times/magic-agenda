@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, expect, test, vi } from 'vitest'
@@ -93,4 +93,17 @@ test('a sessionless offline visitor with a remembered id still sees the page, no
   h.auth.user = null
   renderPage()
   expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument()
+})
+
+test('the settings sections sit in a main landmark that preserves their spacing', async () => {
+  renderPage()
+  const main = await screen.findByRole('main')
+  // Not decoration. The wrapper takes over as the flex item for all four cards, and `card` sets no
+  // margin — without these the inter-card gaps collapse to zero and no role-based query notices.
+  expect(main).toHaveStyle({ display: 'flex', flexDirection: 'column', gap: '16px' })
+  expect(within(main).getByRole('heading', { level: 2, name: 'Appearance' })).toBeInTheDocument()
+  // header and footer must stay OUTSIDE main: <header>/<footer> map to banner/contentinfo only
+  // while not nested in sectioning content, and <main> is sectioning content.
+  expect(screen.getByRole('banner')).toBeInTheDocument()
+  expect(screen.getByRole('contentinfo')).toBeInTheDocument()
 })
