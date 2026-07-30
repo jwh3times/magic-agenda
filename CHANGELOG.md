@@ -12,6 +12,25 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.45]
+
+### Fixed
+
+- **Accessibility: every page now has landmarks and a level-one heading.** The board exposes
+  `banner` / `search` / `main` / `complementary`, the two filter selects and the search box have
+  accessible names, and the login, settings and legal pages have a `main` landmark. This clears 177
+  of the 202 violations the a11y baseline recorded.
+- The settings page was never actually being scanned for accessibility — the check raced the page
+  load and measured the loading spinner, which axe treats as an open modal and therefore exempts
+  from the page-level rules.
+
+### Changed
+
+- The a11y baseline records per-surface, per-rule counts instead of CSS selector paths, so it is no
+  longer invalidated by unrelated UI changes (810 lines to 42). Counts are asserted by strict
+  equality: a count that falls means the baseline is stale and the lower number should be committed.
+- `@axe-core/playwright` and `@playwright/test` are isolated in their own Dependabot group.
+
 ## [1.2.44] - 2026-07-30
 
 ### Security
