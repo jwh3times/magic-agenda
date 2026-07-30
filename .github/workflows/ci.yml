@@ -226,3 +226,92 @@ jobs:
           S3_SECRET_KEY: dummy-secret-key
       - name: Run the RLS suite
         run: npm run test:rls
+
+  E2E:
+    runs-on: ubuntu-latest
+    # A job-level block REPLACES the workflow default, so contents: read is restated here.
+    permissions:
+      contents: read
+      # scripts/preview-url.mjs reads the Cloudflare Pages check run to find the preview URL.
+      checks: read
+    # One shared production test account, so runs must not overlap across PRs.
+    # cancel-in-progress: false because a half-run suite leaves the account mid-seed.
+    #
+    # The group is scoped to pull_request events. This workflow also runs on push to main, where the
+    # job gate-skips in seconds -- but it would still JOIN the group, and GitHub keeps only one
+    # pending run per group. A merge landing while one PR's suite runs and another waits would evict
+    # the waiting PR's job, so every busy merge would wedge a queued PR once this check is required.
+    # Off-PR runs therefore get a per-run group of their own, which contends with nothing.
+    #
+    # ACCEPTED COST, unchanged: with three or more PRs queued, the middle one is still cancelled and
+    # needs a manual re-run.
+    concurrency:
+      group: ${{ github.event_name == 'pull_request' && 'e2e-prod-account' || format('e2e-noop-{0}', github.run_id) }}
+      cancel-in-progress: false
+    timeout-minutes: 25
+    steps:
+      # All three skips report SUCCESS from inside a step, never a job-level `if:`. A required check
+      # that never runs leaves a PR unmergeable forever -- the same rule the Changelog job follows.
+      #
+      # The gate runs FIRST, before checkout and npm ci: it needs neither, and every push to main
+      # plus every Dependabot PR would otherwise pay a full install to decide to do nothing.
+      - name: Decide whether to run
+        id: gate
+        env:
+          HAS_SECRETS: ${{ secrets.E2E_TEST_EMAIL != '' }}
+          IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "Not a pull_request event ($EVENT): there is no preview to test. Skipping."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          elif [ "$IS_FORK" = "true" ]; then
+            echo "Fork PR: Cloudflare builds no preview and secrets are unavailable. Skipping."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          elif [ "$HAS_SECRETS" != "true" ]; then
+            echo "No E2E secrets available (Dependabot or unconfigured repo). Skipping."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v7
+        if: steps.gate.outputs.run == 'true'
+      - uses: actions/setup-node@v7
+        if: steps.gate.outputs.run == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+        if: steps.gate.outputs.run == 'true'
+
+      - name: Install Chromium
+        if: steps.gate.outputs.run == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Resolve the preview URL
+        if: steps.gate.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          URL="$(node scripts/preview-url.mjs "${{ github.event.pull_request.head.sha }}")"
+          echo "Preview: $URL"
+          echo "E2E_BASE_URL=$URL" >> "$GITHUB_ENV"
+
+      - name: Run the E2E suite
+        if: steps.gate.outputs.run == 'true'
+        env:
+          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+          E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          E2E_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+        run: npm run test:e2e
+
+      - name: Upload traces on failure
+        if: failure() && steps.gate.outputs.run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7
