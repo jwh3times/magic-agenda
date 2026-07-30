@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   baselineFor,
@@ -119,5 +121,23 @@ describe('formatFindings', () => {
 
   it('says so explicitly when there is nothing to list', () => {
     expect(formatFindings([])).toBe('  (no violations)')
+  })
+})
+
+describe('the committed baseline', () => {
+  // The validator itself only runs inside tests/e2e/a11y.spec.ts, which needs a deployed preview
+  // and the E2E account's credentials. Without this, a malformed baseline is discovered by a red
+  // required check on a PR rather than by `npm test` on a laptop.
+  it('parses, and names only labels the suite scans', () => {
+    const raw = readFileSync(path.join('tests', 'e2e', 'a11y-baseline.json'), 'utf8')
+    const entries = parseBaseline(raw, [
+      'landing',
+      'login',
+      'settings',
+      'board-cork',
+      'board-brutal',
+      'board-glass',
+    ])
+    expect(entries.length).toBeGreaterThan(0)
   })
 })
