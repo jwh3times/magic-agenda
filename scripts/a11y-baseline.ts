@@ -13,6 +13,20 @@ export interface BaselineEntry {
   count: number
 }
 
+// Every surface tests/e2e/a11y.spec.ts scans. parseBaseline() rejects any baseline entry whose
+// label is not in this list, and the afterAll writer refuses to run unless all of them scanned in
+// THIS worker. Exported so scripts/a11y-baseline.test.ts's "the committed baseline" test asserts
+// against the same list a11y.spec.ts actually uses, rather than a second hard-coded copy that would
+// silently accept a stale entry if a surface were renamed or dropped.
+export const EXPECTED_LABELS = [
+  'landing',
+  'login',
+  'settings',
+  'board-cork',
+  'board-brutal',
+  'board-glass',
+] as const
+
 export interface Finding {
   /** Its own field, deliberately NOT parsed back out of `target`: axe targets are full of colons. */
   label: string
@@ -98,14 +112,17 @@ export function baselineFor(entries: readonly BaselineEntry[], label: string): R
   return counts
 }
 
-/** Builds a baseline from raw findings — the `E2E_A11Y_UPDATE_BASELINE=1` writer path. */
+/**
+ * Builds a baseline from raw findings — the `E2E_A11Y_UPDATE_BASELINE=1` writer path.
+ *
+ * Deliberately counts every finding, with no de-duplication: `tally()` (what the asserting run
+ * compares against) doesn't de-dupe either, and the two must agree. If axe ever emits two nodes
+ * with the same joined target under one rule, de-duplicating here alone would record N-1 while the
+ * asserter computes N — a permanent red that regenerating the baseline could never clear.
+ */
 export function toBaseline(findings: readonly Finding[]): BaselineEntry[] {
-  const unique = new Map<string, Finding>()
-  for (const finding of findings) {
-    unique.set(`${finding.label} ${finding.ruleId} ${finding.target}`, finding)
-  }
   const entries = new Map<string, BaselineEntry>()
-  for (const finding of unique.values()) {
+  for (const finding of findings) {
     const key = `${finding.label} ${finding.ruleId}`
     const existing = entries.get(key)
     if (existing) existing.count += 1

@@ -18,6 +18,16 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
+  // scripts/a11y-baseline.test.ts is swept in here deliberately, not by oversight. Contrast
+  // tsconfig.worker.json, which deliberately keeps src/sw/policy.test.ts OUT of its project for the
+  // same class of risk this repo has been bitten by before: a test file that typechecks under a
+  // project only by accident, where the first ambient-globals or DOM-typed assertion added to it
+  // fails tsc -b with a baffling error from a project the test has no business being in. This file
+  // stays in `include` anyway because dropping it would leave it typechecked by no project at all —
+  // there's no ambient-DOM project it could move to instead, unlike policy.test.ts (which nothing
+  // here needs, since a11y-baseline.test.ts only imports node:fs, node:path and vitest). If it ever
+  // needs jsdom or browser-only ambient types, split it out the way policy.test.ts was rather than
+  // widening this project's `lib`.
   "include": [
     "vite.config.ts",
     "vitest.rls.config.ts",

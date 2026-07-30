@@ -5,6 +5,7 @@ import path from 'node:path'
 import { seedBoard, SEEDED_TITLES, type Theme } from './fixtures/seedBoard'
 import {
   baselineFor,
+  EXPECTED_LABELS,
   formatFindings,
   parseBaseline,
   tally,
@@ -25,17 +26,6 @@ import {
 //
 // The baseline is JSON and takes no comments, which is why this note lives here.
 const BASELINE = path.join('tests', 'e2e', 'a11y-baseline.json')
-
-// Every surface this file scans. parseBaseline() rejects any baseline entry whose label is not in
-// this list, and the afterAll writer refuses to run unless all of them scanned in THIS worker.
-const EXPECTED_LABELS = [
-  'landing',
-  'login',
-  'settings',
-  'board-cork',
-  'board-brutal',
-  'board-glass',
-] as const
 
 /**
  * page.clock does NOT freeze CSS animations — they run on the compositor's own timeline. The glass
@@ -153,6 +143,11 @@ test.describe('signed out', () => {
 
   test('landing matches the a11y baseline', async ({ page }) => {
     await page.goto('/')
+    // NOT a redundant wait — same reason as the settings wait above. `/` routes through HomeRoute
+    // (src/App.tsx), which renders <Spinner/> while auth is loading, and axe's isModalOpen()
+    // heuristic passes landmark-one-main and page-has-heading-one for free against a full-screen
+    // Spinner. Wait for real content before scanning.
+    await page.getByRole('heading', { name: 'Your week, on sticky notes.' }).waitFor()
     await settle(page)
     await scanAndAssert(page, 'landing')
   })

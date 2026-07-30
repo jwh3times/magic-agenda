@@ -3,6 +3,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   baselineFor,
+  EXPECTED_LABELS,
   formatFindings,
   parseBaseline,
   tally,
@@ -107,9 +108,12 @@ describe('toBaseline', () => {
     ])
   })
 
-  it('de-duplicates identical label+rule+target triples', () => {
+  // toBaseline() must agree with tally(): both count every finding, with no de-duplication. If axe
+  // ever emits two nodes with the same joined target under one rule, de-duplicating only here would
+  // record N-1 while the asserter (tally()) computes N — a permanent, unfixable red.
+  it('counts every finding, even with an identical label+rule+target triple', () => {
     const found = [f('login', 'region', 'p'), f('login', 'region', 'p')]
-    expect(toBaseline(found)).toEqual([{ label: 'login', ruleId: 'region', count: 1 }])
+    expect(toBaseline(found)).toEqual([{ label: 'login', ruleId: 'region', count: 2 }])
   })
 })
 
@@ -128,16 +132,16 @@ describe('the committed baseline', () => {
   // The validator itself only runs inside tests/e2e/a11y.spec.ts, which needs a deployed preview
   // and the E2E account's credentials. Without this, a malformed baseline is discovered by a red
   // required check on a PR rather than by `npm test` on a laptop.
+  //
+  // The length assertion is deliberate and load-bearing, not a sanity check left over from
+  // scaffolding: under count equality `[]` is a legitimate PASSING baseline ("expect zero
+  // violations everywhere"), so a deleted or truncated file is otherwise indistinguishable from
+  // total success. When the last baselined violation is genuinely cleared, whoever deletes the
+  // final entry SHOULD be forced to touch this line and think about whether that's really what
+  // happened. Do not weaken or remove it.
   it('parses, and names only labels the suite scans', () => {
     const raw = readFileSync(path.join('tests', 'e2e', 'a11y-baseline.json'), 'utf8')
-    const entries = parseBaseline(raw, [
-      'landing',
-      'login',
-      'settings',
-      'board-cork',
-      'board-brutal',
-      'board-glass',
-    ])
+    const entries = parseBaseline(raw, EXPECTED_LABELS)
     expect(entries.length).toBeGreaterThan(0)
   })
 })
