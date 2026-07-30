@@ -68,10 +68,28 @@ were added as their own effort rather than a roadmap feature — see
   platform itself creates in `public` are therefore still auto-granted. Closing it needs the
   dashboard or Supabase support. Narrow in practice — this project's tables are all created as
   `postgres` — but it is the one part of the boundary that no test or migration here can reach.
-- **Part 2 (Playwright end-to-end coverage)** of the same effort is specced but not yet built —
-  see `docs/superpowers/specs/2026-07-28-test-coverage-rls-and-e2e-design.md`. Part 1 already
-  widened the unit suite's exclude to `tests/**`, so `tests/e2e/` will not be swept into
-  `npm test`.
+- **Part 2A (Playwright smoke + a11y) has shipped** in v1.2.43 — `tests/e2e/`, driven against the
+  PR's Cloudflare Pages preview. Three follow-ups remain:
+  - **Promote `E2E` to a required check** once it has reported green on a real PR. Ruleset
+    `18273908`; the API `PUT` **replaces** the whole `rules` array, so GET it, add `E2E` to the
+    existing `required_status_checks` rule, and PUT the full array back. A partial PUT silently drops
+    the other branch protections.
+  - **Part 2B (visual regression)** is still unbuilt — see
+    `docs/superpowers/specs/2026-07-29-e2e-smoke-a11y-design.md`. Pin `@playwright/test` out of
+    Dependabot's reach at that point, since a Playwright upgrade invalidates every screenshot
+    baseline.
+  - **Schedule a11y remediation.** The committed baseline records **202** existing violations:
+    `region` 163, `color-contrast` 16, `nested-interactive` 9, `select-name` 6, `landmark-one-main` 4,
+    `page-has-heading-one` 4. By surface: board-brutal 67, board-cork 61, board-glass 60, login 10,
+    landing 3, settings 1. The `region` count dominates and is largely one structural cause (board
+    content not inside a landmark), so it is likely far less work than 163 suggests. Contrast sits
+    inside `theme/themeConf.ts`, a deliberate verbatim port of the prototype, so treat that as a
+    design decision rather than a defect.
+- **No browser-level coverage of offline shell serving.** The service worker demonstrably serves
+  precached assets with the network down, but Playwright's CDP offline emulation fails a top-level
+  navigation before the worker is consulted, so the deployed offline-boot path cannot be exercised
+  from this suite. `src/sw/policy.test.ts` covers the policy; the end-to-end behaviour is verified
+  by hand. Worth revisiting if Playwright's offline emulation changes.
 
 ## Conventions that apply to every item
 

@@ -12,6 +12,22 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.43] - 2026-07-29
+
+### Internal
+
+- Every pull request now loads the real deployed site in a browser and checks that it still works.
+  Until now the automated tests all ran against mocks, which meant a whole class of problem was
+  invisible: anything that only breaks on the real hosting. That is not hypothetical — the bug that
+  silently replaced the site's fonts with system defaults shipped **twice**, because it cannot be
+  reproduced locally and only affects people on their *second* visit. The new checks catch it, along
+  with sign-in, creating a task and having it survive a reload, and the board still rendering from
+  its saved copy when the server cannot be reached.
+- Added an accessibility check to the same run. It scans six screens — the landing page, sign-in,
+  settings, and the board in all three themes — and records the 202 issues that exist today so it
+  can flag anything **new**. Fixing the existing ones is deliberately separate work; this stops the
+  count growing in the meantime.
+
 ## [1.2.42] - 2026-07-29
 
 ### Security
@@ -976,6 +992,7 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
 [Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.42...HEAD
+[1.2.43]: https://github.com/jwh3times/magic-agenda/compare/v1.2.42...v1.2.43
 [1.2.42]: https://github.com/jwh3times/magic-agenda/compare/v1.2.41...v1.2.42
 [1.2.41]: https://github.com/jwh3times/magic-agenda/compare/v1.2.40...v1.2.41
 [1.2.40]: https://github.com/jwh3times/magic-agenda/compare/v1.2.39...v1.2.40
