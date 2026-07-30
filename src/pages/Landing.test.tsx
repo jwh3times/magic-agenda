@@ -97,3 +97,11 @@ test('renders real task cards from the mock board, not placeholder text', async 
 // renders resolve synchronously — the assertion would pass or fail based on test order, not on
 // behaviour. That the preview is a separate chunk is a build property, visible in the build output
 // (BoardPreview / TaskCard / chunk sizes) rather than in jsdom.
+
+// An unnamed <section> is not a landmark, so everything inside it fails axe's `region` rule. The two
+// names must DIFFER — identical role+name pairs would fail `landmark-unique` instead.
+test('both content sections are named landmarks', () => {
+  renderLanding()
+  expect(screen.getByRole('region', { name: 'Live board preview' })).toBeInTheDocument()
+  expect(screen.getByRole('region', { name: 'Features' })).toBeInTheDocument()
+})

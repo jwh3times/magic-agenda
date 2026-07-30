@@ -24,31 +24,35 @@ export function LegalLayout({
       }}
     >
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
-        <a href="/" aria-label="Magic Agenda home" style={{ display: 'inline-block' }}>
-          <img src={logoDark} alt="Magic Agenda" style={{ height: 30, display: 'block' }} />
-        </a>
-        <h1 style={{ fontFamily: "'Caveat', cursive", fontSize: 44, margin: '18px 0 2px' }}>
-          {title}
-        </h1>
-        <p style={{ opacity: 0.5, fontSize: 13, margin: '0 0 28px' }}>
-          Last updated: {lastUpdated}
-        </p>
-        <div style={{ fontSize: 15, lineHeight: 1.65 }}>{children}</div>
-        <div
-          style={{
-            marginTop: 40,
-            paddingTop: 18,
-            borderTop: '1px solid rgba(255,255,255,.1)',
-            fontSize: 13,
-            opacity: 0.6,
-          }}
-        >
-          Questions about this policy? Contact{' '}
-          <a href="mailto:jerryholland00@gmail.com" style={link}>
-            jerryholland00@gmail.com
+        <header>
+          <a href="/" aria-label="Magic Agenda home" style={{ display: 'inline-block' }}>
+            <img src={logoDark} alt="Magic Agenda" style={{ height: 30, display: 'block' }} />
           </a>
-          .
-        </div>
+        </header>
+        <main>
+          <h1 style={{ fontFamily: "'Caveat', cursive", fontSize: 44, margin: '18px 0 2px' }}>
+            {title}
+          </h1>
+          <p style={{ opacity: 0.5, fontSize: 13, margin: '0 0 28px' }}>
+            Last updated: {lastUpdated}
+          </p>
+          <div style={{ fontSize: 15, lineHeight: 1.65 }}>{children}</div>
+          <div
+            style={{
+              marginTop: 40,
+              paddingTop: 18,
+              borderTop: '1px solid rgba(255,255,255,.1)',
+              fontSize: 13,
+              opacity: 0.6,
+            }}
+          >
+            Questions about this policy? Contact{' '}
+            <a href="mailto:jerryholland00@gmail.com" style={link}>
+              jerryholland00@gmail.com
+            </a>
+            .
+          </div>
+        </main>
       </div>
     </div>
   )

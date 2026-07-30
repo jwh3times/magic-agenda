@@ -152,7 +152,7 @@ export function Landing() {
           </div>
         </main>
 
-        <section style={{ marginTop: isMobile ? 32 : 44 }}>
+        <section aria-label="Live board preview" style={{ marginTop: isMobile ? 32 : 44 }}>
           <Suspense
             fallback={
               <div
@@ -208,6 +208,7 @@ export function Landing() {
         </section>
 
         <section
+          aria-label="Features"
           style={{
             display: 'grid',
             gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, minmax(0, 1fr))',
