@@ -308,10 +308,68 @@ jobs:
           E2E_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
         run: npm run test:e2e
 
-      - name: Upload traces on failure
+      # Playwright traces are ENCRYPTED before upload, for the same reason backup.yml encrypts its
+      # dump: this repository is public, and GitHub artifacts on public repos are downloadable by
+      # anyone. A trace is not innocuous -- it stores the Supabase request headers verbatim,
+      # including `authorization: Bearer <JWT>` in full (measured: 814 chars) for the E2E account.
+      # The token expires after jwt_expiry (3600s) while the artifact lives for days, so the window
+      # is small and RLS still bounds it to that one throwaway account -- but a live credential in a
+      # world-readable artifact is not something to ship knowingly. Never replace this with a plain
+      # upload of test-results/.
+      - name: Encrypt the traces
+        id: traces
         if: failure() && steps.gate.outputs.run == 'true'
-        uses: actions/upload-artifact@v4
+        env:
+          E2E_TRACE_GPG_PASSPHRASE: ${{ secrets.E2E_TRACE_GPG_PASSPHRASE }}
+        run: |
+          if [ ! -d test-results ] || [ -z "$(ls -A test-results 2>/dev/null)" ]; then
+            echo "No traces were produced; nothing to upload."
+            echo "encrypted=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Deliberately a SKIP, not a failure. gpg would happily "encrypt" with an empty passphrase,
+          # producing a bundle anyone can open, and failing here would turn a test failure into a
+          # confusing infrastructure failure on a required check. Losing a debug artifact is the
+          # right trade against leaking one.
+          if [ -z "$E2E_TRACE_GPG_PASSPHRASE" ]; then
+            echo "::notice::E2E_TRACE_GPG_PASSPHRASE is not set, so traces cannot be encrypted and will NOT be uploaded. Add that repository secret to get failure traces back."
+            rm -rf test-results
+            echo "encrypted=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          bundle="e2e-traces-${{ github.run_id }}-${{ github.run_attempt }}.tar.gz"
+          tar -czf "$bundle" -C test-results .
+          printf '%s' "$E2E_TRACE_GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback \
+            --passphrase-fd 0 --symmetric --cipher-algo AES256 -o "$bundle.gpg" "$bundle"
+
+          # Paranoia, cheaply: if gpg silently no-opped, the output would still be a readable tarball.
+          if tar -tzf "$bundle.gpg" >/dev/null 2>&1; then
+            echo "::error::The encrypted bundle is still a readable tarball — refusing to upload."
+            exit 1
+          fi
+
+          # An artifact that cannot be opened is useless. Round-trip it here, where failing is cheap.
+          printf '%s' "$E2E_TRACE_GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback \
+            --passphrase-fd 0 --decrypt -o roundtrip.tar.gz "$bundle.gpg"
+          if ! tar -tzf roundtrip.tar.gz >/dev/null 2>&1; then
+            echo "::error::Round-trip decryption did not yield a readable tarball."
+            exit 1
+          fi
+
+          # Leave ONLY the ciphertext on disk.
+          rm -rf test-results roundtrip.tar.gz "$bundle"
+          echo "bundle=$bundle.gpg" >> "$GITHUB_OUTPUT"
+          echo "encrypted=true" >> "$GITHUB_OUTPUT"
+          echo "Encrypted traces: $bundle.gpg ($(wc -c < "$bundle.gpg") bytes)"
+          echo "Decrypt with: gpg --decrypt --output traces.tar.gz $bundle.gpg"
+
+      - name: Upload the encrypted traces
+        if: failure() && steps.traces.outputs.encrypted == 'true'
+        uses: actions/upload-artifact@v7
         with:
-          name: playwright-traces
-          path: test-results/
+          name: playwright-traces-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.traces.outputs.bundle }}
           retention-days: 7
+          if-no-files-found: error
