@@ -36,3 +36,25 @@ test('the Today button shows the overdue count when nonzero', () => {
   renderToolbar({ showNav: true, navLabel: 'July 2026', overdueCount: 3 })
   expect(screen.getByRole('button', { name: 'Today (3)' })).toBeInTheDocument()
 })
+
+test('the toolbar is a banner landmark carrying the page heading', () => {
+  renderToolbar()
+  expect(screen.getByRole('banner')).toBeInTheDocument()
+  expect(screen.getByRole('heading', { level: 1, name: 'Magic Agenda' })).toBeInTheDocument()
+})
+
+// jsdom has no matchMedia, so the test above renders the desktop branch. The mobile branch is a
+// separate JSX tree and needs the same treatment or the phone layout keeps failing both rules.
+test('the mobile toolbar is a banner landmark carrying the page heading', () => {
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn(() => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} })),
+  )
+  try {
+    renderToolbar()
+    expect(screen.getByRole('banner')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Magic Agenda' })).toBeInTheDocument()
+  } finally {
+    vi.unstubAllGlobals()
+  }
+})

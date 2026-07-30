@@ -46,7 +46,7 @@ export function Toolbar({
     // container sizes its line to the widest row's content, blowing every row past the
     // viewport (and keeping the switcher row's overflow-x from ever engaging).
     return (
-      <div
+      <header
         style={{
           ...c.toolbar,
           flexDirection: 'column',
@@ -57,19 +57,22 @@ export function Toolbar({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-          <img
-            src={logoDark}
-            alt="Magic Agenda"
-            style={{
-              height: 44,
-              display: 'block',
-              // Shrinkable (unlike the buttons) so the row always fits the viewport.
-              flex: '0 1 auto',
-              minWidth: 0,
-              objectFit: 'contain',
-              objectPosition: 'left center',
-            }}
-          />
+          <h1 style={{ margin: 0, flex: '0 1 auto', minWidth: 0 }}>
+            <img
+              src={logoDark}
+              alt="Magic Agenda"
+              style={{
+                height: 44,
+                display: 'block',
+                // Shrinkable (unlike the buttons) so the row always fits the viewport. The flex
+                // properties moved to the <h1> when it became the flex item; maxWidth keeps the
+                // image itself shrinking with it.
+                maxWidth: '100%',
+                objectFit: 'contain',
+                objectPosition: 'left center',
+              }}
+            />
+          </h1>
           <div style={{ flex: 1 }} />
           <button
             type="button"
@@ -127,18 +130,16 @@ export function Toolbar({
             </button>
           </div>
         )}
-      </div>
+      </header>
     )
   }
 
   return (
-    <div style={c.toolbar}>
+    <header style={c.toolbar}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 }}>
-        <img
-          src={logoDark}
-          alt="Magic Agenda"
-          style={{ height: 80, display: 'block', flex: 'none' }}
-        />
+        <h1 style={{ margin: 0, flex: 'none' }}>
+          <img src={logoDark} alt="Magic Agenda" style={{ height: 80, display: 'block' }} />
+        </h1>
         <ViewSwitcher views={views} view={view} onChange={onChangeView} />
         {showNav && (
           <div style={c.navGroup}>
@@ -182,6 +183,6 @@ export function Toolbar({
           </button>
         )}
       </div>
-    </div>
+    </header>
   )
 }

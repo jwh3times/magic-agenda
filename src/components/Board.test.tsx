@@ -273,3 +273,11 @@ test('week view highlights the cell for the configured today, not the browser cl
     vi.useRealTimers()
   }
 })
+
+test('the board exposes the landmarks a screen reader navigates by', () => {
+  renderBoard()
+  expect(screen.getByRole('banner')).toBeInTheDocument()
+  expect(screen.getByRole('search')).toBeInTheDocument()
+  expect(screen.getByRole('main')).toBeInTheDocument()
+  expect(screen.getByRole('complementary', { name: 'Inbox' })).toBeInTheDocument()
+})

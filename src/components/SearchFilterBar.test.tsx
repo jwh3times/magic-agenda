@@ -29,3 +29,11 @@ test('when pinned is active, the button reflects its active state and toggles of
   await userEvent.click(button)
   expect(onChange).toHaveBeenCalledWith({ ...query, pinned: false })
 })
+
+test('the filter bar is a search landmark and every control has an accessible name', () => {
+  renderBar(EMPTY_FILTER, vi.fn())
+  expect(screen.getByRole('search')).toBeInTheDocument()
+  expect(screen.getByRole('combobox', { name: 'Filter by category' })).toBeInTheDocument()
+  expect(screen.getByRole('combobox', { name: 'Filter by status' })).toBeInTheDocument()
+  expect(screen.getByRole('textbox', { name: 'Search tasks' })).toBeInTheDocument()
+})
