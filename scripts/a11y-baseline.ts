@@ -32,6 +32,12 @@ export interface Finding {
   label: string
   ruleId: string
   target: string
+  /**
+   * Human-readable extra context for the log line and the failure message — today, the colours
+   * behind a color-contrast violation. Deliberately NOT part of the count key: tally(),
+   * baselineFor() and toBaseline() all ignore it, so a11y-baseline.json's format does not move.
+   */
+  detail?: string
 }
 
 export type RuleCounts = Record<string, number>
@@ -133,6 +139,29 @@ export function toBaseline(findings: readonly Finding[]): BaselineEntry[] {
   )
 }
 
+/** As much of axe's color-contrast check data as the log needs. */
+export interface ContrastData {
+  fgColor?: string
+  bgColor?: string
+  contrastRatio?: number
+  expectedContrastRatio?: string
+}
+
+/**
+ * `#8a8a8a on #f4e4c1 — 2.9:1 (needs 4.5:1)`.
+ *
+ * The count-keyed baseline cannot distinguish one contrast failure from another at equal count —
+ * that trade is recorded in the design spec. This is the compensation: the colours reach the CI log,
+ * which is what makes the deferred contrast redesign easy to start, and they cost nothing because
+ * axe already returns them.
+ */
+export function formatContrast(data: ContrastData | undefined): string | undefined {
+  if (!data?.fgColor || !data.bgColor) return undefined
+  const ratio = typeof data.contrastRatio === 'number' ? `${data.contrastRatio}:1` : 'unknown ratio'
+  const needs = data.expectedContrastRatio ? ` (needs ${data.expectedContrastRatio})` : ''
+  return `${data.fgColor} on ${data.bgColor} — ${ratio}${needs}`
+}
+
 /**
  * Counts alone do not say WHICH node regressed. This goes into the assertion's message argument and
  * into the unconditional log line, so the precision the count format drops is still on screen.
@@ -141,6 +170,10 @@ export function formatFindings(findings: readonly Finding[]): string {
   if (!findings.length) return '  (no violations)'
   return [...findings]
     .sort((a, b) => a.ruleId.localeCompare(b.ruleId) || a.target.localeCompare(b.target))
-    .map((finding) => `  ${finding.ruleId}  ${finding.target}`)
+    .flatMap((finding) =>
+      finding.detail
+        ? [`  ${finding.ruleId}  ${finding.target}`, `                  ${finding.detail}`]
+        : [`  ${finding.ruleId}  ${finding.target}`],
+    )
     .join('\n')
 }

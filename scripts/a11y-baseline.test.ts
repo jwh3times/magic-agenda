@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import {
   baselineFor,
   EXPECTED_LABELS,
+  formatContrast,
   formatFindings,
   parseBaseline,
   tally,
@@ -125,6 +126,49 @@ describe('formatFindings', () => {
 
   it('says so explicitly when there is nothing to list', () => {
     expect(formatFindings([])).toBe('  (no violations)')
+  })
+})
+
+describe('formatContrast', () => {
+  it('renders the colours, the ratio and the threshold', () => {
+    expect(
+      formatContrast({
+        fgColor: '#8a8a8a',
+        bgColor: '#f4e4c1',
+        contrastRatio: 2.9,
+        expectedContrastRatio: '4.5:1',
+      }),
+    ).toBe('#8a8a8a on #f4e4c1 — 2.9:1 (needs 4.5:1)')
+  })
+
+  // axe omits the colours whenever it could not resolve them — a background image in the element
+  // stack, an unparseable colour. That path yields an INCOMPLETE rather than a violation so it
+  // should never reach here, but printing "undefined on undefined" into a CI log would be worse
+  // than printing nothing.
+  it('returns undefined when either colour is missing', () => {
+    expect(formatContrast({ bgColor: '#fff', contrastRatio: 2 })).toBeUndefined()
+    expect(formatContrast({ fgColor: '#000', contrastRatio: 2 })).toBeUndefined()
+    expect(formatContrast(undefined)).toBeUndefined()
+  })
+
+  it('degrades gracefully when the ratio or threshold is missing', () => {
+    expect(formatContrast({ fgColor: '#000', bgColor: '#fff' })).toBe(
+      '#000 on #fff — unknown ratio',
+    )
+  })
+})
+
+describe('formatFindings with detail', () => {
+  it('prints the detail on its own indented line', () => {
+    const found = [
+      { label: 'board-cork', ruleId: 'color-contrast', target: 'span', detail: '#a on #b — 2:1' },
+    ]
+    expect(formatFindings(found)).toBe('  color-contrast  span\n                  #a on #b — 2:1')
+  })
+
+  it('prints one line for a finding with no detail', () => {
+    const found = [{ label: 'board-cork', ruleId: 'nested-interactive', target: 'div' }]
+    expect(formatFindings(found)).toBe('  nested-interactive  div')
   })
 })
 
