@@ -12,6 +12,22 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.46] - 2026-07-30
+
+### Fixed
+
+- **The sign-in, password-reset and confirm-email pages no longer overflow sideways on a phone.**
+  The wordmark was pinned to a fixed height with no way to shrink, so it was wider than its own card
+  at every screen size and pushed the page 59px past a 390px viewport. The logo is now fluid; it
+  renders about 10% smaller on a desktop, where it had been overflowing its card.
+
+### Changed
+
+- `color-contrast` findings now log the colours behind them (`#8a8a8a on #f4e4c1 — 2.9:1`), so a
+  failure says which colours to fix rather than only where. The a11y baseline format is unchanged.
+- The a11y suite now checks that every surface it claims to scan has a real test, and asserts that
+  no public route overflows horizontally at phone width.
+
 ## [1.2.45] - 2026-07-30
 
 ### Fixed
@@ -1025,7 +1041,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.45...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.46...HEAD
+[1.2.46]: https://github.com/jwh3times/magic-agenda/compare/v1.2.45...v1.2.46
 [1.2.45]: https://github.com/jwh3times/magic-agenda/compare/v1.2.44...v1.2.45
 [1.2.44]: https://github.com/jwh3times/magic-agenda/compare/v1.2.43...v1.2.44
 [1.2.43]: https://github.com/jwh3times/magic-agenda/compare/v1.2.42...v1.2.43
