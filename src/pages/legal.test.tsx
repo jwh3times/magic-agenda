@@ -23,9 +23,8 @@ test('the legal shell wraps its content in banner and main landmarks', () => {
     within(main).getByRole('heading', { level: 1, name: /privacy policy/i }),
   ).toBeInTheDocument()
   expect(within(main).getByText(/Last updated:/)).toBeInTheDocument()
-  // Privacy's own body copy (the "Data retention" section) already links this same address, so a
-  // single getByRole would throw on "multiple elements found" once the footer's identical link also
-  // lands inside main — that ambiguity is expected, not a bug. Both must be in main: the body's own
-  // link (via {children}) and the new contact-footer link.
-  expect(within(main).getAllByRole('link', { name: 'jerryholland00@gmail.com' })).toHaveLength(2)
+  // Scoped to text the shell itself owns (not Privacy.tsx's body copy, which happens to link the
+  // same address), so this can't be broken by an unrelated edit to the page body — only by the
+  // contact block being removed or moved outside main.
+  expect(within(main).getByText(/Questions about this policy/)).toBeInTheDocument()
 })
