@@ -51,6 +51,20 @@ function fail(message: string): never {
 }
 
 /**
+ * Failure framing for parseScanCallSites(), which is not about the baseline JSON at all — it parses
+ * tests/e2e/a11y.spec.ts's source text. fail() ends every message with a sentence about baseline
+ * trust that would misdirect a contributor debugging a rename or a call-shape change here; this
+ * points at the actual thing that went wrong instead.
+ */
+function failParse(message: string): never {
+  throw new Error(
+    `${message}\n` +
+      'This parses the spec source text, not the baseline JSON: check tests/e2e/a11y.spec.ts for a ' +
+      'renamed helper, a reshaped scanAndAssert() call, or a template this parser cannot expand.',
+  )
+}
+
+/**
  * Parses and validates the committed baseline. Every failure path throws.
  *
  * `expectedLabels` is checked because the count scheme claims "the baseline cannot rot" — and that
@@ -199,7 +213,7 @@ export function parseScanCallSites(specSource: string): string[] {
     (match) => match[1],
   )
   if (!args.length) {
-    fail(
+    failParse(
       'parseScanCallSites found no scanAndAssert(page, …) calls in the spec source. The helper was ' +
         'probably renamed or its call shape changed. Fix this parser rather than deleting it, or ' +
         'the EXPECTED_LABELS coverage check silently passes against an empty set.',
@@ -211,10 +225,12 @@ export function parseScanCallSites(specSource: string): string[] {
     if (literal) return [literal[1]]
     if (/^`board-\$\{theme\}`$/.test(arg)) {
       if (!themes.length) {
-        fail('parseScanCallSites found the board loop but no theme literals to expand it with.')
+        failParse(
+          'parseScanCallSites found the board loop but no theme literals to expand it with.',
+        )
       }
       return themes.map((theme) => `board-${theme}`)
     }
-    return fail(`parseScanCallSites cannot resolve the scanAndAssert argument: ${arg}`)
+    return failParse(`parseScanCallSites cannot resolve the scanAndAssert argument: ${arg}`)
   })
 }

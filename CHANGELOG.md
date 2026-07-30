@@ -25,8 +25,8 @@ No unreleased changes.
 
 - `color-contrast` findings now log the colours behind them (`#8a8a8a on #f4e4c1 — 2.9:1`), so a
   failure says which colours to fix rather than only where. The a11y baseline format is unchanged.
-- The a11y suite now checks that every surface it claims to scan has a real test, and asserts that
-  no public route overflows horizontally at phone width.
+- `npm test` now checks that every surface the a11y suite claims to scan has a real test behind it.
+- `tests/e2e/smoke.spec.ts` now asserts that no public route overflows horizontally at phone width.
 
 ## [1.2.45] - 2026-07-30
 
