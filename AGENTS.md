@@ -377,15 +377,16 @@ evict a queued PR. Seeding uses the anon key and that account's own credentials 
 key must never enter CI.** All three skip conditions (non-PR events, fork PRs, runs without secrets)
 report success from inside a step, never a job-level `if:`.
 
-Three non-obvious constraints on the specs themselves, each of which cost a real debugging pass:
+Five non-obvious constraints on the specs themselves. Four cost a real debugging pass; the fifth
+is a deliberate tradeoff worth understanding before it costs one:
 
 - **Seed data is dated relative to today.** `Board` anchors on today and `CalendarView` renders a
   fixed 42-cell grid around that month, so an absolutely-dated row is in the database and on no
-  screen. The a11y baseline no longer keys on CSS target paths, but `page.clock` is still pinned and the
-  seed anchor pinned to match — for a different reason: `brutal` flags the trailing out-of-month
-  cells, and how many of those the fixed 42-cell grid carries is a function of the month, so an
-  unpinned clock moves a `color-contrast` count. The two must move together, because the clock
-  moves only the browser while `seedBoard` runs in the test process in real time.
+  screen. The a11y baseline no longer keys on CSS target paths, but `page.clock` is still pinned
+  and the seed anchor pinned to match — for a different reason: `brutal` flags the trailing
+  out-of-month cells, and how many of those the fixed 42-cell grid carries is a function of the
+  month, so an unpinned clock moves a `color-contrast` count. The two must move together, because
+  the clock moves only the browser while `seedBoard` runs in the test process in real time.
 - **`document.fonts.check()` cannot detect the CSP regression.** It returns true for a family with no
   `FontFace` registered at all, which is exactly the broken state. The font assertion iterates
   `document.fonts` instead. (There is also no font named `Inter` in this app.)

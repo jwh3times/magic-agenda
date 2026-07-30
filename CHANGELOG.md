@@ -12,7 +12,7 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
-## [1.2.45]
+## [1.2.45] - 2026-07-30
 
 ### Fixed
 
@@ -1025,7 +1025,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.42...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.45...HEAD
+[1.2.45]: https://github.com/jwh3times/magic-agenda/compare/v1.2.44...v1.2.45
 [1.2.44]: https://github.com/jwh3times/magic-agenda/compare/v1.2.43...v1.2.44
 [1.2.43]: https://github.com/jwh3times/magic-agenda/compare/v1.2.42...v1.2.43
 [1.2.42]: https://github.com/jwh3times/magic-agenda/compare/v1.2.41...v1.2.42
