@@ -337,14 +337,51 @@ Data API roles) — those are what keep working as the schema grows. One of the 
 definer-view check, asserts over an **empty set** today because `public` holds no views, so the
 option-spelling parser it depends on lives in `tests/rls/reloptions.ts` and is tested directly in
 `reloptions.test.ts` — the same split that makes `src/sw/policy.ts` testable when `src/sw.ts`
-itself cannot be, but the parity is not exact: `policy.test.ts` runs inside `npm test`, the
-**required** `Test` job, on every PR, while `reloptions.test.ts` runs only under `npm run
-test:rls` — a job that is not required and has, as of this writing, never executed in CI. Until
-that changes, `isSecurityInvoker` has real test coverage on paper but nothing gating a merge on
-it. The CLI is pinned as an exact
+itself cannot be. `policy.test.ts` runs inside `npm test` (the `Test` job) and `reloptions.test.ts`
+only under `npm run test:rls` (the `RLS` job); **both jobs are required checks and both run on every
+PR**, so `isSecurityInvoker` is genuinely gated. This paragraph previously recorded the opposite —
+that `RLS` was neither required nor had ever executed — which was true when written and is no longer:
+verified 2026-07-29 against the ruleset and six consecutive successful `RLS` job runs. The CLI is pinned as an exact
 `supabase` devDependency rather than through `supabase/setup-cli`, because every call goes
 through `npx`, which ignores a PATH binary in favour of a local one and otherwise installs
 `latest`.
+
+`npm run test:e2e` is a **third layer**: Playwright (Chromium only) against a **real deployed
+build**, not a local server. That is the whole point — `public/_headers` is Cloudflare-specific,
+and the v1.2.37 CSP bug could not be reproduced locally. In CI it runs against the PR's Cloudflare
+Pages preview; locally, point `E2E_BASE_URL` at a preview URL or production.
+
+**Finding the preview is not obvious and the obvious way does not work.** This repo has no GitHub
+Deployments — Cloudflare reports as a check run named `Cloudflare Pages` whose `details_url` points
+at the dashboard, and no GitHub API exposes the preview URL. `scripts/preview-url.mjs` polls that
+check run and derives `https://<first 8 of the deployment UUID>.magic-agenda.pages.dev`. Both the
+link shape and the URL convention are undocumented, so the pure derivation is unit-tested in
+`scripts/preview-url.test.mjs` and fails loudly rather than guessing. The fallback, if Cloudflare
+changes either, is their deployments API with an API token.
+
+E2E drives **one dedicated account in the production project**, so runs are serialised twice:
+`workers: 1` within a run, and a `concurrency` group across PRs — scoped to `pull_request` events, so
+a push to `main` (where the job only gate-skips) cannot occupy the group's single pending slot and
+evict a queued PR. Seeding uses the anon key and that account's own credentials — **the service-role
+key must never enter CI.** All three skip conditions (non-PR events, fork PRs, runs without secrets)
+report success from inside a step, never a job-level `if:`.
+
+Three non-obvious constraints on the specs themselves, each of which cost a real debugging pass:
+
+- **Seed data is dated relative to today.** `Board` anchors on today and `CalendarView` renders a
+  fixed 42-cell grid around that month, so an absolutely-dated row is in the database and on no
+  screen. Where the a11y baseline needs a stable CSS-target shape, `page.clock` is pinned and the
+  seed anchor pinned to match — the two must move together, because the clock moves only the browser
+  while `seedBoard` runs in the test process in real time.
+- **`document.fonts.check()` cannot detect the CSP regression.** It returns true for a family with no
+  `FontFace` registered at all, which is exactly the broken state. The font assertion iterates
+  `document.fonts` instead. (There is also no font named `Inter` in this app.)
+- **`context.setOffline(true)` + `page.reload()` does not work here, and is not a bug in the app.**
+  CDP offline emulation fails the top-level navigation with `net::ERR_FAILED` before the service
+  worker is consulted, even though the worker is alive and `/index.html` is precached — measured
+  both ways. The offline test therefore aborts only Supabase, which is the actual condition
+  `useTasks` guards. No browser-level test here covers the worker serving the shell offline;
+  `src/sw/policy.test.ts` covers that policy.
 
 **Data API grants are explicit, per table, full stop** (`20260729100000_explicit_data_api_grants.sql`)
 and must stay that way. `config.toml` leaves `auto_expose_new_tables` unset, so a new table is
