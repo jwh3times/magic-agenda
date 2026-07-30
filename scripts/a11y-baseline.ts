@@ -1,0 +1,129 @@
+/**
+ * Pure logic behind the Playwright a11y ratchet (tests/e2e/a11y.spec.ts).
+ *
+ * Split out for the same reason src/sw/policy.ts is split from src/sw.ts and tests/rls/reloptions.ts
+ * from its test: a11y.spec.ts cannot run without a deployed preview AND the E2E account's
+ * credentials, which exist only as repository secrets — so anything asserted solely inside it is
+ * untested in practice. Everything in this file runs in `npm test`.
+ */
+
+export interface BaselineEntry {
+  label: string
+  ruleId: string
+  count: number
+}
+
+export interface Finding {
+  /** Its own field, deliberately NOT parsed back out of `target`: axe targets are full of colons. */
+  label: string
+  ruleId: string
+  target: string
+}
+
+export type RuleCounts = Record<string, number>
+
+function fail(message: string): never {
+  throw new Error(
+    `${message}\n` +
+      'Refusing to assert against a baseline this file cannot trust: under count equality an ' +
+      'empty baseline is a PASSING state, not the strictest one.',
+  )
+}
+
+/**
+ * Parses and validates the committed baseline. Every failure path throws.
+ *
+ * `expectedLabels` is checked because the count scheme claims "the baseline cannot rot" — and that
+ * claim is false for any entry whose label no test scans. An orphaned or mistyped label is asserted
+ * by nobody, can never be tightened, and emits no signal in either direction.
+ */
+export function parseBaseline(raw: string, expectedLabels: readonly string[]): BaselineEntry[] {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch (err) {
+    fail(`a11y baseline is not valid JSON: ${(err as Error).message}`)
+  }
+  if (!Array.isArray(parsed)) fail('a11y baseline must be a JSON array')
+
+  const seen = new Set<string>()
+  return parsed.map((entry: unknown, i: number): BaselineEntry => {
+    if (typeof entry !== 'object' || entry === null) {
+      fail(`a11y baseline entry ${i} is not an object`)
+    }
+    const { label, ruleId, count } = entry as Record<string, unknown>
+    if (typeof label !== 'string' || !label) fail(`a11y baseline entry ${i} has no label`)
+    if (typeof ruleId !== 'string' || !ruleId) fail(`a11y baseline entry ${i} has no ruleId`)
+    // A zero is rejected rather than tolerated: the format omits zeroes, so `"count": 0` means
+    // someone recorded a fix instead of deleting the line. Equality would then compare {rule: 0}
+    // against an observed map that omits the rule entirely — a permanent red whose fix is not
+    // obvious from the diff.
+    if (typeof count !== 'number' || !Number.isInteger(count) || count < 1) {
+      fail(
+        `a11y baseline entry ${i} (${label} ${ruleId}) must have an integer count >= 1, got ` +
+          `${String(count)}`,
+      )
+    }
+    if (!expectedLabels.includes(label)) {
+      fail(
+        `a11y baseline entry ${i} has label "${label}", which no test scans. Expected one of: ` +
+          `${expectedLabels.join(', ')}.`,
+      )
+    }
+    const key = `${label} ${ruleId}`
+    // Harmless under the old Set-keyed scheme; under counts a sloppy merge silently discards a value.
+    if (seen.has(key)) fail(`a11y baseline has duplicate entries for "${key}"`)
+    seen.add(key)
+    return { label, ruleId, count }
+  })
+}
+
+export function tally(findings: readonly Finding[]): RuleCounts {
+  const counts: RuleCounts = {}
+  for (const finding of findings) counts[finding.ruleId] = (counts[finding.ruleId] ?? 0) + 1
+  return counts
+}
+
+/**
+ * The expected counts for one surface. A label with no entries yields `{}`, which is what makes a
+ * cleared surface assert that it STAYS cleared.
+ *
+ * Never returns a key with an `undefined` value: Playwright's `toEqual` treats an undefined-valued
+ * key as absent, so building this map by indexing a rule list would silently equate "baselined as
+ * undefined" with "not baselined".
+ */
+export function baselineFor(entries: readonly BaselineEntry[], label: string): RuleCounts {
+  const counts: RuleCounts = {}
+  for (const entry of entries) if (entry.label === label) counts[entry.ruleId] = entry.count
+  return counts
+}
+
+/** Builds a baseline from raw findings — the `E2E_A11Y_UPDATE_BASELINE=1` writer path. */
+export function toBaseline(findings: readonly Finding[]): BaselineEntry[] {
+  const unique = new Map<string, Finding>()
+  for (const finding of findings) {
+    unique.set(`${finding.label} ${finding.ruleId} ${finding.target}`, finding)
+  }
+  const entries = new Map<string, BaselineEntry>()
+  for (const finding of unique.values()) {
+    const key = `${finding.label} ${finding.ruleId}`
+    const existing = entries.get(key)
+    if (existing) existing.count += 1
+    else entries.set(key, { label: finding.label, ruleId: finding.ruleId, count: 1 })
+  }
+  return [...entries.values()].sort(
+    (a, b) => a.label.localeCompare(b.label) || a.ruleId.localeCompare(b.ruleId),
+  )
+}
+
+/**
+ * Counts alone do not say WHICH node regressed. This goes into the assertion's message argument and
+ * into the unconditional log line, so the precision the count format drops is still on screen.
+ */
+export function formatFindings(findings: readonly Finding[]): string {
+  if (!findings.length) return '  (no violations)'
+  return [...findings]
+    .sort((a, b) => a.ruleId.localeCompare(b.ruleId) || a.target.localeCompare(b.target))
+    .map((finding) => `  ${finding.ruleId}  ${finding.target}`)
+    .join('\n')
+}
