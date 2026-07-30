@@ -177,3 +177,44 @@ export function formatFindings(findings: readonly Finding[]): string {
     )
     .join('\n')
 }
+
+/**
+ * Every label tests/e2e/a11y.spec.ts actually scans, read out of its source text.
+ *
+ * parseBaseline() already rejects a baseline entry whose label is not in EXPECTED_LABELS. This is
+ * the other direction: a label in EXPECTED_LABELS with no test scans nothing, asserts nothing, and
+ * emits no signal in either direction. The afterAll guard cannot cover it — it only runs in update
+ * mode, and it cannot move, because Playwright discards a worker after a failure and the check
+ * would re-fire spuriously in every restarted worker.
+ *
+ * THROWS when it finds no call sites, which is the load-bearing part. A text parser whose regex
+ * stops matching — after a rename, a reformat, a refactor — would otherwise report "no labels",
+ * compare equal to nothing, and pass vacuously. Failing loudly on "found nothing" is the only thing
+ * that makes a check like this trustworthy.
+ *
+ * Does NOT detect a `.skip`'d test: the call site is still in the source.
+ */
+export function parseScanCallSites(specSource: string): string[] {
+  const args = [...specSource.matchAll(/scanAndAssert\(\s*page\s*,\s*([^)]+?)\s*\)/g)].map(
+    (match) => match[1],
+  )
+  if (!args.length) {
+    fail(
+      'parseScanCallSites found no scanAndAssert(page, …) calls in the spec source. The helper was ' +
+        'probably renamed or its call shape changed. Fix this parser rather than deleting it, or ' +
+        'the EXPECTED_LABELS coverage check silently passes against an empty set.',
+    )
+  }
+  const themes = [...new Set([...specSource.matchAll(/'(cork|brutal|glass)'/g)].map((m) => m[1]))]
+  return args.flatMap((arg) => {
+    const literal = /^'([^']+)'$/.exec(arg)
+    if (literal) return [literal[1]]
+    if (/^`board-\$\{theme\}`$/.test(arg)) {
+      if (!themes.length) {
+        fail('parseScanCallSites found the board loop but no theme literals to expand it with.')
+      }
+      return themes.map((theme) => `board-${theme}`)
+    }
+    return fail(`parseScanCallSites cannot resolve the scanAndAssert argument: ${arg}`)
+  })
+}

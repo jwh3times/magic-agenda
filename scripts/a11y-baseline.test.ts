@@ -7,6 +7,7 @@ import {
   formatContrast,
   formatFindings,
   parseBaseline,
+  parseScanCallSites,
   tally,
   toBaseline,
   type Finding,
@@ -187,5 +188,48 @@ describe('the committed baseline', () => {
     const raw = readFileSync(path.join('tests', 'e2e', 'a11y-baseline.json'), 'utf8')
     const entries = parseBaseline(raw, EXPECTED_LABELS)
     expect(entries.length).toBeGreaterThan(0)
+  })
+})
+
+describe('parseScanCallSites', () => {
+  it('reads plain string-literal call sites', () => {
+    const src = `
+      await scanAndAssert(page, 'landing')
+      await scanAndAssert(page, 'login')
+    `
+    expect(parseScanCallSites(src)).toEqual(['landing', 'login'])
+  })
+
+  it('expands the board template against the theme literals in the same source', () => {
+    const src = `
+      for (const theme of ['cork', 'brutal', 'glass'] as Theme[]) {
+        await scanAndAssert(page, \`board-\${theme}\`)
+      }
+    `
+    expect(parseScanCallSites(src)).toEqual(['board-cork', 'board-brutal', 'board-glass'])
+  })
+
+  // The whole risk of a text-parsing check: if the regex stops matching after a rename or a
+  // refactor, it would report "no labels", compare equal to nothing, and pass vacuously. That is
+  // the exact silent rot this check exists to prevent, so finding nothing must be an ERROR.
+  it('throws rather than returning an empty list when nothing matches', () => {
+    expect(() => parseScanCallSites('const x = 1')).toThrow(/found no scanAndAssert/)
+  })
+
+  it('throws when the board template has no theme literals to expand', () => {
+    expect(() => parseScanCallSites('await scanAndAssert(page, `board-${theme}`)')).toThrow(
+      /no theme literals/,
+    )
+  })
+
+  it('throws on an argument shape it cannot resolve', () => {
+    expect(() => parseScanCallSites('await scanAndAssert(page, someVariable)')).toThrow(
+      /cannot resolve/,
+    )
+  })
+
+  it('matches the committed spec exactly against EXPECTED_LABELS', () => {
+    const src = readFileSync(path.join('tests', 'e2e', 'a11y.spec.ts'), 'utf8')
+    expect([...parseScanCallSites(src)].sort()).toEqual([...EXPECTED_LABELS].sort())
   })
 })
