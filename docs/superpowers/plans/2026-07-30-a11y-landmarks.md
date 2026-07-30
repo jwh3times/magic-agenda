@@ -312,11 +312,11 @@ export function baselineFor(entries: readonly BaselineEntry[], label: string): R
 export function toBaseline(findings: readonly Finding[]): BaselineEntry[] {
   const unique = new Map<string, Finding>()
   for (const finding of findings) {
-    unique.set(`${finding.label} ${finding.ruleId} ${finding.target}`, finding)
+    unique.set(`${finding.label} ${finding.ruleId} ${finding.target}`, finding)
   }
   const entries = new Map<string, BaselineEntry>()
   for (const finding of unique.values()) {
-    const key = `${finding.label} ${finding.ruleId}`
+    const key = `${finding.label} ${finding.ruleId}`
     const existing = entries.get(key)
     if (existing) existing.count += 1
     else entries.set(key, { label: finding.label, ruleId: finding.ruleId, count: 1 })
@@ -342,7 +342,7 @@ export function formatFindings(findings: readonly Finding[]): string {
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run scripts/a11y-baseline.test.ts`
-Expected: PASS, 15 tests.
+Expected: PASS, 16 tests.
 
 - [ ] **Step 5: Put both files under `tsc -b` and prettier**
 
@@ -513,6 +513,14 @@ const FREEZE_ANIMATION = `*, *::before, *::after {
   transition: none !important;
 }`
 
+/** Everything every surface needs between "content is on screen" and "scan it". */
+async function settle(page: Page): Promise<void> {
+  await page.addStyleTag({ content: FREEZE_ANIMATION })
+  await page.evaluate(async () => {
+    await document.fonts.ready
+  })
+}
+
 /**
  * No try/catch, on purpose.
  *
@@ -602,19 +610,13 @@ test.describe('signed out', () => {
 
   test('landing matches the a11y baseline', async ({ page }) => {
     await page.goto('/')
-    await page.addStyleTag({ content: FREEZE_ANIMATION })
-    await page.evaluate(async () => {
-      await document.fonts.ready
-    })
+    await settle(page)
     await scanAndAssert(page, 'landing')
   })
 
   test('login matches the a11y baseline', async ({ page }) => {
     await page.goto('/login')
-    await page.addStyleTag({ content: FREEZE_ANIMATION })
-    await page.evaluate(async () => {
-      await document.fonts.ready
-    })
+    await settle(page)
     await scanAndAssert(page, 'login')
   })
 })
@@ -650,10 +652,7 @@ test.describe('signed in', () => {
     // settings page at all. A scan that races a loading state does not merely miss content — a
     // full-screen loader actively suppresses the page-level rules and scores clean.
     await page.getByRole('heading', { name: 'Settings', level: 1 }).waitFor()
-    await page.addStyleTag({ content: FREEZE_ANIMATION })
-    await page.evaluate(async () => {
-      await document.fonts.ready
-    })
+    await settle(page)
     await scanAndAssert(page, 'settings')
   })
 
@@ -671,10 +670,7 @@ test.describe('signed in', () => {
       // baseline. Scanning a partly-painted board would also miss most of the per-theme CARD
       // contrast this loop exists to measure.
       for (const title of SEEDED_TITLES) await page.getByText(title).waitFor()
-      await page.addStyleTag({ content: FREEZE_ANIMATION })
-      await page.evaluate(async () => {
-        await document.fonts.ready
-      })
+      await settle(page)
       await scanAndAssert(page, `board-${theme}`)
     })
   }
@@ -686,18 +682,39 @@ test.describe('signed in', () => {
 Run: `npm run format && npm run lint && npm run build`
 Expected: all pass. If `tsc` cannot resolve `../../scripts/a11y-baseline`, confirm Task 1 Step 5 added both files to `tsconfig.node.json`.
 
-- [ ] **Step 4: Verify the new baseline file parses under the new validator**
+- [ ] **Step 4: Add a permanent guard that the committed baseline is well-formed**
 
-Run:
-```bash
-node --experimental-strip-types -e "
-import { readFileSync } from 'node:fs'
-const { parseBaseline } = await import('./scripts/a11y-baseline.ts')
-const labels = ['landing','login','settings','board-cork','board-brutal','board-glass']
-console.log(parseBaseline(readFileSync('tests/e2e/a11y-baseline.json','utf8'), labels).length, 'entries OK')
-"
+Nothing else checks this without credentials: the validator only runs inside the E2E spec, which needs a deployed preview. Append to `scripts/a11y-baseline.test.ts` (it must go in *this* task, not Task 1 — before Step 1 above the committed file is still the old format and this would fail):
+
+```ts
+describe('the committed baseline', () => {
+  // The validator itself only runs inside tests/e2e/a11y.spec.ts, which needs a deployed preview
+  // and the E2E account's credentials. Without this, a malformed baseline is discovered by a red
+  // required check on a PR rather than by `npm test` on a laptop.
+  it('parses, and names only labels the suite scans', () => {
+    const raw = readFileSync(path.join('tests', 'e2e', 'a11y-baseline.json'), 'utf8')
+    const entries = parseBaseline(raw, [
+      'landing',
+      'login',
+      'settings',
+      'board-cork',
+      'board-brutal',
+      'board-glass',
+    ])
+    expect(entries.length).toBeGreaterThan(0)
+  })
+})
 ```
-Expected: `8 entries OK`. If `--experimental-strip-types` is unavailable on this Node, run the equivalent as a temporary Vitest test instead and delete it afterwards.
+
+Add the two imports this needs at the top of the file:
+
+```ts
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+```
+
+Run: `npx vitest run scripts/a11y-baseline.test.ts`
+Expected: PASS, 17 tests.
 
 - [ ] **Step 5: Commit**
 
