@@ -59,7 +59,7 @@ export const authSubmit: CSSProperties = {
   padding: '12px 14px',
   borderRadius: 10,
   border: 'none',
-  background: '#7c5cff',
+  background: '#7452ff',
   color: '#fff',
   fontSize: 14,
   fontWeight: 800,

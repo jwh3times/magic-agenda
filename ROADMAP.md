@@ -67,11 +67,17 @@ were added as their own effort rather than a roadmap feature — see
     `docs/superpowers/specs/2026-07-29-e2e-smoke-a11y-design.md`. Pin `@playwright/test` out of
     Dependabot's reach at that point, since a Playwright upgrade invalidates every screenshot
     baseline.
-  - **A11y remediation has shipped.** The structural rules are cleared — `region`, `landmark-one-main`,
-    `page-has-heading-one` and `select-name`, 177 of the 202 originally baselined. What remains is
-    `color-contrast` 16 and `nested-interactive` 9, both deliberately deferred: contrast lives in
-    `theme/themeConf.ts`, a verbatim port of the prototype, and nested-interactive needs `src/dnd`
-    changes. See `docs/superpowers/specs/2026-07-30-a11y-landmarks-design.md`.
+  - **A11y remediation has shipped, including all of `color-contrast`.** The structural rules were
+    cleared first (`region`, `landmark-one-main`, `page-has-heading-one`, `select-name` — 177 of the
+    202 originally baselined), then contrast reached zero in two passes: near-miss token nudges
+    (glass/brand accent `#7c5cff` → `#7452ff`, cork `toolbarSub` alpha `.6` → `.65`, foot-link
+    opacity `.55` → `.6`) and per-theme judgment calls (brutal accent `#CD4128`, a new `numTodayFg`
+    token because the today-number and button roles pull in opposite contrast directions, neutral
+    out-of-month numbers, blue card `#3D6CF2`). What remains is `nested-interactive` 9, an
+    **accepted violation** (2026-07-31): the role-swap and drag-handle remedies were evaluated and
+    declined — see the header comment in `tests/e2e/a11y.spec.ts`. Revisit alongside any future
+    keyboard-UX pass (keyboard users also cannot open the editor today; Enter starts a drag). See
+    `docs/superpowers/specs/2026-07-30-a11y-landmarks-design.md`.
 - **No browser-level coverage of offline shell serving.** The service worker demonstrably serves
   precached assets with the network down, but Playwright's CDP offline emulation fails a top-level
   navigation before the worker is consulted, so the deployed offline-boot path cannot be exercised

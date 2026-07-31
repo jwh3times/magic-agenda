@@ -352,11 +352,15 @@ export function cellChrome(theme: ThemeName, conf: ThemeConf, meta: CellMeta, is
       lineHeight: 1,
       color: inMonth
         ? isToday
-          ? conf.accent
+          ? conf.numTodayFg
           : conf.numFg
         : glass
           ? 'rgba(234,240,255,.3)'
-          : 'rgba(90,70,40,.45)',
+          : brutal
+            ? // Neutral black, not cork's warm brown: on brutal's opaque #EDE9DA out-of-month
+              // cells the brown maxes out near 3.6:1 at any workable alpha; .55 black is 4.52:1.
+              'rgba(0,0,0,.55)'
+            : 'rgba(90,70,40,.45)',
       padding: cork ? '1px 5px' : '0',
       borderRadius: cork ? '10px' : '0',
       background: cork && isToday ? 'rgba(184,71,46,.14)' : 'transparent',
@@ -437,7 +441,7 @@ export function inboxChrome(theme: ThemeName, conf: ThemeConf) {
       padding: '0 16px 10px',
       fontFamily: conf.ui,
       fontSize: '11.5px',
-      color: brutal ? '#888' : conf.toolbarSub,
+      color: brutal ? '#767676' : conf.toolbarSub,
       fontWeight: 500,
     },
     inboxList: {
@@ -454,7 +458,9 @@ export function inboxChrome(theme: ThemeName, conf: ThemeConf) {
       fontFamily: conf.ui,
       fontSize: '12.5px',
       lineHeight: 1.5,
-      color: brutal ? '#999' : conf.toolbarSub,
+      // #767676 like inboxHint: the a11y scan never sees this node (the seeded inbox is never
+      // empty), but a real user's empty inbox would put #999 on white at 2.85:1.
+      color: brutal ? '#767676' : conf.toolbarSub,
       textAlign: 'center',
       padding: '24px 10px',
     },

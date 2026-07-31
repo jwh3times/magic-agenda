@@ -1,17 +1,7 @@
 [
   {
     "label": "board-brutal",
-    "ruleId": "color-contrast",
-    "count": 9
-  },
-  {
-    "label": "board-brutal",
     "ruleId": "nested-interactive",
-    "count": 3
-  },
-  {
-    "label": "board-cork",
-    "ruleId": "color-contrast",
     "count": 3
   },
   {
@@ -21,22 +11,7 @@
   },
   {
     "label": "board-glass",
-    "ruleId": "color-contrast",
-    "count": 2
-  },
-  {
-    "label": "board-glass",
     "ruleId": "nested-interactive",
     "count": 3
-  },
-  {
-    "label": "landing",
-    "ruleId": "color-contrast",
-    "count": 1
-  },
-  {
-    "label": "login",
-    "ruleId": "color-contrast",
-    "count": 1
   }
 ]

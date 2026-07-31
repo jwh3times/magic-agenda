@@ -210,7 +210,8 @@ export function cardStyles(
       wordBreak: 'break-word',
     }
     if (task.pinned && !isGhost) {
-      // Violet glow — glass's pinned signal (accent #7c5cff).
+      // Violet glow — glass's pinned signal (the accent's rgba form, kept at the pre-#7452ff
+      // purple: it carries no text and theme.test.ts pins these literals).
       wrap.boxShadow = `${wrap.boxShadow}, 0 0 0 1.5px rgba(124,92,255,.85), 0 0 16px rgba(124,92,255,.35)`
     }
   }

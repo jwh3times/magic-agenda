@@ -26,7 +26,7 @@ export function ErrorScreen({ message, onRetry }: { message: string; onRetry: ()
             padding: '10px 18px',
             borderRadius: 9,
             border: 'none',
-            background: '#7c5cff',
+            background: '#7452ff',
             color: '#fff',
             fontWeight: 700,
             cursor: 'pointer',

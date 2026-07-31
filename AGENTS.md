@@ -202,7 +202,7 @@ Sat/Sun and never rotates.
 ### Theming is an inline-style-object model, not CSS
 
 Ported verbatim from the prototype. `theme/constants.ts` (CAT/COLORS/STATUS/PAPER), `theme/themeConf.ts`
-(~26 tokens per theme), `theme/cardStyles.ts` (the style half of the prototype's `noteView`, incl.
+(~28 tokens per theme), `theme/cardStyles.ts` (the style half of the prototype's `noteView`, incl.
 `rotOf`, pin, DONE stamp), and `theme/chrome.ts` (board/cell/inbox/column/toolbar styles) all return
 plain style objects with per-theme branching (rotation, pins, hard vs. soft shadows, blur). Three
 themes: `cork` / `brutal` / `glass`. **Do not refactor this to CSS variables**: the look depends on the
@@ -383,10 +383,12 @@ is a deliberate tradeoff worth understanding before it costs one:
 - **Seed data is dated relative to today.** `Board` anchors on today and `CalendarView` renders a
   fixed 42-cell grid around that month, so an absolutely-dated row is in the database and on no
   screen. The a11y baseline no longer keys on CSS target paths, but `page.clock` is still pinned
-  and the seed anchor pinned to match — for a different reason: `brutal` flags the trailing
-  out-of-month cells, and how many of those the fixed 42-cell grid carries is a function of the
-  month, so an unpinned clock moves a `color-contrast` count. The two must move together, because
-  the clock moves only the browser while `seedBoard` runs in the test process in real time.
+  and the seed anchor pinned to match — for a different reason: `nested-interactive` is counted one
+  per rendered card, so an unpinned clock could place a seeded task on a day the fixed 42-cell grid
+  doesn't carry that month, silently dropping it from the count. (`color-contrast` no longer needs
+  this: it reached zero across every cell state — including brutal's out-of-month day numbers — in
+  the pass recorded in `src/theme/themeConf.ts`.) The two must move together, because the clock
+  moves only the browser while `seedBoard` runs in the test process in real time.
 - **`document.fonts.check()` cannot detect the CSP regression.** It returns true for a family with no
   `FontFace` registered at all, which is exactly the broken state. The font assertion iterates
   `document.fonts` instead. (There is also no font named `Inter` in this app.)

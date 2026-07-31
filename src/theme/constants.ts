@@ -48,7 +48,8 @@ export const PAPER: Record<ThemeName, Record<Color, PaperDef>> = {
   brutal: {
     yellow: { bg: '#FFE600', ink: '#111' },
     pink: { bg: '#FF5DA8', ink: '#111' },
-    blue: { bg: '#4D7CFF', ink: '#fff' },
+    // #3D6CF2, not the prototype's #4D7CFF: white ink on the original was 3.72:1.
+    blue: { bg: '#3D6CF2', ink: '#fff' },
     mint: { bg: '#00E0A4', ink: '#08231b' },
     lilac: { bg: '#B388FF', ink: '#160a2e' },
     orange: { bg: '#FF7A2F', ink: '#1a0c02' },
