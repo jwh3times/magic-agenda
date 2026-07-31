@@ -27,6 +27,13 @@ export interface ThemeConf {
   cellTodayRing: string
   cellOut: string
   numFg: string
+  /**
+   * Today's day number. A separate token from `accent` because the accent doubles as a BACKGROUND
+   * under white text, and the two roles pull in opposite contrast directions: brutal's number needs
+   * a brighter red than its button bg, glass's needs a LIGHTER purple than its accent (light text
+   * on a dark cell). Every value here clears 4.5:1 on its theme's today-cell colour.
+   */
+  numTodayFg: string
   weekendBg: string
   /** Scrollbar thumb. Standard `scrollbar-color`, so Firefox honours it too. */
   scrollThumb: string
@@ -61,6 +68,7 @@ const CORK: ThemeConf = {
   cellTodayRing: 'inset 0 0 0 2px rgba(184,71,46,.85)',
   cellOut: 'rgba(120,90,55,.12)',
   numFg: '#3a2611',
+  numTodayFg: '#b8472e',
   weekendBg: 'rgba(120,90,55,.06)',
   scrollThumb: 'rgba(74,50,22,.38)',
 }
@@ -77,7 +85,10 @@ const BRUTAL: ThemeConf = {
   toolbarFg: '#fff',
   toolbarSub: 'rgba(255,255,255,.55)',
   toolbarBorder: '3px solid #111',
-  accent: '#FF4D2E',
+  // #CD4128, not the prototype's #FF4D2E: white text on the original red was 3.3:1. The pin
+  // triangle and ThemeSwitcher-adjacent card literals in cardStyles.ts keep #FF4D2E — they carry
+  // no text and theme.test.ts pins them.
+  accent: '#CD4128',
   accentFg: '#fff',
   boardBg: '#fff',
   boardBorder: '3px solid #111',
@@ -92,6 +103,7 @@ const BRUTAL: ThemeConf = {
   cellTodayRing: 'inset 0 0 0 3px #111',
   cellOut: '#EDE9DA',
   numFg: '#111',
+  numTodayFg: '#E10000',
   weekendBg: '#FBF7E4',
   scrollThumb: 'rgba(17,17,17,.55)',
 }
@@ -125,6 +137,7 @@ const GLASS: ThemeConf = {
   cellTodayRing: 'inset 0 0 0 1px rgba(150,120,255,.7)',
   cellOut: 'rgba(255,255,255,.012)',
   numFg: 'rgba(234,240,255,.85)',
+  numTodayFg: '#9379FF',
   weekendBg: 'rgba(255,255,255,.02)',
   scrollThumb: 'rgba(234,240,255,.28)',
 }

@@ -16,15 +16,15 @@ import {
   type Finding,
 } from '../../scripts/a11y-baseline'
 
-// Fixing what this finds is IN scope for the structural rules — landmarks, page headings, control
-// names — and OUT of scope for the two families still baselined:
+// One family is still baselined, deliberately:
 //
-//   color-contrast      lives in src/theme/themeConf.ts, a deliberate verbatim port of
-//                       design/Task Board.dc.html. Clearing it is a contrast redesign of three
-//                       themes, which is a different project with a different risk profile.
 //   nested-interactive  src/dnd/SortableCard.tsx spreads dnd-kit's attributes (including
 //                       role="button") onto the wrapper around TaskCard's pin and done buttons.
 //                       Clearing it means changing how the activator is attached — editing src/dnd.
+//
+// color-contrast reached zero in two passes (2026-07-31): near-miss token nudges, then per-theme
+// judgment calls recorded in src/theme/themeConf.ts. New theme colours must clear 4.5:1 against
+// every background they sit on — this suite is what enforces it.
 //
 // The baseline is JSON and takes no comments, which is why this note lives here.
 const BASELINE = path.join('tests', 'e2e', 'a11y-baseline.json')

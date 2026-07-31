@@ -4,7 +4,7 @@ import type { ThemeName } from '../types/task'
 
 const THEMES: { key: ThemeName; label: string; sw: string }[] = [
   { key: 'cork', label: 'Cork', sw: '#caa46b' },
-  { key: 'brutal', label: 'Neon', sw: '#FF4D2E' },
+  { key: 'brutal', label: 'Neon', sw: '#CD4128' },
   { key: 'glass', label: 'Aurora', sw: '#7452ff' },
 ]
 
