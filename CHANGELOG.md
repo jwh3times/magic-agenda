@@ -12,6 +12,33 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.47] - 2026-07-31
+
+### Fixed
+
+- **Accessibility: every text colour in the app now meets the WCAG AA contrast standard.** This
+  clears all 16 remaining `color-contrast` findings from the a11y baseline, in two passes. First,
+  three imperceptible near-miss nudges: the brand purple darkens slightly (`#7c5cff` → `#7452ff`,
+  fixing the landing call-to-action, the sign-in button, and the Aurora view switcher), Corkboard's
+  secondary toolbar text gets a touch more opacity, and the inbox Privacy/Terms links a touch more
+  ink. Second, the genuinely-failing colours: Neon's accent red darkens (`#FF4D2E` → `#CD4128`) so
+  its white button text reads, its today number becomes a brighter red on the yellow cell, its
+  out-of-month day numbers switch from faint brown to a readable neutral (they were at barely half
+  the required contrast), blue task cards darken so their white ink reads, and the inbox hint text
+  darkens. Aurora's today number becomes a lighter purple that reads against the dark cell. Every
+  new value was computed against the WCAG formula with margin, not eyeballed.
+
+### Changed
+
+- Today's day number gets its own theme token (`numTodayFg`) instead of reusing the accent: the
+  accent doubles as a button background under white text, and the two roles pull in opposite
+  contrast directions (Neon needs a brighter red for the number than the button; Aurora needs a
+  lighter purple).
+- The nine `nested-interactive` findings (the drag wrapper's `role="button"` around each card's pin
+  and done buttons) are recorded as an **accepted violation**: the two remedies were evaluated and
+  declined for now, and the reasoning lives in the `tests/e2e/a11y.spec.ts` header. The a11y
+  baseline now holds only those three entries.
+
 ## [1.2.46] - 2026-07-30
 
 ### Fixed
@@ -1041,7 +1068,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.46...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.47...HEAD
+[1.2.47]: https://github.com/jwh3times/magic-agenda/compare/v1.2.46...v1.2.47
 [1.2.46]: https://github.com/jwh3times/magic-agenda/compare/v1.2.45...v1.2.46
 [1.2.45]: https://github.com/jwh3times/magic-agenda/compare/v1.2.44...v1.2.45
 [1.2.44]: https://github.com/jwh3times/magic-agenda/compare/v1.2.43...v1.2.44
