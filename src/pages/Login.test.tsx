@@ -92,3 +92,13 @@ test('the sign-in card is a main landmark with the page heading', () => {
   expect(screen.getByRole('main')).toBeInTheDocument()
   expect(screen.getByRole('heading', { level: 1, name: 'Magic Agenda' })).toBeInTheDocument()
 })
+
+test('the logo is fluid so it cannot overflow the card', () => {
+  renderLogin()
+  const logo = screen.getByAltText('Magic Agenda')
+  // Asserted on the inline style, not getComputedStyle: jsdom has no layout engine, so this is a
+  // shape test. It catches a call site missed during the edit, which is the realistic regression —
+  // the actual overflow is measured by the 390px check in tests/e2e/smoke.spec.ts.
+  expect(logo.style.maxWidth).toBe('100%')
+  expect(logo.style.height).toBe('auto')
+})

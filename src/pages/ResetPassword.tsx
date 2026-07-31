@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { errorMessage } from '../lib/errors'
 import { useAuth } from '../auth/AuthProvider'
 import { Spinner } from '../components/Spinner'
-import { authCard, authField, authPage, authSubmit } from './authChrome'
+import { authCard, authField, authLogo, authPage, authSubmit } from './authChrome'
 import logoDark from '../assets/logo-dark.svg'
 
 // Mirror of Login's SIGNUP_MIN_PASSWORD — the Supabase dashboard policy is the real control.
@@ -50,7 +50,7 @@ export function ResetPassword() {
       <div style={authPage}>
         <main style={authCard}>
           <h1 style={{ margin: '0 0 6px' }}>
-            <img src={logoDark} alt="Magic Agenda" style={{ height: 110, display: 'block' }} />
+            <img src={logoDark} alt="Magic Agenda" style={authLogo} />
           </h1>
           <p style={{ margin: '0 0 18px', fontSize: 14, lineHeight: 1.5, opacity: 0.75 }}>
             You’re already signed in, so this reset link wasn’t used. To reset a password, sign out
@@ -71,7 +71,7 @@ export function ResetPassword() {
       <div style={authPage}>
         <main style={authCard}>
           <h1 style={{ margin: '0 0 6px' }}>
-            <img src={logoDark} alt="Magic Agenda" style={{ height: 110, display: 'block' }} />
+            <img src={logoDark} alt="Magic Agenda" style={authLogo} />
           </h1>
           <p style={{ margin: '0 0 18px', fontSize: 14, lineHeight: 1.5, opacity: 0.75 }}>
             This password reset link is invalid or has expired. Request a new one from the sign-in
@@ -114,7 +114,7 @@ export function ResetPassword() {
     <div style={authPage}>
       <main style={authCard}>
         <h1 style={{ margin: '0 0 6px' }}>
-          <img src={logoDark} alt="Magic Agenda" style={{ height: 110, display: 'block' }} />
+          <img src={logoDark} alt="Magic Agenda" style={authLogo} />
         </h1>
         <p style={{ margin: '0 0 22px', opacity: 0.55, fontSize: 14 }}>
           Choose a new password for your account.

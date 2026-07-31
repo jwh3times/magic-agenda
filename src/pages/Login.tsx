@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { errorMessage } from '../lib/errors'
 import { useAuth } from '../auth/AuthProvider'
 import logoDark from '../assets/logo-dark.svg'
-import { authCard, authField, authLinkBtn, authPage, authSubmit } from './authChrome'
+import { authCard, authField, authLinkBtn, authLogo, authPage, authSubmit } from './authChrome'
 
 type Mode = 'signin' | 'signup' | 'forgot'
 
@@ -120,7 +120,7 @@ export function Login() {
     <div style={authPage}>
       <main style={authCard}>
         <h1 style={{ margin: '0 0 6px' }}>
-          <img src={logoDark} alt="Magic Agenda" style={{ height: 110, display: 'block' }} />
+          <img src={logoDark} alt="Magic Agenda" style={authLogo} />
         </h1>
         <p style={{ margin: '0 0 22px', opacity: 0.55, fontSize: 14 }}>
           {mode === 'signin'

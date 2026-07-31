@@ -32,6 +32,12 @@ export interface Finding {
   label: string
   ruleId: string
   target: string
+  /**
+   * Human-readable extra context for the log line and the failure message — today, the colours
+   * behind a color-contrast violation. Deliberately NOT part of the count key: tally(),
+   * baselineFor() and toBaseline() all ignore it, so a11y-baseline.json's format does not move.
+   */
+  detail?: string
 }
 
 export type RuleCounts = Record<string, number>
@@ -41,6 +47,20 @@ function fail(message: string): never {
     `${message}\n` +
       'Refusing to assert against a baseline this file cannot trust: under count equality an ' +
       'empty baseline is a PASSING state, not the strictest one.',
+  )
+}
+
+/**
+ * Failure framing for parseScanCallSites(), which is not about the baseline JSON at all — it parses
+ * tests/e2e/a11y.spec.ts's source text. fail() ends every message with a sentence about baseline
+ * trust that would misdirect a contributor debugging a rename or a call-shape change here; this
+ * points at the actual thing that went wrong instead.
+ */
+function failParse(message: string): never {
+  throw new Error(
+    `${message}\n` +
+      'This parses the spec source text, not the baseline JSON: check tests/e2e/a11y.spec.ts for a ' +
+      'renamed helper, a reshaped scanAndAssert() call, or a template this parser cannot expand.',
   )
 }
 
@@ -133,6 +153,29 @@ export function toBaseline(findings: readonly Finding[]): BaselineEntry[] {
   )
 }
 
+/** As much of axe's color-contrast check data as the log needs. */
+export interface ContrastData {
+  fgColor?: string
+  bgColor?: string
+  contrastRatio?: number
+  expectedContrastRatio?: string
+}
+
+/**
+ * `#8a8a8a on #f4e4c1 — 2.9:1 (needs 4.5:1)`.
+ *
+ * The count-keyed baseline cannot distinguish one contrast failure from another at equal count —
+ * that trade is recorded in the design spec. This is the compensation: the colours reach the CI log,
+ * which is what makes the deferred contrast redesign easy to start, and they cost nothing because
+ * axe already returns them.
+ */
+export function formatContrast(data: ContrastData | undefined): string | undefined {
+  if (!data?.fgColor || !data.bgColor) return undefined
+  const ratio = typeof data.contrastRatio === 'number' ? `${data.contrastRatio}:1` : 'unknown ratio'
+  const needs = data.expectedContrastRatio ? ` (needs ${data.expectedContrastRatio})` : ''
+  return `${data.fgColor} on ${data.bgColor} — ${ratio}${needs}`
+}
+
 /**
  * Counts alone do not say WHICH node regressed. This goes into the assertion's message argument and
  * into the unconditional log line, so the precision the count format drops is still on screen.
@@ -141,6 +184,53 @@ export function formatFindings(findings: readonly Finding[]): string {
   if (!findings.length) return '  (no violations)'
   return [...findings]
     .sort((a, b) => a.ruleId.localeCompare(b.ruleId) || a.target.localeCompare(b.target))
-    .map((finding) => `  ${finding.ruleId}  ${finding.target}`)
+    .flatMap((finding) =>
+      finding.detail
+        ? [`  ${finding.ruleId}  ${finding.target}`, `                  ${finding.detail}`]
+        : [`  ${finding.ruleId}  ${finding.target}`],
+    )
     .join('\n')
+}
+
+/**
+ * Every label tests/e2e/a11y.spec.ts actually scans, read out of its source text.
+ *
+ * parseBaseline() already rejects a baseline entry whose label is not in EXPECTED_LABELS. This is
+ * the other direction: a label in EXPECTED_LABELS with no test scans nothing, asserts nothing, and
+ * emits no signal in either direction. The afterAll guard cannot cover it — it only runs in update
+ * mode, and it cannot move, because Playwright discards a worker after a failure and the check
+ * would re-fire spuriously in every restarted worker.
+ *
+ * THROWS when it finds no call sites, which is the load-bearing part. A text parser whose regex
+ * stops matching — after a rename, a reformat, a refactor — would otherwise report "no labels",
+ * compare equal to nothing, and pass vacuously. Failing loudly on "found nothing" is the only thing
+ * that makes a check like this trustworthy.
+ *
+ * Does NOT detect a `.skip`'d test: the call site is still in the source.
+ */
+export function parseScanCallSites(specSource: string): string[] {
+  const args = [...specSource.matchAll(/scanAndAssert\(\s*page\s*,\s*([^)]+?)\s*\)/g)].map(
+    (match) => match[1],
+  )
+  if (!args.length) {
+    failParse(
+      'parseScanCallSites found no scanAndAssert(page, …) calls in the spec source. The helper was ' +
+        'probably renamed or its call shape changed. Fix this parser rather than deleting it, or ' +
+        'the EXPECTED_LABELS coverage check silently passes against an empty set.',
+    )
+  }
+  const themes = [...new Set([...specSource.matchAll(/'(cork|brutal|glass)'/g)].map((m) => m[1]))]
+  return args.flatMap((arg) => {
+    const literal = /^'([^']+)'$/.exec(arg)
+    if (literal) return [literal[1]]
+    if (/^`board-\$\{theme\}`$/.test(arg)) {
+      if (!themes.length) {
+        failParse(
+          'parseScanCallSites found the board loop but no theme literals to expand it with.',
+        )
+      }
+      return themes.map((theme) => `board-${theme}`)
+    }
+    return failParse(`parseScanCallSites cannot resolve the scanAndAssert argument: ${arg}`)
+  })
 }

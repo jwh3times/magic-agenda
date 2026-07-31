@@ -4,8 +4,10 @@ import { describe, expect, it } from 'vitest'
 import {
   baselineFor,
   EXPECTED_LABELS,
+  formatContrast,
   formatFindings,
   parseBaseline,
+  parseScanCallSites,
   tally,
   toBaseline,
   type Finding,
@@ -128,6 +130,49 @@ describe('formatFindings', () => {
   })
 })
 
+describe('formatContrast', () => {
+  it('renders the colours, the ratio and the threshold', () => {
+    expect(
+      formatContrast({
+        fgColor: '#8a8a8a',
+        bgColor: '#f4e4c1',
+        contrastRatio: 2.9,
+        expectedContrastRatio: '4.5:1',
+      }),
+    ).toBe('#8a8a8a on #f4e4c1 — 2.9:1 (needs 4.5:1)')
+  })
+
+  // axe omits the colours whenever it could not resolve them — a background image in the element
+  // stack, an unparseable colour. That path yields an INCOMPLETE rather than a violation so it
+  // should never reach here, but printing "undefined on undefined" into a CI log would be worse
+  // than printing nothing.
+  it('returns undefined when either colour is missing', () => {
+    expect(formatContrast({ bgColor: '#fff', contrastRatio: 2 })).toBeUndefined()
+    expect(formatContrast({ fgColor: '#000', contrastRatio: 2 })).toBeUndefined()
+    expect(formatContrast(undefined)).toBeUndefined()
+  })
+
+  it('degrades gracefully when the ratio or threshold is missing', () => {
+    expect(formatContrast({ fgColor: '#000', bgColor: '#fff' })).toBe(
+      '#000 on #fff — unknown ratio',
+    )
+  })
+})
+
+describe('formatFindings with detail', () => {
+  it('prints the detail on its own indented line', () => {
+    const found = [
+      { label: 'board-cork', ruleId: 'color-contrast', target: 'span', detail: '#a on #b — 2:1' },
+    ]
+    expect(formatFindings(found)).toBe('  color-contrast  span\n                  #a on #b — 2:1')
+  })
+
+  it('prints one line for a finding with no detail', () => {
+    const found = [{ label: 'board-cork', ruleId: 'nested-interactive', target: 'div' }]
+    expect(formatFindings(found)).toBe('  nested-interactive  div')
+  })
+})
+
 describe('the committed baseline', () => {
   // The validator itself only runs inside tests/e2e/a11y.spec.ts, which needs a deployed preview
   // and the E2E account's credentials. Without this, a malformed baseline is discovered by a red
@@ -143,5 +188,48 @@ describe('the committed baseline', () => {
     const raw = readFileSync(path.join('tests', 'e2e', 'a11y-baseline.json'), 'utf8')
     const entries = parseBaseline(raw, EXPECTED_LABELS)
     expect(entries.length).toBeGreaterThan(0)
+  })
+})
+
+describe('parseScanCallSites', () => {
+  it('reads plain string-literal call sites', () => {
+    const src = `
+      await scanAndAssert(page, 'landing')
+      await scanAndAssert(page, 'login')
+    `
+    expect(parseScanCallSites(src)).toEqual(['landing', 'login'])
+  })
+
+  it('expands the board template against the theme literals in the same source', () => {
+    const src = `
+      for (const theme of ['cork', 'brutal', 'glass'] as Theme[]) {
+        await scanAndAssert(page, \`board-\${theme}\`)
+      }
+    `
+    expect(parseScanCallSites(src)).toEqual(['board-cork', 'board-brutal', 'board-glass'])
+  })
+
+  // The whole risk of a text-parsing check: if the regex stops matching after a rename or a
+  // refactor, it would report "no labels", compare equal to nothing, and pass vacuously. That is
+  // the exact silent rot this check exists to prevent, so finding nothing must be an ERROR.
+  it('throws rather than returning an empty list when nothing matches', () => {
+    expect(() => parseScanCallSites('const x = 1')).toThrow(/found no scanAndAssert/)
+  })
+
+  it('throws when the board template has no theme literals to expand', () => {
+    expect(() => parseScanCallSites('await scanAndAssert(page, `board-${theme}`)')).toThrow(
+      /no theme literals/,
+    )
+  })
+
+  it('throws on an argument shape it cannot resolve', () => {
+    expect(() => parseScanCallSites('await scanAndAssert(page, someVariable)')).toThrow(
+      /cannot resolve/,
+    )
+  })
+
+  it('matches the committed spec exactly against EXPECTED_LABELS', () => {
+    const src = readFileSync(path.join('tests', 'e2e', 'a11y.spec.ts'), 'utf8')
+    expect([...parseScanCallSites(src)].sort()).toEqual([...EXPECTED_LABELS].sort())
   })
 })

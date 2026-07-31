@@ -6,11 +6,13 @@ import { seedBoard, SEEDED_TITLES, type Theme } from './fixtures/seedBoard'
 import {
   baselineFor,
   EXPECTED_LABELS,
+  formatContrast,
   formatFindings,
   parseBaseline,
   tally,
   toBaseline,
   type BaselineEntry,
+  type ContrastData,
   type Finding,
 } from '../../scripts/a11y-baseline'
 
@@ -82,6 +84,15 @@ async function scan(page: Page, label: string): Promise<Finding[]> {
       label,
       ruleId: violation.id,
       target: node.target.join(' '),
+      // Only color-contrast carries colour data, and it is the only family where knowing WHICH
+      // colours failed saves work later — see this file's header note on the deferred redesign.
+      detail:
+        violation.id === 'color-contrast'
+          ? formatContrast(
+              node.any.find((check) => check.id === 'color-contrast')?.data as
+                ContrastData | undefined,
+            )
+          : undefined,
     })),
   )
   // Unconditional, and BEFORE the assertion. In practice a baseline is produced by reading numbers
