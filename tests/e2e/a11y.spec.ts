@@ -16,11 +16,17 @@ import {
   type Finding,
 } from '../../scripts/a11y-baseline'
 
-// One family is still baselined, deliberately:
+// One family is still baselined — an ACCEPTED violation, not a pending fix (decided 2026-07-31):
 //
 //   nested-interactive  src/dnd/SortableCard.tsx spreads dnd-kit's attributes (including
 //                       role="button") onto the wrapper around TaskCard's pin and done buttons.
-//                       Clearing it means changing how the activator is attached — editing src/dnd.
+//                       Two remedies were evaluated and declined for now: swapping the wrapper to
+//                       role="group" (clears the rule with no visual change, but leans on
+//                       aria-roledescription for the announcement), and the canonical drag-handle
+//                       pattern (better keyboard discoverability, but adds a visible control to
+//                       every card in three prototype-faithful themes). Working keyboard drag
+//                       exists today (KeyboardSensor in useBoardDnd) and must survive whichever
+//                       remedy is eventually taken.
 //
 // color-contrast reached zero in two passes (2026-07-31): near-miss token nudges, then per-theme
 // judgment calls recorded in src/theme/themeConf.ts. New theme colours must clear 4.5:1 against

@@ -73,8 +73,10 @@ were added as their own effort rather than a roadmap feature — see
     (glass/brand accent `#7c5cff` → `#7452ff`, cork `toolbarSub` alpha `.6` → `.65`, foot-link
     opacity `.55` → `.6`) and per-theme judgment calls (brutal accent `#CD4128`, a new `numTodayFg`
     token because the today-number and button roles pull in opposite contrast directions, neutral
-    out-of-month numbers, blue card `#3D6CF2`). What remains is `nested-interactive` 9, deferred
-    because it needs `src/dnd` changes (the `SortableCard` activator). See
+    out-of-month numbers, blue card `#3D6CF2`). What remains is `nested-interactive` 9, an
+    **accepted violation** (2026-07-31): the role-swap and drag-handle remedies were evaluated and
+    declined — see the header comment in `tests/e2e/a11y.spec.ts`. Revisit alongside any future
+    keyboard-UX pass (keyboard users also cannot open the editor today; Enter starts a drag). See
     `docs/superpowers/specs/2026-07-30-a11y-landmarks-design.md`.
 - **No browser-level coverage of offline shell serving.** The service worker demonstrably serves
   precached assets with the network down, but Playwright's CDP offline emulation fails a top-level
