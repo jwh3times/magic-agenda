@@ -5,7 +5,7 @@ import type { ThemeName } from '../types/task'
 const THEMES: { key: ThemeName; label: string; sw: string }[] = [
   { key: 'cork', label: 'Cork', sw: '#caa46b' },
   { key: 'brutal', label: 'Neon', sw: '#FF4D2E' },
-  { key: 'glass', label: 'Aurora', sw: '#7c5cff' },
+  { key: 'glass', label: 'Aurora', sw: '#7452ff' },
 ]
 
 export function ThemeSwitcher() {

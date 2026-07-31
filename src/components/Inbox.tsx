@@ -83,7 +83,9 @@ export function Inbox({ tasks, handlers, pop }: InboxProps) {
               display: 'flex',
               gap: 12,
               fontSize: 11,
-              opacity: 0.55,
+              // 0.6, not 0.55: brutal's white inbox puts these at 4.17:1 at 0.55 — an AA near-miss
+              // flagged by the E2E a11y ratchet. Imperceptible; do not round back down.
+              opacity: 0.6,
               color: conf.numFg,
             }}
           >

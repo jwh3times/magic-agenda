@@ -140,7 +140,7 @@ export function Landing() {
               style={{
                 padding: '13px 26px',
                 borderRadius: 10,
-                background: '#7c5cff',
+                background: '#7452ff',
                 color: '#fff',
                 textDecoration: 'none',
                 fontSize: 15,
@@ -188,7 +188,7 @@ export function Landing() {
                   style={{
                     padding: '8px 14px',
                     borderRadius: 999,
-                    border: `1px solid ${active ? '#7c5cff' : 'rgba(255,255,255,.14)'}`,
+                    border: `1px solid ${active ? '#7452ff' : 'rgba(255,255,255,.14)'}`,
                     background: active ? 'rgba(124,92,255,.18)' : 'transparent',
                     color: '#eaf0ff',
                     fontSize: 13,

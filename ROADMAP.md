@@ -68,10 +68,14 @@ were added as their own effort rather than a roadmap feature — see
     Dependabot's reach at that point, since a Playwright upgrade invalidates every screenshot
     baseline.
   - **A11y remediation has shipped.** The structural rules are cleared — `region`, `landmark-one-main`,
-    `page-has-heading-one` and `select-name`, 177 of the 202 originally baselined. What remains is
-    `color-contrast` 16 and `nested-interactive` 9, both deliberately deferred: contrast lives in
-    `theme/themeConf.ts`, a verbatim port of the prototype, and nested-interactive needs `src/dnd`
-    changes. See `docs/superpowers/specs/2026-07-30-a11y-landmarks-design.md`.
+    `page-has-heading-one` and `select-name`, 177 of the 202 originally baselined — and the eight
+    near-miss contrast findings (4.17–4.41:1) were cleared by token nudges: glass/brand accent
+    `#7c5cff` → `#7452ff`, cork `toolbarSub` alpha `.6` → `.65`, inbox foot-link opacity
+    `.55` → `.6`. What remains is `color-contrast` 8 and `nested-interactive` 9, both deliberately
+    deferred: the remaining contrast failures (2.12–3.72:1) are per-theme design decisions in
+    `theme/themeConf.ts` / `theme/constants.ts`, a verbatim port of the prototype, and
+    nested-interactive needs `src/dnd` changes. See
+    `docs/superpowers/specs/2026-07-30-a11y-landmarks-design.md`.
 - **No browser-level coverage of offline shell serving.** The service worker demonstrably serves
   precached assets with the network down, but Playwright's CDP offline emulation fails a top-level
   navigation before the worker is consulted, so the deployed offline-boot path cannot be exercised

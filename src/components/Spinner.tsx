@@ -18,7 +18,7 @@ export function Spinner({ label = 'Loading…' }: { label?: string }) {
             height: 34,
             borderRadius: '50%',
             border: '3px solid rgba(255,255,255,.15)',
-            borderTopColor: '#7c5cff',
+            borderTopColor: '#7452ff',
             animation: 'spin .8s linear infinite',
           }}
         />

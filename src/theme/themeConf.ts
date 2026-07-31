@@ -42,7 +42,9 @@ const CORK: ThemeConf = {
   pageSize: '24px 24px, 31px 31px, 17px 17px',
   toolbarBg: '#6b4a2b',
   toolbarFg: '#fbf3e6',
-  toolbarSub: 'rgba(251,243,230,.6)',
+  // .65, not .6: at .6 this sits at 4.41:1 on the inactive view-switcher buttons — an AA near-miss
+  // flagged by the E2E a11y ratchet. The bump is imperceptible; do not round it back down.
+  toolbarSub: 'rgba(251,243,230,.65)',
   toolbarBorder: '1px solid rgba(0,0,0,.25)',
   accent: '#b8472e',
   accentFg: '#fff',
@@ -105,7 +107,10 @@ const GLASS: ThemeConf = {
   toolbarFg: '#eaf0ff',
   toolbarSub: 'rgba(234,240,255,.5)',
   toolbarBorder: '1px solid rgba(255,255,255,.10)',
-  accent: '#7c5cff',
+  // #7452ff, not #7c5cff: the original is 4.35:1 under white text (an AA near-miss); this keeps the
+  // hue and clears 4.5:1 with margin. The rgba(124,92,255,…) glow/tint literals deliberately keep
+  // the old value — they carry no text and theme.test.ts pins them.
+  accent: '#7452ff',
   accentFg: '#fff',
   boardBg: 'rgba(255,255,255,.03)',
   boardBorder: '1px solid rgba(255,255,255,.09)',
