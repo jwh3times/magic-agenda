@@ -3,8 +3,6 @@ name: ship
 description: Use when a feature branch is ready for review and you want to open or update its PR — refresh docs, write the changelog entry for the version this merge will mint, run the fast checks, push, and open/update the PR. Triggers on "ship it", "open a PR", "push this", "let's ship".
 ---
 
-<!-- GENERATED from .claude/skills/ship/SKILL.md by scripts/sync-codex.mjs — edit the source and run `npm run codex:sync`. -->
-
 # Ship
 
 Take the current branch from "code is done" to "PR is open and green-able", and make

@@ -67,9 +67,10 @@ jobs:
           deno-version: v2.x
       - run: deno test
 
-  # .claude/ is the source of truth for both harnesses; .codex/agents and
-  # .agents/skills are generated from it and committed. This fails a PR that edits
-  # one without regenerating the other. No `npm ci` — the script has no deps.
+  # Two generated trees, opposite directions: .codex/agents is generated from
+  # .claude/agents/, and .claude/skills is generated from .agents/skills/ (see AGENTS.md).
+  # This fails a PR that edits an authored tree without regenerating the other side.
+  # No `npm ci` — the script has no deps.
   Agents:
     runs-on: ubuntu-latest
     steps:

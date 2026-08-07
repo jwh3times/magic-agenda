@@ -487,34 +487,67 @@ skill (`.claude/skills/ship/`) takes a finished branch to an open PR — it refr
 or not you use it, keep `AGENTS.md`, `README.md`, `ROADMAP.md`, and `CHANGELOG.md` aligned when a
 change affects project behavior, commands, architecture, or release notes.
 
-### `.claude/` is the source of truth; the Codex trees are generated
+### Two authored trees, two generated trees — opposite directions on purpose
 
 Both Claude Code and Codex are used on this repo, and they read different files. Rather than keep
-two hand-written copies that drift, **`.claude/` is authored and everything Codex-specific is
-generated from it** by `scripts/sync-codex.mjs` (`npm run codex:sync`):
+hand-written copies that drift, each generated tree is produced from an authored one by
+`scripts/sync-codex.mjs` (`npm run codex:sync`):
 
-| Source                  | Generated                | How                                            |
+| Authored (edit this)   | Generated (never edit)   | How                                            |
 | ----------------------- | ------------------------ | ---------------------------------------------- |
 | `.claude/agents/<n>.md` | `.codex/agents/<n>.toml` | frontmatter + body -> `developer_instructions` |
-| `.claude/skills/<n>/**` | `.agents/skills/<n>/**`  | copied verbatim, plus a "generated" banner     |
+| `.agents/skills/<n>/**` | `.claude/skills/<n>/**`  | copied verbatim, plus a "generated" banner     |
 
-Those destinations are not a matched pair by choice — they are where Codex actually looks. Subagents
-load only from `.codex/agents/`; skills are found by scanning `.agents/skills` from the cwd up to the
-repo root. Both generated trees are **committed**, so a Codex session gets them without running Node.
+The two rows run in **opposite** directions, and that asymmetry is deliberate, not a typo: each
+authored tree is wherever something actually writes to it. Subagents are hand-written under
+`.claude/agents/`. Skills are installed by a skills-sync tool (e.g. a Matt Pocock skills sync) that
+writes real files straight into `.agents/skills/<n>/` — making that side authored is what keeps
+installing or updating a skill a one-way write, with nothing to hand-copy back into `.claude/`.
+Claude Code itself only discovers skills by scanning `.claude/skills` from the cwd up to the repo
+root, so that side has to be the generated one. Both generated trees are **committed**, so a Codex
+or Claude session gets them without running Node.
+
+**Skills used to run the same direction as subagents** (`.claude/skills/` authored,
+`.agents/skills/` generated), bridged by OS symlinks so both paths resolved to the same bytes. That
+broke for two independent reasons, hit for real in this repo once a skills-sync tool wrote into
+`.agents/skills/<n>/` and symlinked `.claude/skills/<n>` back to it:
+
+1. `readdirSync(dir, { withFileTypes: true })` reports a symlinked directory as
+   `isSymbolicLink()`, not `isDirectory()`. The sync script's directory walker filtered on
+   `isDirectory()`, so it treated every symlinked skill as a single file and handed it to
+   `readFileSync` — which throws `EISDIR` once it resolves through the link to a directory.
+2. `git config core.symlinks` is `false` on a stock Windows checkout (no symlink privilege), so Git
+   cannot store a symlink as a symlink: `git add` on one walks through it and stages the target's
+   file contents under the link's path, silently duplicating every byte instead of recording a link.
+
+**Never reintroduce a symlink under `.claude/skills/` or `.agents/skills/`** — either failure mode
+comes back. `scripts/sync-codex.mjs`'s walker now throws immediately on any symlink it finds, in
+either tree, specifically so a repeat shows up as a loud error instead of one of the two failures
+above.
 
 Rules for this pipeline:
 
-- **Never edit `.codex/` or `.agents/` by hand** — run `npm run codex:sync`. The script owns every
-  byte in both trees, so a file with no source is deleted as stale.
-- **Never "adapt" skill prose for Codex.** A blind `CLAUDE.md` -> `AGENTS.md` substitution is what
+- **`.claude/agents/` and `.agents/skills/` are authored — edit those directly.** `.codex/agents/`
+  and `.claude/skills/` are generated — never hand-edit them, run `npm run codex:sync`. The script
+  owns every byte in both generated trees, so a file with no source is deleted as stale.
+- **Never "adapt" skill prose in transit.** A blind `CLAUDE.md` -> `AGENTS.md` substitution is what
   once produced "edit `AGENTS.md`, never add content to `AGENTS.md`". References to `CLAUDE.md` are
   correct as written for both tools, because it really does exist and really is just an import.
 - The Claude-only frontmatter keys are translated, not dropped silently: `tools:` without any
   file-writing tool becomes `sandbox_mode = "read-only"`, and `model:` is recorded in a comment as
   not carried over (Claude's tiers name no Codex model; Codex uses `agents.default_subagent_model`).
+- A generated `SKILL.md` carries its banner as a YAML comment on line 2 — line 1 stays `---`, so the
+  frontmatter still parses — rather than as prose after the closing `---`; every other file in a
+  skill directory (`references/*.md`, `scripts/*.sh`, `agents/*.yaml`, …) is copied byte-for-byte.
+- Neither generated tree is covered by `npm run format` (its globs are `src`/`tests`/`scripts` TS
+  only), so there is no format-before-sync ordering concern today — but if a future formatter glob
+  ever reaches `.md`/`.yaml`/`.sh`, run `npm run format` before `npm run codex:sync`, not after, or
+  the generated copy mirrors unformatted content and drifts again on the next format pass.
 - The required **`Agents` CI job** runs `npm run codex:check`, which fails on any missing, hand-edited,
   or stale generated file, and also asserts `CLAUDE.md` still contains its `@AGENTS.md` import line.
   Pure logic in the script is unit-tested in `scripts/sync-codex.test.mjs`.
+- `skills-lock.json` at the repo root is the skills-sync tool's own lockfile (source repo + commit
+  hash per installed skill) — committed as installer metadata, untouched by `sync-codex.mjs`.
 
 Completed implementation plans are archived under `docs/plans/` and `docs/specs/` (see
 `docs/README.md`) — they are dated historical records of shipped work, not living documentation;

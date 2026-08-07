@@ -12,6 +12,69 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.53] - 2026-08-07
+
+### Changed
+
+- **Skills now sync `.agents/skills/` → `.claude/skills/`, the opposite direction from before.**
+  A skills-sync installer had started writing real skill files straight into `.agents/skills/<n>/`
+  and symlinking `.claude/skills/<n>` back to them, which broke two ways at once: the sync script's
+  directory walker reports a symlinked directory as `isSymbolicLink()`, not `isDirectory()`, so it
+  silently treated each linked skill as a single file and crashed reading it as one (`EISDIR`); and
+  `git config core.symlinks` is `false` on a stock Windows checkout, so `git add` on a symlinked
+  skill walks through it and stages the target's file contents under the link's path, duplicating
+  every byte instead of recording a link. `.agents/skills/` is now the authored tree (where the
+  installer already writes) and `.claude/skills/` is generated from it — matching how subagents
+  already work in the other direction (`.claude/agents/` authored, `.codex/agents/` generated). The
+  previously-symlinked `ship` skill's authored copy moved to `.agents/skills/ship/` accordingly.
+- `scripts/sync-codex.mjs`'s directory walker now throws immediately on any symlink it finds, in
+  either generated tree, instead of reproducing either failure mode above.
+- A generated `SKILL.md`'s "do not edit" banner moved from a line of prose after the frontmatter to
+  a YAML comment on line 2 of the frontmatter itself (line 1 stays `---`), and
+  `scripts/sync-codex.mjs`'s minimal frontmatter parser now tolerates `#` comment lines to match.
+
+### Internal
+
+- `.prettierignore` now lists `.codex/` and `.claude/skills/` as generated trees, alongside the
+  existing `.claude/ is authored` note in AGENTS.md.
+
+## [1.2.52] - 2026-08-07
+
+### Internal
+
+- **Dev-dependency bumps** (Dependabot, `npm-minor-and-patch` group): `@testing-library/user-event`
+  14.6.1 → 14.6.3, `typescript-eslint` 8.65.0 → 8.66.0. No runtime dependencies changed. (#126)
+
+## [1.2.51] - 2026-08-06
+
+### Internal
+
+- **Dependency bumps** (Dependabot, `npm-minor-and-patch` group): `@supabase/supabase-js` 2.111.0 →
+  2.112.0 (runtime), `globals` 17.8.0 → 17.9.0 (dev). (#125)
+
+## [1.2.50] - 2026-08-04
+
+### Internal
+
+- **Dev-dependency bump (transitive):** `fast-uri` 3.1.4 → 3.1.5, pulled in via `ajv`. No direct
+  dependency changed. (Dependabot, #124)
+
+## [1.2.49] - 2026-08-04
+
+### Internal
+
+- **Dev-dependency bump:** `@playwright/test` 1.62.0 → 1.62.1 (Dependabot, `e2e-toolchain` group).
+  (#122)
+
+## [1.2.48] - 2026-08-04
+
+### Internal
+
+- **Dependency bumps** (Dependabot, `npm-minor-and-patch` group): `supabase` CLI 2.110.0 → 2.111.0,
+  `@types/pg` 8.20.0 → 8.20.3, `@types/react` 19.2.17 → 19.2.18, `@types/react-dom` 19.2.3 →
+  19.2.4, `@vitejs/plugin-react` 6.0.4 → 6.0.5, `vite` 8.1.5 → 8.2.0 — all dev tooling. No runtime
+  dependencies changed. (#123)
+
 ## [1.2.47] - 2026-07-31
 
 ### Fixed
@@ -1068,7 +1131,13 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.47...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.53...HEAD
+[1.2.53]: https://github.com/jwh3times/magic-agenda/compare/v1.2.52...v1.2.53
+[1.2.52]: https://github.com/jwh3times/magic-agenda/compare/v1.2.51...v1.2.52
+[1.2.51]: https://github.com/jwh3times/magic-agenda/compare/v1.2.50...v1.2.51
+[1.2.50]: https://github.com/jwh3times/magic-agenda/compare/v1.2.49...v1.2.50
+[1.2.49]: https://github.com/jwh3times/magic-agenda/compare/v1.2.48...v1.2.49
+[1.2.48]: https://github.com/jwh3times/magic-agenda/compare/v1.2.47...v1.2.48
 [1.2.47]: https://github.com/jwh3times/magic-agenda/compare/v1.2.46...v1.2.47
 [1.2.46]: https://github.com/jwh3times/magic-agenda/compare/v1.2.45...v1.2.46
 [1.2.45]: https://github.com/jwh3times/magic-agenda/compare/v1.2.44...v1.2.45
