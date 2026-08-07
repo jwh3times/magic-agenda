@@ -51,6 +51,11 @@ describe('parseFrontmatter', () => {
     expect(meta.description).toBe('Run after: a migration')
   })
 
+  it('skips a whole-line comment, e.g. a generated-file banner', () => {
+    const { meta } = parseFrontmatter('---\n# a banner\nname: x\n---\n\nbody\n')
+    expect(meta).toEqual({ name: 'x' })
+  })
+
   it('preserves the body verbatim, including blank lines', () => {
     const { body } = parseFrontmatter('---\nname: x\n---\n\na\n\n\nb\n')
     expect(body).toBe('a\n\n\nb\n')
@@ -149,10 +154,22 @@ describe('agentToToml', () => {
 })
 
 describe('renderSkillFile', () => {
-  it('points SKILL.md back at its source without touching the frontmatter', () => {
-    const rendered = renderSkillFile('.claude/skills/ship/SKILL.md', skillSource)
-    expect(rendered.startsWith('---\nname: ship\n')).toBe(true)
-    expect(rendered).toContain('.claude/skills/ship/SKILL.md')
+  it('points SKILL.md back at its source as a YAML comment on line 2', () => {
+    const rendered = renderSkillFile('.agents/skills/ship/SKILL.md', skillSource)
+    const lines = rendered.split('\n')
+    expect(lines[0]).toBe('---')
+    expect(lines[1]).toBe(
+      '# GENERATED from .agents/skills/ship/SKILL.md by scripts/sync-codex.mjs — do not edit; edit the source and run `npm run codex:sync`.',
+    )
+    expect(lines[2]).toBe('name: ship')
+  })
+
+  it('stays valid frontmatter after the banner is injected', () => {
+    const rendered = renderSkillFile('.agents/skills/ship/SKILL.md', skillSource)
+    const { meta, body } = parseFrontmatter(rendered)
+    expect(meta.name).toBe('ship')
+    expect(meta.description).toBe('Use when a branch is ready for review.')
+    expect(body).toBe('# Ship\n\nTake the branch to an open PR.\n')
   })
 
   it('copies the prose verbatim — no CLAUDE.md rewriting', () => {
@@ -160,34 +177,34 @@ describe('renderSkillFile', () => {
       'Take the branch to an open PR.',
       'Never edit `CLAUDE.md` (an `@AGENTS.md` import).',
     )
-    expect(renderSkillFile('.claude/skills/ship/SKILL.md', claudeAware)).toContain(
+    expect(renderSkillFile('.agents/skills/ship/SKILL.md', claudeAware)).toContain(
       'Never edit `CLAUDE.md` (an `@AGENTS.md` import).',
     )
   })
 
   it('leaves supporting files byte-identical', () => {
     const reference = '# Reference\n\nSome notes.\n'
-    expect(renderSkillFile('.claude/skills/ship/references/notes.md', reference)).toBe(reference)
+    expect(renderSkillFile('.agents/skills/ship/references/notes.md', reference)).toBe(reference)
   })
 })
 
 describe('planCodexTree', () => {
   const sources = [
     { path: '.claude/agents/code-reviewer.md', content: agentSource },
-    { path: '.claude/skills/ship/SKILL.md', content: skillSource },
-    { path: '.claude/skills/ship/references/notes.md', content: '# Notes\n' },
+    { path: '.agents/skills/ship/SKILL.md', content: skillSource },
+    { path: '.agents/skills/ship/references/notes.md', content: '# Notes\n' },
   ]
 
-  it('sends agents to .codex/agents and skills to .agents/skills', () => {
+  it('sends agents to .codex/agents and skills to .claude/skills', () => {
     expect([...planCodexTree(sources).keys()].sort()).toEqual([
-      '.agents/skills/ship/SKILL.md',
-      '.agents/skills/ship/references/notes.md',
+      '.claude/skills/ship/SKILL.md',
+      '.claude/skills/ship/references/notes.md',
       '.codex/agents/code-reviewer.toml',
     ])
   })
 
   it('mirrors nested skill files at the same relative path', () => {
-    expect(planCodexTree(sources).get('.agents/skills/ship/references/notes.md')).toBe('# Notes\n')
+    expect(planCodexTree(sources).get('.claude/skills/ship/references/notes.md')).toBe('# Notes\n')
   })
 
   it('ignores files that are neither an agent nor part of a skill', () => {

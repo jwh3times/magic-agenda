@@ -1,24 +1,48 @@
 #!/usr/bin/env node
-// Generates Codex's agent config from Claude's, so one session's house rules are
-// the other's. `.claude/` is the source of truth; the Codex trees are build output.
+// Two independent generated trees, kept in sync with their authored sources. They run
+// in OPPOSITE directions on purpose — each authored tree is wherever a human (or an
+// installer) actually writes, not wherever looks symmetric:
 //
-//   .claude/agents/<name>.md      -> .codex/agents/<name>.toml   (converted)
-//   .claude/skills/<name>/**      -> .agents/skills/<name>/**    (copied verbatim)
+//   .claude/agents/<name>.md      -> .codex/agents/<name>.toml    (converted)
+//   .agents/skills/<name>/**      -> .claude/skills/<name>/**     (copied verbatim)
 //
-// Those two destinations are not a matched pair by choice — they are where Codex
-// actually looks. Subagents load only from `.codex/agents/`, while skills are
-// discovered by scanning `.agents/skills` from the cwd up to the repo root.
+// Subagents are authored under `.claude/agents/` and generated for Codex, which loads
+// only from `.codex/agents/`. Skills run the other way: `.agents/skills/` is where a
+// skills installer (e.g. a Matt Pocock skills sync) writes real files, and Claude Code
+// discovers skills by scanning `.claude/skills/` from the cwd up to the repo root — so
+// that side is the generated one. Making `.agents/skills/` authored is what lets
+// installing or updating a skill stay a one-way write with no manual copying back into
+// `.claude/`.
+//
+// This used to run the same direction as the agents pipeline (`.claude/skills/` authored,
+// `.agents/skills/` generated), with OS symlinks bridging the two so both paths worked
+// without duplicating bytes. That broke for two independent reasons, both hit for real
+// in this repo once a third-party installer wrote directly into `.agents/skills/` and
+// symlinked `.claude/skills/<name>` back to it:
+//   1. `readdirSync(dir, { withFileTypes: true })` reports a symlinked directory as
+//      `isSymbolicLink()`, not `isDirectory()`. `walk()` below used to filter on
+//      `isDirectory()`, so every symlinked skill was treated as a single file and handed
+//      to `readFileSync`, which throws EISDIR on a directory target — reproduced here,
+//      not hypothetical.
+//   2. `git config core.symlinks` is `false` on this machine (common on Windows without
+//      symlink privileges), so Git can't store a symlink as a symlink: `git add` on a
+//      symlinked skill directory walks through it and stages the target's file contents
+//      under the link's path, silently duplicating every byte instead of recording a link.
+// `walk()` now throws immediately on any symlink it encounters, in either tree, so a
+// regression here fails loudly instead of reproducing either failure mode.
 //
 // Skill prose is copied byte-for-byte. Do NOT "adapt" it: a blind CLAUDE.md ->
 // AGENTS.md substitution is what produced gems like "edit AGENTS.md, never add
 // content to AGENTS.md". References to CLAUDE.md are correct as written for both
 // tools, because CLAUDE.md really does exist and really is just an @AGENTS.md import.
-// The one injected byte is a banner naming the source file.
+// The one injected difference is a banner naming the source file, added as a YAML
+// comment on line 2 of a generated SKILL.md (line 1 stays `---`, so the frontmatter
+// still parses) — every other file is passed through untouched.
 //
 //   node scripts/sync-codex.mjs           regenerate both trees (npm run codex:sync)
 //   node scripts/sync-codex.mjs --check    verify, exit 1 on drift (npm run codex:check)
 //
-// The `Agents` CI job runs --check, so a PR that edits `.claude/` without
+// The `Agents` CI job runs --check, so a PR that edits an authored tree without
 // regenerating fails. Text files only — a non-UTF-8 skill asset is a hard error
 // rather than a silently corrupted copy.
 
@@ -28,9 +52,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import process from 'node:process'
 
 const AGENT_SRC = '.claude/agents'
-const SKILL_SRC = '.claude/skills'
+const SKILL_SRC = '.agents/skills'
 const AGENT_OUT = '.codex/agents'
-const SKILL_OUT = '.agents/skills'
+const SKILL_OUT = '.claude/skills'
 
 /** Claude tools that can modify the working tree. Absent => the agent only inspects. */
 const WRITING_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit']
@@ -40,8 +64,9 @@ const TRANSLATED_KEYS = ['name', 'description', 'tools']
 
 /**
  * Split a `---`-delimited YAML header from the markdown body. Deliberately minimal:
- * these files only ever use `key: value` scalars, and a real YAML parser would be a
- * dependency for a script that CI runs without `npm ci`.
+ * these files only ever use `key: value` scalars plus, since a generated SKILL.md always
+ * carries a banner, whole-line `#` comments — a real YAML parser would be a dependency
+ * for a script that CI runs without `npm ci`.
  *
  * @param {string} text - file contents.
  * @returns {{meta: Record<string, string>, body: string}} body keeps its original spacing.
@@ -53,7 +78,7 @@ export function parseFrontmatter(text) {
   }
   const meta = {}
   for (const line of m[1].split('\n')) {
-    if (line.trim() === '') continue
+    if (line.trim() === '' || line.trim().startsWith('#')) continue
     const pair = /^([A-Za-z_][\w-]*):\s*(.*)$/.exec(line)
     if (pair === null) {
       throw new Error(`frontmatter line is not a simple \`key: value\` pair: ${line}`)
@@ -142,24 +167,22 @@ export function agentToToml(sourcePath, text) {
 }
 
 /**
- * Render one file of a skill for the Codex tree. `SKILL.md` gains a banner below its
- * frontmatter — where it is visible to whoever (or whatever) opens the copy to edit
- * it — and everything else is passed through untouched.
+ * Render one file of a skill for the `.claude/skills` tree. `SKILL.md` gains a banner as
+ * a YAML comment on line 2 — line 1 stays the opening `---`, so the frontmatter still
+ * parses as valid YAML — and everything else is passed through untouched.
  *
- * @param {string} sourcePath - repo-relative posix path under `.claude/skills/`.
+ * @param {string} sourcePath - repo-relative posix path under `.agents/skills/`.
  * @param {string} text - source file contents.
- * @returns {string} contents to write into the Codex tree.
+ * @returns {string} contents to write into the `.claude/skills` tree.
  */
 export function renderSkillFile(sourcePath, text) {
   if (posix.basename(sourcePath) !== 'SKILL.md') return text
-  const m = /^---\n[\s\S]*?\n---\n/.exec(text)
+  const m = /^---\n/.exec(text)
   if (m === null) {
     throw new Error(`${sourcePath}: expected a \`---\` YAML frontmatter block`)
   }
-  const banner =
-    `<!-- GENERATED from ${sourcePath} by scripts/sync-codex.mjs — ` +
-    'edit the source and run `npm run codex:sync`. -->'
-  return `${m[0]}\n${banner}\n${text.slice(m[0].length)}`
+  const banner = `# GENERATED from ${sourcePath} by scripts/sync-codex.mjs — do not edit; edit the source and run \`npm run codex:sync\`.`
+  return `${m[0]}${banner}\n${text.slice(m[0].length)}`
 }
 
 /**
@@ -168,7 +191,8 @@ export function renderSkillFile(sourcePath, text) {
  * Complete is the load-bearing word: anything on disk under those trees and absent
  * from this map is stale, and gets deleted (or reported) rather than left to rot.
  *
- * @param {{path: string, content: string}[]} sources - repo-relative posix paths under `.claude/`.
+ * @param {{path: string, content: string}[]} sources - repo-relative posix paths under
+ *   `.claude/agents/` (subagents) or `.agents/skills/` (skills) — the two authored trees.
  * @returns {Map<string, string>} output path -> contents.
  */
 export function planCodexTree(sources) {
@@ -220,7 +244,16 @@ export function claudeMdImportsAgents(text) {
 // and the pure exports above must stay importable there.
 const repoRoot = () => fileURLToPath(new URL('..', import.meta.url))
 
-/** @returns {string[]} repo-relative posix paths of every file under `dir`, recursively. */
+/**
+ * @returns {string[]} repo-relative posix paths of every file under `dir`, recursively.
+ *
+ * Throws on a symlink rather than silently mishandling it: `Dirent#isDirectory()` is
+ * `false` for a symlinked directory, so a naive `isDirectory() ? walk() : [child]` treats
+ * the link as a single file and hands it to `readFileSync`, which throws an opaque EISDIR
+ * once it resolves through to the directory the link points at. Neither tree should ever
+ * contain a symlink (see the file header), so failing loudly here is strictly better than
+ * reproducing that failure mode with a worse stack trace.
+ */
 function walk(dir) {
   const absolute = join(repoRoot(), dir)
   let entries
@@ -231,6 +264,9 @@ function walk(dir) {
   }
   return entries.flatMap((entry) => {
     const child = `${dir}/${entry.name}`
+    if (entry.isSymbolicLink()) {
+      throw new Error(`${child}: symlinks are not supported here — commit real files instead.`)
+    }
     return entry.isDirectory() ? walk(child) : [child]
   })
 }
@@ -286,7 +322,7 @@ function write(desired, { missing, changed, stale }) {
   const touched = missing.length + changed.length + stale.length
   process.stdout.write(
     touched === 0
-      ? 'Codex agent config is already in sync with .claude/.\n'
+      ? 'Generated agent and skill trees already match their authored sources.\n'
       : `Synced ${touched} file(s): ${missing.length} added, ${changed.length} updated, ${stale.length} removed.\n`,
   )
 }
@@ -319,7 +355,7 @@ function main() {
   }
 
   if (check) {
-    if (inSync) process.stdout.write('Codex agent config matches .claude/.\n')
+    if (inSync) process.stdout.write('Generated agent and skill trees match their authored sources.\n')
     else report(diff)
     process.exit(inSync && importsAgents ? 0 : 1)
   }
