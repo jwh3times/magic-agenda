@@ -12,6 +12,17 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.54] - 2026-08-08
+
+### Docs
+
+- Added `docs/agents/` (`issue-tracker.md`, `triage-labels.md`, `domain.md`) plus an `## Agent
+  skills` section in `AGENTS.md`, configuring where third-party Claude Code skills such as
+  `triage`, `to-tickets`, and `to-spec` read and write: GitHub Issues on this repo via the `gh`
+  CLI, the default five-role triage label vocabulary, and a single-context `CONTEXT.md`/`docs/adr/`
+  layout for domain docs (neither exists yet — created lazily by `/domain-modeling`). No app
+  behavior, commands, or architecture changed.
+
 ## [1.2.53] - 2026-08-07
 
 ### Changed
@@ -1131,7 +1142,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.53...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.54...HEAD
+[1.2.54]: https://github.com/jwh3times/magic-agenda/compare/v1.2.53...v1.2.54
 [1.2.53]: https://github.com/jwh3times/magic-agenda/compare/v1.2.52...v1.2.53
 [1.2.52]: https://github.com/jwh3times/magic-agenda/compare/v1.2.51...v1.2.52
 [1.2.51]: https://github.com/jwh3times/magic-agenda/compare/v1.2.50...v1.2.51
