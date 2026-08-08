@@ -579,3 +579,17 @@ multi-row `INSERT` per table, so FK checks defer to end of statement — verifie
 the dump is `public`-only, so restoring from it alone leaves new signups with no settings row; and the
 direct `db.<ref>.supabase.co` host is IPv6-only, so a restore needs the Session pooler. Full
 procedure, including what to verify: `docs/runbooks/restore-from-backup.md`.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live in GitHub Issues for jwh3times/magic-agenda. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix), used as-is. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
