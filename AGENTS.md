@@ -242,6 +242,29 @@ Three details worth keeping:
 used to live in the UI shell — including the rule-stripping on the this-occurrence path, enforced by
 nothing but a comment — are `resolveSave` / `resolveDelete`.
 
+**`src/data/editIntent.ts` is the editor's half of the same split.** `series.ts` decides *which
+occurrences* an operation touches; `editIntent.ts` decides *whether the editor may proceed at all*
+and *whether it has to ask first* — `cleanDraft`, `changedTaskKeys`, `onlyPerOccurrenceChanged`,
+`intendSave`, `intendDelete`. All pure, and all previously private to a 739-line
+`TaskEditor.tsx`, which is why its eight tests reached them by clicking through the DOM and why the
+fail-safe property documented on `changedTaskKeys` was asserted by nothing.
+
+Two facts that used to be undeclared and now live in types:
+
+- **`onSave`'s scope is definite for a recurring instance.** It was `undefined` on the
+  per-occurrence-only path, and `Board` had to know that meant "this occurrence". `resolveSave`
+  still defends against `undefined` — that default is tested — but nothing produces it for an
+  instance now.
+- **`onDelete` receives `initial`, not the edited draft**, so edits made in the modal are discarded.
+  That is unchanged and deliberate here: it is [#132](https://github.com/jwh3times/magic-agenda/issues/132),
+  which is genuinely undecided. `intendDelete` owns the decision and `editIntent.test.ts` pins the
+  current answer, so changing it has to be deliberate.
+
+`PER_OCCURRENCE_FIELDS` (which fields skip the prompt) and `seriesContent()` in `series.ts` (which
+fields an all-future edit propagates) are two halves of one classification, deliberately kept
+separate: they answer different questions and are not exact complements — `day`, `order`,
+`checklist` and the recurrence fields are in neither.
+
 ### Drag-and-drop: every decision is pure; dnd-kit is an adapter
 
 Two pure modules, then thin wiring. `src/dnd/reorder.ts` is the **splice math** (`moveToDay` /

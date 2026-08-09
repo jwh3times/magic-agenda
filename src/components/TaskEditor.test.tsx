@@ -189,3 +189,36 @@ test('hides an open scope prompt if the board goes read-only mid-interaction', a
   expect(screen.queryByRole('button', { name: 'This and all future' })).not.toBeInTheDocument()
   expect(onSave).not.toHaveBeenCalled()
 })
+
+test('a scope prompt dismissed by read-only does not come back when the board recovers', async () => {
+  // The old gate was `scopePrompt && !readOnly`, which HID the prompt without clearing it — so
+  // reconnecting re-opened a prompt the user never re-triggered, mid-way through whatever they
+  // were doing next. It is now cleared on the way in.
+  const user = userEvent.setup()
+  const onSave = vi.fn()
+  const tree = (readOnly?: boolean) => (
+    <ThemeProvider>
+      <TaskEditor
+        initial={mkInstance()}
+        isNew={false}
+        onSave={onSave}
+        onDelete={vi.fn()}
+        onClose={vi.fn()}
+        readOnly={readOnly}
+      />
+    </ThemeProvider>
+  )
+  const { rerender } = render(tree())
+
+  await user.clear(screen.getByPlaceholderText('Task title…'))
+  await user.type(screen.getByPlaceholderText('Task title…'), 'Water the ferns')
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  expect(screen.getByText('Save repeating task')).toBeInTheDocument()
+
+  rerender(tree(true))
+  expect(screen.queryByText('Save repeating task')).not.toBeInTheDocument()
+
+  rerender(tree(false))
+  expect(screen.queryByText('Save repeating task')).not.toBeInTheDocument()
+  expect(onSave).not.toHaveBeenCalled()
+})
