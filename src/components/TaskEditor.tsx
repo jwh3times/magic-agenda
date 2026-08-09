@@ -1,48 +1,29 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useState } from 'react'
 import type { RecurScope } from '../data/series'
+import { cleanDraft, intendDelete, intendSave } from '../data/editIntent'
 import { useTheme } from '../theme/ThemeProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { CAT, COLORS, PAPER, STATUS } from '../theme/constants'
 import { newId } from '../lib/id'
 import { isScheduled } from '../lib/dates'
+import { editorChrome } from './editorChrome'
+import { ScopePrompt } from './ScopePrompt'
 import type { Category, Color, RecurFreq, Status, Task } from '../types/task'
 
-/** Which occurrences a save/delete applies to, for a recurring series. */
-// The scope vocabulary is owned by src/data/series.ts, which also acts on it.
-export type { RecurScope }
-
-/** Fields a recurring instance can change without touching series content — safe to save
- * directly, bypassing the this-occurrence-vs-all-future prompt. `done` isn't listed because it's
- * fully derived from `status` (see `changedTaskKeys`). */
-const PER_OCCURRENCE_FIELDS: ReadonlySet<keyof Task> = new Set<keyof Task>(['pinned', 'status'])
-
-/** Keys whose value differs between `a` and `b`. `done` is skipped — it's derived from `status`,
- * so comparing it separately would be redundant. Arrays (checklist) compare by content, not
- * reference, since `clean()` always remaps `checklist` into a fresh array. Note: the
- * `JSON.stringify` comparison assumes consistent `ChecklistItem` key order across constructors
- * (e.g. `clean()`'s `{ id, text, done }` object literal shape); if that ever drifts, the failure
- * mode is fail-safe — it over-reports a change (over-shows the scope prompt), never suppresses
- * one that's needed. */
-function changedTaskKeys(a: Task, b: Task): (keyof Task)[] {
-  return (Object.keys(b) as (keyof Task)[]).filter((key) => {
-    if (key === 'done') return false
-    const av = a[key]
-    const bv = b[key]
-    if (Array.isArray(av) && Array.isArray(bv)) return JSON.stringify(av) !== JSON.stringify(bv)
-    return av !== bv
-  })
-}
-
-/** True when every changed field between the original instance and the save draft is a
- * per-occurrence field (pinned/status) — i.e. no series-content field changed. */
-function onlyPerOccurrenceChanged(original: Task, next: Task): boolean {
-  return changedTaskKeys(original, next).every((key) => PER_OCCURRENCE_FIELDS.has(key))
-}
-
 export interface TaskEditorProps {
+  /**
+   * The task to edit. **Not synced after mount** — `draft` is seeded from it once, so a caller
+   * changing `initial` without remounting shows stale fields. `Board` keys the editor on
+   * `task.id` for exactly this reason.
+   */
   initial: Task
   isNew: boolean
+  /** `scope` is definite for a recurring instance, and `undefined` only where it is meaningless. */
   onSave: (task: Task, scope?: RecurScope) => void
+  /**
+   * Receives `initial`, **not** the edited draft — edits made in the modal are discarded on
+   * delete. See `intendDelete`, which owns that decision, and #132, which questions it.
+   */
   onDelete: (task: Task, scope?: RecurScope) => void
   onClose: () => void
   /** True while hydrated from an offline snapshot: every field is disabled and there is no way
@@ -77,46 +58,13 @@ export function TaskEditor({
   const patch = (p: Partial<Task>) => setDraft((d) => ({ ...d, ...p }))
   const titleOk = draft.title.trim().length > 0
 
-  const dark = theme === 'glass'
-  const panelBg = dark ? '#161a2e' : '#fffdf8'
-  const fg = dark ? '#eaf0ff' : '#241c12'
-  const sub = dark ? 'rgba(234,240,255,.5)' : 'rgba(60,42,18,.55)'
-  const fieldBg = dark ? 'rgba(255,255,255,.05)' : '#f3efe6'
-  const border = dark ? 'rgba(255,255,255,.12)' : 'rgba(60,42,18,.18)'
+  const chrome = editorChrome(theme, conf, isMobile)
+  const { dark, panelBg, fg, sub, fieldBg, border, ctlFont, inputBase, fieldLabel, btn } = chrome
 
-  // <16px input text makes iOS Safari zoom the page in on focus.
-  const ctlFont = isMobile ? '16px' : '13px'
-  const inputBase: CSSProperties = {
-    width: '100%',
-    padding: '11px 13px',
-    borderRadius: '10px',
-    border: `1px solid ${border}`,
-    background: fieldBg,
-    color: fg,
-    fontFamily: conf.ui,
-    fontSize: isMobile ? '16px' : '14px',
-    fontWeight: 500,
-  }
-  const fieldLabel: CSSProperties = {
-    fontSize: '11px',
-    fontWeight: 800,
-    letterSpacing: '.7px',
-    textTransform: 'uppercase',
-    color: sub,
-    margin: '17px 0 9px',
-  }
-  const btn = (bg: string, fgc: string, extra?: CSSProperties): CSSProperties => ({
-    padding: '10px 18px',
-    borderRadius: '9px',
-    border: 'none',
-    cursor: 'pointer',
-    fontFamily: conf.ui,
-    fontSize: '13.5px',
-    fontWeight: 800,
-    background: bg,
-    color: fgc,
-    ...extra,
-  })
+  // Read-only arrives when the board falls back to an offline snapshot. CLEAR the prompt rather
+  // than hiding it: hiding left `scopePrompt` set, so flipping back re-opened a stale prompt.
+  // A render-phase update, which is React's documented way to derive state from a prop change.
+  if (readOnly && scopePrompt !== null) setScopePrompt(null)
 
   const addChecklistItem = () => {
     const text = newItem.trim()
@@ -125,29 +73,26 @@ export function TaskEditor({
     setNewItem('')
   }
 
-  const clean = (): Task => ({
-    ...draft,
-    title: draft.title.trim(),
-    day: isScheduled(draft.day) ? draft.day : 'inbox',
-    done: draft.status === 'done',
-    checklist: draft.checklist.map((c) => ({ id: c.id, text: c.text, done: c.done })),
-  })
-
   const attemptSave = () => {
-    if (!titleOk) return
-    if (!isRecurringInstance) {
-      onSave(clean())
-      return
-    }
-    const cleaned = clean()
-    // Per-occurrence-only edits (pin/status) apply straight to this occurrence — no need to ask
-    // this-occurrence vs. all-future, since there's no series content to route.
-    if (onlyPerOccurrenceChanged(initial, cleaned)) onSave(cleaned, 'this')
-    else setScopePrompt('save')
+    const intent = intendSave(initial, draft, isNew)
+    if (intent.kind === 'blocked') return
+    if (intent.kind === 'ask') setScopePrompt('save')
+    // Called with one argument when there is no scope, rather than an explicit `undefined`:
+    // `onSave(task)` and `onSave(task, undefined)` are the same to the callee but not to a spy.
+    else if (intent.scope) onSave(intent.task, intent.scope)
+    else onSave(intent.task)
   }
+
   const attemptDelete = () => {
-    if (isRecurringInstance) setScopePrompt('delete')
-    else onDelete(initial)
+    const intent = intendDelete(initial, draft, isNew)
+    if (intent.kind === 'ask') setScopePrompt('delete')
+    else onDelete(intent.task)
+  }
+
+  const chooseScope = (scope: RecurScope) => {
+    if (scopePrompt === 'save') onSave(cleanDraft(draft), scope)
+    // Deliberately `initial`, matching intendDelete — see #132.
+    else onDelete(initial, scope)
   }
 
   const recurUnit =
@@ -671,70 +616,13 @@ export function TaskEditor({
         </div>
       </div>
 
-      {scopePrompt && !readOnly && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(10,8,4,.5)',
-            backdropFilter: 'blur(2px)',
-            WebkitBackdropFilter: 'blur(2px)',
-            display: 'grid',
-            placeItems: 'center',
-            zIndex: 9100,
-            padding: 20,
-          }}
-          onClick={() => setScopePrompt(null)}
-        >
-          <div
-            style={{
-              width: 'min(360px, 100%)',
-              background: panelBg,
-              color: fg,
-              border: `1px solid ${border}`,
-              borderRadius: 16,
-              padding: 20,
-              boxShadow: '0 40px 100px rgba(0,0,0,.5)',
-              fontFamily: conf.ui,
-              animation: 'modalIn .18s cubic-bezier(.2,.8,.2,1)',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 6 }}>
-              {scopePrompt === 'save' ? 'Save repeating task' : 'Delete repeating task'}
-            </div>
-            <div style={{ fontSize: 13, color: sub, marginBottom: 16, lineHeight: 1.45 }}>
-              This task repeats. Apply to this occurrence only, or this and all future occurrences?
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <button
-                type="button"
-                onClick={() =>
-                  scopePrompt === 'save' ? onSave(clean(), 'this') : onDelete(initial, 'this')
-                }
-                style={btn(fieldBg, fg)}
-              >
-                This occurrence
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  scopePrompt === 'save' ? onSave(clean(), 'future') : onDelete(initial, 'future')
-                }
-                style={
-                  scopePrompt === 'save'
-                    ? btn(conf.accent, conf.accentFg)
-                    : btn('transparent', '#e0524a', { border: `1px solid ${border}` })
-                }
-              >
-                This and all future
-              </button>
-              <button type="button" onClick={() => setScopePrompt(null)} style={btn(fieldBg, sub)}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
+      {scopePrompt && (
+        <ScopePrompt
+          mode={scopePrompt}
+          chrome={chrome}
+          onChoose={chooseScope}
+          onCancel={() => setScopePrompt(null)}
+        />
       )}
     </>
   )
