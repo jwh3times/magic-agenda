@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
-import { supabase } from '../lib/supabase'
-import { errorMessage } from '../lib/errors'
 import { useAuth } from '../auth/AuthProvider'
+import { MIN_PASSWORD, PASSWORD_RULE } from '../auth/passwordPolicy'
 import logoDark from '../assets/logo-dark.svg'
 import { authCard, authField, authLinkBtn, authLogo, authPage, authSubmit } from './authChrome'
 
@@ -36,13 +35,8 @@ function GoogleMark() {
   )
 }
 
-// Client mirror of the Supabase password policy (min length 10 + complexity). The dashboard setting
-// is the real control; this only makes signup fail fast. Applied in signup mode only — sign-in must
-// accept any legacy password shorter than the current minimum.
-const SIGNUP_MIN_PASSWORD = 10
-
 export function Login() {
-  const { session } = useAuth()
+  const { session, signIn, signUp, sendPasswordReset, startGoogleSignIn } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   // One-shot: capture the flag at mount, then scrub it from history.state so a
@@ -68,52 +62,37 @@ export function Login() {
     if (session) navigate('/', { replace: true })
   }, [session, navigate])
 
+  // No try/catch anywhere below: every auth action resolves an outcome and never rejects
+  // (see AuthGateway), so a failure is a value to render rather than a control-flow event.
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setBusy(true)
     setError(null)
     setNotice(null)
-    try {
-      if (mode === 'forgot') {
-        const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth/reset`,
-        })
-        if (err) throw err
+
+    if (mode === 'forgot') {
+      const outcome = await sendPasswordReset(email)
+      // Deliberately the same notice whether or not an account exists — this form must not
+      // become an account-enumeration oracle.
+      if (outcome.ok)
         setNotice('If an account exists for that email, a password reset link is on its way.')
-        return
-      }
-      if (mode === 'signup') {
-        const { data, error: err } = await supabase.auth.signUp({
-          email,
-          password,
-          // {{ .RedirectTo }} in the confirmation template resolves from this option —
-          // it must stay in lockstep with the dashboard template (see the design spec).
-          options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
-        })
-        if (err) throw err
-        if (!data.session) setNotice('Check your email to confirm your account.')
-      } else {
-        const { error: err } = await supabase.auth.signInWithPassword({ email, password })
-        if (err) throw err
-      }
-    } catch (err) {
-      setError(errorMessage(err))
-    } finally {
-      setBusy(false)
+      else setError(outcome.failure.message)
+    } else if (mode === 'signup') {
+      const outcome = await signUp(email, password)
+      if (!outcome.ok) setError(outcome.failure.message)
+      else if (outcome.confirmationRequired) setNotice('Check your email to confirm your account.')
+    } else {
+      const outcome = await signIn(email, password)
+      if (!outcome.ok) setError(outcome.failure.message)
     }
+
+    setBusy(false)
   }
 
   const google = async () => {
     setError(null)
-    try {
-      const { error: err } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: `${window.location.origin}/auth/callback` },
-      })
-      if (err) throw err
-    } catch (err) {
-      setError(errorMessage(err))
-    }
+    const outcome = await startGoogleSignIn()
+    if (!outcome.ok) setError(outcome.failure.message)
   }
 
   return (
@@ -176,17 +155,14 @@ export function Login() {
               <input
                 type="password"
                 required
-                minLength={mode === 'signup' ? SIGNUP_MIN_PASSWORD : undefined}
+                minLength={mode === 'signup' ? MIN_PASSWORD : undefined}
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 style={authField}
               />
               {mode === 'signup' && (
-                <div style={{ fontSize: 12, opacity: 0.5, lineHeight: 1.4 }}>
-                  At least 10 characters, including upper- and lower-case letters, a number, and a
-                  symbol.
-                </div>
+                <div style={{ fontSize: 12, opacity: 0.5, lineHeight: 1.4 }}>{PASSWORD_RULE}</div>
               )}
             </>
           )}

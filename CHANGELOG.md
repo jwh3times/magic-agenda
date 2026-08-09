@@ -12,6 +12,54 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.55] - 2026-08-09
+
+### Changed
+
+- **The auth pages no longer call `supabase.auth` — `src/auth/authGateway.ts` is now the only
+  module that may.** Seven of the ten call sites lived in `Login`, `ResetPassword`, and
+  `AuthConfirm`, which is why the refuse-to-redeem guard had three encodings, the error policy
+  four, and the redirect rule five. Every `AuthGateway` method resolves an outcome and never
+  rejects, and no GoTrue error type crosses the seam: `src/auth/authOutcome.ts` maps stable
+  `error_code`s to an `AuthFailureReason` union this app owns, keeping the vendor's own text only
+  for codes it doesn't recognize. Closes #133.
+- **Sign-in, sign-up, and reset failures now render this app's copy instead of raw GoTrue strings**
+  ("Invalid login credentials" → "That email and password don't match an account."). The
+  bad-credentials message deliberately does not distinguish email from password, so the form can't
+  be used to enumerate accounts.
+- `AuthProvider` takes the gateway as an injectable prop and exposes the auth actions on its
+  context; its value object and action identities are now memoized rather than rebuilt each render.
+- The password policy (minimum length and the rule sentence) moved to `src/auth/passwordPolicy.ts`.
+  It was duplicated across `Login` and `ResetPassword`, the second carrying a comment noting it was
+  a copy of the first.
+
+### Fixed
+
+- **A password-reset or signup-confirmation link that couldn't reach the server left the page on a
+  spinner forever.** Neither `verifyOtp` call site had a `.catch`, so a rejected fetch was an
+  unhandled rejection — and because the single-use token is scrubbed from the URL before
+  redemption, a reload couldn't recover either. Both pages now distinguish "couldn't reach the
+  server — your link hasn't been used" from "invalid or expired", which are very different
+  instructions for the user. Closes #131.
+- `ResetPassword` told a signed-in visitor arriving with **no link at all** that "this reset link
+  wasn't used". The refusal copy now splits on whether a link was actually present.
+- `?token_hash=` (empty value) counted as a token in one branch and as no token in another, so the
+  page could refuse a link it simultaneously reported as missing.
+- A failed `getSession()` used to leave `AuthProvider` loading forever, stranding the whole app on
+  a spinner; it now degrades to signed-out.
+
+### Internal
+
+- Auth page tests render the **real** `AuthProvider` with `fakeAuthGateway()` (the second adapter
+  at the seam) instead of hand-built `vi.mock` factories shaped like each page's call list —
+  `Login.test.tsx` had been stubbing 3 of the auth context's 6 members while its siblings stubbed
+  6, with nothing to catch the drift.
+- `verifyOtpContract.test.ts` moved from `src/lib/` to `src/auth/`, beside the `redeemToken` method
+  whose ordering contract it pins, and now imports `GoTrueClient` from `@supabase/supabase-js`
+  rather than the undeclared transitive `@supabase/auth-js`.
+- Suite grows from 406 to 444 tests, including a pure decision table for the session-fixation guard
+  and a gateway suite asserting that no action rejects.
+
 ## [1.2.54] - 2026-08-08
 
 ### Docs
