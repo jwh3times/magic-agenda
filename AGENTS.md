@@ -81,13 +81,64 @@ ask before changing them.
 **function** form, not `false`): that disables implicit adoption of `#access_token=` URL fragments — a
 session-fixation vector, since that path has no state/nonce binding — while leaving PKCE `?code=`
 handling intact for Google OAuth (`AuthCallback`). Password-reset and signup-confirmation email links
-now carry `?token_hash=` and are redeemed explicitly via `supabase.auth.verifyOtp()`: `ResetPassword`
-(`/auth/reset`) renders its form on `session && passwordRecovery`, never on "`verifyOtp` succeeded this
+carry `?token_hash=` and are redeemed explicitly via `verifyOtp()`: `ResetPassword`
+(`/auth/reset`) renders its form on `session && passwordRecovery`, never on "redemption succeeded this
 mount" (the token is single-use, so reloads and `ProtectedRoute` re-entry must still work); `AuthConfirm`
 (`/auth/confirm`, a public route) redeems a signup token and signs the user straight in, skipping the
 old "confirm, then come back and sign in" round trip. Both pages refuse to redeem over an existing
-session (the residual session-fixation guard). `AuthProvider` / `ProtectedRoute` are unchanged —
+session (the residual session-fixation guard). `ProtectedRoute` is unchanged —
 `verifyOtp({ type: 'recovery' })` still fires `PASSWORD_RECOVERY` itself.
+
+### The auth seam: pages never touch `supabase.auth`
+
+**`src/auth/authGateway.ts` is the only module in `src/` that may call `supabase.auth.*`.** Until
+v1.2.55 seven of the ten call sites lived in `Login`, `ResetPassword`, and `AuthConfirm`, and the
+cost was visible in the churn: the refuse-to-redeem guard had three different encodings, the error
+policy four, and the redirect-after-success rule five. Every commit touching three or more of those
+files was one conceptual change crossing a seam that did not exist.
+
+Two invariants hold for **every** `AuthGateway` method, and they are why the interface earns its
+keep:
+
+1. **Nothing rejects.** Failures are values (`AuthOutcome`), never exceptions. That is structural,
+   not stylistic — a missing `.catch` on `verifyOtp` used to strand `/auth/reset` and
+   `/auth/confirm` on a spinner forever, with the single-use token already scrubbed from the URL.
+2. **No vendor error type crosses it.** `src/auth/authOutcome.ts` maps GoTrue `error_code`s (not
+   messages — those get reworded across releases) to an `AuthFailureReason` union this app owns.
+   `unknown` is part of that union on purpose and keeps the vendor's own text, so an unmapped code
+   degrades to the old behaviour rather than to silence. `bad-credentials` deliberately does not
+   say which half was wrong; a message that did would make the sign-in form an account-enumeration
+   oracle.
+
+`Session`/`User` still cross the seam in the success direction, so the eleven modules reading
+`session`/`user` off the context remain typed against the vendor. Narrowing that is deferred, not
+overlooked.
+
+**`redeemDecision()` in `src/auth/redemption.ts` is the single home of the session-fixation guard.**
+It is pure and total, and **the clause order is the security property**: `hasSession` is tested
+before `tokenHash`, so an existing session always wins and a valid token is never redeemed over it.
+Reordering those two lines silently reopens the finding the 2026-07-25 review closed, which is why
+`redemption.test.ts` asserts the refusal for a *valid* token specifically.
+
+`useTokenRedemption()` wraps it, and its two guards are separate on purpose. The **decision is
+latched in state** once auth settles — without that, the app's own successful redemption produces a
+session, the decision recomputes to `refuse`, and the page announces "you're already signed in" in
+the middle of the flow it just completed (the real client fires `SIGNED_IN`/`PASSWORD_RECOVERY` from
+*inside* `verifyOtp`, before the promise resolves, so this is the normal path, not a race). A
+**ref guards the redemption call itself and is read only inside the effect** — StrictMode runs
+effect setup → cleanup → setup against the same latched decision, so without it a single-use token
+is spent twice. Note `react-hooks/refs` forbids reading a ref during render, so the latch cannot be
+collapsed back into the ref.
+
+**Tests render the real `AuthProvider` with `fakeAuthGateway()`** (`src/auth/fakeAuthGateway.ts`,
+the second adapter) rather than stubbing `useAuth`. The old approach hand-built a `vi.mock` factory
+shaped like whichever methods each page happened to call, which is untyped: `Login.test.tsx` stubbed
+3 of the context's 6 members while its siblings stubbed 6, and nothing caught the drift. The fake
+carries no vitest import and nothing in the app imports it, so it never reaches the bundle.
+
+`src/auth/verifyOtpContract.test.ts` pins the vendor ordering that the recovery gate depends on. It
+lived in `src/lib/` with no module behind it; `redeemToken` is now its owner, which is why the
+"do not defer this call" warning sits in that method's body.
 
 ### App / DB boundary conventions: get these wrong and data breaks subtly
 

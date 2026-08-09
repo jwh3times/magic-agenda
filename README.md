@@ -145,7 +145,7 @@ npm run dev      # start the dev server at http://localhost:5173
 
 ```
 src/
-├─ auth/         AuthProvider + ProtectedRoute
+├─ auth/         AuthProvider + ProtectedRoute + the auth gateway (only module calling supabase.auth)
 ├─ components/   Board, views (Calendar/Week/Agenda/Kanban), TaskEditor, Toolbar, …
 ├─ data/         useTasks / useSettings hooks, mappers, selectors, filters, recurrence
 ├─ dnd/          pure reorder logic (unit‑tested) + dnd‑kit wiring

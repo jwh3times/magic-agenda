@@ -1,16 +1,23 @@
 import { expect, test } from 'vitest'
-import { GoTrueClient } from '@supabase/auth-js'
-import type { AuthChangeEvent } from '@supabase/auth-js'
+import { GoTrueClient, type AuthChangeEvent } from '@supabase/supabase-js'
 
 // This pins a vendor contract (auth-js 2.110.8 behavior at GoTrueClient#verifyOtp) that
-// ResetPassword + AuthProvider rely on: verifyOtp({ type: 'recovery' }) must emit
-// PASSWORD_RECOVERY to onAuthStateChange subscribers BEFORE the verifyOtp promise resolves
+// `supabaseAuthGateway.redeemToken` + AuthProvider rely on: verifyOtp({ type: 'recovery' }) must
+// emit PASSWORD_RECOVERY to onAuthStateChange subscribers BEFORE the verifyOtp promise resolves
 // (GoTrueClient.js:2018 in this version -- `await this._notifyAllSubscribers(params.type ==
 // 'recovery' ? 'PASSWORD_RECOVERY' : 'SIGNED_IN', session)`, awaited after `_saveSession`, inside
 // verifyOtp itself, ahead of its own `return`). Nothing else in the app's unit tests exercises the
 // real auth-js client, so a Dependabot bump that changes this ordering would ship silently. If this
 // test breaks on a dependency bump, the recovery flow is broken even though app unit tests stay
 // green -- see docs/specs/2026-07-25-pkce-auth-flow-design.md "Why the recovery gate still works".
+//
+// It lives in src/auth/ beside the module whose contract it is. It used to sit in src/lib/ with no
+// module at all behind it -- the ordering it guards spanned ResetPassword, AuthProvider, and the
+// vendor, and was owned by none of them. `redeemToken` is now that owner, which is also why the
+// "do not defer this call" warning lives in its body.
+//
+// Imports from @supabase/supabase-js, not @supabase/auth-js: the latter is a transitive dependency
+// this repo does not declare, and supabase-js re-exports both symbols.
 
 function makeSessionPayload(overrides: { id: string; email: string }) {
   return {

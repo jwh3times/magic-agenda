@@ -1,35 +1,30 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
-import { expect, test, vi } from 'vitest'
-
-const h = vi.hoisted(() => ({
-  resetPasswordForEmail: vi.fn(() => Promise.resolve({ data: {}, error: null })),
-  signInWithOAuth: vi.fn(() => Promise.resolve({ error: null })),
-  signUp: vi.fn(() => Promise.resolve({ data: {}, error: null })),
-}))
-
-vi.mock('../lib/supabase', () => ({
-  supabase: {
-    auth: {
-      resetPasswordForEmail: h.resetPasswordForEmail,
-      signInWithPassword: vi.fn(() => Promise.resolve({ error: null })),
-      signUp: h.signUp,
-      signInWithOAuth: h.signInWithOAuth,
-    },
-  },
-}))
-
-vi.mock('../auth/AuthProvider', () => ({
-  useAuth: () => ({ session: null, user: null, loading: false }),
-}))
-
+import { beforeEach, expect, test } from 'vitest'
+import { AuthProvider } from '../auth/AuthProvider'
+import { fakeAuthGateway, type FakeAuth } from '../auth/fakeAuthGateway'
 import { Login } from './Login'
 
-function renderLogin() {
+// Driven through the real AuthProvider with the fake adapter. The previous version stubbed
+// `useAuth` with 3 of its 6 members while the sibling suites stubbed 6 — drift that nothing
+// caught, because a `vi.mock` factory is untyped. There is nothing left here to drift from.
+let fake: FakeAuth
+
+beforeEach(() => {
+  sessionStorage.clear()
+  localStorage.clear()
+  fake = fakeAuthGateway()
+})
+
+function renderLogin(
+  initialEntries: Parameters<typeof MemoryRouter>[0]['initialEntries'] = ['/login'],
+) {
   return render(
-    <MemoryRouter>
-      <Login />
+    <MemoryRouter initialEntries={initialEntries}>
+      <AuthProvider gateway={fake.gateway}>
+        <Login />
+      </AuthProvider>
     </MemoryRouter>,
   )
 }
@@ -42,9 +37,7 @@ test('forgot mode hides the password field and sends the reset email', async () 
   await userEvent.type(screen.getByPlaceholderText('you@example.com'), 'a@b.co')
   await userEvent.click(screen.getByRole('button', { name: 'Send reset link' }))
 
-  expect(h.resetPasswordForEmail).toHaveBeenCalledWith('a@b.co', {
-    redirectTo: `${window.location.origin}/auth/reset`,
-  })
+  expect(fake.calls.sendPasswordReset).toEqual(['a@b.co'])
   // Same notice whether or not the account exists — never leak existence.
   expect(await screen.findByText(/If an account exists for that email/)).toBeInTheDocument()
 })
@@ -57,34 +50,76 @@ test('back link returns from forgot mode to sign in', async () => {
 })
 
 test('shows the account-deleted goodbye notice when arriving from deletion', () => {
-  render(
-    <MemoryRouter initialEntries={[{ pathname: '/login', state: { accountDeleted: true } }]}>
-      <Login />
-    </MemoryRouter>,
-  )
+  renderLogin([{ pathname: '/login', state: { accountDeleted: true } }])
   expect(screen.getByText(/Your account and all of its data have been deleted/)).toBeInTheDocument()
 })
 
-test('a rejected Google sign-in surfaces the error', async () => {
-  h.signInWithOAuth.mockRejectedValueOnce(new Error('oauth popup blocked'))
+test('a failed Google sign-in surfaces the message', async () => {
+  fake.next.startGoogleSignIn = {
+    ok: false,
+    failure: { reason: 'unknown', message: 'oauth popup blocked' },
+  }
   renderLogin()
   await userEvent.click(screen.getByRole('button', { name: /Continue with Google/ }))
   expect(await screen.findByText('oauth popup blocked')).toBeInTheDocument()
 })
 
-test('signup points the confirmation email at /auth/confirm and drops "then sign in"', async () => {
+test('signup asks the user to check their email when confirmation is pending', async () => {
+  fake.next.signUp = { ok: true, confirmationRequired: true }
   renderLogin()
   await userEvent.click(screen.getByRole('button', { name: 'Sign up' }))
   await userEvent.type(screen.getByPlaceholderText('you@example.com'), 'a@b.co')
   await userEvent.type(screen.getByPlaceholderText('Password'), 'Longenough123!')
   await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
-  expect(h.signUp).toHaveBeenCalledWith({
-    email: 'a@b.co',
-    password: 'Longenough123!',
-    options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
-  })
+
+  expect(fake.calls.signUp).toEqual([['a@b.co', 'Longenough123!']])
   // Confirmation now signs the user in — the old copy said "…, then sign in."
   expect(await screen.findByText('Check your email to confirm your account.')).toBeInTheDocument()
+})
+
+test('signup with an immediate session shows no check-your-email notice', async () => {
+  fake.next.signUp = { ok: true, confirmationRequired: false }
+  renderLogin()
+  await userEvent.click(screen.getByRole('button', { name: 'Sign up' }))
+  await userEvent.type(screen.getByPlaceholderText('you@example.com'), 'a@b.co')
+  await userEvent.type(screen.getByPlaceholderText('Password'), 'Longenough123!')
+  await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
+
+  expect(fake.calls.signUp).toHaveLength(1)
+  expect(screen.queryByText('Check your email to confirm your account.')).not.toBeInTheDocument()
+})
+
+test('a failed sign-in renders this app’s copy, not the GoTrue string', async () => {
+  fake.next.signIn = {
+    ok: false,
+    failure: {
+      reason: 'bad-credentials',
+      message: 'That email and password don’t match an account.',
+    },
+  }
+  renderLogin()
+  await userEvent.type(screen.getByPlaceholderText('you@example.com'), 'a@b.co')
+  await userEvent.type(screen.getByPlaceholderText('Password'), 'wrongpassword')
+  await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+
+  expect(
+    await screen.findByText('That email and password don’t match an account.'),
+  ).toBeInTheDocument()
+  expect(screen.queryByText(/Invalid login credentials/)).not.toBeInTheDocument()
+})
+
+test('the submit button un-busies after a failure', async () => {
+  fake.next.signIn = {
+    ok: false,
+    failure: { reason: 'offline', message: 'Couldn’t reach the server.' },
+  }
+  renderLogin()
+  await userEvent.type(screen.getByPlaceholderText('you@example.com'), 'a@b.co')
+  await userEvent.type(screen.getByPlaceholderText('Password'), 'somepassword')
+  const btn = screen.getByRole('button', { name: 'Sign in' })
+  await userEvent.click(btn)
+  expect(await screen.findByText('Couldn’t reach the server.')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Sign in' })).toBeEnabled()
 })
 
 test('the sign-in card is a main landmark with the page heading', () => {
