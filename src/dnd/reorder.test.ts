@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { findContainer, moveToDay, moveToStatus, reindex } from './reorder'
+import { moveToDay, moveToStatus } from './reorder'
 import { NO_RECUR, type Status, type Task } from '../types/task'
 
 function t(id: string, over: Partial<Task> = {}): Task {
@@ -44,46 +44,6 @@ const statusKorders = (tasks: Task[], status: Status) =>
     .filter((x) => x.status === status)
     .map((x) => x.korder)
     .sort((a, b) => a - b)
-
-describe('findContainer', () => {
-  const tasks = [t('a', { day: '2026-06-29', status: 'doing' }), t('b', { day: 'inbox' })]
-  it('returns the day in calendar mode', () => {
-    expect(findContainer(tasks, 'a', 'day')).toBe('2026-06-29')
-    expect(findContainer(tasks, 'b', 'day')).toBe('inbox')
-  })
-  it('returns the status in kanban mode', () => {
-    expect(findContainer(tasks, 'a', 'status')).toBe('doing')
-  })
-  it('returns undefined for an unknown id', () => {
-    expect(findContainer(tasks, 'nope', 'day')).toBeUndefined()
-  })
-})
-
-describe('reindex', () => {
-  it('makes a day order contiguous 0..n-1 by current order', () => {
-    const tasks = [
-      t('a', { day: 'D', order: 0 }),
-      t('b', { day: 'D', order: 5 }),
-      t('c', { day: 'D', order: 2 }),
-      t('z', { day: 'OTHER', order: 9 }),
-    ]
-    const next = reindex(tasks, 'D', 'day')
-    expect(dayIds(next, 'D')).toEqual(['a', 'c', 'b'])
-    expect(dayOrders(next, 'D')).toEqual([0, 1, 2])
-    expect(next.find((x) => x.id === 'z')!.order).toBe(9) // untouched
-  })
-  it('reindexes a status by korder', () => {
-    const tasks = [t('a', { status: 'done', korder: 3 }), t('b', { status: 'done', korder: 1 })]
-    const next = reindex(tasks, 'done', 'status')
-    expect(statusIds(next, 'done')).toEqual(['b', 'a'])
-    expect(statusKorders(next, 'done')).toEqual([0, 1])
-  })
-  it('does not mutate the input', () => {
-    const tasks = [t('a', { day: 'D', order: 7 })]
-    reindex(tasks, 'D', 'day')
-    expect(tasks[0].order).toBe(7)
-  })
-})
 
 describe('moveToDay', () => {
   const base = () => [

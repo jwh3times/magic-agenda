@@ -12,6 +12,33 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.56] - 2026-08-09
+
+### Internal
+
+- **Every drag-and-drop decision now lives in a pure module.** `src/dnd/resolveDrop.ts` holds
+  `modeForView`, `containerOf`, `isBelowOver`, `insertionIndex`, and a `resolveDrop` session
+  reducer that accumulates the touched lanes and `didMove`; it imports nothing from
+  `@dnd-kit/core`. `src/dnd/useBoardDnd.ts` is reduced to sensors, event mapping, and React state,
+  and `src/dnd/reorder.ts` keeps only the splice math. The seam had been drawn at "pure vs impure"
+  rather than "hard vs easy", so the thoroughly-tested half was the trivial half. Closes #136.
+- Removed `findContainer` and `reindex` from `src/dnd/reorder.ts`. Neither had a production call
+  site, and between them they carried 7 of that file's 17 tests. `findContainer` also *disagreed*
+  with the shipped inline copy in the wiring: it returned `undefined` for an id matching no task,
+  where the real rule returns the id itself — which is the only reason dropping onto an empty lane
+  works, since dnd-kit registers an empty lane as a droppable whose id is the lane.
+- Newly covered, none of it previously tested: the empty-lane container fallback, the
+  unmeasured-rect "insert above" default, all three `insertionIndex` branches, the within-lane
+  reorder that settles on drop, multi-hop touched-lane accumulation across three lanes, `agenda`
+  mapping to `'day'`, and `didMove` surviving an event that resolves to no move. Suite: 444 → 461
+  tests.
+- Documented in `AGENTS.md` why `useBoardDnd` must receive the **unfiltered** board: passing
+  `visibleTasks` would hand contiguous `0..n-1` indices to the visible tasks in a touched lane
+  while hidden ones kept theirs, colliding orders rather than merely narrowing the drag.
+
+No user-visible behaviour changes; the `BoardDnd` interface is untouched and `Board.tsx` is
+unchanged.
+
 ## [1.2.55] - 2026-08-09
 
 ### Changed
@@ -1190,7 +1217,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.55...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.56...HEAD
+[1.2.56]: https://github.com/jwh3times/magic-agenda/compare/v1.2.55...v1.2.56
 [1.2.55]: https://github.com/jwh3times/magic-agenda/compare/v1.2.54...v1.2.55
 [1.2.54]: https://github.com/jwh3times/magic-agenda/compare/v1.2.53...v1.2.54
 [1.2.53]: https://github.com/jwh3times/magic-agenda/compare/v1.2.52...v1.2.53
