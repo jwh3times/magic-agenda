@@ -12,6 +12,42 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.59] - 2026-08-09
+
+### Fixed
+
+- **A "this occurrence or all future?" prompt dismissed by going offline came back when the
+  connection recovered.** The prompt was gated on `scopePrompt && !readOnly`, which hid it without
+  clearing it, so reconnecting re-opened a prompt the user never re-triggered — in the middle of
+  whatever they were doing next. The existing test only checked that it disappeared, so the return
+  trip went unnoticed.
+
+### Internal
+
+- **The task editor's decisions are now a pure module.** `src/data/editIntent.ts` owns `cleanDraft`,
+  `changedTaskKeys`, `onlyPerOccurrenceChanged`, `PER_OCCURRENCE_FIELDS`, and the two decisions the
+  Save and Delete buttons make (`intendSave` / `intendDelete`). `series.ts` decides *which
+  occurrences* an operation touches; this decides *whether the editor may proceed at all* and
+  *whether it has to ask first*. Closes #138.
+- Those functions were private to a 739-line `TaskEditor.tsx`, so all eight of its tests reached
+  them by rendering the modal and clicking through with `userEvent` — and the fail-safe property
+  documented on `changedTaskKeys` (drifting checklist key order must over-show the prompt, never
+  suppress it) was asserted by nothing, because there was no way to call the function. It now has
+  20 direct tests. Suite: 511 → 532.
+- Two facts that were part of the editor's real interface but not its declared one now live in
+  types: `onSave`'s scope is **definite** for a recurring instance (it used to be `undefined` on the
+  per-occurrence-only path, and `Board` had to know that meant "this occurrence"), and `onDelete`
+  receives `initial` rather than the edited draft.
+- That second one — modal edits being discarded on delete — is **unchanged**. It is #132, which is
+  still undecided; `intendDelete` now owns the decision with the tradeoff written down, and a test
+  pins the current answer, so resolving it means changing one function and one test instead of
+  hunting two call sites.
+- `ScopePrompt` is its own component, and `editorChrome.ts` holds the palette and control styles it
+  shares with the editor. It could not be extracted before: it read `panelBg`, `fg`, `border`,
+  `sub`, `fieldBg` and `btn` straight out of the editor's closure. `TaskEditor.tsx`: 739 → 629 lines.
+
+Aside from the prompt fix above, no user-visible behaviour changes.
+
 ## [1.2.58] - 2026-08-09
 
 ### Internal
@@ -1287,7 +1323,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.58...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.59...HEAD
+[1.2.59]: https://github.com/jwh3times/magic-agenda/compare/v1.2.58...v1.2.59
 [1.2.58]: https://github.com/jwh3times/magic-agenda/compare/v1.2.57...v1.2.58
 [1.2.57]: https://github.com/jwh3times/magic-agenda/compare/v1.2.56...v1.2.57
 [1.2.56]: https://github.com/jwh3times/magic-agenda/compare/v1.2.55...v1.2.56
