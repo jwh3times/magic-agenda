@@ -208,12 +208,39 @@ A recurring series is a **hidden template row** (`recurFreq != 'none'`, `recurPa
 `isTemplate()`) that is **kept out of the board `tasks` list** (held in a separate ref inside
 `useTasks`) plus **materialized instance rows** (`recurFreq 'none'`, `recurParentId = template id`).
 Keeping templates out of the board list is what keeps reorder/DnD math clean. On load, `useTasks`
-materializes any missing instances over a rolling 90-day horizon using the pure functions in
-`src/data/recurrence.ts`; deleted occurrences are remembered in a per-template `recurSkip` array so they
-are never regenerated. Edit/delete carry **this-occurrence vs. all-future** scope (the editor's scope
-prompt -> `Board` routes to `updateSeries` / `deleteOccurrence` / `deleteSeriesFuture`). `reload()` has an
-in-flight guard because React StrictMode double-invokes the load effect, which otherwise double-inserts
-instances and trips the `(recur_parent_id, day)` unique index (Postgres 23505).
+materializes any missing instances over a rolling 90-day horizon; deleted occurrences are remembered
+in a per-template `recurSkip` array so they are never regenerated. `reload()` has an in-flight guard
+because React StrictMode double-invokes the load effect, which otherwise double-inserts instances and
+trips the `(recur_parent_id, day)` unique index (Postgres 23505).
+
+**`src/data/series.ts` owns this model, and everything it decides is pure.** It holds `instanceKey`
+(occurrence identity), `makeInstance`, `pendingInstances`, the scope resolvers (`resolveSave` /
+`resolveDelete`), and a **plan** for each series operation — the next board, the next templates, the
+rows to upsert, the deletions to run, the ids to mark as our own writes. `src/data/recurrence.ts` is
+its pure date core. `useTasks.runPlan` is the only effectful part: it applies the optimistic state,
+sends the writes, and honours each step's `FailureHandling`.
+
+That split is what made this subsystem testable. Before it, the three scope operations were a
+207-line block inside `useTasks` that **no test reached** — `deleteSeriesFuture`, the branchiest
+function in the data layer, had zero — while the cheap date maths in `recurrence.ts` had 22 tests.
+
+Three details worth keeping:
+
+- **Scope is always by occurrence origin, never by the card's day.** `instanceOrigin` is what stops a
+  dragged instance from being scoped wrongly, from resurrecting as a duplicate, or from
+  false-triggering the whole-series branch of a delete.
+- **`FailureHandling` is two independent questions** (`abort` and `recover`) because the original
+  behaviour answered them independently: a failed content upsert aborts the trim that follows it,
+  while a failed `recurSkip` write must *not* stop the occurrence being deleted.
+- **`pendingInstances` takes the board as a required argument.** It used to default to a ref whose
+  own docstring called the default unsafe — `setTasks` writes that ref inside a deferred React
+  updater, so passing it right after a load makes every occurrence look missing and re-inserts rows
+  that already exist. Three of the four call sites took the default and none was tested.
+
+`Board` no longer knows any of this: the editor's scope prompt produces a `RecurScope`, and
+`saveTask` / `deleteTask` resolve it. The four-way save dispatch and three-way delete dispatch that
+used to live in the UI shell — including the rule-stripping on the this-occurrence path, enforced by
+nothing but a comment — are `resolveSave` / `resolveDelete`.
 
 ### Drag-and-drop: every decision is pure; dnd-kit is an adapter
 

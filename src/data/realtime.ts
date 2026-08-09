@@ -1,6 +1,6 @@
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 import { isTemplate, type Task } from '../types/task'
-import { instanceOrigin } from './recurrence'
+import { instanceKey } from './series'
 import { rowToTask } from './mappers'
 import type { Database } from '../types/database.types'
 
@@ -38,9 +38,6 @@ export function payloadToChange(p: RealtimePostgresChangesPayload<TaskRow>): Tas
 // a divergent constructor is a false NEGATIVE (one redundant re-render) — never a
 // skipped real update.
 const sameTask = (a: Task, b: Task) => JSON.stringify(a) === JSON.stringify(b)
-
-/** The occurrence an instance covers — mirrors the (recur_parent_id, recur_origin_day) index. */
-const instanceKey = (t: Task) => `${t.recurParentId}|${instanceOrigin(t)}`
 
 /**
  * Apply one remote change to local board state. Pure. Returns the SAME state

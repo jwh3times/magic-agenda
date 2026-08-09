@@ -33,7 +33,8 @@ never update them to match current code.
 **App/DB boundary change (`src/data/mappers.ts`, `src/types/task.ts`)**
 - `AGENTS.md`: "App / DB boundary conventions" section — these conventions are load-bearing
 
-**Recurrence, DnD, or theming change (`src/data/recurrence.ts`, `src/dnd/`, `src/theme/`)**
+**Recurrence, DnD, or theming change (`src/data/recurrence.ts`, `src/data/series.ts`, `src/dnd/`,
+`src/theme/`)**
 - `AGENTS.md`: the matching architecture subsection
 
 **New page, view, or major component (`src/pages/`, `src/components/`)**
