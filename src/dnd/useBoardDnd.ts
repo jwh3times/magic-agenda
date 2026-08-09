@@ -6,25 +6,21 @@ import {
   closestCorners,
   useSensor,
   useSensors,
-  type Active,
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
-  type Over,
 } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
-import type { Status, Task, ViewName } from '../types/task'
-import { notesForDay, tasksForStatus } from '../data/selectors'
-import { moveToDay, moveToStatus, type Mode } from './reorder'
-
-/** Is the dragged item's centre below the centre of the item it's over? */
-function isBelowOver(active: Active, over: Over): boolean {
-  const translated = active.rect.current.translated
-  if (!translated) return false
-  const activeCenterY = translated.top + translated.height / 2
-  const overCenterY = over.rect.top + over.rect.height / 2
-  return activeCenterY > overCenterY
-}
+import type { Task, ViewName } from '../types/task'
+import type { Mode } from './reorder'
+import {
+  beginDrag,
+  modeForView,
+  resolveDrop,
+  type DragPhase,
+  type DragSession,
+  type DropInput,
+} from './resolveDrop'
 
 export interface BoardDnd {
   sensors: ReturnType<typeof useSensors>
@@ -40,6 +36,27 @@ export interface BoardDnd {
 /** Persists the lanes that a drag reindexed (passed to useTasks.persistReorder). */
 type PersistReorder = (next: Task[], containers: string[], mode: Mode) => void
 
+/** Maps a dnd-kit event onto the pure module's input. The only place dnd-kit's shapes are read. */
+function dropInput(e: DragOverEvent | DragEndEvent, phase: DragPhase): DropInput {
+  return {
+    phase,
+    overId: e.over ? String(e.over.id) : null,
+    activeRect: e.active.rect.current.translated,
+    overRect: e.over?.rect ?? null,
+  }
+}
+
+/**
+ * dnd-kit adapter. Sensors, event plumbing, and React state — every decision lives in
+ * `resolveDrop.ts`, which knows nothing about dnd-kit and is tested without it.
+ *
+ * **`tasks` must be the unfiltered board.** Views render `visibleTasks`, and it is tempting to
+ * pass the same thing here so the filter coupling stops being implicit. Doing so would corrupt
+ * data: `resolveDrop` returns the whole next board, `persistReorder` writes back every task in a
+ * touched lane, and a filtered list would hand contiguous 0..n-1 indices to the visible tasks
+ * while the hidden ones in that lane kept theirs — colliding orders in the same lane. Dragging
+ * under an active filter is prevented one level up, by `DragDisabledContext`, not here.
+ */
 export function useBoardDnd(
   view: ViewName,
   tasks: Task[],
@@ -48,8 +65,8 @@ export function useBoardDnd(
 ): BoardDnd {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [activeWidth, setActiveWidth] = useState<number | undefined>(undefined)
-  const touched = useRef<Set<string>>(new Set())
-  const didMove = useRef(false)
+  // A ref, not state: a drag mutates this many times per second and none of it should render.
+  const session = useRef<DragSession | null>(null)
 
   // Mouse drags start after a small movement; touch drags need a long-press so that a plain
   // swipe on a card still scrolls the board (paired with touchAction:'manipulation' on cards).
@@ -59,79 +76,43 @@ export function useBoardDnd(
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
 
-  const mode: Mode = view === 'kanban' ? 'status' : 'day'
+  const mode = modeForView(view)
   const activeTask = tasks.find((t) => t.id === activeId) ?? null
 
-  const containerOf = (id: string): string => {
-    const task = tasks.find((t) => t.id === id)
-    if (task) return mode === 'day' ? task.day : task.status
-    return id
+  const reset = () => {
+    setActiveId(null)
+    setActiveWidth(undefined)
+    session.current = null
   }
-
-  const insertionIndex = (container: string, overId: string, below: boolean): number => {
-    const list =
-      mode === 'day'
-        ? notesForDay(tasks, container, activeId ?? undefined)
-        : tasksForStatus(tasks, container as Status, activeId ?? undefined)
-    if (overId === container) return list.length
-    const idx = list.findIndex((t) => t.id === overId)
-    if (idx < 0) return list.length
-    return below ? idx + 1 : idx
-  }
-
-  const move = (id: string, to: string, index: number): Task[] =>
-    mode === 'day' ? moveToDay(tasks, id, to, index) : moveToStatus(tasks, id, to as Status, index)
 
   const onDragStart = (e: DragStartEvent) => {
     const id = String(e.active.id)
     setActiveId(id)
     setActiveWidth(e.active.rect.current.initial?.width)
-    touched.current = new Set([containerOf(id)])
-    didMove.current = false
+    session.current = beginDrag(tasks, id, mode)
   }
 
   // Cross-lane relocation happens live as you hover a different lane.
   const onDragOver = (e: DragOverEvent) => {
-    const { active, over } = e
-    if (!over) return
-    const activeIdStr = String(active.id)
-    const overId = String(over.id)
-    if (overId === activeIdStr) return
-    const from = containerOf(activeIdStr)
-    const to = containerOf(overId)
-    if (to !== from) {
-      touched.current.add(from)
-      touched.current.add(to)
-      didMove.current = true
-      setTasks(move(activeIdStr, to, insertionIndex(to, overId, isBelowOver(active, over)))) // optimistic
-    }
+    if (!session.current) return
+    const step = resolveDrop(session.current, tasks, dropInput(e, 'hover'))
+    if (!step) return
+    session.current = step.session
+    setTasks(step.tasks) // optimistic
   }
 
   // Settle on drop. A within-lane reorder happens here; cross-lane moves already happened on
-  // drag-over. Persist whenever ANY move occurred — even if the final over-target is the dragged
-  // item's own slot (a common case, since the optimistic move parks it under the cursor).
+  // drag-over. Persist whenever ANY move occurred during the drag — even if the final over-target
+  // is the dragged item's own slot, which is the common case since the optimistic move parks it
+  // under the cursor.
   const onDragEnd = (e: DragEndEvent) => {
-    const { active, over } = e
-    const activeIdStr = String(active.id)
-    let next = tasks
-    if (over && String(over.id) !== activeIdStr) {
-      const to = containerOf(String(over.id))
-      touched.current.add(to)
-      next = move(activeIdStr, to, insertionIndex(to, String(over.id), isBelowOver(active, over)))
-      didMove.current = true
+    const current = session.current
+    if (current) {
+      const step = resolveDrop(current, tasks, dropInput(e, 'drop'))
+      const settled = step?.session ?? current
+      if (settled.didMove) persistReorder(step?.tasks ?? tasks, [...settled.touched], settled.mode)
     }
-    if (didMove.current) persistReorder(next, [...touched.current], mode)
-    setActiveId(null)
-    setActiveWidth(undefined)
-    touched.current = new Set()
-    didMove.current = false
-  }
-
-  const onDragCancel = () => {
-    setActiveId(null)
-    setActiveWidth(undefined)
-    touched.current = new Set()
-    didMove.current = false
+    reset()
   }
 
   return {
@@ -142,6 +123,6 @@ export function useBoardDnd(
     onDragStart,
     onDragOver,
     onDragEnd,
-    onDragCancel,
+    onDragCancel: reset,
   }
 }

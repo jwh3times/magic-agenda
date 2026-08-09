@@ -3,30 +3,15 @@ import type { Status, Task } from '../types/task'
 /** Whether we are ordering by day (calendar/week) or status (kanban). */
 export type Mode = 'day' | 'status'
 
-const containerKey = (mode: Mode): 'day' | 'status' => (mode === 'day' ? 'day' : 'status')
-const orderKey = (mode: Mode): 'order' | 'korder' => (mode === 'day' ? 'order' : 'korder')
-
-/** The container (day or status) a task currently lives in, or undefined if unknown. */
-export function findContainer(tasks: Task[], id: string, mode: Mode): string | undefined {
-  const task = tasks.find((x) => x.id === id)
-  if (!task) return undefined
-  return mode === 'day' ? task.day : task.status
-}
-
 /**
- * Reassign a contiguous 0..n-1 order (or korder) within one container, preserving current
- * relative order. Immutable — only tasks in the container get fresh objects.
+ * The splice math, and only the splice math. Deciding *what* to splice — which lane an id
+ * belongs to, whether the drop lands above or below, at which index — lives in `resolveDrop.ts`.
+ *
+ * This module used to also export `findContainer` and `reindex`. Neither had a production call
+ * site: `findContainer` was re-implemented (with different fallback behaviour) inside the dnd-kit
+ * wiring, and `reindex` was never used at all, since both movers re-pack their lanes inline.
+ * Between them they carried 7 of this file's 17 tests, all of code that never shipped.
  */
-export function reindex(tasks: Task[], container: string, mode: Mode): Task[] {
-  const ck = containerKey(mode)
-  const ok = orderKey(mode)
-  const positions = new Map<string, number>()
-  tasks
-    .filter((t) => t[ck] === container)
-    .sort((a, b) => a[ok] - b[ok])
-    .forEach((t, i) => positions.set(t.id, i))
-  return tasks.map((t) => (positions.has(t.id) ? { ...t, [ok]: positions.get(t.id)! } : t))
-}
 
 /**
  * Move a task to `day` at `index`, splicing into the destination and reassigning contiguous

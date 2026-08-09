@@ -195,15 +195,37 @@ prompt -> `Board` routes to `updateSeries` / `deleteOccurrence` / `deleteSeriesF
 in-flight guard because React StrictMode double-invokes the load effect, which otherwise double-inserts
 instances and trips the `(recur_parent_id, day)` unique index (Postgres 23505).
 
-### Drag-and-drop: pure core, then dnd-kit wiring
+### Drag-and-drop: every decision is pure; dnd-kit is an adapter
 
-`src/dnd/reorder.ts` is **pure and unit-tested** (`moveToDay` / `moveToStatus` / `reindex` /
-`findContainer`): it reindexes **both** the source and destination lanes on a cross-container move.
-`src/dnd/useBoardDnd.ts` wires dnd-kit: `onDragOver` does optimistic cross-lane moves; `onDragEnd`
-persists the touched lanes. Critical, non-obvious detail: persistence must fire **even when
-`over.id === active.id`** (after an optimistic move the dragged card sits under the cursor as its own
-drop target), tracked via a `didMove` ref. Container ids are `dateStr | 'inbox'` (day mode) or status
-(kanban). While a search filter is active, drag is disabled via `DragDisabledContext` (consumed by
+Two pure modules, then thin wiring. `src/dnd/reorder.ts` is the **splice math** (`moveToDay` /
+`moveToStatus`): it reindexes **both** the source and destination lanes on a cross-container move.
+`src/dnd/resolveDrop.ts` is **every decision** — `modeForView`, `containerOf`, `isBelowOver`,
+`insertionIndex`, and the `resolveDrop` session reducer that accumulates `touched` and `didMove`.
+Neither imports `@dnd-kit/core`. `src/dnd/useBoardDnd.ts` is now only sensors, event mapping, and
+React state.
+
+The seam moved here in v1.2.56, and the reason is worth keeping: it had been drawn at "pure vs
+impure" rather than "hard vs easy", so the tested half was the easy half. `reorder.ts` had 17 tests
+across four exports — **two of which had no production call site at all** — while the wiring held
+the container-id overloading, the above/below geometry, the insertion arithmetic, and the
+multi-hop lane accumulation behind one test that needed ~45 lines of hand-cast dnd-kit fixtures.
+`findContainer` was the sharpest symptom: exported, tested four ways, never called, and returning
+`undefined` for an id matching no task — while the wiring's own copy returned **the id itself**,
+which is the only reason a drop onto an empty lane worked. Both are now one tested function.
+
+Critical, non-obvious detail: persistence must fire **even when `over.id === active.id`** (after an
+optimistic move the dragged card sits under the cursor as its own drop target), tracked by
+`DragSession.didMove` — `resolveDrop` returns `null` for that event while the session stays
+"moved". Container ids are overloaded on purpose: `dateStr | 'inbox'` (day mode) or a status
+(kanban) identifies a *lane*, and an id matching no task **is** a lane id.
+
+`useBoardDnd` must be given the **unfiltered** board, even though views render `visibleTasks`.
+Passing the filtered list would corrupt data rather than merely narrow the drag: `persistReorder`
+writes back every task in a touched lane, so the visible tasks would get contiguous `0..n-1`
+indices while hidden tasks in the same lane kept theirs. Dragging under an active filter is
+prevented one level up.
+
+While a search filter is active, drag is disabled via `DragDisabledContext` (consumed by
 `SortableCard`'s `useSortable({ disabled })`); this keeps the `DndContext` sensors array a constant
 size, avoiding a dnd-kit hook-deps warning. Sensors are split Mouse/Touch (not `PointerSensor`):
 touch drags require a **250ms long-press** and cards use `touchAction: 'manipulation'`; together
