@@ -37,15 +37,12 @@ export function BoardPage() {
             <Board
               tasks={t.tasks}
               setTasks={t.setTasks}
-              onCreate={t.createTask}
+              onSave={t.saveTask}
               onUpdate={t.updateTask}
-              onDelete={t.removeTask}
+              onDelete={t.deleteTask}
               onToggleDone={t.toggleDone}
               persistReorder={t.persistReorder}
               getTemplate={t.getTemplate}
-              updateSeries={t.updateSeries}
-              deleteOccurrence={t.deleteOccurrence}
-              deleteSeriesFuture={t.deleteSeriesFuture}
               initialView={settings.defaultView}
               weekStart={settings.weekStart}
               onSignOut={signOut}

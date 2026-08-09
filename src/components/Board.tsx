@@ -34,7 +34,8 @@ import { WeekView } from './WeekView'
 import { AgendaView } from './AgendaView'
 import { Inbox } from './Inbox'
 import { KanbanView } from './KanbanView'
-import { TaskEditor, type RecurScope } from './TaskEditor'
+import { TaskEditor } from './TaskEditor'
+import type { RecurScope } from '../data/series'
 import { SearchFilterBar } from './SearchFilterBar'
 import { applyFilters, isFilterActive, EMPTY_FILTER, type FilterQuery } from '../data/filters'
 import { overdueTasks } from '../data/selectors'
@@ -51,15 +52,14 @@ export interface BoardProps {
   tasks: Task[]
   /** Optimistic local setter (drag-over live moves). */
   setTasks: Dispatch<SetStateAction<Task[]>>
-  onCreate: (task: Task) => void
+  /** Save an editor result. Resolving the recurrence scope is the data layer's job, not ours. */
+  onSave: (orig: Task | null, draft: Task, isNew: boolean, scope?: RecurScope) => void
+  /** A direct field edit that bypasses the editor (the pin toggle). */
   onUpdate: (task: Task) => void
-  onDelete: (id: string) => void
+  onDelete: (task: Task, scope?: RecurScope) => void
   onToggleDone: (id: string) => void
   persistReorder: (next: Task[], containers: string[], mode: Mode) => void
   getTemplate: (parentId: string) => Task | undefined
-  updateSeries: (instance: Task, draft: Task) => void
-  deleteOccurrence: (instance: Task) => void
-  deleteSeriesFuture: (instance: Task) => void
   initialView?: ViewName
   /** 0=Sunday … 6=Saturday. Passed rather than contexted: it only travels two levels. */
   weekStart?: number
@@ -97,15 +97,12 @@ function newTaskTemplate(day: string, status: Status): Task {
 export function Board({
   tasks,
   setTasks,
-  onCreate,
+  onSave,
   onUpdate,
   onDelete,
   onToggleDone,
   persistReorder,
   getTemplate,
-  updateSeries,
-  deleteOccurrence,
-  deleteSeriesFuture,
   initialView,
   weekStart = 0,
   onSignOut,
@@ -152,31 +149,17 @@ export function Board({
     if (t) onUpdate({ ...t, pinned: !t.pinned })
   }
 
+  // The four-way save dispatch and the three-way delete dispatch used to live here, which meant
+  // this shell had to know that a set `recurParentId` means "this is an instance" — and had to
+  // remember to strip the rule fields on the this-occurrence path. Both now resolve in
+  // src/data/series.ts, where the rest of that invariant lives.
   const handleSave = (task: Task, scope?: RecurScope) => {
-    const orig = editing?.task
-    if (editing?.isNew) {
-      onCreate(task) // createTask spawns a series if the task carries a rule
-    } else if (orig?.recurParentId && scope === 'future') {
-      updateSeries(orig, task)
-    } else if (orig?.recurParentId) {
-      // "this occurrence": update just this instance, never persisting a rule onto it
-      onUpdate({
-        ...task,
-        recurFreq: 'none',
-        recurInterval: 1,
-        recurUntil: null,
-        recurParentId: orig.recurParentId,
-      })
-    } else {
-      onUpdate(task) // non-recurring (updateTask converts it to a series if a rule was added)
-    }
+    onSave(editing?.task ?? null, task, Boolean(editing?.isNew), scope)
     setEditing(null)
   }
 
   const handleDelete = (task: Task, scope?: RecurScope) => {
-    if (task.recurParentId && scope === 'future') deleteSeriesFuture(task)
-    else if (task.recurParentId && scope === 'this') deleteOccurrence(task)
-    else onDelete(task.id)
+    onDelete(task, scope)
     setEditing(null)
   }
 

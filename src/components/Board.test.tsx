@@ -22,15 +22,17 @@ function Harness({ weekStart }: { weekStart?: number }) {
         <Board
           tasks={tasks}
           setTasks={setTasks}
-          onCreate={(t) => setTasks((p) => [...p, t])}
+          // The harness stands in for useTasks. It applies the scope-free cases only; the
+          // recurrence dispatch itself is `resolveSave`/`resolveDelete`, tested directly in
+          // src/data/series.test.ts rather than through the DOM.
+          onSave={(_orig, draft, isNew) =>
+            setTasks((p) => (isNew ? [...p, draft] : p.map((x) => (x.id === draft.id ? draft : x))))
+          }
           onUpdate={(t) => setTasks((p) => p.map((x) => (x.id === t.id ? t : x)))}
-          onDelete={(id) => setTasks((p) => p.filter((x) => x.id !== id))}
+          onDelete={(task) => setTasks((p) => p.filter((x) => x.id !== task.id))}
           onToggleDone={(id) => setTasks((p) => applyToggleDone(p, id).tasks)}
           persistReorder={(next) => setTasks(next)}
           getTemplate={() => undefined}
-          updateSeries={() => {}}
-          deleteOccurrence={() => {}}
-          deleteSeriesFuture={() => {}}
           weekStart={weekStart}
         />
       </ThemeProvider>

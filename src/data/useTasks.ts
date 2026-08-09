@@ -6,15 +6,43 @@ import { canPersistSnapshot, readBoardSnapshot, writeBoardSnapshot } from './sna
 import { applyRollForward, applyToggleDone } from './selectors'
 import { applyTaskChange, payloadToChange } from './realtime'
 import { useOwnWrites, useSyncedTable, type ChangePayload } from './useSyncedTable'
-import { instanceOrigin, isFromOccurrenceOnward, missingInstances } from './recurrence'
+import {
+  instanceKey,
+  pendingInstances,
+  planDeleteOccurrence,
+  planDeleteSeriesFrom,
+  planEditSeriesFrom,
+  resolveDelete,
+  resolveSave,
+  type DeletionTarget,
+  type FailureHandling,
+  type RecurScope,
+  type SeriesPlan,
+} from './series'
 import { newId } from '../lib/id'
-import { addDays, parseDay, ymd } from '../lib/dates'
+import { ymd } from '../lib/dates'
 import { isTemplate, type Task } from '../types/task'
 import type { Mode } from '../dnd/reorder'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 import type { Database } from '../types/database.types'
 
 type TaskRow = Database['public']['Tables']['tasks']['Row']
+
+/** Runs one planned deletion. The only place a `DeletionTarget` becomes a query. */
+async function runDeletion(target: DeletionTarget): Promise<void> {
+  const del = supabase.from('tasks').delete()
+  if (target.by === 'id') {
+    const { error } = await del.eq('id', target.id)
+    if (error) throw new Error(error.message)
+    return
+  }
+  const scoped = del.eq('recur_parent_id', target.parentId)
+  const { error } =
+    target.by === 'origin-after'
+      ? await scoped.gt('recur_origin_day', target.day)
+      : await scoped.gte('recur_origin_day', target.day)
+  if (error) throw new Error(error.message)
+}
 
 export interface UseTasks {
   /** Board tasks only (non-recurring + materialized instances); templates are hidden. */
@@ -37,45 +65,18 @@ export interface UseTasks {
   rollForward: (todayStr: string, onlyIds?: ReadonlySet<string>) => Promise<void>
   /** The hidden template for a parent id (to read a series' rule). */
   getTemplate: (parentId: string) => Task | undefined
-  /** Apply an instance edit to the whole series from this occurrence forward. */
-  updateSeries: (instance: Task, draft: Task) => Promise<void>
-  /** Delete just this occurrence (skip-listed so it never regenerates). */
-  deleteOccurrence: (instance: Task) => Promise<void>
-  /** Delete this occurrence and all later ones (caps recur_until, or removes the series). */
-  deleteSeriesFuture: (instance: Task) => Promise<void>
+  /**
+   * Save an editor result. Resolves the recurrence scope itself, so callers never have to know
+   * that a set `recurParentId` means "this is an instance" — see `resolveSave`.
+   */
+  saveTask: (orig: Task | null, draft: Task, isNew: boolean, scope?: RecurScope) => Promise<void>
+  /** Delete a task, honouring the recurrence scope. See `resolveDelete`. */
+  deleteTask: (task: Task, scope?: RecurScope) => Promise<void>
   /** True when the board is showing the last-known local snapshot instead of a live server load. */
   offline: boolean
   /** When that snapshot was taken (epoch ms), for the offline banner. Null when online. */
   savedAt: number | null
 }
-
-function makeInstance(tmpl: Task, day: string): Task {
-  return {
-    id: newId(),
-    title: tmpl.title,
-    description: tmpl.description,
-    category: tmpl.category,
-    color: tmpl.color,
-    checklist: tmpl.checklist.map((c) => ({ id: newId(), text: c.text, done: false })),
-    status: 'todo',
-    done: false,
-    day,
-    atTime: tmpl.atTime,
-    pinned: tmpl.pinned,
-    order: 5000,
-    korder: 5000,
-    recurFreq: 'none',
-    recurInterval: 1,
-    recurUntil: null,
-    recurParentId: tmpl.id,
-    recurSkip: [],
-    recurOriginDay: day,
-  }
-}
-
-// Identity is the occurrence the instance covers (its origin), not its mutable day — mirrors the
-// (recur_parent_id, recur_origin_day) unique index and keeps the StrictMode double-insert guard sound.
-const instanceKey = (t: Task) => `${t.recurParentId}|${instanceOrigin(t)}`
 
 /**
  * `userId` is only a resolved id for *reading* — it may be the last-known id from
@@ -117,30 +118,22 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
   }, [])
 
   /**
-   * Insert any missing instances for the given templates within the rolling horizon. `board` is
-   * the authoritative set of already-materialized instances to check against; a reload MUST pass
-   * it explicitly. `tasksRef.current` is written inside a deferred React state updater, so right
-   * after `setTasks(...)` it can still hold the pre-load value (empty on a fresh mount) — reading
-   * it there makes every occurrence look missing and re-inserts rows that already exist (23505 on
-   * tasks_recur_instance_uniq). The ref default is safe only for incremental callers that did not
-   * just replace the whole board.
+   * Insert any missing instances for the given templates within the rolling horizon.
+   *
+   * `board` is the authoritative set of already-materialized instances to check against, and it is
+   * **required** — `pendingInstances` has no default to take. `tasksRef.current` is written inside
+   * a deferred React state updater, so right after `setTasks(...)` it can still hold the pre-load
+   * value (empty on a fresh mount); passing that makes every occurrence look missing and
+   * re-inserts rows that already exist (23505 on tasks_recur_instance_uniq). This used to default
+   * to the ref, and three of its four call sites took that default.
    */
   const materialize = useCallback(
-    async (templates: Task[], board: Task[] = tasksRef.current) => {
+    async (templates: Task[], board: Task[]) => {
       // Browser-local on purpose, not the user's configured zone: this only anchors a 90-day
       // rolling materialization horizon, where a ±1-day shift at the far end is immaterial.
       // Threading the timezone in would re-run materialization whenever settings change, for
       // no behavioral gain — and a spurious re-run risks duplicate instance rows (23505).
-      const today = ymd(new Date())
-      const instances: Task[] = []
-      for (const tmpl of templates) {
-        // Match existing instances to occurrences by origin, so an instance dragged to another day
-        // still counts as covering its origin date and is not resurrected as a duplicate there.
-        const existing = board.filter((t) => t.recurParentId === tmpl.id)
-        for (const day of missingInstances(tmpl, existing, today)) {
-          instances.push(makeInstance(tmpl, day))
-        }
-      }
+      const instances = pendingInstances(templates, board, ymd(new Date()), newId)
       if (instances.length === 0) return
       // missingInstances already excludes covered occurrences, so these are all new; a plain insert
       // avoids ON CONFLICT (which can't target the partial unique index). The index still blocks
@@ -302,7 +295,8 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
           setError(errorMessage(e))
           return
         }
-        await materialize([task])
+        // The board is unchanged by adding a template (templates are never in it).
+        await materialize([task], tasksRef.current)
         return
       }
       const prev = tasksRef.current
@@ -342,7 +336,12 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
           void reload()
           return
         }
-        await materialize([task])
+        // The promoted task just left the board; pass the board without it rather than a ref
+        // that React has not flushed yet.
+        await materialize(
+          [task],
+          tasksRef.current.filter((t) => t.id !== task.id),
+        )
         return
       }
       const prev = tasksRef.current
@@ -447,207 +446,103 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
     [],
   )
 
-  // The template-merge and future-instance field lists below carry only series-wide content
-  // (title/description/category/color/atTime/checklist/recur*). Do NOT add `pinned`, `status`, or
-  // `done` — those are per-occurrence and would get clobbered by a "this and all future" edit.
-  const updateSeries = useCallback(
-    async (instance: Task, draft: Task) => {
-      const template = templatesRef.current.find((t) => t.id === instance.recurParentId)
-      if (!template) return
-      // "This and all future" is scoped by the edited occurrence's origin, not its movable day, so a
-      // dragged card still edits the right occurrences (matches the origin-based materialize).
-      const cut = instanceOrigin(instance)
-      const next: Task = {
-        ...template,
-        title: draft.title,
-        description: draft.description,
-        category: draft.category,
-        color: draft.color,
-        atTime: draft.atTime,
-        checklist: draft.checklist,
-        recurFreq: draft.recurFreq,
-        recurInterval: draft.recurInterval,
-        recurUntil: draft.recurUntil,
-      }
-      templatesRef.current = templatesRef.current.map((t) => (t.id === template.id ? next : t))
-      // Propagate content to this + later instances.
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.recurParentId === template.id && isFromOccurrenceOnward(t, cut)
-            ? {
-                ...t,
-                title: draft.title,
-                description: draft.description,
-                category: draft.category,
-                color: draft.color,
-                atTime: draft.atTime,
-              }
-            : t,
-        ),
-      )
-      // Apply the edited content to each instance row directly. tasksRef.current still holds the
-      // pre-edit instances here (the setTasks above updates it inside a deferred React updater), so
-      // reading their content off the ref would persist the OLD title/description/category/color/
-      // atTime and silently revert the edit on the next reload.
-      const rows = [
-        taskToRow(next, userId),
-        ...tasksRef.current
-          .filter((t) => t.recurParentId === template.id && isFromOccurrenceOnward(t, cut))
-          .map((t) =>
-            taskToRow(
-              {
-                ...t,
-                title: draft.title,
-                description: draft.description,
-                category: draft.category,
-                color: draft.color,
-                atTime: draft.atTime,
-              },
-              userId,
-            ),
-          ),
-      ]
-      markWrites(rows.map((r) => r.id))
-      try {
-        const { error: err } = await supabase.from('tasks').upsert(rows, { onConflict: 'id' })
-        if (err) throw new Error(err.message)
-      } catch (e) {
+  /**
+   * Execute a series plan: optimistic state first, then the writes.
+   *
+   * Every decision lives in `series.ts`; this knows only how to talk to Supabase and how to honour
+   * each step's `FailureHandling`. Steps run in order — upserts, then deletions — and an `abort`
+   * stops the rest, which is what keeps a failed content upsert from trimming a series down to a
+   * rule that never persisted.
+   */
+  const runPlan = useCallback(
+    async (plan: SeriesPlan) => {
+      const prevTasks = tasksRef.current
+      const prevTemplates = templatesRef.current
+      markWrites(plan.markIds)
+      templatesRef.current = [...plan.state.templates]
+      setTasks([...plan.state.tasks])
+
+      // An object rather than a bare `let`: TypeScript narrows a captured `let` to its initial
+      // literal type inside the closure below, which would make the comparisons unreachable.
+      const outcome = { recover: 'none' as FailureHandling['recover'], aborted: false }
+      const failed = (e: unknown, handling: FailureHandling) => {
         setError(errorMessage(e))
-        void reload()
-        return
+        // 'reload' outranks 'rollback': once any write may have landed, restoring the pre-plan
+        // state is a guess, whereas resyncing from the server is always correct.
+        if (handling.recover === 'reload') outcome.recover = 'reload'
+        else if (handling.recover === 'rollback' && outcome.recover === 'none')
+          outcome.recover = 'rollback'
+        if (handling.abort) outcome.aborted = true
       }
-      // If the rule shortened, drop instances whose occurrence (origin) now falls past the end.
-      if (next.recurUntil) {
-        const until = next.recurUntil
-        markWrites(
-          tasksRef.current
-            .filter((t) => t.recurParentId === template.id && instanceOrigin(t) > until)
-            .map((t) => t.id),
-        )
-        setTasks((prev) =>
-          prev.filter((t) => !(t.recurParentId === template.id && instanceOrigin(t) > until)),
-        )
+
+      if (plan.upserts.length > 0) {
         try {
-          const { error: err } = await supabase
-            .from('tasks')
-            .delete()
-            .eq('recur_parent_id', template.id)
-            .gt('recur_origin_day', until)
+          const { error: err } = await supabase.from('tasks').upsert(
+            plan.upserts.map((t) => taskToRow(t, userId)),
+            { onConflict: 'id' },
+          )
           if (err) throw new Error(err.message)
         } catch (e) {
-          // Best-effort trim: the content edit above already persisted, and materialize()
-          // below still needs to run regardless, so we don't roll back or return early here —
-          // we only surface that this background persist may be out of sync (a reload can
-          // resync it), instead of failing silently as before.
-          console.error('Failed to delete trimmed instances after shortening series', e)
-          setError(errorMessage(e))
+          failed(e, plan.upsertOnFailure)
         }
       }
-      await materialize([next])
+
+      for (const deletion of plan.deletions) {
+        if (outcome.aborted) break
+        try {
+          await runDeletion(deletion.target)
+        } catch (e) {
+          failed(e, deletion.onFailure)
+        }
+      }
+
+      if (outcome.recover === 'reload') void reload()
+      else if (outcome.recover === 'rollback') {
+        templatesRef.current = prevTemplates
+        setTasks(prevTasks)
+      }
+
+      // Pass the plan's own board rather than the ref: `setTasks` writes the ref inside a
+      // deferred React updater, so the ref may still hold the pre-plan value here.
+      if (!outcome.aborted && outcome.recover === 'none' && plan.materialize.length > 0) {
+        await materialize(plan.materialize, [...plan.state.tasks])
+      }
     },
-    [setTasks, materialize, reload, userId, markWrites],
+    [setTasks, markWrites, userId, reload, materialize],
   )
 
-  const deleteOccurrence = useCallback(
-    async (instance: Task) => {
-      const template = templatesRef.current.find((t) => t.id === instance.recurParentId)
-      markWrites([template?.id, instance.id])
-      if (template) {
-        // Skip the occurrence by its origin date (not the possibly-moved day) so it never regenerates.
-        const next: Task = {
-          ...template,
-          recurSkip: [...template.recurSkip, instanceOrigin(instance)],
-        }
-        templatesRef.current = templatesRef.current.map((t) => (t.id === template.id ? next : t))
-        try {
-          const { error: err } = await supabase
-            .from('tasks')
-            .update(taskToRow(next, userId))
-            .eq('id', template.id)
-          if (err) throw new Error(err.message)
-        } catch (e) {
-          // Best-effort: the occurrence delete below still needs to run regardless, so we
-          // don't roll back or skip that step here — we only surface that the recur-skip
-          // persist may be out of sync (a reload can resync it), instead of failing silently
-          // as before.
-          console.error('Failed to persist skipped occurrence on template', e)
-          setError(errorMessage(e))
-        }
-      }
-      await removeTask(instance.id)
-    },
-    [removeTask, userId, markWrites],
+  const seriesState = useCallback(
+    () => ({ tasks: tasksRef.current, templates: templatesRef.current }),
+    [],
   )
 
-  const deleteSeriesFuture = useCallback(
-    async (instance: Task) => {
-      const template = templatesRef.current.find((t) => t.id === instance.recurParentId)
-      if (!template) {
-        await removeTask(instance.id)
+  const saveTask = useCallback(
+    async (orig: Task | null, draft: Task, isNew: boolean, scope?: RecurScope) => {
+      const op = resolveSave(orig, draft, isNew, scope)
+      if (op.kind === 'create') return createTask(op.task)
+      if (op.kind === 'update-series-from') {
+        const plan = planEditSeriesFrom(seriesState(), op.instance, op.draft)
+        // No template means the series is gone; there is nothing coherent to edit "from here on".
+        if (plan) await runPlan(plan)
         return
       }
-      // Scope by the edited occurrence's origin, not its movable day, so a dragged card trims the
-      // series at the right occurrence (and can't false-trigger the whole-series branch below).
-      const cut = instanceOrigin(instance)
-      markWrites([
-        template.id,
-        ...tasksRef.current
-          .filter((t) => t.recurParentId === template.id && isFromOccurrenceOnward(t, cut))
-          .map((t) => t.id),
-      ])
-      if (cut <= template.day) {
-        // From the first occurrence onward = remove the whole series (cascade deletes instances).
-        templatesRef.current = templatesRef.current.filter((t) => t.id !== template.id)
-        markWrites([
-          template.id,
-          ...tasksRef.current.filter((t) => t.recurParentId === template.id).map((t) => t.id),
-        ])
-        setTasks((prev) => prev.filter((t) => t.recurParentId !== template.id))
-        try {
-          const { error: err } = await supabase.from('tasks').delete().eq('id', template.id)
-          if (err) throw new Error(err.message)
-        } catch (e) {
-          setError(errorMessage(e))
-          void reload()
-        }
-        return
-      }
-      const until = ymd(addDays(parseDay(cut), -1))
-      const next: Task = { ...template, recurUntil: until }
-      templatesRef.current = templatesRef.current.map((t) => (t.id === template.id ? next : t))
-      setTasks((prev) =>
-        prev.filter((t) => !(t.recurParentId === template.id && isFromOccurrenceOnward(t, cut))),
-      )
-      // Both writes are independent (template cap + future-instance delete) and, as before,
-      // each is always attempted regardless of the other's outcome; either failing (by a
-      // resolved `{ error }` or a throw) surfaces the same combined error + reload.
-      let err1: Error | null = null
-      let err2: Error | null = null
-      try {
-        const { error } = await supabase
-          .from('tasks')
-          .update(taskToRow(next, userId))
-          .eq('id', template.id)
-        if (error) err1 = new Error(error.message)
-      } catch (e) {
-        err1 = e instanceof Error ? e : new Error(errorMessage(e))
-      }
-      try {
-        const { error } = await supabase
-          .from('tasks')
-          .delete()
-          .eq('recur_parent_id', template.id)
-          .gte('recur_origin_day', cut)
-        if (error) err2 = new Error(error.message)
-      } catch (e) {
-        err2 = e instanceof Error ? e : new Error(errorMessage(e))
-      }
-      if (err1 || err2) {
-        setError((err1 ?? err2)!.message)
-        void reload()
-      }
+      // 'update-plain' and 'update-occurrence' differ only in the task `resolveSave` produced.
+      return updateTask(op.task)
     },
-    [setTasks, removeTask, reload, userId, markWrites],
+    [createTask, updateTask, runPlan, seriesState],
+  )
+
+  const deleteTask = useCallback(
+    async (task: Task, scope?: RecurScope) => {
+      const op = resolveDelete(task, scope)
+      if (op.kind === 'delete-plain') return removeTask(op.id)
+      const plan =
+        op.kind === 'delete-occurrence'
+          ? planDeleteOccurrence(seriesState(), op.instance)
+          : planDeleteSeriesFrom(seriesState(), op.instance)
+      await runPlan(plan)
+    },
+    [removeTask, runPlan, seriesState],
   )
 
   return {
@@ -664,9 +559,8 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
     persistReorder,
     rollForward,
     getTemplate,
-    updateSeries,
-    deleteOccurrence,
-    deleteSeriesFuture,
+    saveTask,
+    deleteTask,
     offline,
     savedAt,
   }

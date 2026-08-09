@@ -211,14 +211,19 @@ test('updateSeries "this and future" persists the edited content to existing ins
 
   const instance = result.current.tasks.find((t) => t.id === 'i1')!
   await act(async () => {
-    await result.current.updateSeries(instance, {
-      ...instance,
-      title: 'new',
-      atTime: '14:00',
-      recurFreq: 'daily',
-      recurInterval: 1,
-      recurUntil: null,
-    })
+    await result.current.saveTask(
+      instance,
+      {
+        ...instance,
+        title: 'new',
+        atTime: '14:00',
+        recurFreq: 'daily',
+        recurInterval: 1,
+        recurUntil: null,
+      },
+      false,
+      'future',
+    )
   })
 
   // The instance row written to the DB must carry the edited title and atTime. The bug built these
@@ -304,11 +309,11 @@ test('a failing recurSkip write on deleteOccurrence still removes the occurrence
 
   // The template's recurSkip update rejects (e.g. a network fault) — this was previously
   // swallowed by a bare console.error with no user-visible signal.
-  h.updateEq.mockRejectedValueOnce(new Error('skip write failed'))
+  h.upsert.mockRejectedValueOnce(new Error('skip write failed'))
 
   const instance = result.current.tasks.find((t) => t.id === 'i1')!
   await act(async () => {
-    await result.current.deleteOccurrence(instance)
+    await result.current.deleteTask(instance, 'this')
   })
 
   // The occurrence removal (the following step, removeTask) still ran locally despite the
@@ -335,12 +340,12 @@ test('a failing trim-delete on updateSeries still materializes the widened windo
   const until = ymd(addDays(parseDay(today), 3))
   const instance = result.current.tasks.find((t) => t.id === 'i1')!
   await act(async () => {
-    await result.current.updateSeries(instance, {
-      ...instance,
-      recurFreq: 'daily',
-      recurInterval: 1,
-      recurUntil: until,
-    })
+    await result.current.saveTask(
+      instance,
+      { ...instance, recurFreq: 'daily', recurInterval: 1, recurUntil: until },
+      false,
+      'future',
+    )
   })
 
   // materialize (the following step) still ran despite the failed trim-delete: widening the

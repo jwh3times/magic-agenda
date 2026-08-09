@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react'
+import type { RecurScope } from '../data/series'
 import { useTheme } from '../theme/ThemeProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { CAT, COLORS, PAPER, STATUS } from '../theme/constants'
@@ -7,7 +8,8 @@ import { isScheduled } from '../lib/dates'
 import type { Category, Color, RecurFreq, Status, Task } from '../types/task'
 
 /** Which occurrences a save/delete applies to, for a recurring series. */
-export type RecurScope = 'this' | 'future'
+// The scope vocabulary is owned by src/data/series.ts, which also acts on it.
+export type { RecurScope }
 
 /** Fields a recurring instance can change without touching series content — safe to save
  * directly, bypassing the this-occurrence-vs-all-future prompt. `done` isn't listed because it's
