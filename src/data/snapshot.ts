@@ -76,6 +76,43 @@ export function writeSettingsSnapshot(userId: string, settings: Settings): void 
   write(SETTINGS_KEY, userId, { settings })
 }
 
+/**
+ * Whether a snapshot may be written right now. **One rule, one place** — it used to have two
+ * implementations and three prose copies (a docstring on each hook plus `AGENTS.md`), and one of
+ * those implementations passed it as a positional boolean argument named `persistSnapshot`.
+ *
+ * Every clause is load-bearing:
+ *
+ * - **`userId`** — nothing to key the envelope to.
+ * - **`hasSession`** — checked live, not just via `loadedFromServer`. The flag can only ever have
+ *   been set by a *past* authenticated load, but a session can end mid-mount without unmounting
+ *   the hook, and a write must reflect the current session rather than a historical one.
+ * - **`offline`** — the data on screen came from a snapshot, so re-writing it would only move
+ *   `savedAt` forward and make stale data claim to be fresh.
+ * - **`loading`** — mid-load state is not a board.
+ * - **`loadedFromServer`** — the subtle one. A load that *succeeds* under RLS with no session
+ *   returns `{ data: [], error: null }`: "RLS answered nothing" is not "the board is confirmed
+ *   empty". Without this, either that or a failed load with no prior snapshot would persist an
+ *   empty envelope, which reads back on the next boot as valid, freshly-saved offline data —
+ *   indistinguishable from a genuinely empty board, and permanently hiding the fact that this
+ *   client has never actually reached the server on this user's behalf.
+ */
+export function canPersistSnapshot(state: {
+  userId: string
+  hasSession: boolean
+  offline: boolean
+  loading: boolean
+  loadedFromServer: boolean
+}): boolean {
+  return (
+    Boolean(state.userId) &&
+    state.hasSession &&
+    !state.offline &&
+    !state.loading &&
+    state.loadedFromServer
+  )
+}
+
 export function clearSnapshots(): void {
   try {
     localStorage.removeItem(BOARD_KEY)

@@ -14,9 +14,11 @@ const h = vi.hoisted(() => {
   }))
   const capture: {
     handler: ((p: unknown) => void) | null
+    status: ((s: string) => void) | null
     result: { data: unknown; error: unknown }
   } = {
     handler: null,
+    status: null,
     result: { data: { theme: 'cork', default_view: 'calendar' }, error: null },
   }
   const maybeSingle = vi.fn(() => Promise.resolve(capture.result))
@@ -25,8 +27,23 @@ const h = vi.hoisted(() => {
     capture.handler = cb
     return channel
   })
-  channel.subscribe = vi.fn(() => channel)
-  return { upsertThen, upsert, maybeSingle, capture, channel }
+  // Hands the status callback to the test rather than swallowing it: until useSettings was moved
+  // onto useSyncedTable it passed no callback at all, which is how the missing reconnect path
+  // (#130) stayed invisible.
+  channel.subscribe = vi.fn((cb?: (s: string) => void) => {
+    capture.status = cb ?? null
+    return channel
+  })
+  const channelFn = vi.fn(() => channel)
+  return {
+    upsertThen,
+    upsert,
+    maybeSingle,
+    capture,
+    channel,
+    channelFn,
+    channelCount: () => channelFn.mock.calls.length,
+  }
 })
 
 vi.mock('../lib/supabase', () => ({
@@ -35,7 +52,7 @@ vi.mock('../lib/supabase', () => ({
       select: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: h.maybeSingle })) })),
       upsert: h.upsert,
     })),
-    channel: vi.fn(() => h.channel),
+    channel: h.channelFn,
     removeChannel: vi.fn(),
   },
 }))
@@ -247,4 +264,61 @@ test('a realtime change carries week start and timezone to other devices', async
     })
   })
   expect(result.current.settings).toMatchObject({ weekStart: 6, timezone: 'Asia/Tokyo' })
+})
+
+// ——— #130: the reconnect path useSettings never had ———
+
+test('a settings channel error reloads and resubscribes instead of dying silently', async () => {
+  // Before the shared sync module, useSettings' entire subscription tail was `.subscribe()` —
+  // no status callback, no backoff, no catch-up. A channel that errored after a phone slept was
+  // dead for the rest of the session while the board kept syncing, so cross-device theme and
+  // week-start changes just stopped arriving with nothing on screen to say so.
+  vi.useFakeTimers()
+  try {
+    const { result } = renderHook(() => useSettings('user-1', true))
+    await vi.waitFor(() => expect(result.current.loading).toBe(false))
+    const loadsBefore = h.maybeSingle.mock.calls.length
+
+    expect(h.capture.status).not.toBeNull() // a status callback is now registered at all
+    act(() => h.capture.status!('CHANNEL_ERROR'))
+
+    expect(h.maybeSingle.mock.calls.length).toBe(loadsBefore + 1) // reloaded immediately
+    act(() => void vi.advanceTimersByTime(1000))
+    expect(h.channelCount()).toBeGreaterThan(1) // and resubscribed on a fresh channel
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+test('settings catch up when the network returns', async () => {
+  const { result } = renderHook(() => useSettings('user-1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  const loadsBefore = h.maybeSingle.mock.calls.length
+
+  act(() => void window.dispatchEvent(new Event('online')))
+
+  await waitFor(() => expect(h.maybeSingle.mock.calls.length).toBe(loadsBefore + 1))
+})
+
+test('a signed-out visitor opens no settings channel and fires no query', () => {
+  const before = h.maybeSingle.mock.calls.length
+  renderHook(() => useSettings('', false))
+  expect(h.maybeSingle.mock.calls.length).toBe(before)
+  act(() => void window.dispatchEvent(new Event('online')))
+  expect(h.maybeSingle.mock.calls.length).toBe(before)
+})
+
+test('a theme saved while offline still reaches the snapshot', async () => {
+  // A load failure means the snapshot gate says "we learned nothing from the server" — but a
+  // user's own save is not a load result. It is a deliberate choice, and it has to survive the
+  // next boot even though the upsert behind it just failed. Nearly regressed while unifying the
+  // gate: routing `persist` through canPersistSnapshot would silently drop this.
+  localStorage.removeItem('ma-snapshot-settings')
+  h.capture.result = { data: null, error: { message: 'FetchError: Failed to fetch' } }
+  const { result } = renderHook(() => useSettings('u-offline', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  act(() => result.current.saveTheme('brutal'))
+
+  expect(JSON.parse(localStorage.getItem('ma-snapshot-settings')!).settings.theme).toBe('brutal')
 })

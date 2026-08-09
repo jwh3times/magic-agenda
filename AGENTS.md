@@ -173,14 +173,34 @@ which is fine for _reading_ a snapshot — but a snapshot _write_ requires the s
 Collapsing the two is not hypothetical: a signed-out visitor with a stale `ma-last-user` queries
 `user_settings` from the public landing page, RLS returns zero rows **with no error**, and treating
 that as "no row yet" overwrites the user's saved settings snapshot with `DEFAULTS`. The same
-conflation lets a sessionless reconnect persist an empty board. See the docstrings on
-`useTasks`/`useSettings`.
-`useTasks` and `useSettings` also subscribe to Supabase realtime (`postgres_changes`,
-per-user channel): remote changes flow through the pure reducer in `src/data/realtime.ts`
-(instance dedupe by `(recurParentId, recurOriginDay)`, templates routed to `templatesRef`),
-while a short-TTL own-write set suppresses each client's own echoes. On channel error the
-hook reloads and resubscribes with backoff; `visibilitychange`/`online` also trigger a
-`reload()`.
+conflation lets a sessionless reconnect persist an empty board. That rule now has **one
+implementation**, `canPersistSnapshot()` in `src/data/snapshot.ts`, which both hooks call and
+whose docstring explains why each of its five clauses is load-bearing. It previously had two
+implementations and three prose copies, one of which smuggled the rule in as a positional boolean
+argument named `persistSnapshot`.
+
+### Realtime sync is one module, not two copies
+
+`src/data/useSyncedTable.ts` owns the per-user `postgres_changes` channel, echo suppression for
+this client's own writes (`useOwnWrites`, a 5s per-id TTL), reconnect with capped exponential
+backoff, and catch-up on `visibilitychange`/`online`. `useTasks` and `useSettings` are its two
+adapters and keep only their own load, state shape, and snapshot envelope.
+
+This was two divergent copies until v1.2.57, and the divergence was a live bug, not just
+duplication: **`useSettings` had no reconnect path at all.** Its entire subscription tail was
+`.subscribe()` — no status callback, no backoff, no catch-up listener — so a settings channel that
+errored after a phone slept stayed dead for the session while the board kept syncing, and
+cross-device theme/week-start/timezone changes silently stopped arriving. This paragraph used to
+describe both hooks as reloading and resubscribing with backoff; only one of them did (#130).
+
+Two details worth keeping: `rowIdOf` reads `payload.old` for DELETE and `payload.new` otherwise,
+because a DELETE payload carries **only** the primary key (replica identity is DEFAULT, and
+Supabase forces that for RLS-enabled tables) — reading `new` would make every delete look like
+another client's write. And the primary key differs per table (`tasks.id` vs
+`user_settings.user_id`), which is why the id extraction could not stay inline in either hook.
+
+Remote task changes still flow through the pure reducer in `src/data/realtime.ts` (instance dedupe
+by `(recurParentId, recurOriginDay)`, templates routed to `templatesRef`).
 
 ### Recurrence is a hidden-template model (the most complex subsystem)
 

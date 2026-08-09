@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { readSettingsSnapshot, writeSettingsSnapshot } from './snapshot'
+import { canPersistSnapshot, readSettingsSnapshot, writeSettingsSnapshot } from './snapshot'
+import { useOwnWrites, useSyncedTable, type ChangePayload } from './useSyncedTable'
 import type { ThemeName, ViewName } from '../types/task'
 
 export interface Settings {
@@ -42,10 +43,16 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [loading, setLoading] = useState(true)
   const ref = useRef<Settings>(DEFAULTS)
-  const lastLocalWrite = useRef(0)
+  const { markWrites, isOwnWrite } = useOwnWrites()
 
   // The one place settings become current: keeps the ref, React state, and the offline
   // snapshot in step, so no caller can update two of the three and forget the last.
+  //
+  // `persistSnapshot` is decided per call site, because the two kinds of caller answer different
+  // questions. A **load** must consult `canPersistSnapshot` — what came back may be RLS answering
+  // "nothing" rather than the server confirming anything. A **user's own save** always persists:
+  // it is a deliberate choice, and it must survive a reload even when the upsert behind it failed
+  // because the device is offline.
   const apply = useCallback(
     (next: Settings, persistSnapshot = true) => {
       ref.current = next
@@ -55,25 +62,22 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
     [userId],
   )
 
-  useEffect(() => {
-    let active = true
-    // Signed out. This hook now runs from a provider mounted above <Routes>, so it also mounts on
+  const load = useCallback(() => {
+    // Signed out. This hook runs from a provider mounted above <Routes>, so it also mounts on
     // the public landing page — without this guard every signed-out visitor would fire a
     // user_settings query for `user_id = ''`.
     if (!userId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSettings(null)
       setLoading(false)
       return
     }
     setLoading(true)
-    supabase
+    void supabase
       .from('user_settings')
       .select('*')
       .eq('user_id', userId)
       .maybeSingle()
       .then(({ data, error }) => {
-        if (!active) return
         if (error) {
           // A failed request is NOT "no row yet" — postgrest resolves with { data: null, error }
           // rather than rejecting, so treating them alike would silently reset the user's theme
@@ -88,7 +92,7 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
         // select resolves `{ data: null, error: null }`, not an error). Only the former should
         // overwrite the settings snapshot with DEFAULTS — a signed-out visitor with a stale
         // `ma-last-user` must not clobber the real snapshot just because `userId` resolved to
-        // something. `apply`'s persist is therefore gated on `hasSession`, not on `userId`.
+        // something. That is `canPersistSnapshot`'s `hasSession` clause, inside `apply`.
         //
         // The row-present branch can legitimately see `hasSession === false` too: supabase-js
         // attaches the persisted access token independently of `AuthProvider`'s React state, and
@@ -108,59 +112,76 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
                 timezone: data.timezone ?? null,
               }
             : DEFAULTS,
-          hasSession,
+          // `loadedFromServer: true` because reaching this branch *is* the server having answered
+          // without error — unlike useTasks, there is no separate "loaded a real board" signal to
+          // track. The ambiguity that matters here (a row-less answer from an unauthenticated
+          // select looks identical to a genuinely empty row) is what `hasSession` disambiguates.
+          canPersistSnapshot({
+            userId,
+            hasSession,
+            offline: false,
+            loading: false,
+            loadedFromServer: true,
+          }),
         )
         setLoading(false)
       })
-    return () => {
-      active = false
-    }
   }, [userId, hasSession, apply])
 
-  // Live settings changes from other devices. Skip events shortly after a local
-  // persist — the echo of our own upsert could otherwise transiently revert a
-  // rapid second change.
   useEffect(() => {
-    if (!userId) return
-    const channel = supabase
-      .channel(`settings-${userId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'user_settings', filter: `user_id=eq.${userId}` },
-        (payload) => {
-          if (Date.now() - lastLocalWrite.current < 3000) return
-          const row = payload.new as {
-            theme?: string
-            default_view?: string
-            week_start?: number
-            timezone?: string | null
-          } | null
-          if (!row?.theme || !row.default_view) return
-          const next: Settings = {
-            theme: row.theme as ThemeName,
-            defaultView: row.default_view as ViewName,
-            weekStart: row.week_start ?? 0,
-            timezone: row.timezone ?? null,
-          }
-          if (
-            next.theme === ref.current.theme &&
-            next.defaultView === ref.current.defaultView &&
-            next.weekStart === ref.current.weekStart &&
-            next.timezone === ref.current.timezone
-          )
-            return
-          apply(next)
-        },
+    // `load()`'s synchronous prefix calls setLoading/setSettings. Safe for the same reason as the
+    // equivalent disable in useTasks.ts: it fires once rather than in a loop, the initial values
+    // are Object.is-identical to the useState defaults so React bails out of the re-render, and
+    // `load` is stable across renders that don't change `userId`/`hasSession`, so calling it
+    // cannot re-trigger this effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load()
+  }, [load])
+
+  // Live settings changes from other devices. Echoes of our own upsert are filtered by
+  // useSyncedTable (keyed on user_id, this table's primary key) before reaching this.
+  const onRemoteChange = useCallback(
+    (payload: ChangePayload) => {
+      const row = payload.new as {
+        theme?: string
+        default_view?: string
+        week_start?: number
+        timezone?: string | null
+      } | null
+      if (!row?.theme || !row.default_view) return
+      const next: Settings = {
+        theme: row.theme as ThemeName,
+        defaultView: row.default_view as ViewName,
+        weekStart: row.week_start ?? 0,
+        timezone: row.timezone ?? null,
+      }
+      // Second line of defence behind the echo filter: an identical payload must not re-render
+      // or re-snapshot. (useTasks' equivalent is `sameTask` inside the realtime reducer.)
+      if (
+        next.theme === ref.current.theme &&
+        next.defaultView === ref.current.defaultView &&
+        next.weekStart === ref.current.weekStart &&
+        next.timezone === ref.current.timezone
       )
-      .subscribe()
-    return () => {
-      void supabase.removeChannel(channel)
-    }
-  }, [userId, apply])
+        return
+      apply(next)
+    },
+    [apply],
+  )
+
+  useSyncedTable({
+    userId,
+    table: 'user_settings',
+    // The settings row is keyed by the user, not by a synthetic id.
+    primaryKey: 'user_id',
+    reload: load,
+    onChange: onRemoteChange,
+    isOwnWrite,
+  })
 
   const persist = useCallback(
     (next: Settings) => {
-      lastLocalWrite.current = Date.now()
+      markWrites([userId])
       apply(next)
       // Must call `.then()` — a Supabase builder is a lazy thenable that only sends
       // its request when awaited/then'd. `void <builder>` would never fire it.
@@ -183,7 +204,7 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
           (e: unknown) => console.error('Failed to save settings', e),
         )
     },
-    [userId, apply],
+    [userId, apply, markWrites],
   )
 
   const saveTheme = useCallback((theme: ThemeName) => persist({ ...ref.current, theme }), [persist])
