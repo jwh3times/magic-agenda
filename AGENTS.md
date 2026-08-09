@@ -255,10 +255,25 @@ Two facts that used to be undeclared and now live in types:
   per-occurrence-only path, and `Board` had to know that meant "this occurrence". `resolveSave`
   still defends against `undefined` — that default is tested — but nothing produces it for an
   instance now.
-- **`onDelete` receives `initial`, not the edited draft**, so edits made in the modal are discarded.
-  That is unchanged and deliberate here: it is [#132](https://github.com/jwh3times/magic-agenda/issues/132),
-  which is genuinely undecided. `intendDelete` owns the decision and `editIntent.test.ts` pins the
-  current answer, so changing it has to be deliberate.
+- **`onDelete` carries only an id**, and `useTasks.deleteTask` looks the row up in its own state.
+
+The delete seam is worth understanding, because the obvious framing of it is the wrong one.
+[#132](https://github.com/jwh3times/magic-agenda/issues/132) asked whether deleting should act on
+the edited draft or on the stored task, since the editor passed a whole `Task` and the two differ.
+Both answers left the same hazard: `onDelete(task: Task)` promised far more than the delete path
+used — it reads only `id`, `recurParentId`, `recurOriginDay` and `day` — so any field read from it
+later would silently start depending on unsaved edits, with no test failing. Passing an id removes
+the question instead of answering it, and is strictly more correct than either option was, because
+`initial` is **not** the stored row: `Board.openTask` merges the template's
+`recurFreq`/`recurInterval`/`recurUntil` onto an instance before handing it to the editor.
+
+An unknown id is a **no-op**, which is what an already-deleted-elsewhere row looks like.
+
+(For the record, the original bug was inert: of the four fields the path reads, only `day` is
+editable, and it is reached only via `instanceOrigin`'s `recurOriginDay ?? day` fallback — which
+`20260630130000_recur_origin_day.sql` backfilled for every instance that had a day. The null-origin
+rows left are inbox instances from before that migration, for which `instanceOrigin` already
+returns the meaningless `'inbox'`.)
 
 `PER_OCCURRENCE_FIELDS` (which fields skip the prompt) and `seriesContent()` in `series.ts` (which
 fields an all-future edit propagates) are two halves of one classification, deliberately kept

@@ -21,10 +21,10 @@ export interface TaskEditorProps {
   /** `scope` is definite for a recurring instance, and `undefined` only where it is meaningless. */
   onSave: (task: Task, scope?: RecurScope) => void
   /**
-   * Receives `initial`, **not** the edited draft — edits made in the modal are discarded on
-   * delete. See `intendDelete`, which owns that decision, and #132, which questions it.
+   * Receives only the task's id: the data layer resolves the row from its own state. See
+   * `intendDelete` for why nothing more crosses this seam (#132).
    */
-  onDelete: (task: Task, scope?: RecurScope) => void
+  onDelete: (id: string, scope?: RecurScope) => void
   onClose: () => void
   /** True while hydrated from an offline snapshot: every field is disabled and there is no way
    * to save or delete, since a write against a dead network would fail silently. */
@@ -84,15 +84,14 @@ export function TaskEditor({
   }
 
   const attemptDelete = () => {
-    const intent = intendDelete(initial, draft, isNew)
+    const intent = intendDelete(initial, isNew)
     if (intent.kind === 'ask') setScopePrompt('delete')
-    else onDelete(intent.task)
+    else onDelete(intent.id)
   }
 
   const chooseScope = (scope: RecurScope) => {
     if (scopePrompt === 'save') onSave(cleanDraft(draft), scope)
-    // Deliberately `initial`, matching intendDelete — see #132.
-    else onDelete(initial, scope)
+    else onDelete(initial.id, scope)
   }
 
   const recurUnit =

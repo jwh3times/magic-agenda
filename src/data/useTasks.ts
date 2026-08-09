@@ -70,8 +70,12 @@ export interface UseTasks {
    * that a set `recurParentId` means "this is an instance" — see `resolveSave`.
    */
   saveTask: (orig: Task | null, draft: Task, isNew: boolean, scope?: RecurScope) => Promise<void>
-  /** Delete a task, honouring the recurrence scope. See `resolveDelete`. */
-  deleteTask: (task: Task, scope?: RecurScope) => Promise<void>
+  /**
+   * Delete a task by id, honouring the recurrence scope. Takes an id rather than a task so the
+   * row acted on is always this hook's own state — see `intendDelete` (#132). A no-op if the id
+   * is unknown, which is what an already-deleted-elsewhere row looks like.
+   */
+  deleteTask: (id: string, scope?: RecurScope) => Promise<void>
   /** True when the board is showing the last-known local snapshot instead of a live server load. */
   offline: boolean
   /** When that snapshot was taken (epoch ms), for the offline banner. Null when online. */
@@ -533,7 +537,10 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
   )
 
   const deleteTask = useCallback(
-    async (task: Task, scope?: RecurScope) => {
+    async (id: string, scope?: RecurScope) => {
+      const task = tasksRef.current.find((t) => t.id === id)
+      // Already gone — from another device, or a double-click. The row is deleted either way.
+      if (!task) return
       const op = resolveDelete(task, scope)
       if (op.kind === 'delete-plain') return removeTask(op.id)
       const plan =

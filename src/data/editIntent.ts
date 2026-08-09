@@ -95,19 +95,25 @@ export function intendSave(initial: Task, draft: Task, isNew: boolean): SaveInte
   return { kind: 'ask' }
 }
 
-export type DeleteIntent = { kind: 'delete'; task: Task } | { kind: 'ask' }
+export type DeleteIntent = { kind: 'delete'; id: string } | { kind: 'ask' }
 
 /**
- * **`task` is `initial`, not the edited draft — every edit made in the modal is discarded.**
+ * **Only an id crosses this seam** — which is how #132 was resolved.
  *
- * That is the existing behaviour, preserved deliberately and made visible here rather than left
- * implicit in two call sites. It is filed as #132 and is genuinely undecided: acting on the draft
- * matches "delete what I'm looking at", while acting on the stored task is safer for a recurring
- * instance, whose `recurSkip` entry and `recurUntil` cap are computed from fields the user may
- * have just changed without saving. `editIntent.test.ts` pins the current answer so a change to it
- * has to be deliberate.
+ * That issue asked whether deleting should act on the edited draft or on the stored task, because
+ * the editor passed a whole `Task` and the two differ. Answering it either way left the same
+ * hazard in place: `onDelete(task: Task)` promised far more than the delete path used, so any
+ * field later read from it (an undo toast's title, a confirmation dialog's date) would silently
+ * start depending on unsaved edits with no test failing. Passing an id and letting the data layer
+ * look the row up in its own state removes the question rather than answering it.
+ *
+ * It is also strictly more correct than either option was. `initial` is not the stored row:
+ * `Board.openTask` merges the template's `recurFreq`/`recurInterval`/`recurUntil` onto an
+ * instance before handing it to the editor.
+ *
+ * `recurParentId` is not editable, so reading it off the draft or the original is the same test.
  */
-export function intendDelete(initial: Task, draft: Task, isNew: boolean): DeleteIntent {
-  if (!isNew && draft.recurParentId) return { kind: 'ask' }
-  return { kind: 'delete', task: initial }
+export function intendDelete(task: Task, isNew: boolean): DeleteIntent {
+  if (!isNew && task.recurParentId) return { kind: 'ask' }
+  return { kind: 'delete', id: task.id }
 }
