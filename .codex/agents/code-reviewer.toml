@@ -23,7 +23,12 @@ any of these (each is a correctness bug, not a preference):
 3. **Recurrence.** Template rows (`recurFreq != 'none'`, `recurParentId === null`) stay out of
    the board `tasks` list; deleted occurrences are recorded in `recurSkip` so they are never
    regenerated; `reload()` keeps its in-flight guard (StrictMode double-invoke trips the
-   `(recur_parent_id, day)` unique index otherwise).
+   `(recur_parent_id, day)` unique index otherwise). Occurrence identity (`instanceKey`), scope
+   resolution (`resolveSave`/`resolveDelete`), and the per-operation plans
+   (`planEditSeriesFrom`/`planDeleteOccurrence`/`planDeleteSeriesFrom`) live only in
+   `src/data/series.ts` — `Board` and `useTasks` must not reimplement this-occurrence-vs-future
+   dispatch or duplicate `instanceKey`. `pendingInstances` takes `board` as a required argument;
+   flag any call site that reintroduces a ref-backed default.
 4. **Drag-and-drop.** Cross-container moves reindex **both** lanes; persistence must fire even
    when `over.id === active.id` (`DragSession.didMove`, not the final over-target); every drag
    decision belongs in the pure `src/dnd/resolveDrop.ts`, not in the dnd-kit wiring; drag stays

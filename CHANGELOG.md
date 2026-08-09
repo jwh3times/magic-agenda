@@ -12,6 +12,41 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.58] - 2026-08-09
+
+### Internal
+
+- **The recurring-series model now lives in one module.** `src/data/series.ts` owns occurrence
+  identity (`instanceKey`), instance construction (`makeInstance`, `pendingInstances`), scope
+  resolution (`resolveSave` / `resolveDelete`), and a pure **plan** for each series operation — the
+  next board, the next templates, the rows to upsert, the deletions to run, and the ids to mark as
+  this client's own writes. `useTasks.runPlan` is the only effectful part left, and
+  `src/data/recurrence.ts` becomes the pure date core underneath. Closes #135.
+- The three scope operations were a 207-line block inside `useTasks` that **no test reached** —
+  `deleteSeriesFuture`, the branchiest function in the data layer, had none at all — while the
+  cheap date arithmetic in `recurrence.ts` had 22 tests. The decisions now have 30, covering
+  skip-by-origin rather than by a dragged card's day, the whole-series delete branch resisting a
+  card dragged before the anchor, and per-occurrence progress (`pinned` / `status` / `done`)
+  surviving an all-future edit. Suite: 481 → 511 tests.
+- `instanceKey` had been defined identically in `useTasks.ts` and `realtime.ts`, each with a comment
+  claiming to mirror the `(recur_parent_id, recur_origin_day)` unique index. One definition now.
+- `pendingInstances` takes the board as a **required** argument. It replaced a default that read a
+  ref whose own docstring called it unsafe — `setTasks` writes that ref inside a deferred React
+  updater, so passing it straight after a load makes every occurrence look missing and re-inserts
+  rows that already exist (`23505`). Three of the four call sites took that default, untested.
+- `FailureHandling` deliberately carries two independent fields (`abort` and `recover`), because the
+  existing behaviour answered them independently: a failed content upsert aborts the trim that
+  follows it, while a failed `recurSkip` write must *not* stop the occurrence being deleted.
+- `Board` loses three props and no longer encodes any recurrence rule — including stripping the rule
+  fields on the this-occurrence save path, which had been enforced by a comment. `useTasks` exposes
+  `saveTask(orig, draft, isNew, scope)` and `deleteTask(task, scope)` in place of the five members
+  the editor used to need, and `RecurScope` moved to the data layer that acts on it.
+- Template rows in the delete plans are now written by the same upsert batch as everything else,
+  where they had been a lone `.update().eq()`. `updateSeries` already upserted its template, so this
+  makes one path out of two rather than introducing a new one.
+
+No user-visible behaviour changes.
+
 ## [1.2.57] - 2026-08-09
 
 ### Fixed
@@ -1252,7 +1287,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.57...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.58...HEAD
+[1.2.58]: https://github.com/jwh3times/magic-agenda/compare/v1.2.57...v1.2.58
 [1.2.57]: https://github.com/jwh3times/magic-agenda/compare/v1.2.56...v1.2.57
 [1.2.56]: https://github.com/jwh3times/magic-agenda/compare/v1.2.55...v1.2.56
 [1.2.55]: https://github.com/jwh3times/magic-agenda/compare/v1.2.54...v1.2.55

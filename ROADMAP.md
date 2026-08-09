@@ -141,7 +141,8 @@ were added as their own effort rather than a roadmap feature — see
       `src/data/recurrence.ts` test-first: `occurrencesFrom` gains weekday filtering and a count
       cap — the count is measured from the template's first occurrence, so materialization counts
       from `template.day`, not the horizon start. Trimming a count-capped series
-      (`deleteSeriesFuture`) converts the cap to a `recur_until` (simplest correct semantics).
+      (`planDeleteSeriesFrom` in `src/data/series.ts`) converts the cap to a `recur_until`
+      (simplest correct semantics).
 - [ ] **Quick-add & keyboard shortcuts** · **P3** · L — fast capture plus a command palette. Pure
       parser `src/data/quickAdd.ts` (test-first): "groceries tomorrow" → `{ title, day }`; small
       token grammar (today/tomorrow/weekday/`MMM d`/`d/m`), no NLP dep; unrecognized dates → inbox.
@@ -155,16 +156,17 @@ were added as their own effort rather than a roadmap feature — see
       mobile); while active, disable drag via the existing `DragDisabledContext` (no sensor
       changes). Action bar (bottom sheet on mobile): move to day, set status, set color, delete —
       each one batched through new `useTasks.bulkUpdate` / `bulkDelete` (optimistic + rollback).
-      Bulk delete of recurring instances routes through `deleteOccurrence` semantics — coalesce the
-      N skip-list writes into one template update and surface a count note.
+      Bulk delete of recurring instances routes through `planDeleteOccurrence` (`src/data/series.ts`)
+      semantics — coalesce the N skip-list writes into one template update and surface a count note.
 - [ ] **Undo** · **P3** · M — toast-based "undo last action" reusing the optimistic-rollback
       plumbing. Snapshot-based, scoped to board-safe ops: `useTasks` gains
       `pushUndo(label, prevTasks, prevTemplates)` before toggleDone, delete (non-recurring), bulk
       ops, drag persist, roll-forward; undo restores the snapshot and diff-upserts/deletes affected
       rows (deleted rows re-insert with original ids). Surface via `Toast.tsx` gaining an action
-      button (6s). Series-level ops (`updateSeries`/`deleteSeriesFuture`) are **excluded** in v1;
-      `deleteOccurrence` _is_ undoable (remove skip entry + re-insert). Undo after a realtime
-      change from another device is last-write-wins; document it.
+      button (6s). Series-level ops (`planEditSeriesFrom`/`planDeleteSeriesFrom` in
+      `src/data/series.ts`) are **excluded** in v1; `planDeleteOccurrence` _is_ undoable (remove
+      skip entry + re-insert). Undo after a realtime change from another device is last-write-wins;
+      document it.
 - [ ] **Completed / archive view + light stats** · **P3** · M — history of done tasks plus simple
       streak/throughput insight. "History" section on `/settings` (not a fifth board view): done
       tasks grouped by completion week. Small schema addition: `tasks.completed_at timestamptz`,
