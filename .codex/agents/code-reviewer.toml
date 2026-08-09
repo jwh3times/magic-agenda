@@ -28,7 +28,10 @@ any of these (each is a correctness bug, not a preference):
    (`planEditSeriesFrom`/`planDeleteOccurrence`/`planDeleteSeriesFrom`) live only in
    `src/data/series.ts` — `Board` and `useTasks` must not reimplement this-occurrence-vs-future
    dispatch or duplicate `instanceKey`. `pendingInstances` takes `board` as a required argument;
-   flag any call site that reintroduces a ref-backed default.
+   flag any call site that reintroduces a ref-backed default. The delete seam carries only an id
+   (`intendDelete` → `TaskEditor`'s `onDelete` → `Board` → `useTasks.deleteTask`) — `useTasks`
+   resolves the row from its own state, and an unknown id is a no-op; flag any change that widens
+   that seam back to a `Task` (see #132 in `AGENTS.md`).
 4. **Drag-and-drop.** Cross-container moves reindex **both** lanes; persistence must fire even
    when `over.id === active.id` (`DragSession.didMove`, not the final over-target); every drag
    decision belongs in the pure `src/dnd/resolveDrop.ts`, not in the dnd-kit wiring; drag stays
