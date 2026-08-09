@@ -12,6 +12,29 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.60] - 2026-08-09
+
+### Internal
+
+- **Deleting a task now passes only an id across the seam.** `TaskEditor`'s `onDelete` takes
+  `(id, scope?)`, `Board` forwards it, and `useTasks.deleteTask` resolves the row from its own
+  state. An unknown id is a no-op — which is what an already-deleted-elsewhere row looks like.
+  Closes #132.
+- That issue asked whether deleting should act on the edited draft or on the stored task, since the
+  editor passed a whole `Task` and the two differ. Neither was chosen: both answers left the same
+  hazard, because `onDelete(task: Task)` promised far more than the delete path uses — it reads only
+  `id`, `recurParentId`, `recurOriginDay` and `day` — so any field read from it later would silently
+  start depending on unsaved edits, with nothing failing. Narrowing the interface removes the
+  question rather than answering it.
+- It is also more correct than either option was: `initial` is not the stored row, because
+  `Board.openTask` merges the template's `recurFreq`/`recurInterval`/`recurUntil` onto an instance
+  before handing it to the editor.
+
+**No behaviour changes**, user-visible or otherwise. The original bug was inert: of the four fields
+the delete path reads, only `day` is editable in the modal, and it is reached only through
+`instanceOrigin`'s `recurOriginDay ?? day` fallback — which `20260630130000_recur_origin_day.sql`
+backfilled for every instance that had a day. This is a latent-hazard fix.
+
 ## [1.2.59] - 2026-08-09
 
 ### Fixed
@@ -1323,7 +1346,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.59...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.60...HEAD
+[1.2.60]: https://github.com/jwh3times/magic-agenda/compare/v1.2.59...v1.2.60
 [1.2.59]: https://github.com/jwh3times/magic-agenda/compare/v1.2.58...v1.2.59
 [1.2.58]: https://github.com/jwh3times/magic-agenda/compare/v1.2.57...v1.2.58
 [1.2.57]: https://github.com/jwh3times/magic-agenda/compare/v1.2.56...v1.2.57

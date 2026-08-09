@@ -167,22 +167,21 @@ describe('intendSave', () => {
 
 describe('intendDelete', () => {
   it('asks for a recurring instance', () => {
-    expect(intendDelete(instance(), instance(), false)).toEqual({ kind: 'ask' })
+    expect(intendDelete(instance(), false)).toEqual({ kind: 'ask' })
   })
 
   it('deletes a plain task and a brand-new one directly', () => {
-    const plain = t('x')
-    expect(intendDelete(plain, plain, false)).toEqual({ kind: 'delete', task: plain })
-    const fresh = instance()
-    expect(intendDelete(fresh, fresh, true)).toEqual({ kind: 'delete', task: fresh })
+    expect(intendDelete(t('x'), false)).toEqual({ kind: 'delete', id: 'x' })
+    expect(intendDelete(instance(), true)).toEqual({ kind: 'delete', id: 'i1' })
   })
 
-  it('deletes the ORIGINAL task, discarding edits made in the modal', () => {
-    // Current behaviour, pinned deliberately rather than endorsed — see #132, which is still
-    // undecided. If that issue resolves in favour of acting on the draft, this test is the one
-    // that has to change, which is the point of writing it down.
-    const original = t('x', { title: 'Original', day: '2026-07-01' })
-    const edited = { ...original, title: 'Edited', day: '2026-07-09' }
-    expect(intendDelete(original, edited, false)).toEqual({ kind: 'delete', task: original })
+  it('emits only an id, so unsaved edits cannot reach the delete', () => {
+    // This is how #132 was resolved: not by choosing between the draft and the original, but by
+    // making the choice impossible. Nothing but the id crosses the seam, and the data layer looks
+    // the row up in its own state — so no field added to the delete path later can silently start
+    // depending on edits the user never saved.
+    const intent = intendDelete(t('x', { title: 'Original', day: '2026-07-01' }), false)
+    expect(intent).toEqual({ kind: 'delete', id: 'x' })
+    expect(Object.keys(intent)).toEqual(['kind', 'id'])
   })
 })

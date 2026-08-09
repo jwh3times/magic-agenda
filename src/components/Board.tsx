@@ -56,7 +56,7 @@ export interface BoardProps {
   onSave: (orig: Task | null, draft: Task, isNew: boolean, scope?: RecurScope) => void
   /** A direct field edit that bypasses the editor (the pin toggle). */
   onUpdate: (task: Task) => void
-  onDelete: (task: Task, scope?: RecurScope) => void
+  onDelete: (id: string, scope?: RecurScope) => void
   onToggleDone: (id: string) => void
   persistReorder: (next: Task[], containers: string[], mode: Mode) => void
   getTemplate: (parentId: string) => Task | undefined
@@ -158,8 +158,8 @@ export function Board({
     setEditing(null)
   }
 
-  const handleDelete = (task: Task, scope?: RecurScope) => {
-    onDelete(task, scope)
+  const handleDelete = (id: string, scope?: RecurScope) => {
+    onDelete(id, scope)
     setEditing(null)
   }
 

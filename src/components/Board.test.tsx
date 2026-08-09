@@ -29,7 +29,7 @@ function Harness({ weekStart }: { weekStart?: number }) {
             setTasks((p) => (isNew ? [...p, draft] : p.map((x) => (x.id === draft.id ? draft : x))))
           }
           onUpdate={(t) => setTasks((p) => p.map((x) => (x.id === t.id ? t : x)))}
-          onDelete={(task) => setTasks((p) => p.filter((x) => x.id !== task.id))}
+          onDelete={(id) => setTasks((p) => p.filter((x) => x.id !== id))}
           onToggleDone={(id) => setTasks((p) => applyToggleDone(p, id).tasks)}
           persistReorder={(next) => setTasks(next)}
           getTemplate={() => undefined}

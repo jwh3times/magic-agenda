@@ -313,7 +313,7 @@ test('a failing recurSkip write on deleteOccurrence still removes the occurrence
 
   const instance = result.current.tasks.find((t) => t.id === 'i1')!
   await act(async () => {
-    await result.current.deleteTask(instance, 'this')
+    await result.current.deleteTask(instance.id, 'this')
   })
 
   // The occurrence removal (the following step, removeTask) still ran locally despite the
@@ -476,4 +476,23 @@ test('reconnecting while sessionless does not poison the board snapshot with an 
   // merely racing a write that just hasn't fired yet (see the equivalent failed-load test above).
   await new Promise((r) => setTimeout(r, 1500))
   expect(JSON.parse(localStorage.getItem('ma-snapshot-board')!)).toEqual(existing)
+})
+
+test('deleting an id that is not on the board is a no-op, not a stray write', async () => {
+  // Taking an id rather than a task (#132) means the row acted on is always this hook's own state.
+  // An unknown id is what an already-deleted-elsewhere row looks like: deleting it again would be
+  // a pointless write, and for a series a plan computed against a row that isn't there.
+  h.capture.rows = [serverRow({ id: 't1' })]
+  const { result } = renderHook(() => useTasks('u1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  h.deleteEq.mockClear()
+  const before = result.current.tasks.length
+
+  await act(async () => {
+    await result.current.deleteTask('not-on-the-board')
+  })
+
+  expect(result.current.tasks).toHaveLength(before)
+  expect(h.deleteEq).not.toHaveBeenCalled()
+  expect(result.current.error).toBeNull()
 })
