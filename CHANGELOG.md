@@ -12,6 +12,41 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.57] - 2026-08-09
+
+### Fixed
+
+- **Settings stopped syncing across devices after a dropped connection, and never recovered.**
+  `useSettings` subscribed to realtime but had no reconnect path at all — its entire subscription
+  tail was `.subscribe()`, with no status callback, no backoff, and no `visibilitychange`/`online`
+  catch-up. A settings channel that errored (typically after a phone slept) stayed dead for the
+  rest of the session while the board kept syncing happily, so theme, default-view, week-start and
+  timezone changes made on another device silently stopped arriving, with nothing on screen to say
+  so. The board hook had all of this; the docs described the two as symmetric. Closes #130.
+- A signed-out visitor no longer fires a `tasks` select. `useTasks.reload` had no `userId` guard
+  (the settings side has had one since it was hoisted above `<Routes>`), so the public landing page
+  issued a query that RLS answered with an empty array.
+
+### Internal
+
+- **Realtime sync is now one module rather than two divergent copies.**
+  `src/data/useSyncedTable.ts` owns the per-user `postgres_changes` channel, echo suppression for
+  this client's own writes, reconnect with capped exponential backoff, and tab/network catch-up.
+  `useTasks` and `useSettings` are its two adapters. Closes #134.
+- Echo suppression had diverged into two schemes with two TTLs — a per-id `Map` at a named 5000 ms
+  in one hook, a single timestamp against a bare `3000` in the other. There is now one registry
+  (`useOwnWrites`) with one TTL.
+- The `userId`-reads / `hasSession`-writes rule is now `canPersistSnapshot()` in
+  `src/data/snapshot.ts`, with a docstring explaining why each of its five clauses is load-bearing.
+  It previously had two implementations and three prose copies, one of which passed the rule as a
+  positional boolean argument named `persistSnapshot`.
+- Newly testable, and previously unreachable in *either* copy because both test mocks fired
+  `'SUBSCRIBED'` unconditionally: the backoff curve and its 30 s cap, reconnect after
+  `CHANNEL_ERROR`/`TIMED_OUT`/`CLOSED`, backoff reset after a successful resubscribe, a backoff
+  timer firing after unmount, `visibilitychange` catch-up, and own-write TTL **expiry** — the old
+  suppression test only proved the inside-TTL case, so a registry that never expired would have
+  passed. Suite: 461 → 481 tests.
+
 ## [1.2.56] - 2026-08-09
 
 ### Internal
@@ -1217,7 +1252,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.56...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.57...HEAD
+[1.2.57]: https://github.com/jwh3times/magic-agenda/compare/v1.2.56...v1.2.57
 [1.2.56]: https://github.com/jwh3times/magic-agenda/compare/v1.2.55...v1.2.56
 [1.2.55]: https://github.com/jwh3times/magic-agenda/compare/v1.2.54...v1.2.55
 [1.2.54]: https://github.com/jwh3times/magic-agenda/compare/v1.2.53...v1.2.54

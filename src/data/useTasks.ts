@@ -2,9 +2,10 @@ import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateA
 import { supabase } from '../lib/supabase'
 import { errorMessage } from '../lib/errors'
 import { rowToTask, taskToRow } from './mappers'
-import { readBoardSnapshot, writeBoardSnapshot } from './snapshot'
+import { canPersistSnapshot, readBoardSnapshot, writeBoardSnapshot } from './snapshot'
 import { applyRollForward, applyToggleDone } from './selectors'
 import { applyTaskChange, payloadToChange } from './realtime'
+import { useOwnWrites, useSyncedTable, type ChangePayload } from './useSyncedTable'
 import { instanceOrigin, isFromOccurrenceOnward, missingInstances } from './recurrence'
 import { newId } from '../lib/id'
 import { addDays, parseDay, ymd } from '../lib/dates'
@@ -103,23 +104,9 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
   // actually talked to the server on this user's behalf.
   const hasLoadedFromServer = useRef(false)
 
-  // Ids this client just wrote, with expiry. Realtime echoes of our own writes are
-  // skipped so they can't clobber newer optimistic state (e.g. during rapid drags).
-  // Caveat (accepted): id-keyed suppression also drops a genuine edit to the same
-  // task from another device inside the TTL — reload()/reconnect heals it.
-  const ownWrites = useRef(new Map<string, number>())
-  const OWN_WRITE_TTL_MS = 5000
-
-  const markWrites = useCallback((ids: readonly (string | null | undefined)[]) => {
-    const now = Date.now()
-    for (const [id, exp] of ownWrites.current) if (exp < now) ownWrites.current.delete(id)
-    for (const id of ids) if (id) ownWrites.current.set(id, now + OWN_WRITE_TTL_MS)
-  }, [])
-
-  const isOwnWrite = useCallback((id: string) => {
-    const exp = ownWrites.current.get(id)
-    return exp !== undefined && exp > Date.now()
-  }, [])
+  // Echo suppression for this client's own writes. The registry, the channel, the reconnect
+  // backoff, and the tab/network catch-up all live in useSyncedTable now, shared with useSettings.
+  const { markWrites, isOwnWrite } = useOwnWrites()
 
   const setTasks = useCallback<Dispatch<SetStateAction<Task[]>>>((update) => {
     _setTasks((prev) => {
@@ -193,6 +180,13 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
   }, [userId, setTasks])
 
   const reload = useCallback(async () => {
+    // Signed out. `BoardPage` calls this hook before its own `if (!userId) return <Spinner/>`,
+    // and the settings side has guarded this since it was hoisted above <Routes>; without it
+    // every signed-out visitor fires a `tasks` select that RLS answers with `[]`.
+    if (!userId) {
+      setLoading(false)
+      return
+    }
     // Guard against concurrent loads (notably React StrictMode's double-invoked effect),
     // which would materialize the same instances twice and hit the unique index.
     if (inFlight.current) return
@@ -224,7 +218,7 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
       setLoading(false)
       inFlight.current = false
     }
-  }, [setTasks, materialize, hydrateFromSnapshot, hasSession])
+  }, [userId, setTasks, materialize, hydrateFromSnapshot, hasSession])
 
   useEffect(() => {
     // `void reload()` runs reload's synchronous prefix (before its first `await`) inline, and
@@ -245,90 +239,56 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
 
   // Persist the board for offline reads. Debounced because optimistic CRUD churns `tasks`;
   // a rolled-back write re-renders the restored state and the next tick writes that, so this
-  // is self-correcting and needs no "confirmed" bookkeeping. Suppressed while offline so
-  // savedAt never claims to be fresher than the data. Also suppressed until a server load has
-  // actually succeeded under a real session (hasLoadedFromServer, which reload() only sets when
-  // `hasSession` is true) — otherwise either a failed load with no existing snapshot, OR a
-  // sessionless reload succeeding against RLS with `[]`, would write `{ tasks: [], templates: [] }`,
-  // and that empty envelope would read back as valid, freshly-saved offline data on the next boot —
-  // indistinguishable from a genuinely empty board and permanently hiding the fact we never
-  // actually reached the server on this user's behalf. `hasSession` is also checked directly here
-  // (not just via the ref): the ref can only ever have been set true by a *past* authenticated
-  // load, but a session can end mid-mount without unmounting the hook, and a write must reflect
-  // the *current* session, not a historical one.
+  // is self-correcting and needs no "confirmed" bookkeeping. Every clause of the gate — and why
+  // `hasSession` is re-checked here rather than trusted through `hasLoadedFromServer` — is
+  // documented on `canPersistSnapshot`, which useSettings uses too.
   useEffect(() => {
-    if (!userId || !hasSession || offline || loading || !hasLoadedFromServer.current) return
+    if (
+      !canPersistSnapshot({
+        userId,
+        hasSession,
+        offline,
+        loading,
+        loadedFromServer: hasLoadedFromServer.current,
+      })
+    )
+      return
     const id = window.setTimeout(() => {
       writeBoardSnapshot(userId, tasksRef.current, templatesRef.current)
     }, 1000)
     return () => window.clearTimeout(id)
   }, [userId, hasSession, offline, loading, tasks])
 
-  // Live changes from other devices/sessions. Sub-epoch bumps force a fresh
-  // channel after an error (with backoff); reload() covers anything missed.
-  const [subEpoch, setSubEpoch] = useState(0)
-  const retries = useRef(0)
-
-  useEffect(() => {
-    if (!userId) return
-    let disposed = false
-    const channel = supabase
-      .channel(`tasks-${userId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${userId}` },
-        (payload) => {
-          const change = payloadToChange(payload as RealtimePostgresChangesPayload<TaskRow>)
-          if (!change) return
-          const id = change.type === 'DELETE' ? change.id : change.task.id
-          if (isOwnWrite(id)) return
-          // Functional update: bursts of events (a series creation is a template +
-          // many instance frames before a render flush) must compose through React's
-          // queue — a value-form dispatch computed from tasksRef would drop all but
-          // the first and last. Same-reference returns still bail out of re-renders.
-          setTasks((prevTasks) => {
-            const prev = { tasks: prevTasks, templates: templatesRef.current }
-            const next = applyTaskChange(prev, change)
-            // Idempotent under StrictMode double-invoke (pure function of same inputs).
-            templatesRef.current = next.templates
-            return next.tasks
-          })
-        },
-      )
-      .subscribe((status) => {
-        if (disposed) return
-        if (status === 'SUBSCRIBED') {
-          retries.current = 0
-          return
-        }
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          const backoff = Math.min(30_000, 1000 * 2 ** retries.current++)
-          void reload()
-          window.setTimeout(() => {
-            if (!disposed) setSubEpoch((e) => e + 1)
-          }, backoff)
-        }
+  // Live changes from other devices/sessions.
+  const onRemoteChange = useCallback(
+    (payload: ChangePayload) => {
+      const change = payloadToChange(payload as RealtimePostgresChangesPayload<TaskRow>)
+      if (!change) return
+      // Functional update: bursts of events (a series creation is a template + many instance
+      // frames before a render flush) must compose through React's queue — a value-form dispatch
+      // computed from tasksRef would drop all but the first and last. Same-reference returns
+      // still bail out of re-renders.
+      setTasks((prevTasks) => {
+        const prev = { tasks: prevTasks, templates: templatesRef.current }
+        const next = applyTaskChange(prev, change)
+        // Idempotent under StrictMode double-invoke (pure function of same inputs).
+        templatesRef.current = next.templates
+        return next.tasks
       })
-    return () => {
-      disposed = true
-      void supabase.removeChannel(channel)
-    }
-  }, [userId, subEpoch, isOwnWrite, reload, setTasks])
+    },
+    [setTasks],
+  )
 
-  // Mobile Safari (and other browsers) kill background sockets aggressively —
-  // catch up on anything missed when the tab regains focus or connectivity returns.
-  useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') void reload()
-    }
-    const onOnline = () => void reload()
-    document.addEventListener('visibilitychange', onVisible)
-    window.addEventListener('online', onOnline)
-    return () => {
-      document.removeEventListener('visibilitychange', onVisible)
-      window.removeEventListener('online', onOnline)
-    }
-  }, [reload])
+  const stableReload = useCallback(() => void reload(), [reload])
+
+  useSyncedTable({
+    userId,
+    table: 'tasks',
+    primaryKey: 'id',
+    reload: stableReload,
+    onChange: onRemoteChange,
+    isOwnWrite,
+  })
 
   const createTask = useCallback(
     async (task: Task) => {
