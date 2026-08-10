@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { Client as PgClient } from 'pg'
+import type { Database } from '../../src/types/database.types'
+
+type TestSupabaseClient = SupabaseClient<Database>
 
 export interface Stack {
   apiUrl: string
@@ -28,21 +31,21 @@ export function stack(): Stack {
 const NO_SESSION = { auth: { persistSession: false, autoRefreshToken: false } }
 
 /** Bypasses RLS. Only for creating and destroying test users -- never for assertions. */
-export function serviceClient(): SupabaseClient {
+export function serviceClient(): TestSupabaseClient {
   const s = stack()
-  return createClient(s.apiUrl, s.serviceKey, NO_SESSION)
+  return createClient<Database>(s.apiUrl, s.serviceKey, NO_SESSION)
 }
 
 /** A signed-out client, exactly what a visitor to the landing page holds. */
-export function anonClient(): SupabaseClient {
+export function anonClient(): TestSupabaseClient {
   const s = stack()
-  return createClient(s.apiUrl, s.anonKey, NO_SESSION)
+  return createClient<Database>(s.apiUrl, s.anonKey, NO_SESSION)
 }
 
 export interface TestUser {
   id: string
   email: string
-  client: SupabaseClient
+  client: TestSupabaseClient
 }
 
 /**
@@ -67,7 +70,7 @@ export async function createTestUser(): Promise<TestUser> {
   const id = data.user?.id
   if (!id) throw new Error('createTestUser returned no user id')
 
-  const client = createClient(s.apiUrl, s.anonKey, NO_SESSION)
+  const client = createClient<Database>(s.apiUrl, s.anonKey, NO_SESSION)
   const { error: signInError } = await client.auth.signInWithPassword({ email, password })
   if (signInError) throw new Error(`test user sign-in failed: ${signInError.message}`)
 

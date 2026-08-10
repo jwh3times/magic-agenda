@@ -132,7 +132,7 @@ test('getSession degrades to null instead of rejecting', async () => {
   await expect(gw.getSession()).resolves.toBeNull()
 })
 
-test('onAuthStateChange returns an unsubscribe that reaches the vendor subscription', async () => {
+test('onAuthStateChange returns an unsubscribe that reaches the vendor subscription', () => {
   const unsubscribe = vi.fn()
   h.onAuthStateChange.mockReturnValue({ data: { subscription: { unsubscribe } } })
   const stop = gw.onAuthStateChange(() => {})

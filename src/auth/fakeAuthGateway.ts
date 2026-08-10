@@ -87,9 +87,9 @@ export function fakeAuthGateway(options?: { session?: Session | null }): FakeAut
   }
 
   const gateway: AuthGateway = {
-    async getSession() {
+    getSession() {
       calls.getSession += 1
-      return initial
+      return Promise.resolve(initial)
     },
     onAuthStateChange(listener) {
       listeners.add(listener)
@@ -119,8 +119,9 @@ export function fakeAuthGateway(options?: { session?: Session | null }): FakeAut
       calls.redeemToken.push([tokenHash, type])
       return next.redeemToken
     },
-    async signOut() {
+    signOut() {
       calls.signOut += 1
+      return Promise.resolve()
     },
   }
 

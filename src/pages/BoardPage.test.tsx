@@ -7,16 +7,42 @@ import type { Task } from '../types/task'
 // Mocks the three data sources BoardPage composes, so this test can drive the offline-boot
 // scenario (no session, board hydrated from a snapshot) without dragging in Supabase or dnd-kit
 // setup beyond what Board itself already needs.
-const h = vi.hoisted(() => ({
+interface MockSettings {
+  settings: { theme: string; defaultView: string } | null
+  loading: boolean
+  saveTheme: ReturnType<typeof vi.fn>
+}
+
+const h = vi.hoisted<{
+  auth: { user: { id: string } | null; signOut: ReturnType<typeof vi.fn> }
+  settings: MockSettings
+  tasks: {
+    tasks: Task[]
+    loading: boolean
+    error: string | null
+    clearError: ReturnType<typeof vi.fn>
+    reload: ReturnType<typeof vi.fn>
+    setTasks: ReturnType<typeof vi.fn>
+    createTask: ReturnType<typeof vi.fn>
+    updateTask: ReturnType<typeof vi.fn>
+    removeTask: ReturnType<typeof vi.fn>
+    toggleDone: ReturnType<typeof vi.fn>
+    persistReorder: ReturnType<typeof vi.fn>
+    rollForward: ReturnType<typeof vi.fn>
+    getTemplate: ReturnType<typeof vi.fn>
+    updateSeries: ReturnType<typeof vi.fn>
+    deleteOccurrence: ReturnType<typeof vi.fn>
+    deleteSeriesFuture: ReturnType<typeof vi.fn>
+    offline: boolean
+    savedAt: number | null
+  }
+}>(() => ({
   auth: {
     user: null as { id: string } | null,
     signOut: vi.fn(),
   },
   settings: {
-    settings: { theme: 'cork', defaultView: 'calendar' } as {
-      theme: string
-      defaultView: string
-    } | null,
+    settings: { theme: 'cork', defaultView: 'calendar' },
     loading: false,
     saveTheme: vi.fn(),
   },

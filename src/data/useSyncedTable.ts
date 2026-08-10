@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
+import {
+  REALTIME_SUBSCRIBE_STATES,
+  type RealtimePostgresChangesPayload,
+} from '@supabase/supabase-js'
 
 /**
  * The realtime sync machinery both `useTasks` and `useSettings` need: a per-user channel, echo
@@ -102,7 +105,7 @@ export interface SyncedTableSpec {
    * **Must be referentially stable** — it is an effect dependency, and an unstable identity would
    * tear down and rebuild the channel on every render.
    */
-  reload: () => void
+  reload: () => void | Promise<void>
   /** Handles a payload that is *not* one of this client's own writes. Must be stable. */
   onChange: (payload: ChangePayload) => void
   /** From `useOwnWrites`. Stable. */
@@ -131,21 +134,25 @@ export function useSyncedTable({
         'postgres_changes',
         { event: '*', schema: 'public', table, filter: `user_id=eq.${userId}` },
         (payload) => {
-          const id = rowIdOf(payload as ChangePayload, primaryKey)
+          const id = rowIdOf(payload, primaryKey)
           if (id !== null && isOwnWrite(id)) return
-          onChange(payload as ChangePayload)
+          onChange(payload)
         },
       )
       .subscribe((status) => {
         // `disposed` matters because the backoff timer outlives the channel it was scheduled by.
         if (disposed) return
-        if (status === 'SUBSCRIBED') {
+        if (status === REALTIME_SUBSCRIBE_STATES.SUBSCRIBED) {
           retries.current = 0
           return
         }
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        if (
+          status === REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR ||
+          status === REALTIME_SUBSCRIBE_STATES.TIMED_OUT ||
+          status === REALTIME_SUBSCRIBE_STATES.CLOSED
+        ) {
           const delay = backoffDelay(retries.current++)
-          reload()
+          void reload()
           window.setTimeout(() => {
             if (!disposed) setEpoch((e) => e + 1)
           }, delay)
@@ -162,9 +169,9 @@ export function useSyncedTable({
   useEffect(() => {
     if (!userId) return
     const onVisible = () => {
-      if (document.visibilityState === 'visible') reload()
+      if (document.visibilityState === 'visible') void reload()
     }
-    const onOnline = () => reload()
+    const onOnline = () => void reload()
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('online', onOnline)
     return () => {

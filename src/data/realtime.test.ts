@@ -24,31 +24,30 @@ const base: Task = {
 }
 const mk = (over: Partial<Task>): Task => ({ ...base, ...over })
 
-const row = (over: Partial<TaskRow> = {}): TaskRow =>
-  ({
-    id: 't1',
-    user_id: 'u1',
-    title: 'A',
-    description: '',
-    category: 'work',
-    color: 'yellow',
-    checklist: [],
-    status: 'todo',
-    day: '2026-07-01',
-    at_time: null,
-    pinned: false,
-    order_index: 0,
-    korder: 0,
-    recur_freq: 'none',
-    recur_interval: 1,
-    recur_until: null,
-    recur_parent_id: null,
-    recur_skip: [],
-    recur_origin_day: null,
-    created_at: '2026-07-01T00:00:00Z',
-    updated_at: '2026-07-01T00:00:00Z',
-    ...over,
-  }) as TaskRow
+const row = (over: Partial<TaskRow> = {}): TaskRow => ({
+  id: 't1',
+  user_id: 'u1',
+  title: 'A',
+  description: '',
+  category: 'work',
+  color: 'yellow',
+  checklist: [],
+  status: 'todo',
+  day: '2026-07-01',
+  at_time: null,
+  pinned: false,
+  order_index: 0,
+  korder: 0,
+  recur_freq: 'none',
+  recur_interval: 1,
+  recur_until: null,
+  recur_parent_id: null,
+  recur_skip: [],
+  recur_origin_day: null,
+  created_at: '2026-07-01T00:00:00Z',
+  updated_at: '2026-07-01T00:00:00Z',
+  ...over,
+})
 
 const state = (tasks: Task[] = [], templates: Task[] = []): BoardState => ({ tasks, templates })
 

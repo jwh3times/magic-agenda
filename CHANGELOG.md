@@ -12,6 +12,15 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.62] - 2026-08-10
+
+### Internal
+
+- Replaced ESLint completely with Oxlint and enabled `oxlint-tsgolint`'s TypeScript 7-powered
+  type-aware rules. Oxlint now owns core, TypeScript, Hooks, React Refresh, and React Compiler
+  diagnostics; the migration also fixed the newly exposed promise and unsafe-value findings,
+  removed the TypeScript 7 Dependabot hold, added `lint:fix`, and kept Prettier unchanged.
+
 ## [1.2.61] - 2026-08-09
 
 ### Internal
@@ -1355,7 +1364,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.61...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.62...HEAD
+[1.2.62]: https://github.com/jwh3times/magic-agenda/compare/v1.2.61...v1.2.62
 [1.2.61]: https://github.com/jwh3times/magic-agenda/compare/v1.2.60...v1.2.61
 [1.2.60]: https://github.com/jwh3times/magic-agenda/compare/v1.2.59...v1.2.60
 [1.2.59]: https://github.com/jwh3times/magic-agenda/compare/v1.2.58...v1.2.59

@@ -37,7 +37,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 }
 
 /** The session's shared settings. Throws outside `<SettingsProvider>` rather than returning null. */
-// eslint-disable-next-line react-refresh/only-export-components
+// oxlint-disable-next-line react/only-export-components
 export function useSettingsContext(): UseSettings {
   const ctx = useContext(SettingsContext)
   if (!ctx) throw new Error('useSettingsContext must be used within <SettingsProvider>')

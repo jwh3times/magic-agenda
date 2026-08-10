@@ -71,7 +71,7 @@ export function taskToRow(task: Task, userId: string): TaskInsert {
     recur_interval: task.recurInterval,
     recur_until: task.recurUntil,
     recur_parent_id: task.recurParentId,
-    recur_skip: task.recurSkip as unknown as Json,
+    recur_skip: task.recurSkip,
     recur_origin_day: task.recurOriginDay,
   }
 }

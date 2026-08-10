@@ -2,10 +2,19 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { afterEach, expect, test, vi } from 'vitest'
 
-const auth = vi.hoisted(() => ({
+interface MockAuth {
+  session: unknown
+  user: unknown
+  loading: boolean
+  passwordRecovery: boolean
+  clearPasswordRecovery: ReturnType<typeof vi.fn>
+  signOut: ReturnType<typeof vi.fn>
+}
+
+const auth = vi.hoisted<{ current: MockAuth }>(() => ({
   current: {
-    session: { user: { id: 'u1' } } as unknown,
-    user: { id: 'u1' } as unknown,
+    session: { user: { id: 'u1' } },
+    user: { id: 'u1' },
     loading: false,
     passwordRecovery: false,
     clearPasswordRecovery: vi.fn(),

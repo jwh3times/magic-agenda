@@ -58,6 +58,7 @@ vi.mock('../lib/supabase', () => ({
 }))
 
 import { useSettings } from './useSettings'
+import { readSettingsSnapshot } from './snapshot'
 
 beforeEach(() => {
   h.upsertThen.mockClear()
@@ -171,14 +172,14 @@ test('a genuinely empty row still means DEFAULTS, and is snapshotted', async () 
     weekStart: 0,
     timezone: null,
   })
-  expect(JSON.parse(localStorage.getItem('ma-snapshot-settings')!).settings.theme).toBe('cork')
+  expect(readSettingsSnapshot('u1')?.settings.theme).toBe('cork')
 })
 
 test('saving a theme updates the snapshot', async () => {
   const { result } = renderHook(() => useSettings('u1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
   act(() => result.current.saveTheme('brutal'))
-  expect(JSON.parse(localStorage.getItem('ma-snapshot-settings')!).settings.theme).toBe('brutal')
+  expect(readSettingsSnapshot('u1')?.settings.theme).toBe('brutal')
 })
 
 // FIX 1 bite-proof: an empty row with no error is what an unauthenticated `select` under RLS
@@ -205,7 +206,7 @@ test('an empty row with no session does not overwrite the existing snapshot', as
     timezone: null,
   })
   // ...but the on-disk snapshot, which the next offline boot reads, must be untouched.
-  expect(JSON.parse(localStorage.getItem('ma-snapshot-settings')!).settings).toEqual({
+  expect(readSettingsSnapshot('u1')?.settings).toEqual({
     theme: 'brutal',
     defaultView: 'kanban',
     weekStart: 1,
@@ -320,5 +321,5 @@ test('a theme saved while offline still reaches the snapshot', async () => {
 
   act(() => result.current.saveTheme('brutal'))
 
-  expect(JSON.parse(localStorage.getItem('ma-snapshot-settings')!).settings.theme).toBe('brutal')
+  expect(readSettingsSnapshot('u-offline')?.settings.theme).toBe('brutal')
 })

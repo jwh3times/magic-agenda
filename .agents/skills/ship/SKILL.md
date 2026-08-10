@@ -139,7 +139,7 @@ edge-function tests run in CI, not here** (`Test`, `Build`, `Functions` jobs).
 
 ```bash
 npm run format:check      # prettier (src only) — half of the CI "Format" check
-npm run lint              # eslint          — the other half
+npm run lint              # oxlint, including type-aware rules — the other half
 npx tsc -b                # typecheck (the first half of `npm run build`)
 node scripts/check-changelog.mjs   # the exact script the required `Changelog` check runs
 ```

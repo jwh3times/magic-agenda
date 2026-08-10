@@ -8,7 +8,7 @@ import { newId } from '../lib/id'
 import { isScheduled } from '../lib/dates'
 import { editorChrome } from './editorChrome'
 import { ScopePrompt } from './ScopePrompt'
-import type { Category, Color, RecurFreq, Status, Task } from '../types/task'
+import type { Category, RecurFreq, Task } from '../types/task'
 
 export interface TaskEditorProps {
   /**
@@ -198,7 +198,7 @@ export function TaskEditor({
                   key={k}
                   type="button"
                   aria-label={k}
-                  onClick={() => patch({ color: k as Color })}
+                  onClick={() => patch({ color: k })}
                   style={{
                     width: '34px',
                     height: '34px',
@@ -379,7 +379,7 @@ export function TaskEditor({
                 <button
                   key={st.key}
                   type="button"
-                  onClick={() => patch({ status: st.key as Status, done: st.key === 'done' })}
+                  onClick={() => patch({ status: st.key, done: st.key === 'done' })}
                   style={{
                     display: 'flex',
                     alignItems: 'center',

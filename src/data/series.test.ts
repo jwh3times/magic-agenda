@@ -90,7 +90,9 @@ describe('makeInstance', () => {
     expect(inst.title).toBe('Standup')
     expect(inst.pinned).toBe(true)
     expect(inst.atTime).toBe('09:00')
-    expect(inst.checklist).toEqual([{ id: expect.any(String), text: 'agenda', done: false }])
+    expect(inst.checklist).toHaveLength(1)
+    expect(inst.checklist[0]).toMatchObject({ text: 'agenda', done: false })
+    expect(typeof inst.checklist[0].id).toBe('string')
     expect(inst.checklist[0].id).not.toBe('c1') // fresh ids, not shared with the template
     expect(inst.done).toBe(false)
     expect(inst.status).toBe('todo')

@@ -74,7 +74,9 @@ test('parseExport rejects garbage, wrong versions, and malformed tasks', () => {
   expect(parseExport('not json').ok).toBe(false)
   expect(parseExport('42').ok).toBe(false)
   expect(parseExport(JSON.stringify({ version: 2, tasks: [], templates: [] })).ok).toBe(false)
-  const badTask = JSON.parse(serializeExport([plain], [], settings, 'x'))
+  const badTask = JSON.parse(serializeExport([plain], [], settings, 'x')) as unknown as {
+    tasks: Array<Record<string, unknown>>
+  }
   badTask.tasks[0].category = 'nonsense'
   expect(parseExport(JSON.stringify(badTask)).ok).toBe(false)
   const templateInTasksList = JSON.stringify({
@@ -88,7 +90,9 @@ test('parseExport rejects garbage, wrong versions, and malformed tasks', () => {
 })
 
 test('parseExport rejects a non-boolean done field', () => {
-  const badDone = JSON.parse(serializeExport([plain], [], settings, 'x'))
+  const badDone = JSON.parse(serializeExport([plain], [], settings, 'x')) as unknown as {
+    tasks: Array<Record<string, unknown>>
+  }
   badDone.tasks[0].done = 'yes'
   expect(parseExport(JSON.stringify(badDone)).ok).toBe(false)
 })
@@ -108,7 +112,9 @@ test('parseExport rejects a row that is both recurring and carries a parent id',
   // A template has recurFreq !== 'none' and no parent; an instance has recurFreq === 'none' and a
   // parent. A row with both is neither — internally contradictory, and isTemplate() alone can't
   // catch it (a truthy recurParentId already makes isTemplate() false).
-  const hybrid = JSON.parse(serializeExport([plain], [], settings, 'x'))
+  const hybrid = JSON.parse(serializeExport([plain], [], settings, 'x')) as unknown as {
+    tasks: Array<Record<string, unknown>>
+  }
   hybrid.tasks[0].recurFreq = 'daily'
   hybrid.tasks[0].recurParentId = 'tpl-1'
   expect(parseExport(JSON.stringify(hybrid)).ok).toBe(false)

@@ -137,7 +137,8 @@ npm run dev      # start the dev server at http://localhost:5173
 | `npm run test:rls`      | Run the RLS integration tests against that stack        |
 | `npm run test:rls:down` | Stop the local stack                                    |
 | `npm run test:e2e`      | Playwright smoke + a11y against `E2E_BASE_URL`           |
-| `npm run lint`          | Lint with ESLint                                        |
+| `npm run lint`          | Lint with Oxlint, including type-aware rules            |
+| `npm run lint:fix`      | Apply safe lint fixes                                   |
 | `npm run format`        | Format with Prettier                                    |
 | `npm run format:check`  | Check formatting without writing (run in CI)            |
 

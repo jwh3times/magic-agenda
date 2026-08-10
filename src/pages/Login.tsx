@@ -48,7 +48,7 @@ export function Login() {
   useEffect(() => {
     if (accountDeleted && !noticeCleared.current) {
       noticeCleared.current = true
-      navigate(location.pathname, { replace: true, state: null })
+      void navigate(location.pathname, { replace: true, state: null })
     }
   }, [accountDeleted, navigate, location.pathname])
   const [mode, setMode] = useState<Mode>('signin')
@@ -59,7 +59,7 @@ export function Login() {
   const [notice, setNotice] = useState<string | null>(null)
 
   useEffect(() => {
-    if (session) navigate('/', { replace: true })
+    if (session) void navigate('/', { replace: true })
   }, [session, navigate])
 
   // No try/catch anywhere below: every auth action resolves an outcome and never rejects
@@ -113,7 +113,7 @@ export function Login() {
           <>
             <button
               type="button"
-              onClick={google}
+              onClick={() => void google()}
               style={{
                 width: '100%',
                 padding: '11px 14px',
@@ -141,7 +141,10 @@ export function Login() {
           </>
         )}
 
-        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+        <form
+          onSubmit={(event) => void submit(event)}
+          style={{ display: 'flex', flexDirection: 'column', gap: 11 }}
+        >
           <input
             type="email"
             required
