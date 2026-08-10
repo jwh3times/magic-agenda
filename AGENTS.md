@@ -640,10 +640,12 @@ Project subagents live in `.claude/agents/`: `docs-updater` (keeps `AGENTS.md`,
 `README.md`, `ROADMAP.md`, `CHANGELOG.md` in sync with the code) and `code-reviewer` (reviews diffs
 against the app/DB boundary, RLS, recurrence, and DnD correctness rules before merging). The `ship`
 skill (`.claude/skills/ship/`) takes a finished branch to an open PR — it refreshes the docs (via
-`docs-updater`), records the change in `CHANGELOG.md`, runs the fast checks (`format:check`, `lint`,
-`tsc -b`), pushes, and opens or updates the PR; run it with "ship it" when a branch is ready. Whether
-or not you use it, keep `AGENTS.md`, `README.md`, `ROADMAP.md`, and `CHANGELOG.md` aligned when a
-change affects project behavior, commands, architecture, or release notes.
+`docs-updater`), evaluates the release level from shipped compatibility and user impact, gets
+confirmation before starting a major/minor line, records the resulting version in `CHANGELOG.md`,
+runs the fast checks (`format:check`, `lint`, `tsc -b`), pushes, and opens or updates the PR; run it
+with "ship it" when a branch is ready. Whether or not you use it, keep `AGENTS.md`, `README.md`,
+`ROADMAP.md`, and `CHANGELOG.md` aligned when a change affects project behavior, commands,
+architecture, or release notes.
 
 ### Two authored trees, two generated trees — opposite directions on purpose
 

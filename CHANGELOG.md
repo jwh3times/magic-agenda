@@ -12,6 +12,15 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.61] - 2026-08-09
+
+### Internal
+
+- The ship workflow now evaluates every branch as a major, minor, or standard build release before
+  computing the changelog version. It classifies the shipped compatibility and user impact rather
+  than diff size, chooses the highest level in a mixed change, and requires confirmation before a
+  new major or minor release line updates package metadata.
+
 ## [1.2.60] - 2026-08-09
 
 ### Internal
@@ -1346,7 +1355,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.60...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.61...HEAD
+[1.2.61]: https://github.com/jwh3times/magic-agenda/compare/v1.2.60...v1.2.61
 [1.2.60]: https://github.com/jwh3times/magic-agenda/compare/v1.2.59...v1.2.60
 [1.2.59]: https://github.com/jwh3times/magic-agenda/compare/v1.2.58...v1.2.59
 [1.2.58]: https://github.com/jwh3times/magic-agenda/compare/v1.2.57...v1.2.58
