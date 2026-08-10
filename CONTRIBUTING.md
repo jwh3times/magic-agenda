@@ -124,8 +124,9 @@ missing, edited, or left over from a deleted source. See
   suite instead (`tests/rls/`, `npm run test:rls`, against a real local stack); see the note in
   step 4 above.
 - **TypeScript strict** — no `any` escape hatches without good reason; `npm run build` type‑checks.
-- **Formatting & linting** — Prettier + ESLint. Run `npm run format` before committing; `npm run
-format:check` and `npm run lint` must both pass (together they are the CI `Format` check).
+- **Formatting & linting** — Prettier + Oxlint, including TypeScript 7 type-aware and React Compiler
+  rules. Run `npm run format` before committing; `npm run format:check` and
+  `npm run lint` must both pass (together they are the CI `Format` check).
 - **Line endings are LF everywhere**, enforced by `.gitattributes` — no editor or `core.autocrlf`
   configuration needed. If a checkout that predates `.gitattributes` shows Prettier line-ending
   failures, refresh it once with `git rm --cached -r . && git reset --hard`.
@@ -157,7 +158,7 @@ and only uses the service-role key after that check.
 - Serve locally: `npx supabase start` (needs Docker), then `npx supabase functions serve <name>`.
 - Deploy: automatic on merge to `main` via the `Deploy Functions` workflow.
 
-Node tooling deliberately ignores this directory (`eslint.config.js` ignores,
+Node tooling deliberately ignores this directory (the Oxlint config ignores it;
 Vitest `test.exclude`) — Deno code doesn't parse under the Node toolchain. That same
 `test.exclude` (in `vite.config.ts`) also carves out `tests/**`, which is not Deno code but a
 second, non-hermetic Vitest project (`tests/rls/`, run separately via `npm run test:rls`) — see

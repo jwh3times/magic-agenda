@@ -55,6 +55,7 @@ vi.mock('../lib/supabase', () => ({
 }))
 
 import { useTasks } from './useTasks'
+import { readBoardSnapshot } from './snapshot'
 
 const serverRow = (over: Record<string, unknown> = {}) => ({
   id: 't1',
@@ -418,11 +419,11 @@ test('a successful load writes a snapshot', async () => {
   const { result } = renderHook(() => useTasks('u1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
   await waitFor(() => expect(localStorage.getItem('ma-snapshot-board')).not.toBeNull())
-  const snap = JSON.parse(localStorage.getItem('ma-snapshot-board')!)
-  expect(snap.userId).toBe('u1')
-  expect(snap.tasks).toHaveLength(1)
+  const snap = readBoardSnapshot('u1')
+  expect(snap).not.toBeNull()
+  expect(snap?.tasks).toHaveLength(1)
   // Proves templatesRef.current is actually threaded into the write call, not just the tasks.
-  expect(snap.templates).toEqual([])
+  expect(snap?.templates).toEqual([])
 })
 
 test('reconnecting clears offline mode', async () => {
@@ -475,7 +476,7 @@ test('reconnecting while sessionless does not poison the board snapshot with an 
   // Advance well past the writer's 1s debounce so this proves no write ever happens, rather than
   // merely racing a write that just hasn't fired yet (see the equivalent failed-load test above).
   await new Promise((r) => setTimeout(r, 1500))
-  expect(JSON.parse(localStorage.getItem('ma-snapshot-board')!)).toEqual(existing)
+  expect(readBoardSnapshot('u1')).toEqual(existing)
 })
 
 test('deleting an id that is not on the board is a no-op, not a stray write', async () => {

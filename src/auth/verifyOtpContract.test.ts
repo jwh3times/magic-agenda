@@ -39,11 +39,13 @@ function makeSessionPayload(overrides: { id: string; email: string }) {
 function makeClient(sessionPayload: unknown) {
   return new GoTrueClient({
     url: 'http://127.0.0.1:1/auth/v1',
-    fetch: async () =>
-      new Response(JSON.stringify(sessionPayload), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
+    fetch: () =>
+      Promise.resolve(
+        new Response(JSON.stringify(sessionPayload), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
     autoRefreshToken: false,
     persistSession: false,
     detectSessionInUrl: false,

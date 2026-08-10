@@ -23,7 +23,7 @@ export function AuthConfirm() {
   // Only leave for the board off *our own* redemption — `attempted` is what distinguishes it from
   // an unrelated session that was already there (which gets the refusal card instead).
   useEffect(() => {
-    if (session && redemption.attempted) navigate('/', { replace: true })
+    if (session && redemption.attempted) void navigate('/', { replace: true })
   }, [session, redemption.attempted, navigate])
 
   if (loading) return <Spinner />

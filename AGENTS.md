@@ -18,7 +18,8 @@ npm run dev            # Vite dev server at http://localhost:5173
 npm run build          # tsc -b (typecheck) && vite build -> dist/
 npm test               # vitest run (all tests once)
 npm run test:watch     # vitest watch mode
-npm run lint           # eslint
+npm run lint           # Oxlint, including TypeScript 7 type-aware linting
+npm run lint:fix       # apply Oxlint's safe fixes
 npm run format         # prettier --write (src only; design/ is .prettierignore'd)
 npm run format:check   # prettier --check (the CI "Format" job runs this + lint)
 npm run codex:sync     # regenerate Codex's agent config from .claude/ (see below)
@@ -32,6 +33,12 @@ npx vitest run -t "persists a cross-lane move"
 npx supabase db push                                              # apply supabase/migrations/*
 npx supabase gen types typescript --linked > src/types/database.types.ts
 ```
+
+`.oxlintrc.json` owns the entire lint policy. `options.typeAware` delegates semantic rules to
+`oxlint-tsgolint`, whose compiler engine is TypeScript 7, while `react/react-compiler` covers the
+React Compiler diagnostics. Oxlint v1.78.0 reports an internal invariant on valid
+`DataSection.tsx`, so that component carries one narrow inline suppression; re-check it when Oxlint
+is upgraded. Generated Supabase types and Deno Edge Functions stay outside the Node lint project.
 
 Tests are hermetic: `vite.config.ts` injects dummy `VITE_SUPABASE_*` env, so they never hit the real
 project. Local dev needs a real `.env.local` (copy `.env.example`); `src/lib/supabase.ts` throws at

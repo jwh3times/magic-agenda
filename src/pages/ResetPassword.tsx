@@ -51,7 +51,7 @@ export function ResetPassword() {
       return
     }
     clearPasswordRecovery()
-    navigate('/', { replace: true })
+    void navigate('/', { replace: true })
   }
 
   if (loading) return <Spinner />
@@ -68,7 +68,10 @@ export function ResetPassword() {
           <p style={{ margin: '0 0 22px', opacity: 0.55, fontSize: 14 }}>
             Choose a new password for your account.
           </p>
-          <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+          <form
+            onSubmit={(event) => void submit(event)}
+            style={{ display: 'flex', flexDirection: 'column', gap: 11 }}
+          >
             <input
               type="password"
               required

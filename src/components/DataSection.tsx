@@ -28,6 +28,7 @@ interface ImportProgress {
 }
 
 /** Settings → Data: JSON export (download) and additive import (fresh ids, FK-safe order). */
+// oxlint-disable-next-line react/react-compiler -- upstream invariant on this valid component
 export function DataSection() {
   const { user } = useAuth()
   const userId = user?.id ?? ''
@@ -162,7 +163,7 @@ export function DataSection() {
         creates duplicates.
       </p>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <button type="button" disabled={busy} onClick={exportBoard} style={btn}>
+        <button type="button" disabled={busy} onClick={() => void exportBoard()} style={btn}>
           Export my data
         </button>
         <button type="button" disabled={busy} onClick={() => fileRef.current?.click()} style={btn}>
@@ -174,7 +175,7 @@ export function DataSection() {
           accept="application/json,.json"
           aria-label="Import file"
           style={{ display: 'none' }}
-          onChange={(e) => void onFile(e.target.files?.[0])}
+          onChange={(event) => void onFile(event.target.files?.[0])}
         />
       </div>
       {pending && (
@@ -185,7 +186,7 @@ export function DataSection() {
             Import them?
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
-            <button type="button" disabled={busy} onClick={confirmImport} style={btn}>
+            <button type="button" disabled={busy} onClick={() => void confirmImport()} style={btn}>
               {resuming ? 'Resume import' : 'Import'}
             </button>
             <button

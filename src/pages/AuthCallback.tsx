@@ -14,7 +14,7 @@ export function AuthCallback() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (!loading) navigate(session ? '/' : '/login', { replace: true })
+    if (!loading) void navigate(session ? '/' : '/login', { replace: true })
   }, [loading, session, navigate])
 
   return <Spinner label="Signing you in…" />

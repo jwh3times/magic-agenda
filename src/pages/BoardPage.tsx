@@ -26,9 +26,9 @@ export function BoardPage() {
   if (!userId || settingsLoading || !settings) return <Spinner />
 
   return (
-    <ThemeProvider initial={settings.theme} onThemeChange={saveTheme}>
+    <ThemeProvider initial={settings.theme} onThemeChange={(theme) => void saveTheme(theme)}>
       {t.error && t.tasks.length === 0 ? (
-        <ErrorScreen message={t.error} onRetry={t.reload} />
+        <ErrorScreen message={t.error} onRetry={() => void t.reload()} />
       ) : t.loading && t.tasks.length === 0 ? (
         <Spinner label="Loading your board…" />
       ) : (
@@ -37,17 +37,17 @@ export function BoardPage() {
             <Board
               tasks={t.tasks}
               setTasks={t.setTasks}
-              onSave={t.saveTask}
-              onUpdate={t.updateTask}
-              onDelete={t.deleteTask}
-              onToggleDone={t.toggleDone}
-              persistReorder={t.persistReorder}
+              onSave={(...args) => void t.saveTask(...args)}
+              onUpdate={(task) => void t.updateTask(task)}
+              onDelete={(...args) => void t.deleteTask(...args)}
+              onToggleDone={(id) => void t.toggleDone(id)}
+              persistReorder={(...args) => void t.persistReorder(...args)}
               getTemplate={t.getTemplate}
               initialView={settings.defaultView}
               weekStart={settings.weekStart}
-              onSignOut={signOut}
-              onOpenSettings={() => navigate('/settings')}
-              rollForward={t.rollForward}
+              onSignOut={() => void signOut()}
+              onOpenSettings={() => void navigate('/settings')}
+              rollForward={(...args) => void t.rollForward(...args)}
             />
           </OfflineContext.Provider>
           {t.error && <Toast message={t.error} onDismiss={t.clearError} />}

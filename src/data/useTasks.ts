@@ -50,7 +50,7 @@ export interface UseTasks {
   loading: boolean
   error: string | null
   clearError: () => void
-  reload: () => void
+  reload: () => Promise<void>
   setTasks: Dispatch<SetStateAction<Task[]>>
   createTask: (task: Task) => Promise<void>
   updateTask: (task: Task) => Promise<void>
@@ -115,7 +115,7 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
 
   const setTasks = useCallback<Dispatch<SetStateAction<Task[]>>>((update) => {
     _setTasks((prev) => {
-      const next = typeof update === 'function' ? (update as (p: Task[]) => Task[])(prev) : update
+      const next = typeof update === 'function' ? update(prev) : update
       tasksRef.current = next
       return next
     })
@@ -230,7 +230,7 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
     // `setSettings(null)` call), this one blankets an entire async function: any new synchronous
     // setState added to reload()'s pre-await prefix is silently un-linted, so re-verify this
     // reasoning before adding one.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // oxlint-disable-next-line react/react-compiler
     void reload()
   }, [reload, userId])
 
@@ -276,13 +276,11 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
     [setTasks],
   )
 
-  const stableReload = useCallback(() => void reload(), [reload])
-
   useSyncedTable({
     userId,
     table: 'tasks',
     primaryKey: 'id',
-    reload: stableReload,
+    reload,
     onChange: onRemoteChange,
     isOwnWrite,
   })

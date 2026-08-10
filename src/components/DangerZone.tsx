@@ -19,8 +19,11 @@ export function DangerZone() {
     setBusy(true)
     setError(null)
     try {
-      const { error: err } = await supabase.functions.invoke('delete-account', { method: 'POST' })
-      if (err) throw new Error(err.message)
+      const response = await supabase.functions.invoke<unknown>('delete-account', {
+        method: 'POST',
+      })
+      const err: unknown = response.error
+      if (err) throw new Error(err instanceof Error ? err.message : 'Account deletion failed')
     } catch {
       // Same message for a resolved `{ error }` and a thrown/rejected invoke.
       setError('Could not delete your account. Please try again or contact support.')
@@ -32,7 +35,7 @@ export function DangerZone() {
     } catch {
       // The server already invalidated the session; local sign-out noise is fine to ignore.
     }
-    navigate('/login', { replace: true, state: { accountDeleted: true } })
+    void navigate('/login', { replace: true, state: { accountDeleted: true } })
   }
 
   return (
@@ -53,7 +56,7 @@ export function DangerZone() {
       <button
         type="button"
         disabled={!armed || busy}
-        onClick={deleteAccount}
+        onClick={() => void deleteAccount()}
         style={{
           alignSelf: 'flex-start',
           padding: '10px 14px',

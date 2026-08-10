@@ -8,12 +8,21 @@ import { afterEach, expect, test, vi, beforeEach } from 'vitest'
 // which must mirror ProtectedRoute's or the board becomes unreachable from `/` while offline
 // (that divergence shipped once; see the Task 5 fix-round report).
 
-const h = vi.hoisted(() => ({
+interface MockAuth {
+  session: unknown
+  loading: boolean
+  passwordRecovery: boolean
+  user: unknown
+  clearPasswordRecovery: ReturnType<typeof vi.fn>
+  signOut: ReturnType<typeof vi.fn>
+}
+
+const h = vi.hoisted<{ auth: MockAuth }>(() => ({
   auth: {
-    session: null as unknown,
+    session: null,
     loading: false,
     passwordRecovery: false,
-    user: null as unknown,
+    user: null,
     clearPasswordRecovery: vi.fn(),
     signOut: vi.fn(),
   },

@@ -15,7 +15,7 @@ beforeAll(async () => {
     .select('id')
     .single()
   if (error) throw new Error(`fixture insert failed: ${error.message}`)
-  aliceTaskId = data.id as string
+  aliceTaskId = data.id
 })
 
 afterAll(async () => {
