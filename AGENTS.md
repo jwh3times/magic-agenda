@@ -19,6 +19,7 @@ npm run build          # tsc -b (typecheck) && vite build -> dist/
 npm test               # vitest run (all tests once)
 npm run test:watch     # vitest watch mode
 npm run lint           # Oxlint, including TypeScript 7 type-aware linting
+npm run lint:fix       # apply Oxlint's safe fixes
 npm run format         # prettier --write (src only; design/ is .prettierignore'd)
 npm run format:check   # prettier --check (the CI "Format" job runs this + lint)
 npm run codex:sync     # regenerate Codex's agent config from .claude/ (see below)
