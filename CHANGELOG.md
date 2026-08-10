@@ -12,6 +12,14 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.64] - 2026-08-10
+
+### Internal
+
+- Upgraded the project compiler from TypeScript 6.0.3 to the stable TypeScript 7.0.2 native
+  compiler. The existing project-reference graph and compiler options remain compatible without
+  source or configuration changes.
+
 ## [1.2.63] - 2026-08-10
 
 ### Internal
@@ -1371,7 +1379,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.63...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.64...HEAD
+[1.2.64]: https://github.com/jwh3times/magic-agenda/compare/v1.2.63...v1.2.64
 [1.2.63]: https://github.com/jwh3times/magic-agenda/compare/v1.2.62...v1.2.63
 [1.2.62]: https://github.com/jwh3times/magic-agenda/compare/v1.2.61...v1.2.62
 [1.2.61]: https://github.com/jwh3times/magic-agenda/compare/v1.2.60...v1.2.61
