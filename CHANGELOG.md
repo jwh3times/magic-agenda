@@ -12,6 +12,13 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.71] - 2026-08-12
+
+### Internal
+
+- **Dependency update:** `@testing-library/jest-dom` 7.0.0 → 7.0.1, completing the routine
+  development-dependency update batch tracked in #155. No application behavior changed.
+
 ## [1.2.70] - 2026-08-12
 
 ### Fixed
@@ -1433,7 +1440,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.70...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.71...HEAD
+[1.2.71]: https://github.com/jwh3times/magic-agenda/compare/v1.2.70...v1.2.71
 [1.2.70]: https://github.com/jwh3times/magic-agenda/compare/v1.2.69...v1.2.70
 [1.2.69]: https://github.com/jwh3times/magic-agenda/compare/v1.2.68...v1.2.69
 [1.2.68]: https://github.com/jwh3times/magic-agenda/compare/v1.2.67...v1.2.68
