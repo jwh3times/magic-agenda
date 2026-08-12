@@ -58,16 +58,7 @@ export function WeekView({ weekStart, tasks }: WeekViewProps) {
           </div>
         ))}
       </div>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(7,1fr)',
-          gridTemplateRows: '1fr',
-          gap: theme === 'brutal' ? '0' : '6px',
-          flex: 1,
-          minHeight: 0,
-        }}
-      >
+      <div style={{ ...b.grid, gridTemplateRows: '1fr' }}>
         {cells.map((meta) => (
           <DayCell key={meta.dateStr} meta={meta} notes={notesForDay(tasks, meta.dateStr)} />
         ))}

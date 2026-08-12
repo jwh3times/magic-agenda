@@ -9,14 +9,12 @@ import { useBoardActions } from './boardActionContext'
 export interface DayCellProps {
   meta: CellMeta
   notes: Task[]
-  /** True while a drag is hovering this cell (Phase 11 gap indicator). */
-  isDrop?: boolean
 }
 
-export function DayCell({ meta, notes, isDrop = false }: DayCellProps) {
+export function DayCell({ meta, notes }: DayCellProps) {
   const actions = useBoardActions()
   const { theme, conf } = useTheme()
-  const c = cellChrome(theme, conf, meta, isDrop)
+  const c = cellChrome(theme, conf, meta)
   return (
     <div style={c.cell}>
       <div style={c.head}>
