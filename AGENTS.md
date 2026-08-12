@@ -334,6 +334,13 @@ touch drags require a **250ms long-press** and cards use `touchAction: 'manipula
 that's what lets a plain swipe over a card scroll the board on phones. Do not collapse these back
 into a `PointerSensor` or set `touchAction: 'none'`.
 
+The pinned `@dnd-kit/*` 0.5 packages in `devDependencies` belong only to the successor-API prototype
+under `src/dnd/dndKitNext.*`; production still uses `@dnd-kit/core` / `sortable`. The prototype
+proved that the successor can feed the existing pure drop seam on desktop, but its single
+pointer-type-aware sensor has not passed real iOS Safari and Android Chrome scroll/long-press tests.
+Before changing the production adapter or removing those prototype dependencies, read
+`docs/specs/2026-08-12-dnd-kit-next-prototype.md` and satisfy its touch-hardware exit criteria.
+
 ### Responsive layout branches on `useIsMobile()`, not CSS media queries
 
 Because styles are inline objects (below), media queries cannot reach them. Components that adapt to
