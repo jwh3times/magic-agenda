@@ -12,6 +12,21 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.70] - 2026-08-12
+
+### Fixed
+
+- Patched the build-only `brace-expansion` dependency from 5.0.7 to 5.0.9 and its nested copy from
+  2.1.2 to 2.1.4, resolving the reported denial-of-service advisories. No application dependency or
+  source code changed. Closes #154.
+
+## [1.2.69] - 2026-08-12
+
+### Internal
+
+- **Dependency update:** `pg` 8.22.0 → 8.23.0 (including `pg-protocol` 1.15.0 → 1.16.0).
+  No application behavior changed. (#159)
+
 ## [1.2.68] - 2026-08-12
 
 ### Fixed
