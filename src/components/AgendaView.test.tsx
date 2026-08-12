@@ -5,7 +5,7 @@ import { ThemeProvider } from '../theme/ThemeProvider'
 import { AgendaView } from './AgendaView'
 import { ymd, addDays } from '../lib/dates'
 import { NO_RECUR, type Task } from '../types/task'
-import type { BoardHandlers } from './boardHandlers'
+import { BoardActionContext, type BoardActions } from './boardActionContext'
 
 // Local factory — do NOT import from TaskCard.test.tsx (importing a test file
 // registers and re-runs its tests inside this suite too).
@@ -29,7 +29,8 @@ function mkTask(over: Partial<Task> = {}): Task {
   }
 }
 
-const handlers: BoardHandlers = {
+const actions: BoardActions = {
+  popId: null,
   onOpen: vi.fn(),
   onToggleDone: vi.fn(),
   onTogglePin: vi.fn(),
@@ -41,14 +42,12 @@ const handlers: BoardHandlers = {
 test('overdue tasks appear once, in a top Overdue group with a roll-forward button', async () => {
   const yesterday = ymd(addDays(new Date(), -1))
   const onRollForward = vi.fn()
+  const value = { ...actions, onRollForward }
   render(
     <ThemeProvider>
-      <AgendaView
-        tasks={[mkTask({ id: 'late', title: 'Late thing', day: yesterday })]}
-        handlers={handlers}
-        pop={null}
-        onRollForward={onRollForward}
-      />
+      <BoardActionContext.Provider value={value}>
+        <AgendaView tasks={[mkTask({ id: 'late', title: 'Late thing', day: yesterday })]} />
+      </BoardActionContext.Provider>
     </ThemeProvider>,
   )
   expect(screen.getByText('Overdue')).toBeInTheDocument()

@@ -6,15 +6,12 @@ import { useTheme } from '../theme/ThemeProvider'
 import { isOverdue } from '../data/selectors'
 import { chipLabel, formatTime } from '../lib/dates'
 import { useToday } from '../data/todayContext'
+import { useBoardActions } from './boardActionContext'
 
 export interface TaskCardProps {
   task: Task
   variant: CardVariant
   dragging?: boolean
-  pop?: boolean
-  onOpen?: (task: Task) => void
-  onToggleDone?: (id: string) => void
-  onTogglePin?: (id: string) => void
   /** Extra style merged onto the card wrapper (e.g. dnd-kit transform in Phase 4). */
   wrapStyle?: CSSProperties
 }
@@ -24,19 +21,14 @@ export interface TaskCardProps {
  * entirely from cardStyles(). Reused by calendar cells, the inbox, kanban columns and
  * (Phase 4) the drag overlay.
  */
-export function TaskCard({
-  task,
-  variant,
-  dragging,
-  pop,
-  onOpen,
-  onToggleDone,
-  onTogglePin,
-  wrapStyle,
-}: TaskCardProps) {
+export function TaskCard({ task, variant, dragging, wrapStyle }: TaskCardProps) {
+  const actions = useBoardActions()
+  const onOpen = actions?.onOpen
+  const onToggleDone = actions?.onToggleDone
+  const onTogglePin = actions?.onTogglePin
   const { theme } = useTheme()
   const overdue = isOverdue(task, useToday())
-  const s = cardStyles(theme, task, variant, { dragging, pop, overdue })
+  const s = cardStyles(theme, task, variant, { dragging, pop: actions?.popId === task.id, overdue })
 
   const cat = CAT[task.category]
   const done = task.status === 'done'

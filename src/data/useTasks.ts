@@ -25,6 +25,7 @@ import { isTemplate, type Task } from '../types/task'
 import type { Mode } from '../dnd/reorder'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 import type { Database } from '../types/database.types'
+import type { TaskBoard } from './taskBoardContext'
 
 type TaskRow = Database['public']['Tables']['tasks']['Row']
 
@@ -44,38 +45,14 @@ async function runDeletion(target: DeletionTarget): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
-export interface UseTasks {
-  /** Board tasks only (non-recurring + materialized instances); templates are hidden. */
-  tasks: Task[]
+export interface UseTasks extends TaskBoard {
   loading: boolean
   error: string | null
   clearError: () => void
   reload: () => Promise<void>
-  setTasks: Dispatch<SetStateAction<Task[]>>
   createTask: (task: Task) => Promise<void>
   updateTask: (task: Task) => Promise<void>
   removeTask: (id: string) => Promise<void>
-  toggleDone: (id: string) => Promise<void>
-  persistReorder: (next: Task[], containers: string[], mode: Mode) => Promise<void>
-  /**
-   * Move overdue tasks to today, appended to today's order (batched upsert). With `onlyIds`,
-   * only overdue tasks in the set are moved (e.g. the currently-visible/filtered set);
-   * omitted, every overdue task moves.
-   */
-  rollForward: (todayStr: string, onlyIds?: ReadonlySet<string>) => Promise<void>
-  /** The hidden template for a parent id (to read a series' rule). */
-  getTemplate: (parentId: string) => Task | undefined
-  /**
-   * Save an editor result. Resolves the recurrence scope itself, so callers never have to know
-   * that a set `recurParentId` means "this is an instance" — see `resolveSave`.
-   */
-  saveTask: (orig: Task | null, draft: Task, isNew: boolean, scope?: RecurScope) => Promise<void>
-  /**
-   * Delete a task by id, honouring the recurrence scope. Takes an id rather than a task so the
-   * row acted on is always this hook's own state — see `intendDelete` (#132). A no-op if the id
-   * is unknown, which is what an already-deleted-elsewhere row looks like.
-   */
-  deleteTask: (id: string, scope?: RecurScope) => Promise<void>
   /** True when the board is showing the last-known local snapshot instead of a live server load. */
   offline: boolean
   /** When that snapshot was taken (epoch ms), for the offline banner. Null when online. */
@@ -120,6 +97,8 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
       return next
     })
   }, [])
+
+  const previewReorder = useCallback((next: Task[]) => setTasks(next), [setTasks])
 
   /**
    * Insert any missing instances for the given templates within the rolling horizon.
@@ -556,7 +535,7 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
     error,
     clearError,
     reload,
-    setTasks,
+    previewReorder,
     createTask,
     updateTask,
     removeTask,

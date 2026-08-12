@@ -9,32 +9,37 @@ import { applyToggleDone } from '../data/selectors'
 import { makeMockTasks } from '../data/mockTasks'
 import { OfflineContext } from '../data/offlineContext'
 import { TodayContext } from '../data/todayContext'
-import type { Task } from '../types/task'
+import { TaskBoardContext, type TaskBoard } from '../data/taskBoardContext'
+import type { Task, ViewName } from '../types/task'
 
 // Mimics BoardPage's data ownership with local state (no Supabase) so Board stays hermetic.
 // MemoryRouter is here because the inbox foot links to /privacy and /terms (ROADMAP 5.3); Board
 // still owns no data and touches no network.
-function Harness({ weekStart }: { weekStart?: number }) {
+function Harness({ weekStart, initialView }: { weekStart?: number; initialView?: ViewName }) {
   const [tasks, setTasks] = useState<Task[]>(makeMockTasks)
+  const taskBoard: TaskBoard = {
+    tasks,
+    previewReorder: setTasks,
+    persistReorder: setTasks,
+    // This in-memory adapter applies the scope-free cases only; recurrence dispatch is tested
+    // directly through resolveSave/resolveDelete in src/data/series.test.ts.
+    saveTask: (_orig, draft, isNew) =>
+      setTasks((prev) =>
+        isNew ? [...prev, draft] : prev.map((task) => (task.id === draft.id ? draft : task)),
+      ),
+    updateTask: (task) =>
+      setTasks((prev) => prev.map((current) => (current.id === task.id ? task : current))),
+    deleteTask: (id) => setTasks((prev) => prev.filter((task) => task.id !== id)),
+    toggleDone: (id) => setTasks((prev) => applyToggleDone(prev, id).tasks),
+    rollForward: () => {},
+    getTemplate: () => undefined,
+  }
   return (
     <MemoryRouter>
       <ThemeProvider>
-        <Board
-          tasks={tasks}
-          setTasks={setTasks}
-          // The harness stands in for useTasks. It applies the scope-free cases only; the
-          // recurrence dispatch itself is `resolveSave`/`resolveDelete`, tested directly in
-          // src/data/series.test.ts rather than through the DOM.
-          onSave={(_orig, draft, isNew) =>
-            setTasks((p) => (isNew ? [...p, draft] : p.map((x) => (x.id === draft.id ? draft : x))))
-          }
-          onUpdate={(t) => setTasks((p) => p.map((x) => (x.id === t.id ? t : x)))}
-          onDelete={(id) => setTasks((p) => p.filter((x) => x.id !== id))}
-          onToggleDone={(id) => setTasks((p) => applyToggleDone(p, id).tasks)}
-          persistReorder={(next) => setTasks(next)}
-          getTemplate={() => undefined}
-          weekStart={weekStart}
-        />
+        <TaskBoardContext.Provider value={taskBoard}>
+          <Board weekStart={weekStart} initialView={initialView} />
+        </TaskBoardContext.Provider>
       </ThemeProvider>
     </MemoryRouter>
   )
@@ -206,9 +211,15 @@ describe('mobile layout', () => {
 
 test('mounts on the view stored in sessionStorage', () => {
   sessionStorage.setItem('ma-board-view', 'kanban')
-  renderBoard()
+  render(<Harness initialView="week" />)
   // Kanban shows the status columns; calendar/week show the Inbox instead.
   expect(screen.getByText('To Do', { selector: 'span' })).toBeInTheDocument()
+})
+
+test('uses the configured default view when this tab has no stored choice', () => {
+  sessionStorage.removeItem('ma-board-view')
+  render(<Harness initialView="agenda" />)
+  expect(screen.getByText('Unscheduled · Inbox')).toBeInTheDocument()
 })
 
 test('switching views remembers the choice per tab', async () => {
@@ -219,7 +230,7 @@ test('switching views remembers the choice per tab', async () => {
 })
 
 test('opens on the month of the configured today, not the browser clock', () => {
-  localStorage.clear() // readBoardView() wins over initialView; force the calendar view.
+  sessionStorage.removeItem('ma-board-view')
   // `shouldAdvanceTime` so dnd-kit's and Board's own timers still fire normally under fake time.
   vi.useFakeTimers({ shouldAdvanceTime: true })
   vi.setSystemTime(new Date('2026-07-28T12:00:00Z'))
@@ -239,7 +250,7 @@ test('opens on the month of the configured today, not the browser clock', () => 
 })
 
 test('renders a Monday-start month grid when configured', () => {
-  localStorage.clear() // same reason as the anchor test: force the calendar view.
+  sessionStorage.removeItem('ma-board-view')
   render(<Harness weekStart={1} />)
   const headers = screen.getAllByText(/^(Sun|Mon|Tue|Wed|Thu|Fri|Sat)$/)
   expect(headers).toHaveLength(7)
@@ -248,7 +259,7 @@ test('renders a Monday-start month grid when configured', () => {
 })
 
 test('week view highlights the cell for the configured today, not the browser clock', async () => {
-  localStorage.clear() // readBoardView() wins over initialView; force the calendar view.
+  sessionStorage.removeItem('ma-board-view')
   // `shouldAdvanceTime` so dnd-kit's and Board's own timers still fire normally under fake time.
   vi.useFakeTimers({ shouldAdvanceTime: true })
   vi.setSystemTime(new Date('2026-07-28T12:00:00Z'))

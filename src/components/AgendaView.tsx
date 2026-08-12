@@ -5,18 +5,16 @@ import { formatAgendaDate } from '../lib/dates'
 import { useToday } from '../data/todayContext'
 import { TaskCard } from './TaskCard'
 import { INBOX, type Task } from '../types/task'
-import type { BoardHandlers, PopId } from './boardHandlers'
+import { useBoardActions } from './boardActionContext'
 
 export interface AgendaViewProps {
   tasks: Task[]
-  handlers: BoardHandlers
-  pop: PopId
-  onRollForward?: () => void
 }
 
 /** Flat chronological list grouped by date (+ an Unscheduled group). Cards are click-to-edit. */
-export function AgendaView({ tasks, handlers, pop, onRollForward }: AgendaViewProps) {
+export function AgendaView({ tasks }: AgendaViewProps) {
   const { conf } = useTheme()
+  const actions = useBoardActions()
   const today = useToday()
   const overdue = overdueTasks(tasks, today)
   const overdueIds = new Set(overdue.map((t) => t.id))
@@ -75,10 +73,10 @@ export function AgendaView({ tasks, handlers, pop, onRollForward }: AgendaViewPr
               }}
             >
               <span>Overdue</span>
-              {onRollForward && (
+              {actions?.onRollForward && (
                 <button
                   type="button"
-                  onClick={onRollForward}
+                  onClick={actions.onRollForward}
                   style={{
                     border: 'none',
                     borderRadius: 7,
@@ -97,15 +95,7 @@ export function AgendaView({ tasks, handlers, pop, onRollForward }: AgendaViewPr
             </div>
             <div style={list}>
               {overdue.map((t) => (
-                <TaskCard
-                  key={t.id}
-                  task={t}
-                  variant="inbox"
-                  pop={pop === t.id}
-                  onOpen={handlers.onOpen}
-                  onToggleDone={handlers.onToggleDone}
-                  onTogglePin={handlers.onTogglePin}
-                />
+                <TaskCard key={t.id} task={t} variant="inbox" />
               ))}
             </div>
           </div>
@@ -116,15 +106,7 @@ export function AgendaView({ tasks, handlers, pop, onRollForward }: AgendaViewPr
             <div style={header}>{formatAgendaDate(g.day)}</div>
             <div style={list}>
               {g.tasks.map((t) => (
-                <TaskCard
-                  key={t.id}
-                  task={t}
-                  variant="inbox"
-                  pop={pop === t.id}
-                  onOpen={handlers.onOpen}
-                  onToggleDone={handlers.onToggleDone}
-                  onTogglePin={handlers.onTogglePin}
-                />
+                <TaskCard key={t.id} task={t} variant="inbox" />
               ))}
             </div>
           </div>
@@ -135,15 +117,7 @@ export function AgendaView({ tasks, handlers, pop, onRollForward }: AgendaViewPr
             <div style={header}>Unscheduled · Inbox</div>
             <div style={list}>
               {inbox.map((t) => (
-                <TaskCard
-                  key={t.id}
-                  task={t}
-                  variant="inbox"
-                  pop={pop === t.id}
-                  onOpen={handlers.onOpen}
-                  onToggleDone={handlers.onToggleDone}
-                  onTogglePin={handlers.onTogglePin}
-                />
+                <TaskCard key={t.id} task={t} variant="inbox" />
               ))}
             </div>
           </div>
