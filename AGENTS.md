@@ -348,6 +348,11 @@ columns, and a collapsible full-width Inbox docked under the board. The shell he
 fallback, so do not move it back into `rootStyle`. Form fields use >=16px text on mobile (smaller
 triggers iOS Safari's focus zoom).
 
+`CalendarView`, `WeekView`, and `KanbanView` remain separate modules on purpose: each concentrates a
+responsive layout fork behind a narrow task/layout interface, so folding them into `Board` would
+move complexity without removing it. Their direct tests stub `matchMedia` and pin the mobile
+scroll/stack/snap behavior; keep those assertions at the view seam.
+
 ### Dates are timezone-aware through one context, week start through one prop
 
 `lib/dates.ts` still builds every `YYYY-MM-DD` from local `Date` parts, but "today" no longer comes
@@ -383,10 +388,16 @@ plain style objects with per-theme branching (rotation, pins, hard vs. soft shad
 themes: `cork` / `brutal` / `glass`. **Do not refactor this to CSS variables**: the look depends on the
 branching that CSS vars cannot express cleanly.
 
+`theme/chrome.ts` contains shared or theme-branching chrome factories, not speculative interaction
+states. The DnD adapter does not currently publish a per-lane hover state, so `cellChrome` /
+`columnChrome` have no `isDrop` parameter. Add such a branch only together with a real caller and an
+observable interaction test.
+
 Scrollbars are themed the same way, via `scrollbars(conf)` in `chrome.ts` — spread into every
-container that can overflow (the month `grid`, a day cell's `notesWrap`, `inboxList`, a kanban
-column's `listStyle`, and the two mobile-only scrollers in `WeekView` / `CalendarView`). It works
-because `scrollbar-width` and `scrollbar-color` are **standard** properties and so are expressible
+container that can overflow (the shared month/desktop-week `grid`, a day cell's `notesWrap`,
+`inboxList`, a kanban column's `listStyle`, and the two mobile-only scrollers in `WeekView` /
+`CalendarView`). It works because `scrollbar-width` and `scrollbar-color` are **standard**
+properties and so are expressible
 in an inline style object; the per-theme thumb is the `scrollThumb` token. The
 `::-webkit-scrollbar` rules in `index.css` are only a fallback for engines without standard support
 — Firefox ignores that pseudo-element entirely, which is exactly why a themed board there used to
