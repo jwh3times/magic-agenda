@@ -12,6 +12,31 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.67] - 2026-08-12
+
+### Internal
+
+- Replaced `Board`'s task-operation prop surface with a `TaskBoardContext` seam backed by
+  `useTasks` in production and an in-memory adapter in component tests. `Board` now has four
+  account-setting/navigation props, while card and add actions are consumed through an internal
+  `BoardActionContext` instead of a handler bag relayed through every view. The raw React task
+  setter is now private behind the narrower `previewReorder(next)` drag command. No application
+  behavior changed. Closes #137.
+
+## [1.2.66] - 2026-08-11
+
+### Internal
+
+- **Dependency updates:** `@types/pg` 8.20.4 → 8.21.0 and Supabase CLI 2.112.0 → 2.113.0.
+  No application behavior changed. (#157)
+
+## [1.2.65] - 2026-08-10
+
+### Internal
+
+- **Dependency updates:** `@types/node` 26.1.2 → 26.2.0 and Supabase CLI 2.111.0 → 2.112.0.
+  No application behavior changed. (#153)
+
 ## [1.2.64] - 2026-08-10
 
 ### Internal
@@ -1379,7 +1404,10 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.64...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.67...HEAD
+[1.2.67]: https://github.com/jwh3times/magic-agenda/compare/v1.2.66...v1.2.67
+[1.2.66]: https://github.com/jwh3times/magic-agenda/compare/v1.2.65...v1.2.66
+[1.2.65]: https://github.com/jwh3times/magic-agenda/compare/v1.2.64...v1.2.65
 [1.2.64]: https://github.com/jwh3times/magic-agenda/compare/v1.2.63...v1.2.64
 [1.2.63]: https://github.com/jwh3times/magic-agenda/compare/v1.2.62...v1.2.63
 [1.2.62]: https://github.com/jwh3times/magic-agenda/compare/v1.2.61...v1.2.62

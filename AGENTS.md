@@ -157,15 +157,25 @@ lived in `src/lib/` with no module behind it; `redeemToken` is now its owner, wh
 - These conversions live entirely in `mappers.ts` (`rowToTask` / `taskToRow`). Everything else works in
   app-domain `Task` objects (`src/types/task.ts`).
 
-### Data ownership: `BoardPage` owns state, `Board` is prop-driven
+### Data ownership: `BoardPage` owns state; task operations cross one context seam
 
 `pages/BoardPage.tsx` wires `useTasks(userId, hasSession)` + `useSettingsContext()` +
-`ThemeProvider` and passes tasks and every mutation down to `components/Board.tsx` as props.
-`Board` holds only **UI** state (view, anchor date, editing modal, pop animation, filter). This
-decoupling is deliberate: it keeps `Board` testable without Supabase (`Board.test.tsx` renders it
-with a stateful `Harness`). `useTasks` is the single source of truth for board tasks: optimistic
-CRUD with rollback, plus `persistReorder` (upserts only the changed lanes). To follow a write
-end-to-end, read `BoardPage` -> `Board` -> `useTasks`.
+`ThemeProvider`, then publishes the board-facing half of `useTasks` through `TaskBoardContext`.
+`Board` holds only **UI** state (view, anchor date, editing modal, pop animation, filter); its four
+props are account settings/navigation, not task operations. This keeps `Board` testable without
+Supabase: `Board.test.tsx` supplies the same `TaskBoard` interface with a stateful in-memory adapter.
+Tests that mock `useTasks` itself start from `fakeUseTasks()` so interface additions cannot leave
+partial, untyped return objects behind.
+`useTasks` remains the single source of truth for board tasks: optimistic CRUD with rollback, plus
+`persistReorder` (upserts only the changed lanes). Its raw React setter is private; drag-over uses
+the narrower `previewReorder(next)` command.
+
+`BoardActionContext` is the internal UI seam below `Board`. It publishes editor/add/card actions and
+the done-pop id at their use sites, so the view modules pass tasks and layout parameters rather than
+relaying a handler bag through `CalendarView` -> `DayCell` -> `SortableCard` -> `TaskCard`. With no
+provider, `TaskCard` is deliberately decorative; the landing preview relies on that default. To
+follow a write end-to-end, read the consuming card/cell -> `Board` -> `TaskBoardContext` ->
+`useTasks`.
 
 Settings are **session-scoped, not page-scoped**: `SettingsProvider` (`src/data/SettingsProvider.tsx`)
 owns the single `useSettings(userId, hasSession)` call above `<Routes>` in `App.tsx`, so navigating
