@@ -12,6 +12,20 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.68] - 2026-08-12
+
+### Fixed
+
+- Week view now uses the same themed scrollable grid as Calendar view, restoring the intended thin
+  theme-matched scrollbar when its seven-day desktop layout overflows.
+
+### Internal
+
+- Removed unreachable drag-highlight branches and unused toolbar regions from the chrome styling
+  interface, and added direct mobile layout coverage for Calendar, Week, and Board views. The
+  responsive view modules remain separate because each concentrates a tested mobile layout fork.
+  Closes #139.
+
 ## [1.2.67] - 2026-08-12
 
 ### Internal
@@ -1404,7 +1418,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.67...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.68...HEAD
+[1.2.68]: https://github.com/jwh3times/magic-agenda/compare/v1.2.67...v1.2.68
 [1.2.67]: https://github.com/jwh3times/magic-agenda/compare/v1.2.66...v1.2.67
 [1.2.66]: https://github.com/jwh3times/magic-agenda/compare/v1.2.65...v1.2.66
 [1.2.65]: https://github.com/jwh3times/magic-agenda/compare/v1.2.64...v1.2.65

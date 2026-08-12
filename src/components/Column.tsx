@@ -10,13 +10,12 @@ import { useBoardActions } from './boardActionContext'
 export interface ColumnProps {
   col: StatusDef
   tasks: Task[]
-  isDrop?: boolean
 }
 
-export function Column({ col, tasks, isDrop = false }: ColumnProps) {
+export function Column({ col, tasks }: ColumnProps) {
   const actions = useBoardActions()
   const { theme, conf } = useTheme()
-  const c = columnChrome(theme, conf, col, isDrop)
+  const c = columnChrome(theme, conf, col)
   const notes = tasksForStatus(tasks, col.key)
 
   return (
