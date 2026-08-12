@@ -12,6 +12,21 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.70] - 2026-08-12
+
+### Fixed
+
+- Patched the build-only `brace-expansion` dependency from 5.0.7 to 5.0.9 and its nested copy from
+  2.1.2 to 2.1.4, resolving the reported denial-of-service advisories. No application dependency or
+  source code changed. Closes #154.
+
+## [1.2.69] - 2026-08-12
+
+### Internal
+
+- **Dependency update:** `pg` 8.22.0 → 8.23.0 (including `pg-protocol` 1.15.0 → 1.16.0).
+  No application behavior changed. (#159)
+
 ## [1.2.68] - 2026-08-12
 
 ### Fixed
@@ -1418,7 +1433,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.68...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.70...HEAD
+[1.2.70]: https://github.com/jwh3times/magic-agenda/compare/v1.2.69...v1.2.70
+[1.2.69]: https://github.com/jwh3times/magic-agenda/compare/v1.2.68...v1.2.69
 [1.2.68]: https://github.com/jwh3times/magic-agenda/compare/v1.2.67...v1.2.68
 [1.2.67]: https://github.com/jwh3times/magic-agenda/compare/v1.2.66...v1.2.67
 [1.2.66]: https://github.com/jwh3times/magic-agenda/compare/v1.2.65...v1.2.66
