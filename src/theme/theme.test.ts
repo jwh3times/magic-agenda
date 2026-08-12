@@ -153,9 +153,9 @@ describe('scrollbars', () => {
       }
       const containers = [
         boardChrome(t, conf).grid,
-        cellChrome(t, conf, meta, false).notesWrap,
+        cellChrome(t, conf, meta).notesWrap,
         inboxChrome(t, conf).inboxList,
-        columnChrome(t, conf, STATUS[0], false).listStyle,
+        columnChrome(t, conf, STATUS[0]).listStyle,
       ]
       for (const c of containers) {
         expect(c.overflow).toBe('auto')

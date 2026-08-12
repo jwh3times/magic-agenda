@@ -84,7 +84,6 @@ export function blobStyles(): CSSProperties[] {
 export function toolbarChrome(theme: ThemeName, conf: ThemeConf) {
   const glass = theme === 'glass'
   const brutal = theme === 'brutal'
-  const cork = theme === 'cork'
   return {
     toolbar: {
       display: 'flex',
@@ -100,22 +99,6 @@ export function toolbarChrome(theme: ThemeName, conf: ThemeConf) {
       backdropFilter: glass ? 'blur(16px)' : 'none',
       WebkitBackdropFilter: glass ? 'blur(16px)' : 'none',
       flexWrap: 'wrap',
-    },
-    brand: {
-      fontFamily: conf.title,
-      fontSize: cork ? '30px' : brutal ? '22px' : '21px',
-      fontWeight: brutal ? 900 : 700,
-      letterSpacing: brutal ? '-.5px' : '0',
-      lineHeight: 1,
-      color: conf.toolbarFg,
-    },
-    segWrap: {
-      display: 'flex',
-      gap: '3px',
-      padding: '3px',
-      borderRadius: '11px',
-      background: brutal ? '#222' : 'rgba(0,0,0,.18)',
-      border: glass ? '1px solid rgba(255,255,255,.08)' : 'none',
     },
     navGroup: { display: 'flex', alignItems: 'center', gap: '8px' },
     navBtn: {
@@ -140,7 +123,6 @@ export function toolbarChrome(theme: ThemeName, conf: ThemeConf) {
       textAlign: 'center',
       color: conf.toolbarFg,
     },
-    yearLabel: { opacity: 0.5, fontWeight: 600, marginLeft: '2px' },
     todayBtn: {
       marginLeft: '4px',
       padding: '7px 13px',
@@ -165,14 +147,6 @@ export function toolbarChrome(theme: ThemeName, conf: ThemeConf) {
       color: conf.accentFg,
       boxShadow: brutal ? '3px 3px 0 #111' : '0 4px 14px rgba(0,0,0,.18)',
       whiteSpace: 'nowrap',
-    },
-    kanbanWrap: {
-      flex: 1,
-      minWidth: 0,
-      minHeight: 0,
-      display: 'flex',
-      gap: '16px',
-      width: '100%',
     },
   } satisfies Record<string, CSSProperties>
 }
@@ -303,18 +277,7 @@ export function weekdayStyle(theme: ThemeName, conf: ThemeConf): CSSProperties {
   }
 }
 
-/** Drop-gap indicator between cards (Phase 4 shows it; harmless when unused). */
-export function gapStyle(conf: ThemeConf): CSSProperties {
-  return {
-    height: '3px',
-    borderRadius: '2px',
-    background: conf.accent,
-    margin: '1px 2px',
-    boxShadow: `0 0 8px ${conf.accent}`,
-  }
-}
-
-export function cellChrome(theme: ThemeName, conf: ThemeConf, meta: CellMeta, isDrop: boolean) {
+export function cellChrome(theme: ThemeName, conf: ThemeConf, meta: CellMeta) {
   const cork = theme === 'cork'
   const brutal = theme === 'brutal'
   const glass = theme === 'glass'
@@ -336,7 +299,7 @@ export function cellChrome(theme: ThemeName, conf: ThemeConf, meta: CellMeta, is
       border: conf.cellBorder,
       borderRadius: conf.cellRadius,
       overflow: 'hidden',
-      boxShadow: isDrop ? `inset 0 0 0 2px ${conf.accent}` : isToday ? conf.cellTodayRing : 'none',
+      boxShadow: isToday ? conf.cellTodayRing : 'none',
       transition: 'box-shadow .12s',
     },
     head: {
@@ -481,7 +444,7 @@ export function inboxChrome(theme: ThemeName, conf: ThemeConf) {
   } satisfies Record<string, CSSProperties>
 }
 
-export function columnChrome(theme: ThemeName, conf: ThemeConf, col: StatusDef, isDrop: boolean) {
+export function columnChrome(theme: ThemeName, conf: ThemeConf, col: StatusDef) {
   const cork = theme === 'cork'
   const brutal = theme === 'brutal'
   const glass = theme === 'glass'
@@ -501,13 +464,11 @@ export function columnChrome(theme: ThemeName, conf: ThemeConf, col: StatusDef, 
           ? '1px solid rgba(255,255,255,.09)'
           : '1px solid rgba(0,0,0,.18)',
       borderRadius: brutal ? '2px' : '16px',
-      boxShadow: isDrop
-        ? `inset 0 0 0 2px ${conf.accent}, ${brutal ? '8px 8px 0 #111' : '0 16px 36px rgba(0,0,0,.3)'}`
-        : brutal
-          ? '6px 6px 0 #111'
-          : glass
-            ? '0 24px 60px rgba(0,0,0,.4)'
-            : '0 10px 30px rgba(0,0,0,.18)',
+      boxShadow: brutal
+        ? '6px 6px 0 #111'
+        : glass
+          ? '0 24px 60px rgba(0,0,0,.4)'
+          : '0 10px 30px rgba(0,0,0,.18)',
       overflow: 'hidden',
       backdropFilter: glass ? 'blur(12px)' : 'none',
       WebkitBackdropFilter: glass ? 'blur(12px)' : 'none',

@@ -72,7 +72,7 @@ function PreviewGrid({ columns }: { columns: number }) {
           isToday: dateStr === today,
           isWeekend: d.getDay() === 0 || d.getDay() === 6,
         }
-        const c = cellChrome(theme, conf, meta, false)
+        const c = cellChrome(theme, conf, meta)
         return (
           <div key={dateStr} style={{ minWidth: 0 }}>
             <div style={weekdayStyle(theme, conf)}>{WEEKDAYS_SHORT[d.getDay()]}</div>
