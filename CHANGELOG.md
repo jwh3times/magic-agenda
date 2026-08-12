@@ -12,6 +12,24 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.72] - 2026-08-12
+
+### Internal
+
+- Added compile-checked and interactive prototypes for dnd-kit's successor 0.5 API, preserving the
+  existing pure reorder seam across desktop calendar and kanban moves, empty lanes, multi-hop drags,
+  optimistic self-target drops, and filter-disabled dragging. The successor packages are pinned as
+  development-only dependencies; the production adapter remains unchanged pending real-device iOS
+  and Android long-press/scroll verification. (#156)
+- Moved the Playwright E2E project and its authentication setup from the repeatedly crashing legacy
+  Chromium headless shell to Playwright's regular Chromium build and new headless mode, while
+  preserving the zero-retry CI policy.
+
+### Docs
+
+- Recorded the legacy-to-successor API map, browser verification evidence, compatibility gaps, and
+  the exit criteria for a future production migration.
+
 ## [1.2.71] - 2026-08-12
 
 ### Internal
@@ -1440,7 +1458,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.71...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.72...HEAD
+[1.2.72]: https://github.com/jwh3times/magic-agenda/compare/v1.2.71...v1.2.72
 [1.2.71]: https://github.com/jwh3times/magic-agenda/compare/v1.2.70...v1.2.71
 [1.2.70]: https://github.com/jwh3times/magic-agenda/compare/v1.2.69...v1.2.70
 [1.2.69]: https://github.com/jwh3times/magic-agenda/compare/v1.2.68...v1.2.69

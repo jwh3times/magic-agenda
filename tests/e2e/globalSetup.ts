@@ -27,7 +27,10 @@ export default async function globalSetup(): Promise<void> {
 
   await mkdir(path.dirname(STORAGE_STATE), { recursive: true })
 
-  const browser = await chromium.launch()
+  // Match the project runtime in playwright.config.ts. The legacy headless shell crashed during
+  // repeated context creation on Ubuntu CI; the regular Chromium build's new headless mode did not
+  // implicate any application assertion and is the supported replacement runtime.
+  const browser = await chromium.launch({ channel: 'chromium' })
   try {
     const page = await browser.newPage({ baseURL })
     await page.goto('/login')

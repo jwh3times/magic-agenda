@@ -29,5 +29,8 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
 
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  // Use the regular Chromium build's new headless mode. The legacy headless shell crashed with the
+  // same SIGSEGV at different browser.newContext() calls on consecutive Ubuntu CI runs; selecting
+  // this channel keeps retries at zero while replacing the unstable browser runtime.
+  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], channel: 'chromium' } }],
 })

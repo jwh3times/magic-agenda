@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>dnd-kit successor compatibility prototype</title>
+    <style>
+      :root { font-family: Inter, system-ui, sans-serif; color: #172033; background: #f3f5f8; }
+      body { margin: 0; padding: 32px; }
+      main { max-width: 1000px; margin: auto; }
+      h1 { margin-bottom: 8px; }
+      .intro { max-width: 780px; color: #465168; line-height: 1.55; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 24px 0; }
+      .panel { background: white; border: 1px solid #d8deea; border-radius: 12px; padding: 18px; }
+      .lane { min-height: 90px; background: #f7f8fb; border: 1px dashed #aeb8ca; border-radius: 8px; padding: 10px; }
+      .card { background: #fff3a8; border: 1px solid #d4bd4b; border-radius: 7px; padding: 8px; margin: 6px 0; }
+      .meta { display: grid; gap: 5px; font-family: ui-monospace, monospace; font-size: 13px; }
+      button { border: 0; border-radius: 7px; background: #315ce8; color: white; padding: 9px 12px; cursor: pointer; margin: 4px; }
+      button.secondary { background: #657087; }
+      button:disabled { opacity: .45; cursor: not-allowed; }
+      .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+      .tab.active { background: #172033; }
+      .verdict { border-left: 4px solid #d58c13; }
+      code { background: #eef1f6; padding: 2px 5px; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>dnd-kit 0.5 adapter compatibility</h1>
+      <p class="intro">
+        <strong>Question:</strong> can the successor event model feed Magic Agenda's existing drag
+        session without losing empty-lane drops, multi-hop lane tracking, self-target persistence,
+        filter disabling, or the distinction between touch scrolling and a 250 ms long-press?
+        This is a throwaway logic demo; it does not replace production drag-and-drop.
+      </p>
+
+      <section class="grid">
+        <div class="panel">
+          <h2>Board</h2>
+          <div id="board"></div>
+        </div>
+        <div class="panel">
+          <h2>Drag state</h2>
+          <div id="state" class="meta"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Free play</h2>
+        <button data-action="start">Pick up Inbox task</button>
+        <button data-action="hover-day">Hover empty July 2 lane</button>
+        <button data-action="hover-doing">Hover Doing lane</button>
+        <button data-action="drop-self">Release over its own card</button>
+        <button data-action="drop-other">Release below another card</button>
+        <button data-action="swipe">Touch swipe before 250 ms</button>
+        <button data-action="longpress">Touch long-press for 250 ms</button>
+        <button data-action="filter">Toggle search filter</button>
+        <button class="secondary" data-action="reset">Reset</button>
+      </section>
+
+      <section class="panel" style="margin-top: 16px">
+        <h2>Guided walkthroughs</h2>
+        <div class="tabs" id="tabs"></div>
+        <div id="walkthrough" style="margin-top: 12px"></div>
+      </section>
+
+      <section class="panel verdict" style="margin-top: 16px">
+        <h2>Prototype verdict</h2>
+        <p>
+          The state contract is representable. The 0.5 API exposes source, target, current source
+          shape, and target shape; empty lanes are droppables; disabled sortables are supported;
+          and PointerSensor constraints can branch on pointer type. Production migration remains
+          deferred until the single PointerSensor is exercised on real iOS/Android scrolling and
+          long-press behavior. The current separate MouseSensor/TouchSensor pair is load-bearing.
+        </p>
+      </section>
+    </main>
+
+    <script>
+      // Pure, portable state machine. The DOM shell below only dispatches actions and renders it.
+      const initial = () => ({
+        tasks: [
+          { id: 'a', title: 'Inbox task', lane: 'inbox' },
+          { id: 'b', title: 'Existing task', lane: '2026-07-01' },
+        ],
+        activeId: null,
+        touched: [],
+        didMove: false,
+        persisted: false,
+        filtered: false,
+        pointer: 'idle',
+        note: 'Ready.',
+      });
+
+      function transition(state, action) {
+        if (action === 'reset') return initial();
+        if (action === 'filter') return { ...state, filtered: !state.filtered, note: 'Filtering toggled; sortables follow disabled state.' };
+        if (action === 'swipe') return { ...state, pointer: 'scrolling', note: 'Movement before delay cancels activation; the board scrolls.' };
+        if (action === 'longpress') return state.filtered
+          ? { ...state, pointer: 'blocked', note: 'Long-press cannot start while filtering.' }
+          : { ...state, pointer: 'dragging', note: '250 ms delay elapsed inside tolerance; pointer drag may start.' };
+        if (action === 'start') {
+          if (state.filtered) return { ...state, note: 'Drag refused while filtering.' };
+          return { ...state, activeId: 'a', touched: ['inbox'], didMove: false, persisted: false, note: 'Drag session opened in Inbox.' };
+        }
+        if (!state.activeId) return { ...state, note: 'Pick up the task first.' };
+        if (action === 'hover-day' || action === 'hover-doing') {
+          const lane = action === 'hover-day' ? '2026-07-02' : 'doing';
+          const from = state.tasks.find((task) => task.id === state.activeId).lane;
+          const tasks = state.tasks.map((task) => task.id === state.activeId ? { ...task, lane } : task);
+          return { ...state, tasks, touched: [...new Set([...state.touched, from, lane])], didMove: true, note: `Optimistic move into ${lane}; both lanes are touched.` };
+        }
+        if (action === 'drop-self') return { ...state, persisted: state.didMove, activeId: null, note: state.didMove ? 'Persisted despite the final target being the active card.' : 'No move occurred; nothing persisted.' };
+        if (action === 'drop-other') return { ...state, didMove: true, persisted: true, activeId: null, note: 'Drop settled and touched lanes persisted.' };
+        return state;
+      }
+
+      let state = initial();
+      const scenarios = [
+        { name: 'Empty lane', text: 'Move from Inbox to an empty calendar day, then release over the card after the optimistic render.', steps: ['start', 'hover-day', 'drop-self'] },
+        { name: 'Multi-hop', text: 'Cross two lanes in one gesture and confirm every reindexed lane remains recorded.', steps: ['start', 'hover-day', 'hover-doing', 'drop-self'] },
+        { name: 'Touch scroll', text: 'Compare a swipe before activation with the 250 ms long-press that starts dragging.', steps: ['swipe', 'longpress'] },
+        { name: 'Filtered', text: 'Filtering disables the draggable without changing the provider sensor list.', steps: ['filter', 'start', 'longpress'] },
+      ];
+      let selected = 0;
+      let step = 0;
+
+      function dispatch(action) { state = transition(state, action); render(); }
+      function render() {
+        const lanes = ['inbox', '2026-07-01', '2026-07-02', 'doing'];
+        document.querySelector('#board').innerHTML = lanes.map(lane => `<h3>${lane}</h3><div class="lane">${state.tasks.filter(t => t.lane === lane).map(t => `<div class="card">${t.title}</div>`).join('') || '<em>empty drop target</em>'}</div>`).join('');
+        document.querySelector('#state').innerHTML = [
+          ['active', state.activeId ?? 'none'], ['touched', state.touched.join(', ') || 'none'],
+          ['did move', state.didMove], ['persisted', state.persisted], ['filter active', state.filtered],
+          ['pointer', state.pointer], ['last result', state.note],
+        ].map(([k,v]) => `<div><strong>${k}:</strong> ${v}</div>`).join('');
+        document.querySelectorAll('[data-action]').forEach(button => button.disabled = state.filtered && ['hover-day','hover-doing','drop-self','drop-other'].includes(button.dataset.action));
+        document.querySelector('#tabs').innerHTML = scenarios.map((s,i) => `<button class="tab ${i===selected?'active':''}" data-tab="${i}">${s.name}</button>`).join('');
+        const scenario = scenarios[selected];
+        document.querySelector('#walkthrough').innerHTML = `<p>${scenario.text}</p>${scenario.steps.map((a,i) => `<button ${i!==step?'disabled':''} data-step="${i}" data-guided="${a}">${i+1}. ${a.replace('-', ' ')}</button>`).join('')}`;
+        document.querySelectorAll('[data-tab]').forEach(button => button.onclick = () => { selected = Number(button.dataset.tab); step = 0; state = initial(); render(); });
+        document.querySelectorAll('[data-guided]').forEach(button => button.onclick = () => { dispatch(button.dataset.guided); step += 1; render(); });
+      }
+      document.querySelectorAll('[data-action]').forEach(button => button.onclick = () => dispatch(button.dataset.action));
+      render();
+    </script>
+  </body>
+</html>
