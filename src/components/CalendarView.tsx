@@ -5,7 +5,6 @@ import { useToday } from '../data/todayContext'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { DayCell } from './DayCell'
 import type { Task } from '../types/task'
-import type { BoardHandlers, PopId } from './boardHandlers'
 
 export interface CalendarViewProps {
   viewY: number
@@ -13,18 +12,9 @@ export interface CalendarViewProps {
   /** 0=Sunday … 6=Saturday. */
   weekStart?: number
   tasks: Task[]
-  handlers: BoardHandlers
-  pop: PopId
 }
 
-export function CalendarView({
-  viewY,
-  viewM,
-  weekStart = 0,
-  tasks,
-  handlers,
-  pop,
-}: CalendarViewProps) {
+export function CalendarView({ viewY, viewM, weekStart = 0, tasks }: CalendarViewProps) {
   const { theme, conf } = useTheme()
   const isMobile = useIsMobile()
   const b = boardChrome(theme, conf)
@@ -42,13 +32,7 @@ export function CalendarView({
       </div>
       <div style={b.grid}>
         {cells.map((meta) => (
-          <DayCell
-            key={meta.dateStr}
-            meta={meta}
-            notes={notesForDay(tasks, meta.dateStr)}
-            handlers={handlers}
-            pop={pop}
-          />
+          <DayCell key={meta.dateStr} meta={meta} notes={notesForDay(tasks, meta.dateStr)} />
         ))}
       </div>
     </>

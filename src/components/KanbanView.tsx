@@ -3,7 +3,6 @@ import { STATUS } from '../theme/constants'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { Column } from './Column'
 import type { Task } from '../types/task'
-import type { BoardHandlers, PopId } from './boardHandlers'
 
 const kanbanWrap: CSSProperties = {
   flex: 1,
@@ -16,11 +15,9 @@ const kanbanWrap: CSSProperties = {
 
 export interface KanbanViewProps {
   tasks: Task[]
-  handlers: BoardHandlers
-  pop: PopId
 }
 
-export function KanbanView({ tasks, handlers, pop }: KanbanViewProps) {
+export function KanbanView({ tasks }: KanbanViewProps) {
   const isMobile = useIsMobile()
 
   if (isMobile) {
@@ -32,7 +29,7 @@ export function KanbanView({ tasks, handlers, pop }: KanbanViewProps) {
             key={col.key}
             style={{ flex: 'none', width: '84vw', scrollSnapAlign: 'start', display: 'flex' }}
           >
-            <Column col={col} tasks={tasks} handlers={handlers} pop={pop} />
+            <Column col={col} tasks={tasks} />
           </div>
         ))}
       </div>
@@ -42,7 +39,7 @@ export function KanbanView({ tasks, handlers, pop }: KanbanViewProps) {
   return (
     <div style={kanbanWrap}>
       {STATUS.map((col) => (
-        <Column key={col.key} col={col} tasks={tasks} handlers={handlers} pop={pop} />
+        <Column key={col.key} col={col} tasks={tasks} />
       ))}
     </div>
   )

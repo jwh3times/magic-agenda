@@ -5,17 +5,16 @@ import { DropLane } from '../dnd/DropLane'
 import { SortableCard } from '../dnd/SortableCard'
 import type { StatusDef } from '../theme/constants'
 import type { Task } from '../types/task'
-import type { BoardHandlers, PopId } from './boardHandlers'
+import { useBoardActions } from './boardActionContext'
 
 export interface ColumnProps {
   col: StatusDef
   tasks: Task[]
-  handlers: BoardHandlers
-  pop: PopId
   isDrop?: boolean
 }
 
-export function Column({ col, tasks, handlers, pop, isDrop = false }: ColumnProps) {
+export function Column({ col, tasks, isDrop = false }: ColumnProps) {
+  const actions = useBoardActions()
   const { theme, conf } = useTheme()
   const c = columnChrome(theme, conf, col, isDrop)
   const notes = tasksForStatus(tasks, col.key)
@@ -33,7 +32,7 @@ export function Column({ col, tasks, handlers, pop, isDrop = false }: ColumnProp
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation()
-            handlers.onAddStatus(col.key)
+            actions?.onAddStatus(col.key)
           }}
         >
           +
@@ -41,15 +40,7 @@ export function Column({ col, tasks, handlers, pop, isDrop = false }: ColumnProp
       </div>
       <DropLane id={col.key} itemIds={notes.map((n) => n.id)} style={c.listStyle}>
         {notes.map((t) => (
-          <SortableCard
-            key={t.id}
-            task={t}
-            variant="kanban"
-            pop={pop === t.id}
-            onOpen={handlers.onOpen}
-            onToggleDone={handlers.onToggleDone}
-            onTogglePin={handlers.onTogglePin}
-          />
+          <SortableCard key={t.id} task={t} variant="kanban" />
         ))}
         {notes.length === 0 && <div style={c.emptyStyle}>Drop tasks here</div>}
       </DropLane>

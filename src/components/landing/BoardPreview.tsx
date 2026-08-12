@@ -11,9 +11,8 @@ import { useIsMobile } from '../../lib/useMediaQuery'
  * A real board, rendered small, for the signed-out landing page.
  *
  * This is not a screenshot and not a mockup: it renders the actual `TaskCard` against the actual
- * theme tokens, so it cannot drift from the product. That is possible because `TaskCard` is purely
- * presentational — dnd-kit lives in `Board.tsx` and `src/dnd/`, never here — and `selectors.ts` is
- * pure, so nothing drags the drag layer or Supabase into the landing chunk.
+ * theme tokens, so it cannot drift from the product. With no `BoardActionContext`, `TaskCard`
+ * defaults to decorative rendering; dnd-kit and Supabase therefore stay out of the landing chunk.
  *
  * It is DECORATION, not UI. It renders no handlers, and the wrapper marks it `inert` +
  * `aria-hidden` so a keyboard user tabbing the page never lands inside fake task cards.

@@ -1,4 +1,4 @@
-import { useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import { useRef, useState } from 'react'
 import {
   KeyboardSensor,
   MouseSensor,
@@ -34,7 +34,8 @@ export interface BoardDnd {
 }
 
 /** Persists the lanes that a drag reindexed (passed to useTasks.persistReorder). */
-type PersistReorder = (next: Task[], containers: string[], mode: Mode) => void
+type PersistReorder = (next: Task[], containers: string[], mode: Mode) => void | Promise<void>
+type PreviewReorder = (next: Task[]) => void
 
 /** Maps a dnd-kit event onto the pure module's input. The only place dnd-kit's shapes are read. */
 function dropInput(e: DragOverEvent | DragEndEvent, phase: DragPhase): DropInput {
@@ -60,7 +61,7 @@ function dropInput(e: DragOverEvent | DragEndEvent, phase: DragPhase): DropInput
 export function useBoardDnd(
   view: ViewName,
   tasks: Task[],
-  setTasks: Dispatch<SetStateAction<Task[]>>,
+  previewReorder: PreviewReorder,
   persistReorder: PersistReorder,
 ): BoardDnd {
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -98,7 +99,7 @@ export function useBoardDnd(
     const step = resolveDrop(session.current, tasks, dropInput(e, 'hover'))
     if (!step) return
     session.current = step.session
-    setTasks(step.tasks) // optimistic
+    previewReorder(step.tasks)
   }
 
   // Settle on drop. A within-lane reorder happens here; cross-lane moves already happened on
@@ -110,7 +111,8 @@ export function useBoardDnd(
     if (current) {
       const step = resolveDrop(current, tasks, dropInput(e, 'drop'))
       const settled = step?.session ?? current
-      if (settled.didMove) persistReorder(step?.tasks ?? tasks, [...settled.touched], settled.mode)
+      if (settled.didMove)
+        void persistReorder(step?.tasks ?? tasks, [...settled.touched], settled.mode)
     }
     reset()
   }

@@ -6,16 +6,13 @@ import { useToday } from '../data/todayContext'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { DayCell } from './DayCell'
 import type { Task } from '../types/task'
-import type { BoardHandlers, PopId } from './boardHandlers'
 
 export interface WeekViewProps {
   weekStart: Date
   tasks: Task[]
-  handlers: BoardHandlers
-  pop: PopId
 }
 
-export function WeekView({ weekStart, tasks, handlers, pop }: WeekViewProps) {
+export function WeekView({ weekStart, tasks }: WeekViewProps) {
   const { theme, conf } = useTheme()
   const isMobile = useIsMobile()
   const b = boardChrome(theme, conf)
@@ -43,12 +40,7 @@ export function WeekView({ weekStart, tasks, handlers, pop }: WeekViewProps) {
                 {WEEKDAYS_SHORT[meta.dow]} {meta.dayNum}
               </div>
               <div style={{ display: 'grid', minHeight: 96 }}>
-                <DayCell
-                  meta={meta}
-                  notes={notesForDay(tasks, meta.dateStr)}
-                  handlers={handlers}
-                  pop={pop}
-                />
+                <DayCell meta={meta} notes={notesForDay(tasks, meta.dateStr)} />
               </div>
             </div>
           ))}
@@ -77,13 +69,7 @@ export function WeekView({ weekStart, tasks, handlers, pop }: WeekViewProps) {
         }}
       >
         {cells.map((meta) => (
-          <DayCell
-            key={meta.dateStr}
-            meta={meta}
-            notes={notesForDay(tasks, meta.dateStr)}
-            handlers={handlers}
-            pop={pop}
-          />
+          <DayCell key={meta.dateStr} meta={meta} notes={notesForDay(tasks, meta.dateStr)} />
         ))}
       </div>
     </div>

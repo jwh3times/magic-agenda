@@ -9,6 +9,7 @@ import { useTasks } from '../data/useTasks'
 import { useSettingsContext } from '../data/SettingsProvider'
 import { readLastUserId } from '../lib/lastUser'
 import { OfflineContext } from '../data/offlineContext'
+import { TaskBoardContext } from '../data/taskBoardContext'
 
 /** The signed-in board: owns the Supabase-backed task state, reads session-wide settings. */
 export function BoardPage() {
@@ -34,21 +35,14 @@ export function BoardPage() {
       ) : (
         <>
           <OfflineContext.Provider value={{ readOnly: t.offline, savedAt: t.savedAt }}>
-            <Board
-              tasks={t.tasks}
-              setTasks={t.setTasks}
-              onSave={(...args) => void t.saveTask(...args)}
-              onUpdate={(task) => void t.updateTask(task)}
-              onDelete={(...args) => void t.deleteTask(...args)}
-              onToggleDone={(id) => void t.toggleDone(id)}
-              persistReorder={(...args) => void t.persistReorder(...args)}
-              getTemplate={t.getTemplate}
-              initialView={settings.defaultView}
-              weekStart={settings.weekStart}
-              onSignOut={() => void signOut()}
-              onOpenSettings={() => void navigate('/settings')}
-              rollForward={(...args) => void t.rollForward(...args)}
-            />
+            <TaskBoardContext.Provider value={t}>
+              <Board
+                initialView={settings.defaultView}
+                weekStart={settings.weekStart}
+                onSignOut={() => void signOut()}
+                onOpenSettings={() => void navigate('/settings')}
+              />
+            </TaskBoardContext.Provider>
           </OfflineContext.Provider>
           {t.error && <Toast message={t.error} onDismiss={t.clearError} />}
         </>

@@ -4,6 +4,7 @@ import { expect, test, vi } from 'vitest'
 import { ThemeProvider } from '../theme/ThemeProvider'
 import { TaskCard, type TaskCardProps } from './TaskCard'
 import { NO_RECUR, type Task } from '../types/task'
+import { BoardActionContext, type BoardActions } from './boardActionContext'
 
 function mkTask(over: Partial<Task> = {}): Task {
   return {
@@ -25,10 +26,16 @@ function mkTask(over: Partial<Task> = {}): Task {
   }
 }
 
-function renderCard(task: Task, props: Partial<TaskCardProps> = {}) {
+function renderCard(
+  task: Task,
+  props: Partial<TaskCardProps> = {},
+  actions: BoardActions | null = null,
+) {
   return render(
     <ThemeProvider>
-      <TaskCard task={task} variant="inbox" {...props} />
+      <BoardActionContext.Provider value={actions}>
+        <TaskCard task={task} variant="inbox" {...props} />
+      </BoardActionContext.Provider>
     </ThemeProvider>,
   )
 }
@@ -46,7 +53,18 @@ test('shows no time chip for all-day tasks', () => {
 test('the pin tap-target toggles without opening the editor', async () => {
   const onTogglePin = vi.fn()
   const onOpen = vi.fn()
-  renderCard(mkTask({ pinned: false }), { onTogglePin, onOpen })
+  renderCard(
+    mkTask({ pinned: false }),
+    {},
+    {
+      popId: null,
+      onOpen,
+      onTogglePin,
+      onAddDay: vi.fn(),
+      onAddInbox: vi.fn(),
+      onAddStatus: vi.fn(),
+    },
+  )
   await userEvent.click(screen.getByRole('button', { name: 'Pin' }))
   expect(onTogglePin).toHaveBeenCalledWith('t1')
   expect(onOpen).not.toHaveBeenCalled()

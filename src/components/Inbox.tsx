@@ -7,15 +7,14 @@ import { notesForDay } from '../data/selectors'
 import { DropLane } from '../dnd/DropLane'
 import { SortableCard } from '../dnd/SortableCard'
 import { INBOX, type Task } from '../types/task'
-import type { BoardHandlers, PopId } from './boardHandlers'
+import { useBoardActions } from './boardActionContext'
 
 export interface InboxProps {
   tasks: Task[]
-  handlers: BoardHandlers
-  pop: PopId
 }
 
-export function Inbox({ tasks, handlers, pop }: InboxProps) {
+export function Inbox({ tasks }: InboxProps) {
+  const actions = useBoardActions()
   const { theme, conf } = useTheme()
   const isMobile = useIsMobile()
   const [collapsed, setCollapsed] = useState(false)
@@ -53,15 +52,7 @@ export function Inbox({ tasks, handlers, pop }: InboxProps) {
           {!isMobile && <div style={c.inboxHint}>Unscheduled · drag onto a day</div>}
           <DropLane id={INBOX} itemIds={notes.map((n) => n.id)} style={c.inboxList}>
             {notes.map((t) => (
-              <SortableCard
-                key={t.id}
-                task={t}
-                variant="inbox"
-                pop={pop === t.id}
-                onOpen={handlers.onOpen}
-                onToggleDone={handlers.onToggleDone}
-                onTogglePin={handlers.onTogglePin}
-              />
+              <SortableCard key={t.id} task={t} variant="inbox" />
             ))}
             {notes.length === 0 && (
               <div style={c.inboxEmpty}>
@@ -69,7 +60,7 @@ export function Inbox({ tasks, handlers, pop }: InboxProps) {
               </div>
             )}
           </DropLane>
-          <button type="button" style={c.inboxAdd} onClick={handlers.onAddInbox}>
+          <button type="button" style={c.inboxAdd} onClick={actions?.onAddInbox}>
             + Add to inbox
           </button>
           {/* ROADMAP 5.3 — the legal pages reachable from the board itself, not only from /settings
