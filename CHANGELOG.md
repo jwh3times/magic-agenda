@@ -21,6 +21,9 @@ No unreleased changes.
   optimistic self-target drops, and filter-disabled dragging. The successor packages are pinned as
   development-only dependencies; the production adapter remains unchanged pending real-device iOS
   and Android long-press/scroll verification. (#156)
+- Moved the Playwright E2E project and its authentication setup from the repeatedly crashing legacy
+  Chromium headless shell to Playwright's regular Chromium build and new headless mode, while
+  preserving the zero-retry CI policy.
 
 ### Docs
 
