@@ -55,7 +55,7 @@
     "jsdom": "^30.0.1",
     "oxlint": "^1.78.0",
     "oxlint-tsgolint": "^7.0.2001",
-    "pg": "^8.22.0",
+    "pg": "^8.23.0",
     "prettier": "^3.9.6",
     "supabase": "2.113.0",
     "typescript": "^7.0.2",
