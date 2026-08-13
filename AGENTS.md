@@ -530,7 +530,7 @@ split across two files, and the distinction matters when adding one.
 forever: RLS enabled everywhere, every RLS-enabled table has a policy, no security-definer views,
 every table reachable by the Data API roles, a newly created table reachable by *none* of them, and
 every realtime-published table keyed on uuid only. That last one is the machine-checkable half of
-the publication rule below — DELETE fan-out caps its payload at the primary key, so the PK is the
+the publication rule above — DELETE fan-out caps its payload at the primary key, so the PK is the
 entire content of a cross-tenant broadcast, and a `text` PK on a published table (an email, a slug,
 a board name) is the realistic version of that mistake. It follows the publication rather than
 assuming `public`, and it treats a published table with *no* PK as a failure too: under replica
