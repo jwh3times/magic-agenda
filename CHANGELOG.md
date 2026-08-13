@@ -12,6 +12,19 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.73] - 2026-08-13
+
+### Internal
+
+- Split the shared-boards roadmap epic into "multiple private boards" (6.2) and "shared /
+  collaborative boards" (6.4), and replaced its data model. The previous entry proposed
+  `tasks.board_id` with `NULL = personal board`; that preserves two task-ownership models
+  indefinitely, so every reader, policy, realtime filter, snapshot, and export path would have to
+  handle both forever. Containment is now a NOT NULL `board_id` with a backfilled board per account,
+  and `board_memberships.role` ships from the first migration rather than being retrofitted under
+  live policies. The split also moves the feature-flag dependency (5.4) off the private-boards work,
+  which needs no gating, and onto sharing, which is the first change that reaches another person.
+
 ## [1.2.72] - 2026-08-12
 
 ### Internal
@@ -1458,7 +1471,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.72...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.73...HEAD
+[1.2.73]: https://github.com/jwh3times/magic-agenda/compare/v1.2.72...v1.2.73
 [1.2.72]: https://github.com/jwh3times/magic-agenda/compare/v1.2.71...v1.2.72
 [1.2.71]: https://github.com/jwh3times/magic-agenda/compare/v1.2.70...v1.2.71
 [1.2.70]: https://github.com/jwh3times/magic-agenda/compare/v1.2.69...v1.2.70

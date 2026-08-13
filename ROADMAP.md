@@ -38,7 +38,8 @@ and have been removed the same way.
 | 5.8   | Leaked-password protection       | P3  | S    | Supabase Pro ($25/mo)  |
 | 6.1   | iCal calendar feed               | P3  | L    | —                      |
 | 6.3   | Attachments                      | P3  | L    | —                      |
-| 6.2   | Shared / collaborative boards    | P3  | XL   | 5.4, ideally 4.2       |
+| 6.2   | Multiple private boards          | P3  | XL   | 4.2                    |
+| 6.4   | Shared / collaborative boards    | P3  | L    | 6.2, 5.4               |
 
 Total rough effort for the remaining items: ~7–10 weeks of focused solo work.
 
@@ -245,15 +246,36 @@ Larger efforts that fit the app's direction but are not near-term.
       queryable). Editor upload section (10 MB cap, images + pdf first); image thumbnail chips with
       1h signed URLs. Task delete ⇒ DB cascade + best-effort storage delete (accept orphans;
       scheduled cleanup later). Watch free-tier storage egress/quota.
-- [ ] **Shared / collaborative boards** · **P3** · XL (multi-PR epic) — multi-user boards and task
-      sharing; the largest lift. Milestone-level plan only; re-plan in detail when scheduled:
-  1. Data model: `boards`, `board_members`, `tasks.board_id` (NULL = personal board — zero
-     migration for existing data). RLS rewrite: task policies become "owner OR board member" via a
-     definer helper — **the entire RLS suite gets re-reviewed**; the single riskiest change.
-  2. App: board switcher, `useTasks(userId, boardId)`, invites by email (Edge Function).
-  3. Presence & conflict: realtime (shipped) already gives multi-writer sync; add `tasks.updated_by`
-     for per-card attribution.
-  4. Recurrence carries over cleanly — nothing keys on `user_id` except RLS.
+- [ ] **Multiple private boards** · **P3** · XL (multi-PR epic) — one account, many boards. This is
+      the bulk of the lift, and it is worth having on its own: every hard part (containment, the RLS
+      rewrite, per-board storage and realtime) is needed whether or not a second person ever joins.
+      Milestone-level plan only; re-plan in detail when scheduled:
+  1. Data model: `boards`, `board_memberships` (carrying `role` from the first migration — it is the
+      column you never want to retrofit under live policies), and `tasks.board_id` **NOT NULL**.
+      Explicitly *not* `NULL = personal board`: the zero-migration appeal is real, but it preserves
+      two task-ownership models indefinitely, and every reader, policy, realtime filter, snapshot,
+      and export path then has to handle both forever. Backfill one board per existing account.
+  2. RLS rewrite: task policies move from `user_id` to board membership — **the entire RLS suite
+      gets re-reviewed**; the single riskiest change in the roadmap. Optimistic concurrency
+      (`tasks.revision`) and attribution columns land with it.
+  3. App: board directory and selection, per-board offline snapshots with an authoritative
+      access-loss purge, `board_id` realtime filter, and a one-board export/import format.
+  4. Recurrence carries over cleanly — nothing keys on `user_id` except RLS — but its uniqueness
+      and parent constraints become board-qualified so a series cannot span boards.
 
-  Depends on 5.4 (roles pattern), ideally 4.2 (shared boards force per-board
-  labels; sequence labels first to avoid a double migration).
+  Depends on 4.2: boards force per-board labels, and sequencing labels first avoids a double
+  migration *and* does the fixed-categories→labels product migration while every account still has
+  exactly one board.
+
+- [ ] **Shared / collaborative boards** · **P3** · L — a second person on a board. Sits on top of
+      6.2, which does the containment and authorization work; what is left is genuinely about other
+      people:
+  1. Invitations by verified email (Edge Function delivery — auth SMTP only sends auth templates),
+     with rate limits and pending caps before the first one can be sent.
+  2. Membership administration: roles, removal, leaving, the last-owner invariant under concurrency,
+     and revoking access on a client that is currently online.
+  3. Two product decisions this forces that 6.2 does not: whether tasks get an **assignee**, and who
+     materialises recurrence on a board whose viewer cannot write.
+
+  Depends on 6.2 and 5.4 (roles pattern). Note that feature flags matter *here*, not in 6.2 — this
+  is the first change that reaches someone other than the account holder.
