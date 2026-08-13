@@ -25,7 +25,7 @@ and have been removed the same way.
 | Order | Item                             | Pri | Size | Hard dependencies      |
 | ----- | -------------------------------- | --- | ---- | ---------------------- |
 | 3.2   | Reminders / notifications        | P2  | XL   | —                      |
-| 4.2   | Custom labels / categories       | P2  | XL   | —                      |
+| 4.2   | Custom labels / categories       | P2  | XL   | 6.2 board foundation   |
 | 4.3   | Richer recurrence                | P3  | L    | —                      |
 | 4.4   | Quick-add & keyboard shortcuts   | P3  | L    | —                      |
 | 4.5   | Bulk multi-select                | P3  | L    | —                      |
@@ -38,7 +38,7 @@ and have been removed the same way.
 | 5.8   | Leaked-password protection       | P3  | S    | Supabase Pro ($25/mo)  |
 | 6.1   | iCal calendar feed               | P3  | L    | —                      |
 | 6.3   | Attachments                      | P3  | L    | —                      |
-| 6.2   | Multiple private boards          | P3  | XL   | 4.2                    |
+| 6.2   | Multiple private boards          | P3  | XL   | —                      |
 | 6.4   | Shared / collaborative boards    | P3  | L    | 6.2, 5.4               |
 
 Total rough effort for the remaining items: ~7–10 weeks of focused solo work.
@@ -124,13 +124,26 @@ were added as their own effort rather than a roadmap feature — see
 
 - [ ] **Custom labels / categories** · **P2** · XL — `category` is a hardcoded 5-value enum; let
       users define their own labels and colors. The deepest data change on the list — three PRs:
-  1. Schema + backfill: `labels` table (`id, user_id, name, dot_color, position`, owner-only RLS);
-     `tasks.label_id uuid references labels on delete set null`. Backfill the 5 built-ins per
-     existing user and map `category` → `label_id`; keep the `category` column temporarily
-     (deploy-window tolerance), drop one release later. `handle_new_user` seeds defaults.
-  2. App read path: `useLabels(userId)`; `Task.labelId`; `CAT` becomes a fallback. Card dot,
-     editor picker, and filter dropdown consume the user's label list.
+  1. Schema + backfill: `labels` table (`id, board_id, name, dot_color, position`, membership RLS);
+     `tasks.label_id uuid references labels on delete set null`, constrained so a task cannot carry
+     a label from another board. Backfill the 5 built-ins per board and map `category` → `label_id`;
+     keep the `category` column temporarily (deploy-window tolerance), drop one release later. Board
+     creation seeds defaults.
+  2. App read path: `useLabels(boardId)`; `Task.labelId`; `CAT` becomes a fallback. Card dot,
+     editor picker, and filter dropdown consume the board's label list.
   3. Management UI on `/settings`: create/rename/recolor/reorder/delete (delete ⇒ "Unlabeled").
+
+  **Labels are board-scoped from their first migration — `board_id`, never `user_id`.** An earlier
+  version of this entry specified account-owned labels, which reads as the cheaper start and is not:
+  boards force per-board labels, so account-scoped labels would be built, backfilled, and then
+  migrated again, with a window where a label's owner and its tasks' owner are different columns
+  that must agree. That is the same two-ownership-models trap as `board_id = NULL` in 6.2, one table
+  over. Hence the dependency: this needs 6.2's `boards` / `board_memberships` foundation and its
+  backfilled board-per-account, but **not** the rest of 6.2 — labels land while every account still
+  has exactly one board, which is the cheapest place to get the `category` → label migration wrong.
+
+  Priority consequence, stated plainly: 4.2 is P2 and now cannot start before P3 work begins.
+  Scheduling 6.2's foundation is what unblocks it.
 
   Risk: the `Category` type is load-bearing in `constants.ts` — it dissolves into `string` label
   ids, a wide but shallow type ripple. Write the backfill migration idempotent.
@@ -263,9 +276,11 @@ Larger efforts that fit the app's direction but are not near-term.
   4. Recurrence carries over cleanly — nothing keys on `user_id` except RLS — but its uniqueness
       and parent constraints become board-qualified so a series cannot span boards.
 
-  Depends on 4.2: boards force per-board labels, and sequencing labels first avoids a double
-  migration *and* does the fixed-categories→labels product migration while every account still has
-  exactly one board.
+  4.2 is **interleaved with this item, not before or after it** — a shape the Deps column cannot
+  express. Custom labels need the `boards` / `board_memberships` foundation above so they can be
+  board-scoped from birth, and they should land before step 3 enables a second board, so the
+  `category` → label migration happens while every account still has exactly one board. Sequencing
+  them the other way costs a double migration; sequencing them later costs a riskier one.
 
 - [ ] **Shared / collaborative boards** · **P3** · L — a second person on a board. Sits on top of
       6.2, which does the containment and authorization work; what is left is genuinely about other

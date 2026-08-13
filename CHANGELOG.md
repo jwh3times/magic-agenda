@@ -12,6 +12,20 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.74] - 2026-08-13
+
+### Internal
+
+- Corrected the custom-labels roadmap item (4.2) to be board-scoped from its first migration —
+  `labels.board_id`, never `labels.user_id`. The previous account-owned schema reads as the cheaper
+  start and is not: boards force per-board labels, so it would be built, backfilled, and migrated
+  again, with a window where a label's owner and its tasks' owner are separate columns that must
+  agree — the same two-ownership-models trap that v1.2.73 removed from 6.2, one table over. The
+  dependency between the two items is also inverted and narrowed: labels need only the
+  `boards`/`board_memberships` foundation, not the whole boards epic, and are interleaved with it
+  rather than sequenced before it. Noted the priority consequence explicitly: 4.2 is P2 and can no
+  longer start before P3 work begins.
+
 ## [1.2.73] - 2026-08-13
 
 ### Internal
@@ -1471,7 +1485,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.73...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.74...HEAD
+[1.2.74]: https://github.com/jwh3times/magic-agenda/compare/v1.2.73...v1.2.74
 [1.2.73]: https://github.com/jwh3times/magic-agenda/compare/v1.2.72...v1.2.73
 [1.2.72]: https://github.com/jwh3times/magic-agenda/compare/v1.2.71...v1.2.72
 [1.2.71]: https://github.com/jwh3times/magic-agenda/compare/v1.2.70...v1.2.71
