@@ -523,11 +523,33 @@ that project.
 `npm run test:rls` is a **separate Vitest project** (`vitest.rls.config.ts`) running integration
 tests in `tests/rls/` against a real local stack — start one with `npm run test:rls:up`. It is
 where the authorization boundary is actually exercised: RLS is the only thing standing between
-one user's rows and another's, and every unit test mocks it away. Four of its tests are
-schema-wide catch-alls that need no knowledge of any particular table (RLS enabled everywhere,
-every RLS-enabled table has a policy, no security-definer views, every table reachable by the
-Data API roles) — those are what keep working as the schema grows. One of the four, the
-definer-view check, asserts over an **empty set** today because `public` holds no views, so the
+one user's rows and another's, and every unit test mocks it away. Its tests come in two kinds,
+split across two files, and the distinction matters when adding one.
+
+`structure.test.ts` holds **catch-alls** that need no knowledge of any particular table and hold
+forever: RLS enabled everywhere, every RLS-enabled table has a policy, no security-definer views,
+every table reachable by the Data API roles, a newly created table reachable by *none* of them, and
+every realtime-published table keyed on uuid only. That last one is the machine-checkable half of
+the publication rule below — DELETE fan-out caps its payload at the primary key, so the PK is the
+entire content of a cross-tenant broadcast, and a `text` PK on a published table (an email, a slug,
+a board name) is the realistic version of that mistake. It follows the publication rather than
+assuming `public`, and it treats a published table with *no* PK as a failure too: under replica
+identity DEFAULT that table publishes no old record, so deletes stop reaching subscribers and the
+client reducer silently diverges.
+
+`baseline.test.ts` holds **baselines** — the security posture as it is *today*, asserted by strict
+equality in both directions, so changing it is a deliberate act with a diff attached. Three of
+them: every function in `public` with its definer flag / `search_path` / whether it carries its own
+ACL, every schema reachable by the Data API roles, and every policy that applies to `PUBLIC`
+because it names no role. All three deliberately record known weaknesses rather than a clean bill
+of health — `handle_new_user` is `security definer` with `search_path=public` rather than the empty
+path a definer should have, both functions are EXECUTE-able by `PUBLIC` via PostgreSQL's default,
+and all seven legacy policies target `PUBLIC`. Each is tolerable for a specific reason stated in
+the file, and each stops being tolerable at a specific point in the board work; recording them is
+what turns "someday" into a line someone has to delete. A baseline that *shrinks* is a failure too:
+that means it is stale and the smaller set must be committed.
+
+Of the catch-alls, the definer-view check asserts over an **empty set** today because `public` holds no views, so the
 option-spelling parser it depends on lives in `tests/rls/reloptions.ts` and is tested directly in
 `reloptions.test.ts` — the same split that makes `src/sw/policy.ts` testable when `src/sw.ts`
 itself cannot be. `policy.test.ts` runs inside `npm test` (the `Test` job) and `reloptions.test.ts`

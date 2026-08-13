@@ -12,6 +12,32 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.75] - 2026-08-13
+
+### Internal
+
+- Added the security harness that the board-ownership work will be built against, ahead of any
+  schema change. Four new database assertions: every realtime-published table is keyed on uuid only
+  (the machine-checkable half of the publication rule — DELETE fan-out caps its payload at the
+  primary key, so a `text` PK there would broadcast a meaningful value to every subscriber, and a
+  published table with no PK stops delivering deletes at all), plus three strict-equality baselines
+  recording today's posture: every function in `public` with its definer flag, `search_path`, and
+  ACL; every schema reachable by the Data API roles, which is what will notice if the planned
+  `app_private` schema is ever granted `USAGE`; and every policy that applies to `PUBLIC` because it
+  names no role. Each baseline was verified to fail against a deliberately violated schema, not
+  merely to pass against the current one.
+- The three baselines record known weaknesses rather than a clean bill of health: `handle_new_user`
+  is `security definer` with `search_path=public` rather than an empty path, both functions are
+  EXECUTE-able by `PUBLIC` through PostgreSQL's default, and all seven legacy policies target
+  `PUBLIC`. All are behaviourally safe today for reasons stated in the file, and each stops being
+  safe at a known point in the board work. Nothing about production behaviour changed.
+- Added `src/board/`: pure `BoardRole` → capability mapping and the Board command failure
+  vocabulary (`last-owner`, `stale-revision`, `membership-ended`, `board-deleted`, `unknown`),
+  modelled on the `authOutcome` seam. An unrecognized role grants nothing rather than defaulting to
+  the least-privileged known role, since an unknown role means the client is older than the schema
+  and any default invents an authority level nobody granted. These are UI affordances, explicitly
+  not an authorization boundary — RLS remains the only one.
+
 ## [1.2.74] - 2026-08-13
 
 ### Internal
@@ -1485,7 +1511,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.74...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.75...HEAD
+[1.2.75]: https://github.com/jwh3times/magic-agenda/compare/v1.2.74...v1.2.75
 [1.2.74]: https://github.com/jwh3times/magic-agenda/compare/v1.2.73...v1.2.74
 [1.2.73]: https://github.com/jwh3times/magic-agenda/compare/v1.2.72...v1.2.73
 [1.2.72]: https://github.com/jwh3times/magic-agenda/compare/v1.2.71...v1.2.72

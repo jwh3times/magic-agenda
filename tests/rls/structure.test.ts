@@ -3,12 +3,16 @@ import { withPg } from './helpers'
 import { isSecurityInvoker } from './reloptions'
 
 // RLS is this project's ONLY authorization boundary and the anon key is public by design, so a
-// table that reaches the Data API without RLS is a data leak, not a bug. These four tests need
-// no knowledge of what any table is for -- they keep holding as the schema grows.
+// table that reaches the Data API without RLS is a data leak, not a bug. These tests need no
+// knowledge of what any table is for -- they keep holding as the schema grows. (The count is
+// deliberately not stated here; it said "four" while there were five.)
 //
-// All four catch-alls below are scoped to `n.nspname = 'public'` only. If `[api] schemas` in
-// config.toml ever grows beyond `public`, these queries will not follow it -- they would need a
-// matching update.
+// Security properties that need a record of TODAY's state rather than a rule that holds forever
+// live in baseline.test.ts -- definer functions, schema reachability, and policy role targeting.
+//
+// The catch-alls below are scoped to `n.nspname = 'public'` only, except the realtime one, which
+// follows the publication wherever it points. If `[api] schemas` in config.toml ever grows beyond
+// `public`, these queries will not follow it -- they would need a matching update.
 
 test('every table in public has row-level security enabled', async () => {
   const rows = await withPg(async (pg) => {
@@ -155,4 +159,53 @@ test('a newly created table is NOT reachable by the Data API roles by default', 
 
   expect(anon).toBe(false)
   expect(authenticated).toBe(false)
+})
+
+test('every realtime-published table has an all-uuid primary key', async () => {
+  // The machine-checkable half of the standing rule on 20260704090000_realtime_tasks.sql: never
+  // put a secret or semantically meaningful value in the primary key of a published table.
+  //
+  // Why the primary key specifically -- DELETE events cannot be RLS-filtered (Postgres cannot
+  // check access to an already-deleted row), so every delete on a published table is fanned out to
+  // ALL subscribers. Replica identity DEFAULT caps that payload at the primary key, which makes
+  // the PK the entire content of a cross-tenant broadcast.
+  //
+  // Stated honestly, this proves less than the rule says: a uuid can still be *correlated*, and no
+  // query can prove a value is semantically meaningless. What it does prove is that the type
+  // admits no meaning -- which rules out the realistic mistake, a natural key such as an email, a
+  // slug, or a board name used as a primary key. A future published table keyed on `text` fails
+  // here and gets a human's attention, which is the point.
+  //
+  // Unlike the tests above this one follows the publication rather than assuming `public`: a
+  // published table in another schema is exactly as exposed and exactly as worth catching.
+  const rows = await withPg(async (pg) => {
+    const res = await pg.query<{
+      qualified: string
+      attname: string | null
+      typname: string | null
+    }>(
+      `select pt.schemaname || '.' || pt.tablename as qualified, a.attname, t.typname
+         from pg_publication_tables pt
+         join pg_namespace n on n.nspname = pt.schemaname
+         join pg_class c on c.relname = pt.tablename and c.relnamespace = n.oid
+         left join pg_index i on i.indrelid = c.oid and i.indisprimary
+         left join pg_attribute a on a.attrelid = c.oid and a.attnum = any(i.indkey)
+         left join pg_type t on t.oid = a.atttypid
+        where pt.pubname = 'supabase_realtime'
+        order by 1, 2`,
+    )
+    return res.rows
+  })
+
+  // A published table with no primary key at all is the worse version of this problem, not an
+  // exemption from it: under replica identity DEFAULT it publishes no old record, so deletes stop
+  // reaching subscribers entirely and the client's reducer silently diverges from the database.
+  // The left joins above are what let that case reach this assertion instead of vanishing.
+  const noPrimaryKey = rows.filter((r) => r.attname === null).map((r) => r.qualified)
+  expect(noPrimaryKey).toEqual([])
+
+  const nonUuid = rows
+    .filter((r) => r.typname !== 'uuid')
+    .map((r) => `${r.qualified}.${r.attname} is ${r.typname}`)
+  expect(nonUuid).toEqual([])
 })
