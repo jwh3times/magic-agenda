@@ -133,6 +133,25 @@ jobs:
           has_table backup/data.sql auth.users \
             || fail "data.sql does not contain auth.users — accounts were not captured. The CLI's --data-only dump used to include the auth schema; if that changed, add an explicit auth dump back."
 
+          # Board containment. Restoring tasks without these is worse than restoring nothing: every
+          # task carries a board_id pointing at a board that no longer exists, so the restore either
+          # fails on the foreign key or (with session_replication_role = replica, which data.sql
+          # sets) succeeds into a database where no task belongs to any board anyone can reach.
+          for t in public.boards public.board_memberships public.account_profiles; do
+            has_table backup/data.sql "$t" \
+              || fail "data.sql does not contain $t — board ownership was not captured, and tasks cannot be restored without it"
+          done
+
+          # The authorization layer itself. The schema dump takes no --schema flag, and this job's
+          # own comment above describes its output as "DDL for public" — so if the CLI's default
+          # ever narrows, or these functions move to another schema, the bundle would restore
+          # policies that call functions it did not capture. That produces a database which cannot
+          # authorize anything, from a backup that verified clean.
+          for fn in handle_new_user handle_account_deletion tasks_infer_board_id; do
+            grep -q "FUNCTION public\.$fn" backup/schema.sql \
+              || fail "schema.sql does not define public.$fn — the authorization/lifecycle layer was not captured"
+          done
+
           echo "Dump sizes (bytes):"
           wc -c backup/*.sql
 

@@ -26,6 +26,14 @@ function row(over: Partial<TaskRow> = {}): TaskRow {
     recur_parent_id: null,
     recur_skip: [],
     recur_origin_day: null,
+    // Board containment, attribution, and the compare-and-swap token. On every row since the Board
+    // foundation migration; the mapper deliberately does not carry them into the app-domain Task
+    // yet, which is what the round-trip tests below still assert.
+    board_id: null,
+    author_id: null,
+    last_editor_id: null,
+    author_kind: 'author',
+    revision: 1,
     created_at: '2026-06-29T00:00:00Z',
     updated_at: '2026-06-29T00:00:00Z',
     ...over,

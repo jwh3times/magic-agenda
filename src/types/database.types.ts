@@ -1,11 +1,6 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: '14.5'
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -33,9 +28,101 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_profiles: {
+        Row: {
+          account_id: string
+          created_at: string
+          display_name: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          display_name?: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          display_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      board_memberships: {
+        Row: {
+          account_id: string | null
+          board_id: string
+          created_at: string
+          default_view: string
+          end_reason: string | null
+          ended_at: string | null
+          id: string
+          joined_at: string
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          board_id: string
+          created_at?: string
+          default_view?: string
+          end_reason?: string | null
+          ended_at?: string | null
+          id?: string
+          joined_at?: string
+          role: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          board_id?: string
+          created_at?: string
+          default_view?: string
+          end_reason?: string | null
+          ended_at?: string | null
+          id?: string
+          joined_at?: string
+          role?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'board_memberships_board_id_fkey'
+            columns: ['board_id']
+            isOneToOne: false
+            referencedRelation: 'boards'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      boards: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           at_time: string | null
+          author_id: string | null
+          author_kind: string
+          board_id: string | null
           category: string
           checklist: Json
           color: string
@@ -44,6 +131,7 @@ export type Database = {
           description: string
           id: string
           korder: number
+          last_editor_id: string | null
           order_index: number
           pinned: boolean
           recur_freq: string
@@ -52,6 +140,7 @@ export type Database = {
           recur_parent_id: string | null
           recur_skip: Json
           recur_until: string | null
+          revision: number
           status: string
           title: string
           updated_at: string
@@ -59,6 +148,9 @@ export type Database = {
         }
         Insert: {
           at_time?: string | null
+          author_id?: string | null
+          author_kind?: string
+          board_id?: string | null
           category?: string
           checklist?: Json
           color?: string
@@ -67,6 +159,7 @@ export type Database = {
           description?: string
           id?: string
           korder?: number
+          last_editor_id?: string | null
           order_index?: number
           pinned?: boolean
           recur_freq?: string
@@ -75,6 +168,7 @@ export type Database = {
           recur_parent_id?: string | null
           recur_skip?: Json
           recur_until?: string | null
+          revision?: number
           status?: string
           title?: string
           updated_at?: string
@@ -82,6 +176,9 @@ export type Database = {
         }
         Update: {
           at_time?: string | null
+          author_id?: string | null
+          author_kind?: string
+          board_id?: string | null
           category?: string
           checklist?: Json
           color?: string
@@ -90,6 +187,7 @@ export type Database = {
           description?: string
           id?: string
           korder?: number
+          last_editor_id?: string | null
           order_index?: number
           pinned?: boolean
           recur_freq?: string
@@ -98,12 +196,20 @@ export type Database = {
           recur_parent_id?: string | null
           recur_skip?: Json
           recur_until?: string | null
+          revision?: number
           status?: string
           title?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: 'tasks_board_id_fkey'
+            columns: ['board_id']
+            isOneToOne: false
+            referencedRelation: 'boards'
+            referencedColumns: ['id']
+          },
           {
             foreignKeyName: 'tasks_recur_parent_id_fkey'
             columns: ['recur_parent_id']

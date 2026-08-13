@@ -25,26 +25,34 @@ import { withPg } from './helpers'
 /**
  * Every function in `public`, with the three properties that decide whether it is a hole.
  *
- * `handle_new_user` is the project's only `security definer` function and it carries
- * `search_path=public`, not the empty search path that a definer should have — with a non-empty
- * path, whoever can create objects in a schema on that path can shadow an unqualified name the
- * function body resolves. It is not currently exploitable (only `postgres` can create in `public`
- * here), which is why this is recorded rather than treated as an incident.
- *
  * `explicitAcl: false` means `proacl is null` — the function carries **no** grants of its own, so
- * PostgreSQL's default applies and `PUBLIC` may execute it. Both functions are triggers, so a
- * direct call fails for want of a trigger context; that is why this is tolerable today and why it
- * stops being tolerable the moment a callable RPC lands.
+ * PostgreSQL's default applies and `PUBLIC` may execute it. `explicitAcl: true` means someone
+ * revoked and granted deliberately.
  *
- * The rule for anything added here: a new `security definer` function belongs in `app_private`
- * with `set search_path = ''` and an explicit grant — so it should never appear in this map at
- * all, and a new entry with `secdef: true` should be read as a mistake before it is read as a
- * baseline update.
+ * The two `security definer` functions are both triggers on `auth.users`, and both are hardened:
+ * empty `search_path` (so no unqualified name in their bodies can be shadowed by whoever can create
+ * objects in a schema on the path) and an explicit ACL. `security definer` is required for both —
+ * they must write past RLS on four tables during a transaction where `auth.uid()` is not the
+ * account in question — so the hardening is the mitigation, not the removal.
+ *
+ * `tasks_infer_board_id` is an **invoker** function and deliberately so; it is also temporary, and
+ * dropping it is the stale-client fail-closed mechanism, not a cleanup chore.
+ *
+ * `set_updated_at` is the one function still carrying the default ACL. It stays that way knowingly:
+ * it is an invoker trigger function, so `PUBLIC` executing it borrows no privilege, and a direct
+ * call fails for want of a trigger context. It would matter the moment it became `security
+ * definer`, which is exactly the change this baseline would catch.
+ *
+ * The rule for anything added here: a new `security definer` function belongs in `app_private` with
+ * `set search_path = ''` and an explicit grant — so a new entry with `secdef: true` should be read
+ * as a mistake before it is read as a baseline update.
  */
 const PUBLIC_FUNCTIONS: Record<string, { secdef: boolean; config: string; explicitAcl: boolean }> =
   {
-    'handle_new_user()': { secdef: true, config: 'search_path=public', explicitAcl: false },
+    'handle_account_deletion()': { secdef: true, config: 'search_path=""', explicitAcl: true },
+    'handle_new_user()': { secdef: true, config: 'search_path=""', explicitAcl: true },
     'set_updated_at()': { secdef: false, config: '(none)', explicitAcl: false },
+    'tasks_infer_board_id()': { secdef: false, config: 'search_path=""', explicitAcl: true },
   }
 
 test('the security posture of every function in public is the reviewed one', async () => {
@@ -79,13 +87,29 @@ test('the security posture of every function in public is the reviewed one', asy
 /**
  * Every schema the Data API roles can reach, and the guard that `app_private` never joins them.
  *
- * The plan puts authorization predicates in an unexposed `app_private` schema, whose entire value
- * is that `anon` and `authenticated` cannot reach it. `USAGE` on the schema is the gate: without
- * it, a definer function there is uncallable no matter what EXECUTE says. This baseline is what
- * notices the day someone grants it — including via a well-meaning `grant usage on all schemas`.
+ * **This comment previously said `USAGE` is what keeps a private schema off the Data API, and that
+ * its whole value is that neither `anon` nor `authenticated` can reach it. Both halves are wrong**,
+ * measured on a local stack rather than reasoned about:
  *
- * All nine below are Supabase-managed. A platform upgrade can legitimately add a tenth, and the
- * correct response is to look at what it is and then add it here — not to loosen the assertion.
+ *   - A policy calling a function in a private schema requires the CALLING role to hold `USAGE` on
+ *     the schema and `EXECUTE` on the function. Without them the query fails outright with
+ *     `permission denied for function` — an app outage, not a silent deny. So `authenticated` will
+ *     have to hold `USAGE` on `app_private` the day a co-member predicate needs a definer helper.
+ *   - Granting that does **not** expose the schema. PostgREST refuses a request for an unlisted
+ *     schema with `PGRST106 Invalid schema: app_private`, even for `service_role`, even with
+ *     `USAGE` granted. The real gate is `[api] schemas` in `config.toml`.
+ *
+ * So what this baseline actually guards is narrower and still worth having: **`anon` must never
+ * reach a schema it does not reach today**, and any new schema — including one added by a platform
+ * upgrade — should be looked at by a human rather than absorbed silently.
+ *
+ * `app_private` does not exist yet, deliberately. The only predicate that needs a definer helper is
+ * the co-member clause on `board_memberships`, which recurses (`infinite recursion detected in
+ * policy for relation`) and is a sharing feature; every predicate shipped so far is self-scoped or
+ * crosses to another relation. When it does arrive, expect this list to gain `app_private` for
+ * `authenticated` — that is the correct update, not a regression.
+ *
+ * All nine below are Supabase-managed.
  */
 const REACHABLE_SCHEMAS = [
   'auth',
