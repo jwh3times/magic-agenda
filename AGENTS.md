@@ -591,11 +591,17 @@ client reducer silently diverges.
 equality in both directions, so changing it is a deliberate act with a diff attached. Three of
 them: every function in `public` with its definer flag / `search_path` / whether it carries its own
 ACL, every schema reachable by the Data API roles, and every policy that applies to `PUBLIC`
-because it names no role. All three deliberately record known weaknesses rather than a clean bill
-of health — `handle_new_user` is `security definer` with `search_path=public` rather than the empty
-path a definer should have, both functions are EXECUTE-able by `PUBLIC` via PostgreSQL's default,
-and all seven legacy policies target `PUBLIC`. Each is tolerable for a specific reason stated in
-the file, and each stops being tolerable at a specific point in the board work; recording them is
+because it names no role. The remaining known weakness: `set_updated_at` is still EXECUTE-able by
+`PUBLIC` via PostgreSQL's default, tolerable only because it is an invoker trigger function
+unreachable outside a trigger context, and all seven legacy policies on `tasks` / `user_settings`
+still target `PUBLIC` (the five Board policies name `authenticated` explicitly instead). This
+paragraph used to also record `handle_new_user` as `security definer` with `search_path=public`
+rather than the empty path a definer should have, and as EXECUTE-able by `PUBLIC` — that was the
+"specific point in the board work" the surrounding prose said it would stop being tolerable at:
+`handle_new_user` is hardened now (empty `search_path`, EXECUTE revoked from `PUBLIC`), and the two
+lifecycle functions the board work added beside it (`handle_account_deletion`, also `security
+definer`; `tasks_infer_board_id`, deliberately an invoker) are hardened the same way from birth.
+Each remaining weakness is tolerable for a specific reason stated in the file; recording them is
 what turns "someday" into a line someone has to delete. A baseline that *shrinks* is a failure too:
 that means it is stale and the smaller set must be committed.
 

@@ -162,7 +162,10 @@ design/                the original prototype (reference only — not built)
 
 - **Pure SPA + Supabase** — the browser talks directly to Supabase over HTTPS; there is no server of
   our own. Cloudflare Pages serves static assets.
-- **Per‑user isolation via RLS** — every table has policies scoped to `auth.uid() = user_id`.
+- **RLS is the only authorization boundary** — `tasks` and `user_settings` scope to
+  `auth.uid() = user_id`; a board-ownership schema (`boards`, `board_memberships`,
+  `account_profiles`) also exists and scopes through membership, but it is not yet what authorizes
+  task access — see [AGENTS.md](./AGENTS.md).
 - **`'inbox'` ↔ `NULL`** — unscheduled tasks use the `'inbox'` sentinel in app/DnD logic and map to a
   `NULL` `day` only at the database boundary.
 - **Recurrence** uses a hidden "template" row plus materialized instance rows; deleted occurrences are

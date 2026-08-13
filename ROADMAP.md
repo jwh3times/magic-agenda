@@ -25,7 +25,7 @@ and have been removed the same way.
 | Order | Item                             | Pri | Size | Hard dependencies      |
 | ----- | -------------------------------- | --- | ---- | ---------------------- |
 | 3.2   | Reminders / notifications        | P2  | XL   | —                      |
-| 4.2   | Custom labels / categories       | P2  | XL   | 6.2 board foundation   |
+| 4.2   | Custom labels / categories       | P2  | XL   | — (6.2 step 1, landed) |
 | 4.3   | Richer recurrence                | P3  | L    | —                      |
 | 4.4   | Quick-add & keyboard shortcuts   | P3  | L    | —                      |
 | 4.5   | Bulk multi-select                | P3  | L    | —                      |
@@ -142,8 +142,15 @@ were added as their own effort rather than a roadmap feature — see
   backfilled board-per-account, but **not** the rest of 6.2 — labels land while every account still
   has exactly one board, which is the cheapest place to get the `category` → label migration wrong.
 
-  Priority consequence, stated plainly: 4.2 is P2 and now cannot start before P3 work begins.
-  Scheduling 6.2's foundation is what unblocks it.
+  **The dependency landed 2026-08-13 (v1.2.76), as 6.2's step 1** — `boards`, `board_memberships`,
+  and one backfilled board per account all exist, and every task already carries a `board_id`
+  (nullable in the schema still, but never NULL in practice: the backfill closed the gap and a
+  compatibility trigger routes every new insert). 6.2's remaining steps — the RLS rewrite that makes
+  `board_id` NOT NULL, and step 3's board-creation UI — have **not** shipped, which per the paragraph
+  above is exactly the window this entry wanted: 4.2 can now start while every account still has
+  exactly one board, and doing it before step 3 lands is cheaper than doing it after. Priority
+  consequence, stated plainly: 4.2 is P2 and was blocked behind P3 work only for its dependency; that
+  dependency is now satisfied, so scheduling is a priority call, not a blocked one.
 
   Risk: the `Category` type is load-bearing in `constants.ts` — it dissolves into `string` label
   ids, a wide but shallow type ripple. Write the backfill migration idempotent.
@@ -263,14 +270,26 @@ Larger efforts that fit the app's direction but are not near-term.
       the bulk of the lift, and it is worth having on its own: every hard part (containment, the RLS
       rewrite, per-board storage and realtime) is needed whether or not a second person ever joins.
       Milestone-level plan only; re-plan in detail when scheduled:
-  1. Data model: `boards`, `board_memberships` (carrying `role` from the first migration — it is the
-      column you never want to retrofit under live policies), and `tasks.board_id` **NOT NULL**.
+  1. **Landed 2026-08-13 (v1.2.76), schema and backfill only — this is one step of the epic, not the
+      epic.** `account_profiles`, `boards`, and `board_memberships` (carrying `role` from the first
+      migration — it is the column you never want to retrofit under live policies) exist, and every
+      account has been backfilled with one board and an owner membership. `tasks.board_id` shipped
+      **nullable**, not NOT NULL as originally sketched here: it becomes NOT NULL only at the
+      authorization cutover in step 2, so the currently-deployed client — which sends no `board_id` —
+      keeps working via a temporary insert trigger that must be dropped the moment a second board can
+      exist. `tasks.revision` and the attribution columns (`author_id`, `last_editor_id`,
+      `author_kind`) also landed with this step rather than waiting for step 2 as sketched below. None
+      of it is an authorization boundary yet — `tasks` policies still compare `user_id` to
+      `auth.uid()` — so containment is data integrity, not access control, until step 2 ships. See
+      AGENTS.md § "Board ownership: schema is live, containment is not yet authoritative". The
+      NOT NULL cutover itself is still ahead, and the reasoning for it wasn't relitigated:
+
       Explicitly *not* `NULL = personal board`: the zero-migration appeal is real, but it preserves
       two task-ownership models indefinitely, and every reader, policy, realtime filter, snapshot,
-      and export path then has to handle both forever. Backfill one board per existing account.
+      and export path then has to handle both forever.
   2. RLS rewrite: task policies move from `user_id` to board membership — **the entire RLS suite
-      gets re-reviewed**; the single riskiest change in the roadmap. Optimistic concurrency
-      (`tasks.revision`) and attribution columns land with it.
+      gets re-reviewed**; the single riskiest change in the roadmap. (`tasks.revision` and the
+      attribution columns already landed with step 1, ahead of this schedule.)
   3. App: board directory and selection, per-board offline snapshots with an authoritative
       access-loss purge, `board_id` realtime filter, and a one-board export/import format.
   4. Recurrence carries over cleanly — nothing keys on `user_id` except RLS — but its uniqueness
