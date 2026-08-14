@@ -5,20 +5,45 @@ import type { Settings } from './useSettings'
 // Best-effort like viewStorage.ts: every access is guarded, and losing a snapshot only
 // degrades the offline experience. Cleared on sign-out (see AuthProvider) — that clearing
 // is what makes storing task text at rest acceptable.
-const BOARD_KEY = 'ma-snapshot-board'
+// The board snapshot key is now per Board: `ma-snapshot-board.<boardId>`. One account can hold
+// several, and each must be droppable on its own — a purge that could only clear "the" snapshot
+// would have to clear all of them to remove one.
+const BOARD_KEY_PREFIX = 'ma-snapshot-board.'
 const SETTINGS_KEY = 'ma-snapshot-settings'
+const DIRECTORY_KEY = 'ma-snapshot-directory'
 
 // Bump on any shape change. A mismatched envelope is dropped, never migrated.
 // v2: Settings gained weekStart + timezone (roadmap 4.1). Dropping costs nothing in practice —
 // getting this code at all requires a network navigation, and that same load rewrites both.
-const V = 2
+// v3: board snapshots are keyed per Board and carry `boardId`; the directory envelope is new. The
+// old single `ma-snapshot-board` key is not migrated — it is left to be swept by clearSnapshots()
+// and by the first successful load, which rewrites everything anyway.
+const V = 3
+
+const boardKey = (boardId: string) => `${BOARD_KEY_PREFIX}${boardId}`
 
 export interface BoardSnapshot {
   v: typeof V
   userId: string
+  boardId: string
   savedAt: number
   tasks: Task[]
   templates: Task[]
+}
+
+/**
+ * The per-Account envelope: which Boards this device last saw, and which one was open.
+ *
+ * Separate from the board snapshots because it answers a different question. A board snapshot says
+ * "here is what was on board X"; this says "these are the boards that existed" — which is what lets
+ * an offline boot render a Board switcher at all, and what gives the purge a list of ids to compare
+ * against when the server's answer comes back shorter than expected.
+ */
+export interface DirectorySnapshot {
+  v: typeof V
+  userId: string
+  boards: unknown[]
+  selectedBoardId: string | null
 }
 
 export interface SettingsSnapshot {
@@ -51,19 +76,90 @@ function write(key: string, userId: string, value: object): void {
   }
 }
 
-export function readBoardSnapshot(userId: string): BoardSnapshot | null {
-  const env = readEnvelope(BOARD_KEY, userId)
+export function readBoardSnapshot(userId: string, boardId: string): BoardSnapshot | null {
+  if (!boardId) return null
+  const env = readEnvelope(boardKey(boardId), userId)
   if (!env || !Array.isArray(env.tasks) || !Array.isArray(env.templates)) return null
   if (typeof env.savedAt !== 'number') return null
+  // The key already encodes the Board, so a mismatch here means a hand-edited or collided
+  // envelope. Drop it rather than rendering one Board's tasks under another Board's name.
+  if (env.boardId !== boardId) return null
   return env as unknown as BoardSnapshot
 }
 
-export function hasBoardSnapshot(userId: string): boolean {
-  return readBoardSnapshot(userId) !== null
+export function hasBoardSnapshot(userId: string, boardId: string): boolean {
+  return readBoardSnapshot(userId, boardId) !== null
 }
 
-export function writeBoardSnapshot(userId: string, tasks: Task[], templates: Task[]): void {
-  write(BOARD_KEY, userId, { savedAt: Date.now(), tasks, templates })
+export function writeBoardSnapshot(
+  userId: string,
+  boardId: string,
+  tasks: Task[],
+  templates: Task[],
+): void {
+  if (!boardId) return
+  write(boardKey(boardId), userId, { boardId, savedAt: Date.now(), tasks, templates })
+}
+
+/**
+ * Whether this Account has *any* Board snapshot — the offline-boot gate.
+ *
+ * `App` and `ProtectedRoute` ask this before a Board is selected or even known, to decide whether a
+ * signed-out-looking, offline visitor should be shown the app instead of the login page. They
+ * cannot name a Board id at that point, which is exactly why this is a separate function rather
+ * than a default argument on `readBoardSnapshot`.
+ */
+export function hasAnyBoardSnapshot(userId: string): boolean {
+  if (!userId) return false
+  return cachedBoardIds().some((id) => readBoardSnapshot(userId, id) !== null)
+}
+
+/** Board ids this device currently holds a snapshot for, whoever they belong to. */
+export function cachedBoardIds(): string[] {
+  try {
+    const ids: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key?.startsWith(BOARD_KEY_PREFIX)) ids.push(key.slice(BOARD_KEY_PREFIX.length))
+    }
+    return ids
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Drop the cached tasks for Boards this Account can no longer reach.
+ *
+ * The client-side half of revocation. Nothing announces that access ended — the server just stops
+ * returning the Board — so a device that keeps rendering its last snapshot is showing content the
+ * Account is no longer entitled to. This is what makes "a removed member may briefly see a stale
+ * read-only copy, purged on the next successful server contact" true rather than aspirational.
+ *
+ * Note it takes ids to REMOVE, not ids to keep. The caller computes that set from the server's
+ * response via `purgeableBoardIds`, so a load that returned nothing purges everything — which is
+ * correct, and is the case an "ids to keep" signature would get exactly backwards.
+ */
+export function purgeBoardSnapshots(boardIds: readonly string[]): void {
+  try {
+    for (const id of boardIds) localStorage.removeItem(boardKey(id))
+  } catch {
+    // ignore
+  }
+}
+
+export function readDirectorySnapshot(userId: string): DirectorySnapshot | null {
+  const env = readEnvelope(DIRECTORY_KEY, userId)
+  if (!env || !Array.isArray(env.boards)) return null
+  return env as unknown as DirectorySnapshot
+}
+
+export function writeDirectorySnapshot(
+  userId: string,
+  boards: unknown[],
+  selectedBoardId: string | null,
+): void {
+  write(DIRECTORY_KEY, userId, { boards, selectedBoardId })
 }
 
 export function readSettingsSnapshot(userId: string): SettingsSnapshot | null {
@@ -113,10 +209,25 @@ export function canPersistSnapshot(state: {
   )
 }
 
+/**
+ * Everything, on sign-out.
+ *
+ * This clearing is the entire justification for storing task text at rest in `localStorage`, so it
+ * has to sweep **every** board key rather than a known list — the account may hold snapshots for
+ * boards this session never opened, and a signed-out device that keeps any of them breaks the
+ * premise. It also removes the pre-v3 single `ma-snapshot-board` key, which no longer has a reader.
+ */
 export function clearSnapshots(): void {
   try {
-    localStorage.removeItem(BOARD_KEY)
+    const stale: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key?.startsWith(BOARD_KEY_PREFIX)) stale.push(key)
+    }
+    for (const key of stale) localStorage.removeItem(key)
+    localStorage.removeItem('ma-snapshot-board')
     localStorage.removeItem(SETTINGS_KEY)
+    localStorage.removeItem(DIRECTORY_KEY)
   } catch {
     // ignore
   }

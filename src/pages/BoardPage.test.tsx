@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router'
 import { afterEach, expect, test, vi } from 'vitest'
 import { makeMockTasks } from '../data/mockTasks'
 import { fakeUseTasks } from '../data/fakeUseTasks'
+import { fakeBoardDirectory, fakeBoardSession } from '../board/fakeBoardDirectory'
 import { useTasks } from '../data/useTasks'
 
 // Mocks the three data sources BoardPage composes, so this test can drive the offline-boot
@@ -33,6 +34,10 @@ const tasks = fakeUseTasks()
 
 vi.mock('../auth/AuthProvider', () => ({ useAuth: () => h.auth }))
 vi.mock('../data/SettingsProvider', () => ({ useSettingsContext: () => h.settings }))
+vi.mock('../board/BoardDirectoryProvider', () => ({
+  useBoardDirectoryContext: () => fakeBoardDirectory(),
+  useBoardSession: () => fakeBoardSession(),
+}))
 vi.mock('../data/useTasks', () => ({ useTasks: vi.fn() }))
 vi.mocked(useTasks).mockImplementation(() => tasks)
 

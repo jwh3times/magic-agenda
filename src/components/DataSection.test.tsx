@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { serializeExport } from '../data/exportImport'
 import { NO_RECUR, type Task } from '../types/task'
+import { fakeBoardDirectory } from '../board/fakeBoardDirectory'
 
 const h = vi.hoisted(() => {
   const inserted: unknown[][] = []
@@ -29,6 +30,9 @@ vi.mock('../lib/supabase', () => ({
   },
 }))
 
+vi.mock('../board/BoardDirectoryProvider', () => ({
+  useBoardDirectoryContext: () => fakeBoardDirectory(),
+}))
 vi.mock('../auth/AuthProvider', () => ({
   useAuth: () => ({ user: { id: 'u1' } }),
 }))

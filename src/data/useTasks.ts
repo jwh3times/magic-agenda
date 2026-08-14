@@ -68,7 +68,7 @@ export interface UseTasks extends TaskBoard {
  * a `reload()` in that state succeeds against RLS with `[]` and no error — a "successful" load
  * that authenticated nothing. See `hasLoadedFromServer` below.
  */
-export function useTasks(userId: string, hasSession: boolean): UseTasks {
+export function useTasks(userId: string, boardId: string, hasSession: boolean): UseTasks {
   const [tasks, _setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -129,13 +129,13 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
       try {
         const { error: err } = await supabase
           .from('tasks')
-          .insert(instances.map((t) => taskToRow(t, userId)))
+          .insert(instances.map((t) => taskToRow(t, userId, boardId)))
         if (err) throw new Error(err.message)
       } catch (e) {
         setError(errorMessage(e))
       }
     },
-    [setTasks, userId, markWrites],
+    [setTasks, userId, boardId, markWrites],
   )
 
   /**
@@ -145,7 +145,7 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
    * there is nothing to materialize for anyway.
    */
   const hydrateFromSnapshot = useCallback(() => {
-    const snap = readBoardSnapshot(userId)
+    const snap = readBoardSnapshot(userId, boardId)
     if (!snap) return false
     templatesRef.current = snap.templates
     setTasks(snap.tasks)
@@ -153,13 +153,17 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
     setOffline(true)
     setError(null)
     return true
-  }, [userId, setTasks])
+  }, [userId, boardId, setTasks])
 
   const reload = useCallback(async () => {
     // Signed out. `BoardPage` calls this hook before its own `if (!userId) return <Spinner/>`,
     // and the settings side has guarded this since it was hoisted above <Routes>; without it
     // every signed-out visitor fires a `tasks` select that RLS answers with `[]`.
-    if (!userId) {
+    // `!boardId` is the same shape of guard for the same reason: the Board Directory resolves
+    // asynchronously, so this hook mounts with no Board selected. An unfiltered load in that window
+    // would fetch every task the account owns across every Board — which is precisely the
+    // "unfiltered production task load" this phase exists to make impossible.
+    if (!userId || !boardId) {
       setLoading(false)
       return
     }
@@ -170,7 +174,7 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
     setLoading(true)
     setError(null)
     try {
-      const { data, error: err } = await supabase.from('tasks').select('*')
+      const { data, error: err } = await supabase.from('tasks').select('*').eq('board_id', boardId)
       if (err) {
         if (hydrateFromSnapshot()) return
         setError(err.message)
@@ -194,7 +198,7 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
       setLoading(false)
       inFlight.current = false
     }
-  }, [userId, setTasks, materialize, hydrateFromSnapshot, hasSession])
+  }, [userId, boardId, setTasks, materialize, hydrateFromSnapshot, hasSession])
 
   useEffect(() => {
     // `void reload()` runs reload's synchronous prefix (before its first `await`) inline, and
@@ -211,7 +215,7 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
     // reasoning before adding one.
     // oxlint-disable-next-line react/react-compiler
     void reload()
-  }, [reload, userId])
+  }, [reload, userId, boardId])
 
   // Persist the board for offline reads. Debounced because optimistic CRUD churns `tasks`;
   // a rolled-back write re-renders the restored state and the next tick writes that, so this
@@ -230,10 +234,10 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
     )
       return
     const id = window.setTimeout(() => {
-      writeBoardSnapshot(userId, tasksRef.current, templatesRef.current)
+      writeBoardSnapshot(userId, boardId, tasksRef.current, templatesRef.current)
     }, 1000)
     return () => window.clearTimeout(id)
-  }, [userId, hasSession, offline, loading, tasks])
+  }, [userId, boardId, hasSession, offline, loading, tasks])
 
   // Live changes from other devices/sessions.
   const onRemoteChange = useCallback(
@@ -270,7 +274,9 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
         templatesRef.current = [...templatesRef.current, task]
         markWrites([task.id])
         try {
-          const { error: err } = await supabase.from('tasks').insert(taskToRow(task, userId))
+          const { error: err } = await supabase
+            .from('tasks')
+            .insert(taskToRow(task, userId, boardId))
           if (err) throw new Error(err.message)
         } catch (e) {
           setError(errorMessage(e))
@@ -289,14 +295,14 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
       setTasks((p) => [...p, full])
       markWrites([full.id])
       try {
-        const { error: err } = await supabase.from('tasks').insert(taskToRow(full, userId))
+        const { error: err } = await supabase.from('tasks').insert(taskToRow(full, userId, boardId))
         if (err) throw new Error(err.message)
       } catch (e) {
         setTasks(prev)
         setError(errorMessage(e))
       }
     },
-    [setTasks, materialize, userId, markWrites],
+    [setTasks, materialize, userId, boardId, markWrites],
   )
 
   const updateTask = useCallback(
@@ -309,7 +315,7 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
         try {
           const { error: err } = await supabase
             .from('tasks')
-            .update(taskToRow(task, userId))
+            .update(taskToRow(task, userId, boardId))
             .eq('id', task.id)
           if (err) throw new Error(err.message)
         } catch (e) {
@@ -331,7 +337,7 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
       try {
         const { error: err } = await supabase
           .from('tasks')
-          .update(taskToRow(task, userId))
+          .update(taskToRow(task, userId, boardId))
           .eq('id', task.id)
         if (err) throw new Error(err.message)
       } catch (e) {
@@ -339,7 +345,7 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
         setError(errorMessage(e))
       }
     },
-    [setTasks, materialize, reload, userId, markWrites],
+    [setTasks, materialize, reload, userId, boardId, markWrites],
   )
 
   const removeTask = useCallback(
@@ -369,7 +375,7 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
       try {
         const { error: err } = await supabase
           .from('tasks')
-          .update(taskToRow(toggled, userId))
+          .update(taskToRow(toggled, userId, boardId))
           .eq('id', id)
         if (err) throw new Error(err.message)
       } catch (e) {
@@ -377,7 +383,7 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
         setError(errorMessage(e))
       }
     },
-    [setTasks, userId, markWrites],
+    [setTasks, userId, boardId, markWrites],
   )
 
   const persistReorder = useCallback(
@@ -385,7 +391,7 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
       setTasks(next)
       const rows = next
         .filter((t) => containers.includes(mode === 'day' ? t.day : t.status))
-        .map((t) => taskToRow(t, userId))
+        .map((t) => taskToRow(t, userId, boardId))
       if (rows.length === 0) return
       markWrites(rows.map((r) => r.id))
       try {
@@ -396,7 +402,7 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
         void reload()
       }
     },
-    [setTasks, userId, reload, markWrites],
+    [setTasks, userId, boardId, reload, markWrites],
   )
 
   const rollForward = useCallback(
@@ -408,7 +414,7 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
       markWrites(changed.map((t) => t.id))
       try {
         const { error: err } = await supabase.from('tasks').upsert(
-          changed.map((t) => taskToRow(t, userId)),
+          changed.map((t) => taskToRow(t, userId, boardId)),
           { onConflict: 'id' },
         )
         if (err) throw new Error(err.message)
@@ -417,7 +423,7 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
         setError(errorMessage(e))
       }
     },
-    [setTasks, markWrites, userId],
+    [setTasks, markWrites, userId, boardId],
   )
 
   const clearError = useCallback(() => setError(null), [])
@@ -459,7 +465,7 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
       if (plan.upserts.length > 0) {
         try {
           const { error: err } = await supabase.from('tasks').upsert(
-            plan.upserts.map((t) => taskToRow(t, userId)),
+            plan.upserts.map((t) => taskToRow(t, userId, boardId)),
             { onConflict: 'id' },
           )
           if (err) throw new Error(err.message)
@@ -489,7 +495,7 @@ export function useTasks(userId: string, hasSession: boolean): UseTasks {
         await materialize(plan.materialize, [...plan.state.tasks])
       }
     },
-    [setTasks, markWrites, userId, reload, materialize],
+    [setTasks, markWrites, userId, boardId, reload, materialize],
   )
 
   const seriesState = useCallback(

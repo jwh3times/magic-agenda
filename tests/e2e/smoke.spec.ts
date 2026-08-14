@@ -135,13 +135,21 @@ test.describe('signed in', () => {
     await expect(page.getByRole('button', { name: '+ New task' })).toBeVisible()
     await expect(page.getByText(SEEDED_TITLES[0])).toBeVisible()
 
-    // The snapshot is written on a 1s debounce after tasks settle (src/data/useTasks.ts:259-265),
-    // while Board renders the moment the load resolves. Reloading offline before that write lands
-    // means readBoardSnapshot returns null, hydrateFromSnapshot returns false, and the page shows
-    // ErrorScreen instead of the banner -- a coin-flip failure, and retries are 0.
-    await page.waitForFunction(() => !!localStorage.getItem('ma-snapshot-board'), null, {
-      timeout: 15_000,
-    })
+    // The snapshot is written on a 1s debounce after tasks settle, while Board renders the moment
+    // the load resolves. Reloading offline before that write lands means readBoardSnapshot returns
+    // null, hydrateFromSnapshot returns false, and the page shows ErrorScreen instead of the banner
+    // -- a coin-flip failure, and retries are 0.
+    //
+    // Matched by PREFIX, not by an exact key: board snapshots are keyed per Board
+    // (`ma-snapshot-board.<boardId>`), and this test cannot know the seeded account's board id
+    // without querying for it. Waiting on the old singular `ma-snapshot-board` key is what broke
+    // when snapshots became per-Board -- it simply never appears, so this timed out at 15s and
+    // reported as a snapshot-fallback regression rather than as a stale test.
+    await page.waitForFunction(
+      () => Object.keys(localStorage).some((k) => k.startsWith('ma-snapshot-board.')),
+      null,
+      { timeout: 15_000 },
+    )
 
     // The realtime WebSocket is not routable and does not need to be: the REST load failing is what
     // reaches hydrateFromSnapshot.

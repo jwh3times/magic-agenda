@@ -197,6 +197,18 @@ changed" — a policy cannot see the old row. Practical consequence: a fixture t
 service client to create a Board gets a permission error; seed through direct SQL instead of
 widening the grant.
 
+**The app layer has since caught up to this schema — RLS has not.** `BoardDirectoryProvider`
+(`src/board/BoardDirectoryProvider.tsx`, mounted above `<Routes>` beside `SettingsProvider`, see
+below) loads the signed-in Account's current Memberships joined to their Boards, resolves which one
+is open (`resolveSelection()` in `src/board/selection.ts`), and exposes it as `useBoardSession()`'s
+`board` + `can` — the first real caller of `src/board/role.ts`'s capabilities. `useTasks` now takes
+a `boardId` and loads/writes `.eq('board_id', boardId)`; `taskToRow` sends both `user_id` and
+`board_id`; offline board snapshots are keyed per Board; and `DataSection`'s import/export is scoped
+the same way. **None of this is enforcement.** It narrows what the client *asks* for — RLS still
+narrows what the server *allows*, and today that is still `user_id = auth.uid()` alone. A `board_id`
+for a Board this Account cannot reach is not something the shipped UI can produce, but the database
+does not yet refuse it either; that gap only closes at the authorization cutover described above.
+
 ### App / DB boundary conventions: get these wrong and data breaks subtly
 
 - **`'inbox'` <-> `NULL`**: the app `Task.day` is the literal `'inbox'` (unscheduled) or `'YYYY-MM-DD'`.
@@ -209,16 +221,31 @@ widening the grant.
 
 ### Data ownership: `BoardPage` owns state; task operations cross one context seam
 
-`pages/BoardPage.tsx` wires `useTasks(userId, hasSession)` + `useSettingsContext()` +
-`ThemeProvider`, then publishes the board-facing half of `useTasks` through `TaskBoardContext`.
-`Board` holds only **UI** state (view, anchor date, editing modal, pop animation, filter); its four
-props are account settings/navigation, not task operations. This keeps `Board` testable without
-Supabase: `Board.test.tsx` supplies the same `TaskBoard` interface with a stateful in-memory adapter.
-Tests that mock `useTasks` itself start from `fakeUseTasks()` so interface additions cannot leave
-partial, untyped return objects behind.
+`pages/BoardPage.tsx` wires `useTasks(userId, boardId, hasSession)` + `useSettingsContext()` +
+`useBoardDirectoryContext()` / `useBoardSession()` + `ThemeProvider`, then publishes the
+board-facing half of `useTasks` through `TaskBoardContext`. `boardId` is the session-wide Board
+Directory's resolved selection (`selectedBoardId`, see below), not something `BoardPage` decides
+itself: while the directory is still loading it is `null`, `useTasks` guards on `!boardId` the same
+shape as its existing `!userId` guard, and `BoardPage` gates its own render on `boardsLoading` too —
+rendering before the directory resolves would show the board's empty state, indistinguishable from a
+genuinely empty board. `Board` holds only **UI** state (view, anchor date, editing modal, pop
+animation, filter); its four props are account settings/navigation, not task operations. This keeps
+`Board` testable without Supabase: `Board.test.tsx` supplies the same `TaskBoard` interface with a
+stateful in-memory adapter. Tests that mock `useTasks` itself start from `fakeUseTasks()`, and tests
+that mock the Board Directory start from `fakeBoardDirectory()` (`src/board/fakeBoardDirectory.ts`,
+the same typed-fake precedent as `fakeUseTasks` and `fakeAuthGateway`), so interface additions
+cannot leave partial, untyped return objects behind.
 `useTasks` remains the single source of truth for board tasks: optimistic CRUD with rollback, plus
 `persistReorder` (upserts only the changed lanes). Its raw React setter is private; drag-over uses
 the narrower `previewReorder(next)` command.
+
+Default View is a **Membership Preference, not an Account Preference**:
+`board_memberships.default_view` describes how this Account experiences *this* Board, so
+`BoardPage` reads `board?.defaultView ?? settings.defaultView` and `SettingsPage` writes both copies
+on change — `useBoardDirectory`'s `setDefaultView()` (through the column-level `grant update
+(default_view)` above) and the existing `user_settings` write via `saveView()`. Writing only one is
+how the two would silently diverge: the `user_settings` column is still what the currently-deployed
+client reads, and it is only dropped once nothing reads it, in a later cleanup step.
 
 `BoardActionContext` is the internal UI seam below `Board`. It publishes editor/add/card actions and
 the done-pop id at their use sites, so the view modules pass tasks and layout parameters rather than
@@ -230,21 +257,32 @@ follow a write end-to-end, read the consuming card/cell -> `Board` -> `TaskBoard
 Settings are **session-scoped, not page-scoped**: `SettingsProvider` (`src/data/SettingsProvider.tsx`)
 owns the single `useSettings(userId, hasSession)` call above `<Routes>` in `App.tsx`, so navigating
 between `/` and `/settings` no longer refetches or rebuilds the realtime channel. It mounts for
-signed-out visitors too, which is why `useSettings` no-ops on an empty `userId`. `useTasks` is
-deliberately **not** hoisted with it — `BoardPage` is lazy-loaded to keep dnd-kit and the board data
-layer out of the entry chunk.
+signed-out visitors too, which is why `useSettings` no-ops on an empty `userId`.
+`BoardDirectoryProvider` (`src/board/BoardDirectoryProvider.tsx`) is mounted the same way, above
+`<Routes>` beside `SettingsProvider`, and for the same reason — `/` and `/settings` are mutually
+exclusive, and `DataSection` on `/settings` writes tasks on import, so it needs a Board id just as
+much as the board itself does. Unlike `useTasks`, hoisting it costs nothing at the entry chunk: it
+is one small query plus a pure selection, with no dnd-kit or board data layer behind it. `useTasks`
+is deliberately **not** hoisted with either — `BoardPage` is lazy-loaded to keep dnd-kit and the
+board data layer out of the entry chunk.
 
-**Both hooks take `userId` and `hasSession` as separate arguments on purpose.** `userId` may resolve
-from the last-known id in `localStorage` with no live session behind it (the offline-boot fallback),
-which is fine for _reading_ a snapshot — but a snapshot _write_ requires the stricter `hasSession`.
+**`useTasks`, `useSettings`, and `useBoardDirectory` all take `userId` and `hasSession` as separate
+arguments, on purpose.** `userId` may resolve from the last-known id in `localStorage` with no live
+session behind it (the offline-boot fallback), which is fine for _reading_ a snapshot — but a
+snapshot _write_, or trusting an empty server response, requires the stricter `hasSession`.
 Collapsing the two is not hypothetical: a signed-out visitor with a stale `ma-last-user` queries
 `user_settings` from the public landing page, RLS returns zero rows **with no error**, and treating
 that as "no row yet" overwrites the user's saved settings snapshot with `DEFAULTS`. The same
-conflation lets a sessionless reconnect persist an empty board. That rule now has **one
-implementation**, `canPersistSnapshot()` in `src/data/snapshot.ts`, which both hooks call and
-whose docstring explains why each of its five clauses is load-bearing. It previously had two
-implementations and three prose copies, one of which smuggled the rule in as a positional boolean
-argument named `persistSnapshot`.
+conflation lets a sessionless reconnect persist an empty board — or would let `useBoardDirectory`
+purge every cached Board snapshot on a device that is merely offline rather than actually revoked.
+`useTasks` and `useSettings` share **one implementation** of the write-gate, `canPersistSnapshot()`
+in `src/data/snapshot.ts`, whose docstring explains why each of its five clauses is load-bearing; it
+previously had two implementations and three prose copies, one of which smuggled the rule in as a
+positional boolean argument named `persistSnapshot`. `useBoardDirectory` checks `hasSession`
+directly for its own purge decision rather than calling `canPersistSnapshot` — "trust an empty Board
+list" is a related but distinct question from the one that function answers. `useTasks` additionally
+takes a `boardId`, the Board Directory's resolved selection, and refuses to load or write without
+one — the same shape of guard as its `!userId` check.
 
 ### Realtime sync is one module, not two copies
 
@@ -520,17 +558,30 @@ Cloudflare's snippet, not ours: a beacon update can change it and silently re-br
 app is unaffected). If the console reports a blocked inline script, copy the hash from that message
 into `script-src`.
 
-Offline read uses two versioned `localStorage` envelopes, both in `src/data/snapshot.ts` and both
-keyed to the signed-in user id: a board snapshot (tasks, the hidden recurrence templates, and a
-`savedAt` timestamp) and a settings snapshot. A version or user-id mismatch drops the envelope
-rather than migrating it. **Both are cleared on `SIGNED_OUT`** (`AuthProvider`) — that clearing is
-the entire justification for storing task text at rest in `localStorage` in the first place; see
-the dated security review in `private/` before changing what gets persisted or when it's cleared.
-`useTasks` hydrates from the board snapshot only when a server load fails, and deliberately
-**skips `materialize()`** on that path — running recurrence materialization over snapshot state
-would insert duplicate instance rows and hit `tasks_recur_instance_uniq` (Postgres 23505) the
-moment connectivity returns and the real load reruns. `useSettings` falls back to the settings
-snapshot on a failed load too, instead of silently resetting the user's theme to `DEFAULTS`.
+Offline read uses three versioned `localStorage` envelopes, all in `src/data/snapshot.ts` and all
+keyed to the signed-in user id: a board snapshot **per Board** (`ma-snapshot-board.<boardId>`;
+tasks, the hidden recurrence templates, and a `savedAt` timestamp), a directory snapshot (which
+Boards this device last saw and which one was open), and a settings snapshot. One account can hold
+several board snapshots at once, so the board key is namespaced rather than singular — that is also
+what makes purging one Board's snapshot possible without clearing every cached Board to do it.
+`cachedBoardIds()` enumerates them by a `localStorage` prefix scan for the two callers that cannot
+yet name a Board: `hasAnyBoardSnapshot()` (the offline-boot gate checked in `App` and
+`ProtectedRoute` before a Board is selected or even known) and `clearSnapshots()`'s sign-out sweep. A version, user-id, or
+**board-id** mismatch drops the envelope rather than migrating it — a board snapshot's own `boardId`
+field guards against a hand-edited or collided key rendering one Board's tasks under another Board's
+name. **All three are cleared on `SIGNED_OUT`** (`AuthProvider`) — that clearing is the entire
+justification for storing task text at rest in `localStorage` in the first place; see the dated
+security review in `private/` before changing what gets persisted or when it's cleared. `useTasks`
+hydrates from the board snapshot only when a server load fails, and deliberately **skips
+`materialize()`** on that path — running recurrence materialization over snapshot state would insert
+duplicate instance rows and hit `tasks_recur_instance_uniq` (Postgres 23505) the moment connectivity
+returns and the real load reruns. `useSettings` falls back to the settings snapshot on a failed load
+too, instead of silently resetting the user's theme to `DEFAULTS`. `useBoardDirectory` purges the
+snapshots of Boards the server no longer returns — computed from the server's list via
+`purgeableBoardIds()`, never from what is cached locally, so a load that returns nothing purges
+everything rather than preserving it — but only under a real session, since a sessionless read
+succeeding with `[]` must not be read as "this Account has no Boards" (the same hazard
+`canPersistSnapshot` exists to prevent elsewhere).
 
 `tsconfig.worker.json` is a **third project-reference sibling** (alongside the app and node
 configs): it gives `src/sw.ts` and `src/sw/policy.ts` the WebWorker lib with no DOM, so the worker

@@ -86,8 +86,8 @@ test('while the session is resolving, neither the landing page nor the board is 
 test('signed out and online: renders the landing page even with a snapshot on hand', async () => {
   localStorage.setItem('ma-last-user', 'u1')
   localStorage.setItem(
-    'ma-snapshot-board',
-    JSON.stringify({ v: 2, userId: 'u1', savedAt: 1, tasks: [], templates: [] }),
+    'ma-snapshot-board.b1',
+    JSON.stringify({ v: 3, userId: 'u1', boardId: 'b1', savedAt: 1, tasks: [], templates: [] }),
   )
   setOnLine(true)
   render(<App />)
@@ -109,8 +109,8 @@ test('signed out, offline, no snapshot: still renders the landing page', async (
 test('signed out, offline, snapshot for the last user: renders the board instead of the landing page', async () => {
   localStorage.setItem('ma-last-user', 'u1')
   localStorage.setItem(
-    'ma-snapshot-board',
-    JSON.stringify({ v: 2, userId: 'u1', savedAt: 1, tasks: [], templates: [] }),
+    'ma-snapshot-board.b1',
+    JSON.stringify({ v: 3, userId: 'u1', boardId: 'b1', savedAt: 1, tasks: [], templates: [] }),
   )
   setOnLine(false)
   render(<App />)
@@ -122,8 +122,8 @@ test('a lingering recovery flag blocks the offline fallback at / too', async () 
   h.auth.passwordRecovery = true
   localStorage.setItem('ma-last-user', 'u1')
   localStorage.setItem(
-    'ma-snapshot-board',
-    JSON.stringify({ v: 2, userId: 'u1', savedAt: 1, tasks: [], templates: [] }),
+    'ma-snapshot-board.b1',
+    JSON.stringify({ v: 3, userId: 'u1', boardId: 'b1', savedAt: 1, tasks: [], templates: [] }),
   )
   setOnLine(false)
   render(<App />)

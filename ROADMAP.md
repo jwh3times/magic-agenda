@@ -292,6 +292,14 @@ Larger efforts that fit the app's direction but are not near-term.
       attribution columns already landed with step 1, ahead of this schedule.)
   3. App: board directory and selection, per-board offline snapshots with an authoritative
       access-loss purge, `board_id` realtime filter, and a one-board export/import format.
+      **Partially landed, app layer only — no schema or RLS change, so this is still step 1's
+      "not an authorization boundary yet."** `useBoardDirectory` now loads `board_memberships`
+      joined to `boards`, remembers the open Board, and purges any Board snapshot the server stops
+      returning; `useTasks` takes a `boardId` and loads/writes `.eq('board_id', boardId)`; board
+      snapshots are keyed per Board. Still outstanding from this step: the realtime channel in
+      `useSyncedTable` is still per-user, not per-Board, and `DataSection`'s import/export is
+      scoped by `board_id` but the export file format itself is unchanged (still v1, not a
+      one-Board format yet).
   4. Recurrence carries over cleanly — nothing keys on `user_id` except RLS — but its uniqueness
       and parent constraints become board-qualified so a series cannot span boards.
 

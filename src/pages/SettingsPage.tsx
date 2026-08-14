@@ -10,6 +10,7 @@ import { Spinner } from '../components/Spinner'
 import { useSettingsContext } from '../data/SettingsProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { readLastUserId } from '../lib/lastUser'
+import { useBoardDirectoryContext, useBoardSession } from '../board/BoardDirectoryProvider'
 import type { ViewName } from '../types/task'
 
 export interface SectionContext {
@@ -35,6 +36,8 @@ const SECTIONS: SettingsSection[] = [
 export function SettingsPage() {
   const { user } = useAuth()
   const { settings, loading, saveTheme, saveView } = useSettingsContext()
+  const { setDefaultView } = useBoardDirectoryContext()
+  const { board } = useBoardSession()
   // Same reasoning as BoardPage: ProtectedRoute has already made the auth decision, and on the
   // offline-boot fallback (no session, offline, snapshot present) there is no `user`, but this
   // page still needs a resolved id — `readLastUserId()` is what `SettingsProvider` used to fetch
@@ -43,9 +46,20 @@ export function SettingsPage() {
 
   if (!userId || loading || !settings) return <Spinner />
 
+  // Default View is a Membership Preference, not an Account Preference: it describes how one
+  // account experiences ONE board, so it is read from the selected Membership. `user_settings`
+  // still carries a copy that the currently-deployed client reads, so the write below goes to
+  // both — writing only one is how the two silently diverge. The `user_settings` column is
+  // dropped in the cleanup phase, once nothing reads it.
+  const membershipView = board?.defaultView ?? settings.defaultView
+  const changeView = (view: ViewName) => {
+    saveView(view)
+    if (board) void setDefaultView(board.id, view)
+  }
+
   return (
     <ThemeProvider initial={settings.theme} onThemeChange={saveTheme}>
-      <SettingsShell defaultView={settings.defaultView} onChangeView={saveView} />
+      <SettingsShell defaultView={membershipView} onChangeView={changeView} />
     </ThemeProvider>
   )
 }
