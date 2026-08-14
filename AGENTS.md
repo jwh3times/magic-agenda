@@ -192,7 +192,12 @@ Four things here are load-bearing and none is obvious from the schema alone:
   a stale client's task into the wrong one. It must be dropped in the same release that enables
   Board creation, so stale clients hit the NOT NULL and fail closed. A client-version prompt cannot
   substitute — navigations are network-first, so the worker updates on navigation and a long-open
-  board tab never navigates.
+  board tab never navigates. It is a `before insert` trigger, and that ordering is why it still
+  works after the authorization cutover: Postgres fires `before` triggers before it evaluates a
+  policy's `with check`, so this fills in `board_id` in time for `tasks_insert_editor` to see a
+  populated column rather than the `NULL` the client actually sent — a board-less insert would
+  otherwise fail that check outright (`NULL in (select …)` is not `true`), not just the `NOT NULL`
+  constraint below it.
 - **No `app_private` schema yet, deliberately.** Only the *co-member* clause on `board_memberships`
   needs a `security definer` helper, because it subqueries its own table and raises `infinite
   recursion detected in policy for relation`. That clause is a sharing feature with nothing to do
@@ -677,10 +682,12 @@ them: every function in `public` with its definer flag / `search_path` / whether
 ACL, every schema reachable by the Data API roles, and every policy that applies to `PUBLIC`
 because it names no role. The remaining known weakness: `set_updated_at` is still EXECUTE-able by
 `PUBLIC` via PostgreSQL's default, tolerable only because it is an invoker trigger function
-unreachable outside a trigger context, and all seven legacy policies on `tasks` / `user_settings`
-still target `PUBLIC` (the five Board policies name `authenticated` explicitly instead). This
-paragraph used to also record `handle_new_user` as `security definer` with `search_path=public`
-rather than the empty path a definer should have, and as EXECUTE-able by `PUBLIC` — that was the
+unreachable outside a trigger context, and the three legacy policies on `user_settings` still
+target `PUBLIC` (the four `tasks` policies and the five Board policies all name `authenticated`
+explicitly instead — the `tasks` ones only since the authorization cutover, which is when this list
+shrank from seven to three). This paragraph used to also record `handle_new_user` as `security
+definer` with `search_path=public` rather than the empty path a definer should have, and as
+EXECUTE-able by `PUBLIC` — that was the
 "specific point in the board work" the surrounding prose said it would stop being tolerable at:
 `handle_new_user` is hardened now (empty `search_path`, EXECUTE revoked from `PUBLIC`), and the two
 lifecycle functions the board work added beside it (`handle_account_deletion`, also `security
@@ -930,7 +937,15 @@ restore *succeeds* into a database where no task belongs to any reachable board.
 functions, the restored schema has policies and constraints whose lifecycle triggers are missing,
 which shows up first as `Database error deleting user`. The function check matters most because
 `supabase db dump` takes **no `--schema` flag** here, so what it captures is a vendor default this
-repo does not control.
+repo does not control. `has_function()` normalises quotes the same way `has_table()` already did,
+learned the hard way: the v1.2.76 version matched raw `pg_dump`'s unquoted `FUNCTION public.$fn`,
+but the workflow runs `supabase db dump`, which quotes every identifier
+(`"public"."handle_new_user"`) — so the check could never match and would have failed every nightly
+run, caught only by a dump-side rehearsal (`docs/runbooks/restore-from-backup.md`) before it ran
+for real. Since the authorization cutover, the verify step also asserts `schema.sql` defines at
+least 12 policies (`grep -c '^CREATE POLICY'`) — a dump that captured tables and functions but no
+policies would restore into a database that is default-deny on every table, which fails closed but
+silently, indistinguishable at a glance from every user losing their data.
 
 Because this repository is public and **GitHub artifacts on public repos are downloadable by
 anyone**, the bundle is GPG-symmetric-encrypted on the runner before upload; the plaintext never

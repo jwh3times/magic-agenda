@@ -12,6 +12,40 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.78] - 2026-08-14
+
+### Fixed
+
+- The nightly backup job would have failed outright on its next run, producing **no backup**. The
+  function assertion added in v1.2.76 was written as a literal `grep "FUNCTION public.<name>"` and
+  verified against raw `pg_dump`, which writes identifiers unquoted — but the job runs
+  `supabase db dump`, which writes `"public"."handle_new_user"`, so the check could never match. The
+  last successful run predated that change, so no backup was lost. Quotes are now normalised the way
+  the neighbouring table check already did, and the verify step additionally asserts the dump carries
+  at least twelve policies — a bundle that restored tables and functions but no policies would come
+  back default-deny on every table, which fails closed but looks identical to total data loss.
+
+### Internal
+
+- **Task access is now governed by Board membership rather than row ownership.** `tasks.board_id` is
+  NOT NULL, and the four policies compare it against the caller's current Memberships; `user_id` is
+  no longer an authorization input anywhere and survives only until it is dropped. This is a change
+  of reason, not of result — every task was already backfilled with a Board and every account has
+  exactly one, so the new predicate selects precisely the rows the old one did. Reading is open to
+  any current member, including Viewers; writing requires owner or editor.
+- A Recurring Series can no longer span Boards, enforced by a composite foreign key rather than a
+  policy — so it holds even for a caller who can legitimately edit both. Occurrence uniqueness moved
+  to `(board_id, recur_parent_id, recur_origin_day)`.
+- The realtime filter is now part of each adapter's spec instead of being hardcoded to `user_id`:
+  tasks subscribe by `board_id`, settings by `user_id`. The Board Directory revalidates membership
+  when the tab wakes or the network returns, because nothing pushes "your access ended" — the server
+  simply stops returning the Board, and a filtered channel goes quiet rather than announcing it.
+- Deliberately **not** in this release: the command layer, UPSERT elimination, and revision-aware
+  echo suppression. Those are concurrency semantics that only bite once two people write to the same
+  Board, and bundling a write-path rewrite into the release that changes who may reach a task would
+  make it far harder to review or bisect. Revision-aware echo suppression in particular cannot work
+  before the write path stamps and returns a revision.
+
 ## [1.2.77] - 2026-08-14
 
 ### Internal
@@ -1574,7 +1608,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.77...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.78...HEAD
+[1.2.78]: https://github.com/jwh3times/magic-agenda/compare/v1.2.77...v1.2.78
 [1.2.77]: https://github.com/jwh3times/magic-agenda/compare/v1.2.76...v1.2.77
 [1.2.76]: https://github.com/jwh3times/magic-agenda/compare/v1.2.75...v1.2.76
 [1.2.75]: https://github.com/jwh3times/magic-agenda/compare/v1.2.74...v1.2.75
