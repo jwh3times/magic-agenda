@@ -77,6 +77,13 @@ const serverRow = (over: Record<string, unknown> = {}) => ({
   recur_parent_id: null,
   recur_skip: [],
   recur_origin_day: null,
+  // Board containment, attribution, and the compare-and-swap token. Present on every row since the
+  // Board foundation migration; still unread by the app, which is why the mapper ignores them.
+  board_id: null,
+  author_id: null,
+  last_editor_id: null,
+  author_kind: 'author',
+  revision: 1,
   created_at: '',
   updated_at: '',
   ...over,

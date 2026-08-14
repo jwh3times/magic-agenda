@@ -71,7 +71,8 @@ skill automates the whole flow, backfill included.
 ## Architecture (the parts that span multiple files)
 
 Pure SPA -> Supabase, no server of our own. Postgres **Row-Level Security is the only authorization
-boundary** (every table default-denies and scopes to `auth.uid() = user_id`); the anon key is public
+boundary** (every table default-denies; `tasks`/`user_settings` scope to `auth.uid() = user_id`,
+and the Board tables scope through Membership — see below); the anon key is public
 by design.
 
 Dated security reviews live in `private/` — **git-ignored, local to the maintainer's checkout**, so
@@ -146,6 +147,55 @@ carries no vitest import and nothing in the app imports it, so it never reaches 
 `src/auth/verifyOtpContract.test.ts` pins the vendor ordering that the recovery gate depends on. It
 lived in `src/lib/` with no module behind it; `redeemToken` is now its owner, which is why the
 "do not defer this call" warning sits in that method's body.
+
+### Board ownership: schema is live, containment is not yet authoritative
+
+`account_profiles`, `boards`, and `board_memberships` exist in production, every Account has exactly
+one Board, and every task carries a `board_id`. **None of it is an authorization boundary yet.**
+`tasks` policies still compare `user_id` to `auth.uid()`, so board containment is data integrity,
+not access control — `tests/rls/boards.test.ts` asserts that state deliberately, and that test flips
+to expecting an error at the cutover. Do not read "boards exist" as "tasks are scoped by boards".
+
+Four things here are load-bearing and none is obvious from the schema alone:
+
+- **`handle_new_user` now seeds four rows** — settings, profile, Board, Owner Membership — in the
+  signup transaction. A failure in any of them fails registration, which is the correct trade (an
+  Account with no Board is broken) but puts this function on the critical path of every signup. It
+  is hardened per the plan: `security definer` with `set search_path = ''`, so **every reference in
+  its body must be schema-qualified** — an unqualified one is now a runtime error, not a silent
+  resolution.
+- **`handle_account_deletion` is required by the check constraint, not optional polish.**
+  `board_memberships.account_id` is `on delete set null` and the table carries
+  `check (account_id is not null or ended_at is not null)`, so deleting an `auth.users` row nulls
+  `account_id` on a still-current row and the check fires — `Database error deleting user`, for
+  every account. This `before delete` trigger ends Memberships and drops Private Boards first. It
+  reads `old.id`, never `auth.uid()`, because `auth.admin.deleteUser` runs administratively. If a
+  future deletion failure points here, fix the ordering, not the constraint.
+- **`tasks_infer_board_id` is temporary, and dropping it is a security event.** It routes a
+  board-less insert (what the currently-deployed client sends) to the account's single Board. That
+  is only correct while there *is* a single Board: the moment a second can exist, it silently files
+  a stale client's task into the wrong one. It must be dropped in the same release that enables
+  Board creation, so stale clients hit the NOT NULL and fail closed. A client-version prompt cannot
+  substitute — navigations are network-first, so the worker updates on navigation and a long-open
+  board tab never navigates.
+- **No `app_private` schema yet, deliberately.** Only the *co-member* clause on `board_memberships`
+  needs a `security definer` helper, because it subqueries its own table and raises `infinite
+  recursion detected in policy for relation`. That clause is a sharing feature with nothing to do
+  while every Board has one Membership. Everything shipped is self-scoped or crosses relations.
+  Measured, not assumed: a policy calling a function in a private schema requires the **calling**
+  role to hold `USAGE` and `EXECUTE` or the query dies with `permission denied for function`, so
+  such a helper can never be hidden from `authenticated` — only from `anon`. What actually keeps a
+  schema off the Data API is `[api] schemas` in `config.toml`; PostgREST refuses an unlisted schema
+  with `PGRST106` even for `service_role`.
+
+The Board tables grant **SELECT only**, and nothing at all to `service_role` — a deliberate
+departure from `tasks`/`user_settings`, which grant full DML to all three Data API roles. Board
+lifecycle and membership administration carry invariants a direct table write cannot enforce, so
+there is no correct direct-write grant. The one exception is column-level: `grant update
+(default_view)` and `grant update (display_name)`, because RLS cannot express "only this column
+changed" — a policy cannot see the old row. Practical consequence: a fixture that reaches for the
+service client to create a Board gets a permission error; seed through direct SQL instead of
+widening the grant.
 
 ### App / DB boundary conventions: get these wrong and data breaks subtly
 
@@ -541,11 +591,17 @@ client reducer silently diverges.
 equality in both directions, so changing it is a deliberate act with a diff attached. Three of
 them: every function in `public` with its definer flag / `search_path` / whether it carries its own
 ACL, every schema reachable by the Data API roles, and every policy that applies to `PUBLIC`
-because it names no role. All three deliberately record known weaknesses rather than a clean bill
-of health — `handle_new_user` is `security definer` with `search_path=public` rather than the empty
-path a definer should have, both functions are EXECUTE-able by `PUBLIC` via PostgreSQL's default,
-and all seven legacy policies target `PUBLIC`. Each is tolerable for a specific reason stated in
-the file, and each stops being tolerable at a specific point in the board work; recording them is
+because it names no role. The remaining known weakness: `set_updated_at` is still EXECUTE-able by
+`PUBLIC` via PostgreSQL's default, tolerable only because it is an invoker trigger function
+unreachable outside a trigger context, and all seven legacy policies on `tasks` / `user_settings`
+still target `PUBLIC` (the five Board policies name `authenticated` explicitly instead). This
+paragraph used to also record `handle_new_user` as `security definer` with `search_path=public`
+rather than the empty path a definer should have, and as EXECUTE-able by `PUBLIC` — that was the
+"specific point in the board work" the surrounding prose said it would stop being tolerable at:
+`handle_new_user` is hardened now (empty `search_path`, EXECUTE revoked from `PUBLIC`), and the two
+lifecycle functions the board work added beside it (`handle_account_deletion`, also `security
+definer`; `tasks_infer_board_id`, deliberately an invoker) are hardened the same way from birth.
+Each remaining weakness is tolerable for a specific reason stated in the file; recording them is
 what turns "someday" into a line someone has to delete. A baseline that *shrinks* is a failure too:
 that means it is stale and the smaller set must be committed.
 
@@ -780,6 +836,17 @@ though the schema dump excludes them. Do not "helpfully" add a separate `--schem
 one existed until v1.2.27 and was a strict subset that made restores fail on duplicate `auth.users`
 keys. The verify step asserts `data.sql` contains both `public.tasks` and `auth.users`, which is what
 would catch that CLI behaviour changing.
+
+It also asserts the three Board tables are in `data.sql` and that `schema.sql` defines
+`handle_new_user`, `handle_account_deletion`, and `tasks_infer_board_id`. Both additions guard the
+same failure: a bundle that verifies clean and restores into a broken database. Without the Board
+tables, every restored task carries a `board_id` pointing at nothing — and because `data.sql` sets
+`session_replication_role = replica` on its own first line, the foreign key does not stop it, so the
+restore *succeeds* into a database where no task belongs to any reachable board. Without the
+functions, the restored schema has policies and constraints whose lifecycle triggers are missing,
+which shows up first as `Database error deleting user`. The function check matters most because
+`supabase db dump` takes **no `--schema` flag** here, so what it captures is a vendor default this
+repo does not control.
 
 Because this repository is public and **GitHub artifacts on public repos are downloadable by
 anyone**, the bundle is GPG-symmetric-encrypted on the runner before upload; the plaintext never

@@ -21,8 +21,8 @@ outage.
 
 | File         | Contents                                                                                  | Why it matters                                                              |
 | ------------ | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `schema.sql` | DDL for the `public` schema **only**                                                        | Nearly a substitute for `supabase/migrations/` — but it omits `on_auth_user_created`, which lives on `auth.users`. See 3.1 |
-| `data.sql`   | **All** rows — `public` (`tasks`, `user_settings`) **and** `auth` (`auth.users`, sessions…) | Everything. This single file carries both the accounts and their boards      |
+| `schema.sql` | DDL for the `public` schema **only**                                                        | Nearly a substitute for `supabase/migrations/` — but it omits `on_auth_user_created` and `on_auth_user_deleted`, both triggers on `auth.users`. See 3.1 |
+| `data.sql`   | **All** rows — `public` (`tasks`, `user_settings`, `boards`, `board_memberships`, `account_profiles`) **and** `auth` (`auth.users`, sessions…) | Everything. This single file carries the accounts and the boards they own      |
 
 `data.sql` holds the `auth` rows as well as the `public` ones — `supabase db dump --data-only`
 includes Supabase-managed schemas even though the schema dump excludes them. There is one data file
@@ -48,6 +48,19 @@ restore's. Reproduced in the 2026-07-27 rehearsal: trigger present, replica mode
 dies with `duplicate key value violates unique constraint "user_settings_pkey"`. This only bites
 when the target *has* the trigger, which is a live question — see step 3.1.
 
+Since v1.2.76 the same trigger seeds two more rows the same way (`account_profiles`, guarded by its
+own `on conflict do nothing`) plus two it cannot guard at all (`boards`, `board_memberships`,
+guarded only by "does a current membership already exist", which is false the instant `auth.users`
+lands and `board_memberships` hasn't been restored yet). Reasoned from the migrations, not
+independently reproduced: `account_profiles` fails the same way `user_settings` does — a duplicate
+`account_id` primary key once `data.sql` reaches its own insert. `boards` and `board_memberships` do
+**not** fail — the trigger mints a fresh random board id, so there is nothing for the dump's own
+board row to collide with — which is worse, not better: it leaves the account owning a second,
+empty, phantom board with its own current membership, and no constraint in the schema catches it,
+because the unique index is scoped to `(board_id, account_id)`, not to "one current board per
+account". This is exactly the failure mode `session_replication_role = replica` on line 1 exists to
+prevent; it is one more reason never to strip that line, not a new step to take.
+
 **The circular foreign key on `tasks` is not a hazard here, despite the warning.** `pg_dump` warns
 on every run:
 
@@ -68,6 +81,18 @@ rows, replica mode off — which restored cleanly.
 Do not "fix" the warning by changing what gets dumped. But do not lean on this either if the dump
 format ever changes: a switch to `COPY`, or a `--rows-per-insert` cap that splits a table across
 statements, would reintroduce exactly the ordering problem the warning describes.
+
+**The `auth.users → boards → board_memberships → tasks` dependency chain is not an ordering hazard
+either, for the same reason.** `session_replication_role = replica` disables every FK trigger for
+the duration of the load, so it does not matter whether `data.sql` happens to emit `boards` before
+`board_memberships` before `tasks` — untested here, since the CLI is not asked to justify its
+statement order and nothing in this repo pins it. What replica mode does *not* disable is `CHECK`
+constraints (evaluated directly by the executor, not as a trigger) and unique indexes such as
+`board_memberships_current_uniq` — but those need no ordering help either: they were satisfied by
+the live database this dump came from, and a dump reproduces rows, not the sequence of writes that
+produced them. The one thing that *would* defeat this is restoring a **partial** `data.sql` (for
+example, hand-extracting `public.tasks` rows without their boards) — do not do that; see Step 2 for
+when a targeted restore instead of a full one is the right call.
 
 ## 1. Get the bundle and open it
 
@@ -122,35 +147,50 @@ pooler). The region and the `aws-0`/`aws-1` prefix vary per project, and a wrong
 `session_replication_role` is a session-level setting and the load runs as a single transaction; the
 transaction pooler multiplexes statements across backends and breaks both.
 
-### 3.1 Schema — and the trigger the bundle cannot carry
+### 3.1 Schema — and the two triggers the bundle cannot carry
 
 **Preferred: apply the migrations.** `supabase db push` builds the schema from
-`supabase/migrations/`, which includes `on_auth_user_created`, so the result is correct by
-construction. It is also the right choice whenever the backup predates the newest migration.
+`supabase/migrations/`, which includes both `on_auth_user_created` and `on_auth_user_deleted`, so
+the result is correct by construction. It is also the right choice whenever the backup predates the
+newest migration.
 
-**Alternative: load `schema.sql`.** Self-contained, but it is a **`public`-schema dump**, and
-`on_auth_user_created` is a trigger on `auth.users` — so it is **not in the bundle at all**:
+**Alternative: load `schema.sql`.** Self-contained, but it is a **`public`-schema dump**, and both
+triggers live on `auth.users` — so **neither is in the bundle at all**:
 
 ```bash
 psql "$PGURI" -v ON_ERROR_STOP=1 -f schema.sql
 ```
 
-On this path you **must** recreate the trigger, or the restore looks perfect and the app is quietly
-broken for everyone who signs up afterwards: they get no `user_settings` row. `schema.sql` does carry
-`handle_new_user()`, so only the trigger is missing:
+On this path you **must** recreate both, or the restore looks perfect and two different things break
+quietly. `schema.sql` does carry the functions behind them (`handle_new_user()`,
+`handle_account_deletion()`, `tasks_infer_board_id()` — all `public`-schema objects, so only the
+`auth.users` triggers are missing), so it is just the two `create trigger` statements:
 
 ```bash
 psql "$PGURI" -v ON_ERROR_STOP=1 -c '
 create or replace trigger on_auth_user_created
   after insert on auth.users
-  for each row execute function public.handle_new_user();'
+  for each row execute function public.handle_new_user();
+
+create or replace trigger on_auth_user_deleted
+  before delete on auth.users
+  for each row execute function public.handle_account_deletion();'
 ```
 
-`supabase/migrations/20260629120000_init.sql:109` is the source of truth for that DDL — copy it from
-there if it has since changed. Step 4 asserts the trigger exists, because nothing else surfaces this:
-the 2026-07-27 rehearsal found it only by inserting a probe user and checking whether settings
-appeared. Order does not matter — `data.sql` runs in replica mode, so the trigger is inert during the
-load whether it exists yet or not.
+Without `on_auth_user_created`, everyone who signs up afterwards gets no `user_settings` row (and,
+since v1.2.76, no `account_profiles`/`boards`/`board_memberships` rows either — a broken account with
+nowhere to put a task). Without `on_auth_user_deleted`, the very next `delete-account` call fails
+outright: `board_memberships.account_id` is `on delete set null` but the table's check constraint
+requires a null `account_id` to sit on an already-ended row, so the delete raises
+`Database error deleting user` instead of quietly degrading. That failure mode is loud, not silent —
+but it is still worth getting right the first time rather than discovering it mid-incident.
+
+`supabase/migrations/20260629120000_init.sql:109` is the source of truth for the first trigger's DDL;
+`supabase/migrations/20260813210400_account_deletion.sql` is the source of truth for the second.
+Copy from there if either has since changed. Step 4 asserts both triggers exist, because nothing else
+surfaces this: the 2026-07-27 rehearsal found the first one missing only by inserting a probe user
+and checking whether settings appeared. Order does not matter — `data.sql` runs in replica mode, so
+both triggers are inert during the load whether they exist yet or not.
 
 ### 3.2 Data
 
@@ -173,8 +213,10 @@ slow restore means something is wrong, not that it is working hard.
 2026-07-27**, where it reports `usesuper = f` and the `SET` still succeeds. If it is ever refused,
 remember the setting also sits on **line 1 of `data.sql`**, so the load aborts inside the file and
 `--single-transaction` rolls it back. You would then have to both strip that line *and* drop
-`on_auth_user_created` for the duration, then recreate it. Dropping the trigger alone is sufficient —
-the foreign-key ordering is a non-issue, as above — which the rehearsal confirmed.
+`on_auth_user_created` for the duration, then recreate it — and, since v1.2.76, `on_auth_user_deleted`
+too, though that one is far less likely to fire mid-load (nothing in `data.sql` deletes from
+`auth.users`). Dropping the trigger(s) alone is sufficient — the foreign-key ordering is a non-issue,
+as above — which the rehearsal confirmed for `on_auth_user_created`.
 
 ## 4. Verify before declaring victory
 
@@ -182,10 +224,28 @@ the foreign-key ordering is a non-issue, as above — which the rehearsal confir
 select count(*) from auth.users;
 select count(*) from public.tasks;
 select count(*) from public.user_settings;
+select count(*) from public.boards;
+select count(*) from public.board_memberships;
+select count(*) from public.account_profiles;
 -- No task may reference a user that did not come back:
 select count(*) from public.tasks t
   left join auth.users u on u.id = t.user_id
  where u.id is null;   -- must be 0
+
+-- Nor a board that did not come back — the v1.2.76 companion to the check above. board_id is still
+-- nullable pre-cutover, so a legitimately-unrouted task is not itself a defect; a task pointing at a
+-- board that is simply absent from the restore is:
+select count(*) from public.tasks t
+  left join public.boards b on b.id = t.board_id
+ where t.board_id is not null and b.id is null;   -- must be 0
+
+-- Nor a board without a current owner — the backfill's own gate (20260813210200), re-checked here
+-- because a partial restore of board_memberships would violate it silently, not loudly:
+select count(*) from public.boards b
+ where not exists (
+   select 1 from public.board_memberships m
+    where m.board_id = b.id and m.role = 'owner' and m.ended_at is null
+ );   -- must be 0
 
 -- And no recurring instance may reference a template that did not come back. This is the check
 -- that catches a restore done with FK triggers disabled but rows missing — the failure the
@@ -197,12 +257,15 @@ select count(*) from public.tasks t
 -- Authorization came back. RLS is the ONLY authorization boundary in this app, so a restore that
 -- silently lost it is a security incident that every count above would still report as clean:
 select bool_and(relrowsecurity) from pg_class
- where relname in ('tasks', 'user_settings');                  -- must be true
-select count(*) from pg_policies where schemaname = 'public';  -- must be 7
+ where relname in ('tasks', 'user_settings', 'boards', 'board_memberships', 'account_profiles');
+                                                                 -- must be true
+select count(*) from pg_policies where schemaname = 'public';  -- must be 12
 
--- The auth-schema trigger exists. schema.sql cannot carry it (see 3.1), and its absence is
--- invisible until a new user signs up and silently gets no settings row:
+-- The two auth-schema triggers exist. schema.sql cannot carry either (see 3.1), and their absence
+-- is invisible until, respectively, a new user signs up and silently gets no settings/board row, or
+-- an existing user tries to delete their account and gets "Database error deleting user":
 select count(*) from pg_trigger where tgname = 'on_auth_user_created';  -- must be 1
+select count(*) from pg_trigger where tgname = 'on_auth_user_deleted';  -- must be 1
 ```
 
 If any count is wrong, do not put the project back in front of users — the restore is incomplete, and
@@ -244,6 +307,14 @@ Rehearse in **two passes** — they catch different classes of defect, and the c
 2. **A throwaway hosted project**, which is the only place 3.0 (IPv6 vs. the pooler) and 3.2
    (`session_replication_role` as a non-superuser) are real. Delete it immediately afterwards — it
    holds every user's email address and password hash.
+
+**Not yet rehearsed against the Board tables.** The 2026-07-27 rehearsal below predates
+`account_profiles` / `boards` / `board_memberships`, the `on_auth_user_deleted` trigger, and the
+`board_id` orphan/ownership checks added to Step 4 in v1.2.76 — those are reasoned from the same
+mechanics the 2026-07-27 pass verified (replica-mode FK suppression, the CLI's `INSERT`-per-table
+shape), not independently confirmed by running the file. Treat the two new `on_auth_user_*`-trigger
+recreate commands in 3.1 and the new counts in Step 4 as unverified until the next quarterly
+rehearsal exercises them.
 
 ### Rehearsal log
 

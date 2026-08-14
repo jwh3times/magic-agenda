@@ -12,6 +12,40 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.76] - 2026-08-13
+
+### Internal
+
+- Added the Board ownership foundation: `account_profiles`, `boards`, and `board_memberships`, plus
+  `board_id`, `author_id`, `last_editor_id`, `author_kind`, and `revision` on `tasks`. Every account
+  is backfilled with one board and an owner membership, every task is routed through it, and
+  `default_view` is copied from `user_settings` onto the membership. **Additive only — no behaviour
+  changes.** `tasks` policies still compare `user_id` to `auth.uid()`, so board containment is data
+  integrity rather than access control; a test asserts that state deliberately so the authorization
+  cutover is a visible change rather than a silent one.
+- Hardened the signup trigger, which now seeds settings, profile, board, and owner membership in one
+  transaction: `search_path` is empty rather than `public` (so no unqualified name in its body can
+  be shadowed), and EXECUTE is revoked from `PUBLIC`.
+- Added an account-deletion trigger, which the new check constraint made mandatory rather than
+  optional. `board_memberships.account_id` is `on delete set null` and the table requires a null
+  `account_id` to sit on an ended row, so deleting an `auth.users` row otherwise failed with
+  `Database error deleting user` for every account. The trigger ends memberships and drops private
+  boards first, reads `old.id` rather than `auth.uid()` because deletion runs administratively, and
+  carries the sole-owner-of-a-shared-board refusal that must already be correct on the day the first
+  board is shared.
+- Added a temporary trigger routing board-less task inserts to the account's single board, so the
+  currently-deployed client keeps working. **Dropping it is the stale-client fail-closed mechanism**
+  and belongs to the release that enables board creation; until then it is only correct because
+  every account has exactly one board.
+- Extended the nightly backup verification to assert the three board tables are in the data dump and
+  that the schema dump defines the lifecycle functions. Both guard the same failure: a bundle that
+  verifies clean and restores into a database where no task belongs to a reachable board, because
+  `data.sql` disables triggers and foreign keys during load.
+- No `app_private` schema yet, deliberately. Measured on a local stack: only the co-member predicate
+  needs a security-definer helper (it recurses on its own table), a policy calling into a private
+  schema requires the calling role to hold `USAGE` and `EXECUTE` or the query dies outright, and
+  what actually keeps a schema off the Data API is `[api] schemas`, not schema `USAGE`.
+
 ## [1.2.75] - 2026-08-13
 
 ### Internal
@@ -1511,7 +1545,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.75...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.76...HEAD
+[1.2.76]: https://github.com/jwh3times/magic-agenda/compare/v1.2.75...v1.2.76
 [1.2.75]: https://github.com/jwh3times/magic-agenda/compare/v1.2.74...v1.2.75
 [1.2.74]: https://github.com/jwh3times/magic-agenda/compare/v1.2.73...v1.2.74
 [1.2.73]: https://github.com/jwh3times/magic-agenda/compare/v1.2.72...v1.2.73
