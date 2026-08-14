@@ -174,6 +174,9 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
     table: 'user_settings',
     // The settings row is keyed by the user, not by a synthetic id.
     primaryKey: 'user_id',
+    // Account Preferences genuinely are account-scoped, so this one stays on `user_id`.
+    filterColumn: 'user_id',
+    filterValue: userId,
     reload: load,
     onChange: onRemoteChange,
     isOwnWrite,

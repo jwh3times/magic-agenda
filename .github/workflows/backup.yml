@@ -113,6 +113,25 @@ jobs:
           }
           has_table() { tables "$1" | grep -qx "$2"; }
 
+          # Same normalisation, same reason, for functions — and this one was got wrong once
+          # already. The check shipped in v1.2.76 as a literal `grep "FUNCTION public\.$fn"`,
+          # verified against raw `pg_dump` output, which writes identifiers unquoted. But this job
+          # runs `supabase db dump`, which writes
+          # `CREATE OR REPLACE FUNCTION "public"."handle_new_user"()` — so the assertion could never
+          # match and would have failed the whole backup job on its first nightly run, producing no
+          # backup at all. Caught by dumping a real local database and running the assertion against
+          # it, before that run happened.
+          #
+          # The lesson worth keeping: verify a dump assertion against the command the workflow
+          # actually runs, not against a close relative of it.
+          functions() {
+            grep -oE '^CREATE (OR REPLACE )?FUNCTION +[^(]+' "$1" \
+              | awk '{ print $NF }' \
+              | tr -d '"' \
+              | sort -u
+          }
+          has_function() { functions "$1" | grep -qx "$2"; }
+
           for f in schema data; do
             [ -s "backup/$f.sql" ] || fail "backup/$f.sql is empty or missing"
           done
@@ -148,9 +167,16 @@ jobs:
           # policies that call functions it did not capture. That produces a database which cannot
           # authorize anything, from a backup that verified clean.
           for fn in handle_new_user handle_account_deletion tasks_infer_board_id; do
-            grep -q "FUNCTION public\.$fn" backup/schema.sql \
+            has_function backup/schema.sql "public.$fn" \
               || fail "schema.sql does not define public.$fn — the authorization/lifecycle layer was not captured"
           done
+
+          # The policies are the authorization boundary itself. A schema dump that restored tables
+          # and functions but no policies would produce a database that is default-deny on every
+          # table — which fails closed, but silently and identically to "everyone lost their data".
+          policy_count=$(grep -c '^CREATE POLICY' backup/schema.sql || true)
+          [ "${policy_count:-0}" -ge 12 ] \
+            || fail "schema.sql defines only ${policy_count:-0} policies — expected at least 12; the authorization boundary was not captured"
 
           echo "Dump sizes (bytes):"
           wc -c backup/*.sql

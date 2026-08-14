@@ -14,6 +14,25 @@ let bob: TestUser
 let aliceBoardId: string
 let aliceMembershipId: string
 
+/**
+ * Runs an INSERT as `postgres` and returns the error message, or '' on success.
+ *
+ * Issued outside RLS on purpose: it is how a constraint gets tested independently of any policy.
+ * A test that went through the Data API could not tell "the constraint refused this" apart from
+ * "the policy refused this", and the constraint is the one that has to hold for callers who
+ * legitimately can edit both boards.
+ */
+async function rawInsertError(sql: string, params: unknown[]): Promise<string> {
+  return withPg(async (pg) => {
+    try {
+      await pg.query(sql, params)
+      return ''
+    } catch (e) {
+      return e instanceof Error ? e.message : String(e)
+    }
+  })
+}
+
 beforeAll(async () => {
   alice = await createTestUser()
   bob = await createTestUser()
@@ -181,25 +200,189 @@ test('a task inserted without board_id is routed to the account’s board', asyn
   await alice.client.from('tasks').delete().eq('board_id', aliceBoardId)
 })
 
-test('board containment is NOT yet an authorization boundary', async () => {
-  // Documents the current state rather than asserting a security property, because getting this
-  // wrong in the other direction is the real risk: someone reads "boards exist" and assumes tasks
-  // are scoped by them. They are not. `tasks` policies still compare `user_id` to `auth.uid()`, so
-  // bob can attach a task to alice's board id — the FK permits it and nothing checks membership.
+test('board containment IS the authorization boundary', async () => {
+  // This test used to assert the opposite, and the flip is the whole point of the cutover. Before
+  // it, `tasks` policies compared `user_id` to `auth.uid()`, so bob could file a task into alice's
+  // board: the foreign key permitted it and nothing checked membership. Nothing leaked — alice's
+  // own policy was `user_id`-scoped too, so she could not see it — but containment was decorative.
   //
-  // Alice still cannot SEE it (her policy is `user_id`-scoped too), so nothing leaks; what is
-  // missing is containment integrity, and closing it is exactly what the authorization cutover
-  // does. When that lands, this test flips to expecting an error — a visible, deliberate change
-  // rather than a silent one.
-  const { data, error } = await bob.client
+  // Now the INSERT policy's WITH CHECK requires the incoming `board_id` to be one the caller may
+  // edit, so the row is refused outright.
+  const { error } = await bob.client
     .from('tasks')
     .insert({ user_id: bob.id, title: 'cross-board', board_id: aliceBoardId })
-    .select('id')
-    .single()
-  expect(error).toBeNull()
+  expect(error).not.toBeNull()
+  expect(error?.code).toBe('42501')
 
   const { data: aliceSees } = await alice.client.from('tasks').select('id')
   expect(aliceSees).toEqual([])
+})
 
-  await bob.client.from('tasks').delete().eq('id', data!.id)
+test('a non-member cannot read, update, or delete another board’s tasks', async () => {
+  // The three read/write legs, asserted separately because they are three policies and a mistake in
+  // any one of them is invisible from the others. SELECT filters (no error, no rows); UPDATE and
+  // DELETE match nothing rather than erroring, because a row you cannot see is a row you cannot
+  // target — which is why each assertion checks the row is still intact afterwards rather than
+  // trusting an empty result.
+  const { data: seeded, error: seedError } = await alice.client
+    .from('tasks')
+    .insert({ user_id: alice.id, title: 'alice private', board_id: aliceBoardId })
+    .select('id')
+    .single()
+  expect(seedError).toBeNull()
+
+  const { data: bobSees, error: readError } = await bob.client
+    .from('tasks')
+    .select('id')
+    .eq('id', seeded!.id)
+  expect(readError).toBeNull()
+  expect(bobSees).toEqual([])
+
+  const { data: updated } = await bob.client
+    .from('tasks')
+    .update({ title: 'hijacked' })
+    .eq('id', seeded!.id)
+    .select('id')
+  expect(updated).toEqual([])
+
+  await bob.client.from('tasks').delete().eq('id', seeded!.id)
+
+  const { data: survived } = await alice.client
+    .from('tasks')
+    .select('title')
+    .eq('id', seeded!.id)
+    .single()
+  expect(survived?.title).toBe('alice private')
+
+  await alice.client.from('tasks').delete().eq('id', seeded!.id)
+})
+
+test('an ended membership grants no task access at all', async () => {
+  // Revocation, end to end at the database boundary. The membership row survives for history, so
+  // the predicate that matters is `ended_at is null` — dropping that clause from any of the four
+  // policies would let every former member keep full access, which no test above would catch.
+  const { data: seeded } = await alice.client
+    .from('tasks')
+    .insert({ user_id: alice.id, title: 'still alice', board_id: aliceBoardId })
+    .select('id')
+    .single()
+
+  // Give bob a real, current membership on alice's board, then end it.
+  await withPg((pg) =>
+    pg.query(
+      `insert into public.board_memberships (board_id, account_id, role)
+       values ($1, $2, 'editor')`,
+      [aliceBoardId, bob.id],
+    ),
+  )
+  const { data: whileMember } = await bob.client.from('tasks').select('id').eq('id', seeded!.id)
+  expect(whileMember).toHaveLength(1) // sanity: the fixture actually granted access
+
+  await withPg((pg) =>
+    pg.query(
+      `update public.board_memberships set ended_at = now(), end_reason = 'removed'
+        where board_id = $1 and account_id = $2 and ended_at is null`,
+      [aliceBoardId, bob.id],
+    ),
+  )
+
+  const { data: afterRemoval, error } = await bob.client
+    .from('tasks')
+    .select('id')
+    .eq('id', seeded!.id)
+  expect(error).toBeNull()
+  expect(afterRemoval).toEqual([])
+
+  const { error: writeError } = await bob.client
+    .from('tasks')
+    .insert({ user_id: bob.id, title: 'after removal', board_id: aliceBoardId })
+  expect(writeError).not.toBeNull()
+
+  await alice.client.from('tasks').delete().eq('id', seeded!.id)
+  await withPg((pg) =>
+    pg.query(`delete from public.board_memberships where board_id = $1 and account_id = $2`, [
+      aliceBoardId,
+      bob.id,
+    ]),
+  )
+})
+
+test('a viewer may read a board but not write to it', async () => {
+  // The role distinction, enforced where it actually matters. `src/board/role.ts` decides whether
+  // to render a button; this decides whether the write lands. A viewer whose UI was bypassed — an
+  // old client, a crafted request — must still be refused here.
+  const { data: seeded } = await alice.client
+    .from('tasks')
+    .insert({ user_id: alice.id, title: 'viewable', board_id: aliceBoardId })
+    .select('id')
+    .single()
+
+  await withPg((pg) =>
+    pg.query(
+      `insert into public.board_memberships (board_id, account_id, role)
+       values ($1, $2, 'viewer')`,
+      [aliceBoardId, bob.id],
+    ),
+  )
+
+  const { data: canRead } = await bob.client.from('tasks').select('id').eq('id', seeded!.id)
+  expect(canRead).toHaveLength(1)
+
+  const { error: insertError } = await bob.client
+    .from('tasks')
+    .insert({ user_id: bob.id, title: 'viewer write', board_id: aliceBoardId })
+  expect(insertError).not.toBeNull()
+  expect(insertError?.code).toBe('42501')
+
+  const { data: updated } = await bob.client
+    .from('tasks')
+    .update({ title: 'viewer edit' })
+    .eq('id', seeded!.id)
+    .select('id')
+  expect(updated).toEqual([])
+
+  await bob.client.from('tasks').delete().eq('id', seeded!.id)
+  const { data: survived } = await alice.client
+    .from('tasks')
+    .select('title')
+    .eq('id', seeded!.id)
+    .single()
+  expect(survived?.title).toBe('viewable')
+
+  await alice.client.from('tasks').delete().eq('id', seeded!.id)
+  await withPg((pg) =>
+    pg.query(`delete from public.board_memberships where board_id = $1 and account_id = $2`, [
+      aliceBoardId,
+      bob.id,
+    ]),
+  )
+})
+
+test('a recurring series cannot span boards', async () => {
+  // Enforced by the composite foreign key `(board_id, recur_parent_id) -> (board_id, id)`, not by a
+  // policy — so it holds even for a caller who can legitimately edit both boards, which is exactly
+  // the case a policy could not catch.
+  const { data: template } = await alice.client
+    .from('tasks')
+    .insert({
+      user_id: alice.id,
+      title: 'template',
+      board_id: aliceBoardId,
+      recur_freq: 'daily',
+    })
+    .select('id')
+    .single()
+
+  const { data: bobBoard } = await bob.client.from('board_memberships').select('board_id').single()
+
+  const message = await rawInsertError(
+    `insert into public.tasks (user_id, title, board_id, recur_parent_id, recur_origin_day)
+     values ($1, 'orphan instance', $2, $3, current_date)`,
+    [bob.id, bobBoard!.board_id, template!.id],
+  )
+  // A foreign-key violation, not a permission error: this is issued as `postgres`, which bypasses
+  // RLS entirely, so the only thing that can refuse it is the constraint itself.
+  expect(message).toMatch(/tasks_recur_parent_same_board|foreign key/i)
+
+  await alice.client.from('tasks').delete().eq('id', template!.id)
 })

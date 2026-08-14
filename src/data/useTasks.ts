@@ -263,6 +263,12 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     userId,
     table: 'tasks',
     primaryKey: 'id',
+    // Board-scoped, not account-scoped: this client only shows one Board, and after the
+    // authorization cutover `board_id` is also what the server uses to decide visibility.
+    // DELETE events remain unfilterable and fan out regardless, which is why the reducer treats
+    // an unknown id as a no-op.
+    filterColumn: 'board_id',
+    filterValue: boardId,
     reload,
     onChange: onRemoteChange,
     isOwnWrite,

@@ -148,13 +148,28 @@ carries no vitest import and nothing in the app imports it, so it never reaches 
 lived in `src/lib/` with no module behind it; `redeemToken` is now its owner, which is why the
 "do not defer this call" warning sits in that method's body.
 
-### Board ownership: schema is live, containment is not yet authoritative
+### Board ownership: containment IS the authorization boundary
 
 `account_profiles`, `boards`, and `board_memberships` exist in production, every Account has exactly
-one Board, and every task carries a `board_id`. **None of it is an authorization boundary yet.**
-`tasks` policies still compare `user_id` to `auth.uid()`, so board containment is data integrity,
-not access control — `tests/rls/boards.test.ts` asserts that state deliberately, and that test flips
-to expecting an error at the cutover. Do not read "boards exist" as "tasks are scoped by boards".
+one Board, and every task carries a `board_id` — which is now **NOT NULL and authoritative**. The
+four `tasks` policies compare `board_id` against the caller's current Memberships; `user_id` is no
+longer an authorization input anywhere and survives only until cleanup drops it.
+
+The policy shape is `board_id in (select ...)` rather than a helper function of `board_id`, and that
+is deliberate on two counts. A function taking the row's Board id cannot be hoisted to an InitPlan,
+so it would run once per row on the hottest query in the app; the uncorrelated subquery is evaluated
+once per statement. And it needs no `security definer` helper, so there is still no private schema —
+a policy that subqueries a **different** relation does not recurse.
+
+Read/write split: SELECT is any current member (Viewers included — that is what Viewer means),
+while INSERT/UPDATE/DELETE require `owner` or `editor`. UPDATE carries both `using` and `with check`
+and they answer different questions: `using` picks which rows may be targeted, `with check` decides
+what they may become. Without the second, an editable task could be UPDATEd to carry another Board's
+id, which is content transfer by field write. `tests/rls/boards.test.ts` pins all of this, including
+a Viewer being refused, an ended Membership granting nothing, and a Series being unable to span
+Boards — that last one enforced by the composite foreign key
+`(board_id, recur_parent_id) -> (board_id, id)`, not by a policy, so it holds even for a caller who
+can legitimately edit both Boards.
 
 Four things here are load-bearing and none is obvious from the schema alone:
 
@@ -177,7 +192,12 @@ Four things here are load-bearing and none is obvious from the schema alone:
   a stale client's task into the wrong one. It must be dropped in the same release that enables
   Board creation, so stale clients hit the NOT NULL and fail closed. A client-version prompt cannot
   substitute — navigations are network-first, so the worker updates on navigation and a long-open
-  board tab never navigates.
+  board tab never navigates. It is a `before insert` trigger, and that ordering is why it still
+  works after the authorization cutover: Postgres fires `before` triggers before it evaluates a
+  policy's `with check`, so this fills in `board_id` in time for `tasks_insert_editor` to see a
+  populated column rather than the `NULL` the client actually sent — a board-less insert would
+  otherwise fail that check outright (`NULL in (select …)` is not `true`), not just the `NOT NULL`
+  constraint below it.
 - **No `app_private` schema yet, deliberately.** Only the *co-member* clause on `board_memberships`
   needs a `security definer` helper, because it subqueries its own table and raises `infinite
   recursion detected in policy for relation`. That clause is a sharing feature with nothing to do
@@ -197,17 +217,20 @@ changed" — a policy cannot see the old row. Practical consequence: a fixture t
 service client to create a Board gets a permission error; seed through direct SQL instead of
 widening the grant.
 
-**The app layer has since caught up to this schema — RLS has not.** `BoardDirectoryProvider`
-(`src/board/BoardDirectoryProvider.tsx`, mounted above `<Routes>` beside `SettingsProvider`, see
-below) loads the signed-in Account's current Memberships joined to their Boards, resolves which one
-is open (`resolveSelection()` in `src/board/selection.ts`), and exposes it as `useBoardSession()`'s
-`board` + `can` — the first real caller of `src/board/role.ts`'s capabilities. `useTasks` now takes
-a `boardId` and loads/writes `.eq('board_id', boardId)`; `taskToRow` sends both `user_id` and
-`board_id`; offline board snapshots are keyed per Board; and `DataSection`'s import/export is scoped
-the same way. **None of this is enforcement.** It narrows what the client *asks* for — RLS still
-narrows what the server *allows*, and today that is still `user_id = auth.uid()` alone. A `board_id`
-for a Board this Account cannot reach is not something the shipped UI can produce, but the database
-does not yet refuse it either; that gap only closes at the authorization cutover described above.
+The app layer matches it. `BoardDirectoryProvider` (`src/board/BoardDirectoryProvider.tsx`, mounted
+above `<Routes>` beside `SettingsProvider`, see below) loads the signed-in Account's current
+Memberships joined to their Boards, resolves which one is open (`resolveSelection()` in
+`src/board/selection.ts`), and exposes it as `useBoardSession()`'s `board` + `can` — the first real
+caller of `src/board/role.ts`'s capabilities. `useTasks` takes a `boardId` and loads/writes
+`.eq('board_id', boardId)`; `taskToRow` sends both `user_id` and `board_id`; offline board snapshots
+are keyed per Board; realtime filters on `board_id`; and `DataSection`'s import/export is scoped the
+same way.
+
+**Client-side scoping is still not the boundary — it just no longer disagrees with it.** Everything
+above narrows what the client *asks* for; RLS narrows what the server *allows*, and since the
+cutover the two agree. `src/board/role.ts` says so in its own header, and it matters: a capability
+returning `true` grants nothing, and a `board_id` the caller cannot reach is now refused by the
+database rather than merely absent from the UI.
 
 ### App / DB boundary conventions: get these wrong and data breaks subtly
 
@@ -286,10 +309,25 @@ one — the same shape of guard as its `!userId` check.
 
 ### Realtime sync is one module, not two copies
 
-`src/data/useSyncedTable.ts` owns the per-user `postgres_changes` channel, echo suppression for
-this client's own writes (`useOwnWrites`, a 5s per-id TTL), reconnect with capped exponential
-backoff, and catch-up on `visibilitychange`/`online`. `useTasks` and `useSettings` are its two
-adapters and keep only their own load, state shape, and snapshot envelope.
+`src/data/useSyncedTable.ts` owns the `postgres_changes` channel, echo suppression for this client's
+own writes (`useOwnWrites`, a 5s per-id TTL), reconnect with capped exponential backoff, and
+catch-up on `visibilitychange`/`online`. `useTasks` and `useSettings` are its two adapters and keep
+only their own load, state shape, and snapshot envelope.
+
+**The filter is part of the adapter's spec, not hardcoded.** It was `user_id=eq.<userId>` for both
+tables until the authorization cutover; `tasks` now filters on `board_id` (a user-scoped
+subscription would deliver changes for every Board the Account belongs to, including rows this
+client is not loading), while `user_settings` stays on `user_id` because that genuinely is what
+scopes it. The channel topic is scoped by the filter value for the same reason — two Boards sharing
+one topic would reuse a subscription bound to the wrong filter. An empty filter value opens no
+channel, exactly as an empty `userId` does: the Board Directory resolves asynchronously, and an
+unfiltered subscription in that window is the realtime twin of an unfiltered load.
+
+`useBoardDirectory` registers its **own** `visibilitychange`/`online` catch-up, deliberately not
+folded in here. Nothing pushes "you were removed" to a client — the server just stops returning the
+Board, and a `board_id`-filtered channel goes quiet rather than announcing anything — so access has
+to be revalidated rather than awaited. Note this covers waking and reconnecting, **not** a tab that
+stays open and focused; a heartbeat for that belongs with sharing, when someone else can revoke you.
 
 This was two divergent copies until v1.2.57, and the divergence was a live bug, not just
 duplication: **`useSettings` had no reconnect path at all.** Its entire subscription tail was
@@ -644,10 +682,12 @@ them: every function in `public` with its definer flag / `search_path` / whether
 ACL, every schema reachable by the Data API roles, and every policy that applies to `PUBLIC`
 because it names no role. The remaining known weakness: `set_updated_at` is still EXECUTE-able by
 `PUBLIC` via PostgreSQL's default, tolerable only because it is an invoker trigger function
-unreachable outside a trigger context, and all seven legacy policies on `tasks` / `user_settings`
-still target `PUBLIC` (the five Board policies name `authenticated` explicitly instead). This
-paragraph used to also record `handle_new_user` as `security definer` with `search_path=public`
-rather than the empty path a definer should have, and as EXECUTE-able by `PUBLIC` — that was the
+unreachable outside a trigger context, and the three legacy policies on `user_settings` still
+target `PUBLIC` (the four `tasks` policies and the five Board policies all name `authenticated`
+explicitly instead — the `tasks` ones only since the authorization cutover, which is when this list
+shrank from seven to three). This paragraph used to also record `handle_new_user` as `security
+definer` with `search_path=public` rather than the empty path a definer should have, and as
+EXECUTE-able by `PUBLIC` — that was the
 "specific point in the board work" the surrounding prose said it would stop being tolerable at:
 `handle_new_user` is hardened now (empty `search_path`, EXECUTE revoked from `PUBLIC`), and the two
 lifecycle functions the board work added beside it (`handle_account_deletion`, also `security
@@ -897,7 +937,15 @@ restore *succeeds* into a database where no task belongs to any reachable board.
 functions, the restored schema has policies and constraints whose lifecycle triggers are missing,
 which shows up first as `Database error deleting user`. The function check matters most because
 `supabase db dump` takes **no `--schema` flag** here, so what it captures is a vendor default this
-repo does not control.
+repo does not control. `has_function()` normalises quotes the same way `has_table()` already did,
+learned the hard way: the v1.2.76 version matched raw `pg_dump`'s unquoted `FUNCTION public.$fn`,
+but the workflow runs `supabase db dump`, which quotes every identifier
+(`"public"."handle_new_user"`) — so the check could never match and would have failed every nightly
+run, caught only by a dump-side rehearsal (`docs/runbooks/restore-from-backup.md`) before it ran
+for real. Since the authorization cutover, the verify step also asserts `schema.sql` defines at
+least 12 policies (`grep -c '^CREATE POLICY'`) — a dump that captured tables and functions but no
+policies would restore into a database that is default-deny on every table, which fails closed but
+silently, indistinguishable at a glance from every user losing their data.
 
 Because this repository is public and **GitHub artifacts on public repos are downloadable by
 anyone**, the bundle is GPG-symmetric-encrypted on the runner before upload; the plaintext never

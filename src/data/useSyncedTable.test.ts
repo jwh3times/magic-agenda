@@ -132,6 +132,8 @@ function mount(over: Partial<Parameters<typeof useSyncedTable>[0]> = {}) {
       userId: 'u1',
       table: 'tasks',
       primaryKey: 'id',
+      filterColumn: 'board_id',
+      filterValue: 'b1',
       reload,
       onChange,
       isOwnWrite,
@@ -142,15 +144,37 @@ function mount(over: Partial<Parameters<typeof useSyncedTable>[0]> = {}) {
   return { ...view, reload, onChange }
 }
 
-test('opens a per-user channel scoped to that user’s rows', () => {
+test('scopes the channel and the filter to the spec’s filter column', () => {
+  // The filter used to be hardcoded to `user_id=eq.<userId>`. `tasks` is board-scoped now, so a
+  // user-scoped subscription would deliver changes for every board the account belongs to —
+  // including rows this client is not showing and, after the cutover, is not even loading.
   mount()
-  expect(h.capture.channelNames).toEqual(['tasks-u1'])
+  expect(h.capture.channelNames).toEqual(['tasks-b1'])
   expect(h.capture.filters[0]).toMatchObject({
     event: '*',
     schema: 'public',
     table: 'tasks',
-    filter: 'user_id=eq.u1',
+    filter: 'board_id=eq.b1',
   })
+})
+
+test('user_settings still scopes by user, because that is genuinely what scopes it', () => {
+  // The filter is per-adapter, not "boards everywhere": Account Preferences really are account-wide.
+  mount({
+    table: 'user_settings',
+    primaryKey: 'user_id',
+    filterColumn: 'user_id',
+    filterValue: 'u1',
+  })
+  expect(h.capture.channelNames).toEqual(['user_settings-u1'])
+  expect(h.capture.filters[0]).toMatchObject({ table: 'user_settings', filter: 'user_id=eq.u1' })
+})
+
+test('opens no channel until the filter value resolves', () => {
+  // The Board Directory settles asynchronously, so this hook mounts with no board selected. An
+  // unfiltered subscription in that window would be the realtime twin of an unfiltered load.
+  mount({ filterValue: '' })
+  expect(h.channelFn).not.toHaveBeenCalled()
 })
 
 test('opens no channel and registers no catch-up while signed out', () => {

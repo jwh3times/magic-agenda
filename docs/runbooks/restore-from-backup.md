@@ -308,16 +308,35 @@ Rehearse in **two passes** — they catch different classes of defect, and the c
    (`session_replication_role` as a non-superuser) are real. Delete it immediately afterwards — it
    holds every user's email address and password hash.
 
-**Not yet rehearsed against the Board tables.** The 2026-07-27 rehearsal below predates
+**Only partly rehearsed against the Board tables.** The 2026-07-27 rehearsal below predates
 `account_profiles` / `boards` / `board_memberships`, the `on_auth_user_deleted` trigger, and the
-`board_id` orphan/ownership checks added to Step 4 in v1.2.76 — those are reasoned from the same
-mechanics the 2026-07-27 pass verified (replica-mode FK suppression, the CLI's `INSERT`-per-table
-shape), not independently confirmed by running the file. Treat the two new `on_auth_user_*`-trigger
-recreate commands in 3.1 and the new counts in Step 4 as unverified until the next quarterly
-rehearsal exercises them.
+`board_id` orphan/ownership checks added to Step 4 in v1.2.76. A **dump-side** pass on 2026-08-14
+verified what the bundle contains (see the log), which upgraded one claim in this file from reasoned
+to measured: `schema.sql` really does carry **zero** `auth.users` triggers, so the recreate commands
+in 3.1 are load-bearing rather than precautionary.
+
+What is still unverified is the **load** side: no restore of a Board-era bundle into a fresh project
+has been run. Replica-mode FK suppression and the CLI's `INSERT`-per-table shape are still reasoned
+from the 2026-07-27 pass. Treat the new counts in Step 4 as unconfirmed until a quarterly rehearsal
+exercises them — the dump-side pass cannot, because the `public`-only `schema.sql` carries six
+foreign keys into `auth.users` and therefore cannot be restored into a bare database at all. It
+needs a project that provisions `auth` itself, which is exactly why step 1 says to create one.
 
 ### Rehearsal log
 
+- **2026-08-14** — **dump-side only**, at the authorization cutover. Dumped a real local database
+  with the same `supabase db dump` the workflow runs, then ran the workflow's own assertions against
+  the output. Confirmed the bundle carries all 12 policies, all four `public` functions including
+  the three lifecycle ones, the `board_id` NOT NULL, and the composite recurrence foreign key; and
+  that it carries **zero** `auth.users` triggers and six foreign keys into `auth.users`.
+  **Found one defect, which is the reason this pass was worth running:** the function assertion
+  added to `backup.yml` in v1.2.76 was written as `grep "FUNCTION public\.$fn"` and verified against
+  raw `pg_dump`, which writes identifiers unquoted. The workflow runs `supabase db dump`, which
+  writes `"public"."handle_new_user"` — so the assertion could never match and would have failed the
+  entire backup job on its next nightly run, producing no backup. The last successful run was
+  2026-08-13 10:02Z, before that change merged, so nothing was lost. Fixed by normalising quotes the
+  way the existing table check already did, two lines above it. No restore was performed: the
+  `public`-only dump cannot load into a bare database.
 - **2026-07-27** — first full rehearsal, against backup run `30265510548`. Restored twice, locally
   and into a throwaway hosted project via the Session pooler. Both reached counts matching production
   (5 accounts, 3 tasks, 5 settings rows) with both orphan checks at 0, RLS on, and 7 policies present;
