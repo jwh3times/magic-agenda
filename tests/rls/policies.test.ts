@@ -66,14 +66,26 @@ test('bob cannot insert a task owned by alice', async () => {
   expect(error?.code).toBe('42501')
 })
 
-test('alice cannot transfer her task to bob', async () => {
-  // The mirror of the above, on the UPDATE policy's WITH CHECK.
+test('alice cannot move her task into another board', async () => {
+  // The mirror of the above, on the UPDATE policy's WITH CHECK — but the thing being protected
+  // changed at the authorization cutover. It used to be `user_id`; it is now `board_id`.
+  //
+  // Reassigning `user_id` no longer fails, and that is correct rather than a hole: `user_id` is no
+  // longer an authorization input, the row stays in a board only alice can reach, and the column is
+  // dropped once nothing reads it. What must not be possible is moving a task ACROSS a board
+  // boundary with a plain update — content transfer is a deliberate command, not a field write.
+  const { data: bobBoard } = await bob.client.from('board_memberships').select('board_id').single()
+
   const { error } = await alice.client
     .from('tasks')
-    .update({ user_id: bob.id })
+    .update({ board_id: bobBoard!.board_id })
     .eq('id', aliceTaskId)
   expect(error).not.toBeNull()
   expect(error?.code).toBe('42501')
+
+  // ...and the task is still where it was.
+  const { data: after } = await alice.client.from('tasks').select('id').eq('id', aliceTaskId)
+  expect(after).toHaveLength(1)
 })
 
 test("bob cannot read alice's settings row", async () => {

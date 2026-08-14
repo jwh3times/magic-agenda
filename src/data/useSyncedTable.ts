@@ -101,6 +101,20 @@ export interface SyncedTableSpec {
   /** Column holding the row id used for echo suppression. */
   primaryKey: string
   /**
+   * The `postgres_changes` filter, and what scopes the channel.
+   *
+   * Used to be hardcoded to `user_id=eq.<userId>`, which stopped being right when task access
+   * became board-scoped: a client subscribed by `user_id` would keep receiving changes for every
+   * board the account belongs to, and would still be subscribed to rows it is no longer showing.
+   * `tasks` now filters on `board_id`; `user_settings` still filters on `user_id`, because that is
+   * genuinely what scopes it.
+   *
+   * An empty `filterValue` means "not resolvable yet" — the Board Directory has not settled — and
+   * opens no channel, the same way an empty `userId` does.
+   */
+  filterColumn: string
+  filterValue: string
+  /**
    * Re-read everything from the server. Called on reconnect, tab focus, and network restore.
    * **Must be referentially stable** — it is an effect dependency, and an unstable identity would
    * tear down and rebuild the channel on every render.
@@ -116,6 +130,8 @@ export function useSyncedTable({
   userId,
   table,
   primaryKey,
+  filterColumn,
+  filterValue,
   reload,
   onChange,
   isOwnWrite,
@@ -126,13 +142,15 @@ export function useSyncedTable({
   const retries = useRef(0)
 
   useEffect(() => {
-    if (!userId) return
+    if (!userId || !filterValue) return
     let disposed = false
     const channel = supabase
-      .channel(`${table}-${userId}`)
+      // Scoped by the filter value, not the user: two boards must not share one channel topic, or
+      // switching between them would reuse a subscription bound to the wrong filter.
+      .channel(`${table}-${filterValue}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table, filter: `user_id=eq.${userId}` },
+        { event: '*', schema: 'public', table, filter: `${filterColumn}=eq.${filterValue}` },
         (payload) => {
           const id = rowIdOf(payload, primaryKey)
           if (id !== null && isOwnWrite(id)) return
@@ -162,7 +180,7 @@ export function useSyncedTable({
       disposed = true
       void supabase.removeChannel(channel)
     }
-  }, [userId, table, primaryKey, epoch, reload, onChange, isOwnWrite])
+  }, [userId, table, primaryKey, filterColumn, filterValue, epoch, reload, onChange, isOwnWrite])
 
   // Mobile Safari (and others) kill background sockets aggressively — catch up on anything missed
   // when the tab regains focus or connectivity returns.

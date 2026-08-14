@@ -170,6 +170,32 @@ export function useBoardDirectory(userId: string, hasSession: boolean): UseBoard
     void reload()
   }, [reload])
 
+  // Membership revalidation on catch-up.
+  //
+  // Realtime improves freshness; it is not the source of access truth. Nothing pushes "you were
+  // removed" to this client: the server just stops returning the Board, and the task channel is
+  // filtered by `board_id` so it goes quiet rather than announcing anything. Without this, a tab
+  // that regains focus after a revocation would keep rendering a Board it no longer has, looking
+  // live rather than stale.
+  //
+  // Deliberately mirrors `useSyncedTable`'s catch-up rather than living inside it: this hook has no
+  // channel, and the question it answers — "do I still have access" — is not the one that module
+  // asks. Note this covers waking and reconnecting, NOT a tab that simply stays open and focused; a
+  // heartbeat for that case belongs with sharing, when a second person can actually revoke you.
+  useEffect(() => {
+    if (!userId) return
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void reload()
+    }
+    const onOnline = () => void reload()
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('online', onOnline)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('online', onOnline)
+    }
+  }, [userId, reload])
+
   const selectBoard = useCallback((boardId: string) => {
     writeRemembered(boardId)
     setRemembered(boardId)

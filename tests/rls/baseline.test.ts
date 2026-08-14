@@ -143,21 +143,22 @@ test('only the reviewed schemas are reachable by the Data API roles', async () =
 /**
  * Policies that do not name their roles, and therefore apply to `PUBLIC`.
  *
- * A policy with no `to` clause targets `PUBLIC`, which includes `anon`. The seven below are
+ * A policy with no `to` clause targets `PUBLIC`, which includes `anon`. The three below are
  * behaviourally safe because each compares `auth.uid()` to a column and `auth.uid()` is null for a
  * signed-out caller — null comparisons are not true, so anon reads return zero rows. They are
  * listed anyway because "safe by virtue of what the predicate happens to be" is a much weaker
  * property than "never evaluated for anon at all", and the difference stops being academic once
  * policies get predicates more complicated than one equality.
  *
- * Every policy the board work adds must name `authenticated` explicitly, so this list must not
- * grow. It shrinks to empty when the legacy policies are retargeted at the authorization cutover.
+ * **This list was seven until the authorization cutover.** The four `tasks` policies were replaced
+ * by board-membership ones that name `authenticated` explicitly, so they left it — a baseline
+ * shrinking is the intended direction here, and committing the smaller set is what keeps the
+ * assertion honest rather than a ceiling drifting above reality.
+ *
+ * The three that remain are `user_settings`, which the board work does not touch. This list must
+ * never grow; it reaches empty when those are retargeted.
  */
 const POLICIES_TARGETING_PUBLIC = [
-  'tasks.tasks_delete_own',
-  'tasks.tasks_insert_own',
-  'tasks.tasks_select_own',
-  'tasks.tasks_update_own',
   'user_settings.user_settings_insert_own',
   'user_settings.user_settings_select_own',
   'user_settings.user_settings_update_own',
