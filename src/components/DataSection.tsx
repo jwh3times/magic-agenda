@@ -2,6 +2,7 @@ import { useRef, useState, type CSSProperties } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
 import { rowToTask, taskToRow } from '../data/mappers'
+import { useBoardDirectoryContext } from '../board/BoardDirectoryProvider'
 import {
   chunk,
   parseExport,
@@ -32,6 +33,11 @@ interface ImportProgress {
 export function DataSection() {
   const { user } = useAuth()
   const userId = user?.id ?? ''
+  // Import writes tasks, so it needs a Board to write them into. Deliberately NOT left to the
+  // database's temporary board_id inference trigger: that trigger is dropped once a second Board
+  // can exist, and an importer depending on it would break silently at that moment.
+  const { selectedBoardId } = useBoardDirectoryContext()
+  const boardId = selectedBoardId ?? ''
   const fileRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [pending, setPending] = useState<BoardExport | null>(null)
@@ -59,7 +65,11 @@ export function DataSection() {
     setNotice(null)
     try {
       const [tasksRes, settingsRes] = await Promise.all([
-        supabase.from('tasks').select('*'),
+        // Scoped to the selected Board, not account-wide. Identical output while an account has one
+        // Board, and it is what keeps "no unfiltered task load exists in production code" true —
+        // an account-wide export would silently start mixing Boards the moment a second one exists.
+        // The file format is still v1; making it a one-Board format is a later, separate change.
+        supabase.from('tasks').select('*').eq('board_id', boardId),
         supabase.from('user_settings').select('*').eq('user_id', userId).maybeSingle(),
       ])
       if (tasksRes.error || settingsRes.error) {
@@ -133,7 +143,7 @@ export function DataSection() {
       for (; cursor < batches.length; cursor++) {
         const { error: err } = await supabase
           .from('tasks')
-          .insert(batches[cursor].map((t) => taskToRow(t, userId)))
+          .insert(batches[cursor].map((t) => taskToRow(t, userId, boardId)))
         if (err) throw new Error(err.message)
       }
     } catch {

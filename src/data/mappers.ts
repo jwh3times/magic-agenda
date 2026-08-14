@@ -52,10 +52,20 @@ export function rowToTask(row: TaskRow): Task {
 }
 
 /** app Task -> DB insert/update: inbox sentinel becomes NULL, order -> order_index, done is not stored. */
-export function taskToRow(task: Task, userId: string): TaskInsert {
+/**
+ * `boardId` is sent alongside `user_id` deliberately, not instead of it.
+ *
+ * Task policies still compare `user_id` to `auth.uid()`, so `user_id` is what authorizes the write
+ * today and `board_id` is what will authorize it after the cutover. Writing both is what lets those
+ * two facts be true at different times without a flag day: the database has a temporary trigger
+ * inferring `board_id` for clients that predate this code, and this is the other half — new clients
+ * stop depending on that trigger immediately, so dropping it later only breaks genuinely stale ones.
+ */
+export function taskToRow(task: Task, userId: string, boardId: string): TaskInsert {
   return {
     id: task.id,
     user_id: userId,
+    board_id: boardId,
     title: task.title,
     description: task.description,
     category: task.category,

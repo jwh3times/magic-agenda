@@ -134,7 +134,7 @@ test('a failed load falls back to the snapshot, not to DEFAULTS', async () => {
   localStorage.setItem(
     'ma-snapshot-settings',
     JSON.stringify({
-      v: 2,
+      v: 3,
       userId: 'u1',
       settings: { theme: 'glass', defaultView: 'kanban', weekStart: 1, timezone: 'Europe/London' },
     }),
@@ -190,7 +190,7 @@ test('an empty row with no session does not overwrite the existing snapshot', as
   localStorage.setItem(
     'ma-snapshot-settings',
     JSON.stringify({
-      v: 2,
+      v: 3,
       userId: 'u1',
       settings: { theme: 'brutal', defaultView: 'kanban', weekStart: 1, timezone: 'Europe/London' },
     }),

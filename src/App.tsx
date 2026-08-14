@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { SettingsProvider } from './data/SettingsProvider'
+import { BoardDirectoryProvider } from './board/BoardDirectoryProvider'
 import { TodayProvider } from './data/TodayProvider'
 import { Spinner } from './components/Spinner'
 import { UpdatePrompt } from './components/UpdatePrompt'
@@ -14,7 +15,7 @@ import { Privacy } from './pages/Privacy'
 import { Terms } from './pages/Terms'
 import { Landing } from './pages/Landing'
 import { useOnline } from './lib/useOnline'
-import { hasBoardSnapshot } from './data/snapshot'
+import { hasAnyBoardSnapshot } from './data/snapshot'
 import { readLastUserId } from './lib/lastUser'
 
 // The board pulls in dnd-kit, every view, the editor, and the Supabase data layer —
@@ -48,7 +49,7 @@ function HomeRoute() {
   const online = useOnline()
   if (loading) return <Spinner />
   if (!session) {
-    if (!online && !passwordRecovery && hasBoardSnapshot(readLastUserId())) {
+    if (!online && !passwordRecovery && hasAnyBoardSnapshot(readLastUserId())) {
       return (
         <Suspense fallback={<Spinner label="Loading…" />}>
           <BoardPage />
@@ -71,30 +72,35 @@ export default function App() {
       {/* Above <Routes>: `/` and `/settings` are mutually exclusive, so a per-page hook refetched
           settings and rebuilt the realtime channel on every navigation between them. */}
       <SettingsProvider>
-        <TodayProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="/auth/confirm" element={<AuthConfirm />} />
-              <Route path="/auth/reset" element={<ResetPassword />} />
-              <Route path="/privacy" element={<Privacy />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route
-                path="/settings"
-                element={
-                  <ProtectedRoute>
-                    <Suspense fallback={<Spinner label="Loading…" />}>
-                      <SettingsPage />
-                    </Suspense>
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="/" element={<HomeRoute />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </BrowserRouter>
-        </TodayProvider>
+        {/* Also above <Routes>, and not only for symmetry: DataSection on /settings writes tasks on
+            import, so it needs a Board id too. Without one it would depend on the database's
+            temporary board_id inference trigger, which is dropped once a second Board can exist. */}
+        <BoardDirectoryProvider>
+          <TodayProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/auth/callback" element={<AuthCallback />} />
+                <Route path="/auth/confirm" element={<AuthConfirm />} />
+                <Route path="/auth/reset" element={<ResetPassword />} />
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route
+                  path="/settings"
+                  element={
+                    <ProtectedRoute>
+                      <Suspense fallback={<Spinner label="Loading…" />}>
+                        <SettingsPage />
+                      </Suspense>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="/" element={<HomeRoute />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </BrowserRouter>
+          </TodayProvider>
+        </BoardDirectoryProvider>
         <UpdatePrompt />
       </SettingsProvider>
     </AuthProvider>

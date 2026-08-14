@@ -3,7 +3,7 @@ import { Navigate } from 'react-router'
 import { useAuth } from './AuthProvider'
 import { Spinner } from '../components/Spinner'
 import { useOnline } from '../lib/useOnline'
-import { hasBoardSnapshot } from '../data/snapshot'
+import { hasAnyBoardSnapshot } from '../data/snapshot'
 import { readLastUserId } from '../lib/lastUser'
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -15,7 +15,8 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
     // it is free to drop one, and a login form that cannot reach the network is a dead end.
     // Render the last-known board read-only instead. Not an authorization decision: the data
     // is already on this device, and every write offline fails regardless.
-    if (!online && !passwordRecovery && hasBoardSnapshot(readLastUserId())) return <>{children}</>
+    if (!online && !passwordRecovery && hasAnyBoardSnapshot(readLastUserId()))
+      return <>{children}</>
     return <Navigate to="/login" replace />
   }
   // A recovery-link session must set a new password before reaching the board.
