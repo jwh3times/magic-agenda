@@ -12,6 +12,35 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.77] - 2026-08-14
+
+### Internal
+
+- The app layer now knows which Board it is looking at. A Board Directory loads the account's
+  memberships, remembers the selection, and publishes it session-wide; `useTasks` takes a board id
+  and filters its load by it; writes send `board_id` alongside `user_id`; and the last unfiltered
+  task query (export) is scoped too. **Nothing user-visible changes** — every account has exactly one
+  Board, so the selection resolves to it and the board renders identically. RLS is untouched:
+  containment is still data integrity, not access control.
+- Offline snapshots are keyed per Board rather than one per account, with a separate directory
+  envelope recording which Boards this device last saw. Snapshots of Boards the server no longer
+  returns are purged on the next successful load — the client-side half of revocation, since access
+  ending is silent and nothing else would notice. The purge takes the ids to *remove*, computed from
+  the server's list, so a load returning nothing correctly purges everything; it runs only under a
+  real session, because a sessionless read succeeds against RLS with no rows and treating that as
+  "you are in no Boards" would wipe the cache on exactly the offline path it exists to serve.
+  Sign-out sweeps every Board key by prefix, including ones the session never opened.
+- The stored snapshot envelope version moved 2 → 3. Older envelopes are dropped rather than
+  migrated, which costs nothing in practice: reaching this code at all requires a network
+  navigation, and that same load rewrites them.
+- Default View is now read from the Membership — it describes how one account experiences one
+  Board — written through the column-level grant added with the Board schema. Both copies are
+  written until `user_settings.default_view` is dropped, since writing one is how they diverge.
+- Fixed a test-infrastructure bug worth recording: the `useTasks` Supabase mock returned a bare
+  Promise from `select()`, so adding `.eq('board_id', …)` made the load resolve as an *empty board*
+  rather than an error — the loudest possible failure reported in the quietest possible way. The
+  mock is now both awaitable and chainable.
+
 ## [1.2.76] - 2026-08-13
 
 ### Internal
@@ -1545,7 +1574,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.76...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.77...HEAD
+[1.2.77]: https://github.com/jwh3times/magic-agenda/compare/v1.2.76...v1.2.77
 [1.2.76]: https://github.com/jwh3times/magic-agenda/compare/v1.2.75...v1.2.76
 [1.2.75]: https://github.com/jwh3times/magic-agenda/compare/v1.2.74...v1.2.75
 [1.2.74]: https://github.com/jwh3times/magic-agenda/compare/v1.2.73...v1.2.74
