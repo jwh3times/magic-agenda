@@ -10,7 +10,7 @@ const base: Task = {
   id: 't1',
   title: 'A',
   description: '',
-  category: 'work',
+  labelId: null,
   color: 'yellow',
   checklist: [],
   status: 'todo',

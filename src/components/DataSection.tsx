@@ -1,16 +1,20 @@
 import { useRef, useState, type CSSProperties } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
-import { rowToTask, taskToRow } from '../data/mappers'
 import { useBoardDirectoryContext } from '../board/BoardDirectoryProvider'
 import {
   chunk,
+  LEGACY_CATEGORIES,
+  legacyTaskToRow,
   parseExport,
   remapIds,
+  rowToLegacyTask,
   serializeExport,
   type BoardExport,
+  type LegacyCategory,
+  type LegacyTask,
 } from '../data/exportImport'
-import { isTemplate, type Task } from '../types/task'
+import { isTemplate } from '../types/task'
 import { ymd } from '../lib/dates'
 
 const INSERT_CHUNK = 200
@@ -22,7 +26,7 @@ const INSERT_CHUNK = 200
  * already-succeeded batches under fresh ids and duplicate them).
  */
 interface ImportProgress {
-  batches: Task[][]
+  batches: LegacyTask[][]
   cursor: number
   taskCount: number
   templateCount: number
@@ -64,19 +68,31 @@ export function DataSection() {
     setError(null)
     setNotice(null)
     try {
-      const [tasksRes, settingsRes] = await Promise.all([
+      const [tasksRes, labelsRes, settingsRes] = await Promise.all([
         // Scoped to the selected Board, not account-wide. Identical output while an account has one
         // Board, and it is what keeps "no unfiltered task load exists in production code" true —
         // an account-wide export would silently start mixing Boards the moment a second one exists.
         // The file format is still v1; making it a one-Board format is a later, separate change.
         supabase.from('tasks').select('*').eq('board_id', boardId),
+        // v1 is still Category-shaped. Resolve the canonical Label through the seeded Label's
+        // deploy-window alias; #178 owns the Label-aware v2 file format.
+        supabase.from('labels').select('id, legacy_category').eq('board_id', boardId),
         supabase.from('user_settings').select('*').eq('user_id', userId).maybeSingle(),
       ])
-      if (tasksRes.error || settingsRes.error) {
+      if (tasksRes.error || labelsRes.error || settingsRes.error) {
         setError('Could not load your data. Please try again.')
         return
       }
-      const all = (tasksRes.data ?? []).map(rowToTask)
+      const aliases = new Map<string, LegacyCategory>()
+      for (const label of labelsRes.data ?? []) {
+        if (
+          label.legacy_category &&
+          (LEGACY_CATEGORIES as readonly string[]).includes(label.legacy_category)
+        ) {
+          aliases.set(label.id, label.legacy_category as LegacyCategory)
+        }
+      }
+      const all = (tasksRes.data ?? []).map((row) => rowToLegacyTask(row, aliases))
       const json = serializeExport(
         all.filter((t) => !isTemplate(t)),
         all.filter(isTemplate),
@@ -143,7 +159,7 @@ export function DataSection() {
       for (; cursor < batches.length; cursor++) {
         const { error: err } = await supabase
           .from('tasks')
-          .insert(batches[cursor].map((t) => taskToRow(t, userId, boardId)))
+          .insert(batches[cursor].map((t) => legacyTaskToRow(t, userId, boardId)))
         if (err) throw new Error(err.message)
       }
     } catch {

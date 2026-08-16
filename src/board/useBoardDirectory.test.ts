@@ -42,7 +42,7 @@ const task = (id: string): Task => ({
   id,
   title: id,
   description: '',
-  category: 'work',
+  labelId: null,
   color: 'yellow',
   checklist: [],
   status: 'todo',

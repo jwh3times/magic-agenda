@@ -79,7 +79,7 @@ test('renders the board offline when a snapshot exists for the last user', () =>
   localStorage.setItem('ma-last-user', 'u1')
   localStorage.setItem(
     'ma-snapshot-board.b1',
-    JSON.stringify({ v: 3, userId: 'u1', boardId: 'b1', savedAt: 1, tasks: [], templates: [] }),
+    JSON.stringify({ v: 4, userId: 'u1', boardId: 'b1', savedAt: 1, tasks: [], templates: [] }),
   )
   setOnLine(false)
   renderAt('/')
@@ -103,7 +103,7 @@ test('a lingering recovery flag blocks the offline fallback too, even with a sna
   localStorage.setItem('ma-last-user', 'u1')
   localStorage.setItem(
     'ma-snapshot-board.b1',
-    JSON.stringify({ v: 3, userId: 'u1', boardId: 'b1', savedAt: 1, tasks: [], templates: [] }),
+    JSON.stringify({ v: 4, userId: 'u1', boardId: 'b1', savedAt: 1, tasks: [], templates: [] }),
   )
   setOnLine(false)
   renderAt('/')

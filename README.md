@@ -20,9 +20,9 @@ of three hand‑built themes.
   shadows, and feel. Your choice persists.
 - **Drag‑and‑drop** — reorder within a day/column and move tasks across days, the week, columns, and the
   inbox, with a floating drag ghost (powered by [dnd‑kit](https://dndkit.com)).
-- **Rich task editor** — title, description, colour, category, checklist, status, schedule, an
-  optional due time, and a pin toggle for priority.
-- **Search & filter** — by text, category, status, and a "📌 Pinned" quick filter; non‑matching
+- **Rich task editor** — title, description, Note Color, an optional Board Label (or Unlabeled),
+  checklist, status, schedule, an optional due time, and a pin toggle for priority.
+- **Search & filter** — by text, Label (including Unlabeled), status, and a "📌 Pinned" quick filter; non‑matching
   cards hide live.
 - **Recurring tasks** — daily / weekly / monthly with an interval and end date, materialized over a
   rolling 90‑day horizon, with **this‑occurrence vs. all‑future** edit and delete semantics.

@@ -11,6 +11,7 @@ import { useBoardDirectoryContext, useBoardSession } from '../board/BoardDirecto
 import { readLastUserId } from '../lib/lastUser'
 import { OfflineContext } from '../data/offlineContext'
 import { TaskBoardContext } from '../data/taskBoardContext'
+import { useLabelDirectoryContext } from '../labels/LabelDirectoryProvider'
 
 /** The signed-in board: owns the Supabase-backed task state, reads session-wide settings. */
 export function BoardPage() {
@@ -25,8 +26,9 @@ export function BoardPage() {
   const { selectedBoardId, loading: boardsLoading } = useBoardDirectoryContext()
   // Default View is a Membership Preference: it describes how this account experiences THIS board.
   // `settings.defaultView` remains as the fallback until that column is dropped in cleanup.
-  const { board } = useBoardSession()
+  const { board, can } = useBoardSession()
   const t = useTasks(userId, selectedBoardId ?? '', Boolean(user))
+  const labelDirectory = useLabelDirectoryContext()
   const { settings, loading: settingsLoading, saveTheme } = useSettingsContext()
 
   // Gate on the resolved user id, not on `user`/`session`: ProtectedRoute has already made the
@@ -35,23 +37,35 @@ export function BoardPage() {
   // `boardsLoading` joins the gate rather than being handled below it: without it the board renders
   // its empty state for a moment while the directory resolves, which is indistinguishable from a
   // genuinely empty board and reads as data loss.
-  if (!userId || settingsLoading || !settings || boardsLoading) return <Spinner />
+  if (!userId || settingsLoading || !settings || boardsLoading || labelDirectory.loading) {
+    return <Spinner />
+  }
+
+  const readOnly = t.offline || labelDirectory.offline
+  const offlineSavedAt = [
+    t.offline ? t.savedAt : null,
+    labelDirectory.offline ? labelDirectory.savedAt : null,
+  ].filter((value): value is number => value !== null)
+  const savedAt = offlineSavedAt.length > 0 ? Math.min(...offlineSavedAt) : null
 
   return (
     <ThemeProvider initial={settings.theme} onThemeChange={(theme) => void saveTheme(theme)}>
-      {t.error && t.tasks.length === 0 ? (
+      {labelDirectory.error && labelDirectory.labels.length === 0 ? (
+        <ErrorScreen message={labelDirectory.error} onRetry={() => void labelDirectory.reload()} />
+      ) : t.error && t.tasks.length === 0 ? (
         <ErrorScreen message={t.error} onRetry={() => void t.reload()} />
       ) : t.loading && t.tasks.length === 0 ? (
         <Spinner label="Loading your board…" />
       ) : (
         <>
-          <OfflineContext.Provider value={{ readOnly: t.offline, savedAt: t.savedAt }}>
+          <OfflineContext.Provider value={{ readOnly, savedAt }}>
             <TaskBoardContext.Provider value={t}>
               <Board
                 initialView={board?.defaultView ?? settings.defaultView}
                 weekStart={settings.weekStart}
                 onSignOut={() => void signOut()}
                 onOpenSettings={() => void navigate('/settings')}
+                canAssignLabels={can.assignLabels}
               />
             </TaskBoardContext.Provider>
           </OfflineContext.Provider>

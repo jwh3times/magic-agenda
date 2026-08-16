@@ -7,7 +7,7 @@ function t(id: string, over: Partial<Task> = {}): Task {
     id,
     title: id,
     description: '',
-    category: 'work',
+    labelId: 'work-label',
     color: 'yellow',
     checklist: [],
     status: 'todo',
@@ -26,11 +26,11 @@ const tasks = [
   t('a', {
     title: 'Finish Q3 deck',
     description: 'pull numbers',
-    category: 'work',
+    labelId: 'work-label',
     status: 'doing',
   }),
-  t('b', { title: 'Call plumber', category: 'errands', status: 'todo' }),
-  t('c', { title: 'Gym', category: 'health', status: 'done' }),
+  t('b', { title: 'Call plumber', labelId: 'errands-label', status: 'todo' }),
+  t('c', { title: 'Gym', labelId: null, status: 'done' }),
 ]
 
 describe('isFilterActive', () => {
@@ -39,7 +39,8 @@ describe('isFilterActive', () => {
   })
   it('is true when any facet is set', () => {
     expect(isFilterActive({ ...EMPTY_FILTER, text: 'x' })).toBe(true)
-    expect(isFilterActive({ ...EMPTY_FILTER, category: 'work' })).toBe(true)
+    expect(isFilterActive({ ...EMPTY_FILTER, labelId: 'work-label' })).toBe(true)
+    expect(isFilterActive({ ...EMPTY_FILTER, labelId: 'unlabeled' })).toBe(true)
     expect(isFilterActive({ ...EMPTY_FILTER, status: 'done' })).toBe(true)
   })
 })
@@ -54,10 +55,13 @@ describe('applyFilters', () => {
       'a',
     ])
   })
-  it('filters by category', () => {
-    expect(applyFilters(tasks, { ...EMPTY_FILTER, category: 'errands' }).map((x) => x.id)).toEqual([
-      'b',
-    ])
+  it('filters by Label id and by the first-class Unlabeled state', () => {
+    expect(
+      applyFilters(tasks, { ...EMPTY_FILTER, labelId: 'errands-label' }).map((x) => x.id),
+    ).toEqual(['b'])
+    expect(applyFilters(tasks, { ...EMPTY_FILTER, labelId: 'unlabeled' }).map((x) => x.id)).toEqual(
+      ['c'],
+    )
   })
   it('filters by status', () => {
     expect(applyFilters(tasks, { ...EMPTY_FILTER, status: 'done' }).map((x) => x.id)).toEqual(['c'])
@@ -66,13 +70,13 @@ describe('applyFilters', () => {
     expect(
       applyFilters(tasks, {
         text: 'call',
-        category: 'errands',
+        labelId: 'errands-label',
         status: 'todo',
         pinned: false,
       }).map((x) => x.id),
     ).toEqual(['b'])
     expect(
-      applyFilters(tasks, { text: 'call', category: 'work', status: 'todo', pinned: false }),
+      applyFilters(tasks, { text: 'call', labelId: 'work-label', status: 'todo', pinned: false }),
     ).toHaveLength(0)
   })
 })

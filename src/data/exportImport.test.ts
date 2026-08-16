@@ -1,9 +1,18 @@
 import { expect, test } from 'vitest'
-import { NO_RECUR, type Task } from '../types/task'
-import { chunk, parseExport, remapIds, serializeExport } from './exportImport'
+import { NO_RECUR } from '../types/task'
+import {
+  chunk,
+  legacyTaskToRow,
+  parseExport,
+  remapIds,
+  rowToLegacyTask,
+  serializeExport,
+  type LegacyTask,
+} from './exportImport'
 import { missingInstances } from './recurrence'
+import type { Database } from '../types/database.types'
 
-function mk(over: Partial<Task> = {}): Task {
+function mk(over: Partial<LegacyTask> = {}): LegacyTask {
   return {
     id: 'id-1',
     title: 'T',
@@ -19,6 +28,42 @@ function mk(over: Partial<Task> = {}): Task {
     atTime: null,
     pinned: false,
     ...NO_RECUR,
+    ...over,
+  }
+}
+
+type TaskRow = Database['public']['Tables']['tasks']['Row']
+
+function row(over: Partial<TaskRow> = {}): TaskRow {
+  return {
+    id: 'r1',
+    user_id: 'u1',
+    board_id: 'b1',
+    title: 'T',
+    description: '',
+    category: 'work',
+    label_id: null,
+    label_assignment_explicit: false,
+    color: 'yellow',
+    checklist: [],
+    status: 'todo',
+    day: null,
+    at_time: null,
+    pinned: false,
+    order_index: 0,
+    korder: 0,
+    recur_freq: 'none',
+    recur_interval: 1,
+    recur_until: null,
+    recur_parent_id: null,
+    recur_skip: [],
+    recur_origin_day: null,
+    author_id: null,
+    last_editor_id: null,
+    author_kind: 'author',
+    revision: 1,
+    created_at: '2026-08-16T00:00:00Z',
+    updated_at: '2026-08-16T00:00:00Z',
     ...over,
   }
 }
@@ -46,6 +91,31 @@ test('serialize → parse round-trips', () => {
   expect(parsed.data.tasks).toHaveLength(2)
   expect(parsed.data.templates).toHaveLength(1)
   expect(parsed.data.settings).toEqual(settings)
+})
+
+test('v1 export resolves the canonical Label alias and contains no Label fields', () => {
+  const exported = rowToLegacyTask(
+    row({ label_id: 'l-errands', category: 'work' }),
+    new Map([['l-errands', 'errands']]),
+  )
+  expect(exported.category).toBe('errands')
+  expect('labelId' in exported).toBe(false)
+})
+
+test('v1 export falls back to the stored Category for Unlabeled or an unaliased Label', () => {
+  expect(rowToLegacyTask(row({ label_id: null, category: 'personal' }), new Map()).category).toBe(
+    'personal',
+  )
+  expect(rowToLegacyTask(row({ label_id: 'custom', category: 'health' }), new Map()).category).toBe(
+    'health',
+  )
+})
+
+test('v1 import opts into the temporary Category-to-Label database bridge', () => {
+  const inserted = legacyTaskToRow(mk({ category: 'ideas' }), 'u1', 'b1')
+  expect(inserted.category).toBe('ideas')
+  expect(inserted.label_assignment_explicit).toBe(false)
+  expect(inserted.label_id).toBeNull()
 })
 
 test('remapIds freshens every id but preserves series links, skips, and content', () => {
@@ -78,6 +148,9 @@ test('parseExport rejects garbage, wrong versions, and malformed tasks', () => {
     tasks: Array<Record<string, unknown>>
   }
   badTask.tasks[0].category = 'nonsense'
+  expect(parseExport(JSON.stringify(badTask)).ok).toBe(false)
+  delete badTask.tasks[0].category
+  badTask.tasks[0].labelId = 'l1'
   expect(parseExport(JSON.stringify(badTask)).ok).toBe(false)
   const templateInTasksList = JSON.stringify({
     version: 1,

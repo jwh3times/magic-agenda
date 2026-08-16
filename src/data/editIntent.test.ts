@@ -13,7 +13,7 @@ function t(id: string, over: Partial<Task> = {}): Task {
     id,
     title: id,
     description: '',
-    category: 'work',
+    labelId: null,
     color: 'yellow',
     checklist: [],
     status: 'todo',
@@ -80,7 +80,7 @@ describe('onlyPerOccurrenceChanged', () => {
     for (const change of [
       { title: 'New' },
       { description: 'd' },
-      { category: 'personal' as const },
+      { labelId: 'label-2' },
       { atTime: '09:00' },
       { checklist: [{ id: 'c', text: 'x', done: false }] },
     ]) {

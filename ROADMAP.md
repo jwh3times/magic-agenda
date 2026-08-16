@@ -130,9 +130,10 @@ were added as their own effort rather than a roadmap feature — see
   1. **Landed 2026-08-16:** [#176](https://github.com/jwh3times/magic-agenda/issues/176) —
      Board-scoped schema, built-in backfill, membership RLS, cross-Board constraint, and
      stale-client Category compatibility.
-  2. [#177](https://github.com/jwh3times/magic-agenda/issues/177) — Label directory/read path,
-     nullable `Task.labelId`, assignment, cards, filtering, recurrence propagation, and Unlabeled as
-     the new-Task default.
+  2. **Implemented:** [#177](https://github.com/jwh3times/magic-agenda/issues/177) — Label
+     directory/read path, nullable `Task.labelId`, assignment, cards, filtering, recurrence
+     propagation, Unlabeled as the new-Task default, and v4 offline snapshots. The v1 export bridge
+     remains deliberately Category-shaped until #178.
   3. [#178](https://github.com/jwh3times/magic-agenda/issues/178) — export v2 plus v1 compatibility
      and explicit mapping from every source Label to an existing destination Label or Unlabeled.
   4. [#179](https://github.com/jwh3times/magic-agenda/issues/179) — Owner-only Label management on
@@ -153,11 +154,12 @@ were added as their own effort rather than a roadmap feature — see
   one backfilled Board per Account exist; every Task's `board_id` is NOT NULL and authoritative; and
   Task RLS now authorizes through current Board Membership. Board-creation UI still has not shipped,
   so #176's Label schema and Category backfill landed in the intended low-risk window while every
-  Account still has one Board. The next release in this effort is #177's app read and assignment
-  path.
+  Account still has one Board. #177 now makes Label the canonical app classification; the next
+  release in this effort is #178's Label-aware export v2 and destination mapping.
 
-  Remaining risk: the `Category` type is load-bearing in `constants.ts` — #177 dissolves it into
-  `string` Label ids, a wide but shallow type ripple.
+  Remaining risk: export v1 cannot represent Unlabeled or arbitrary future custom Labels exactly.
+  Its contained compatibility adapter resolves a seeded Label's legacy alias and otherwise falls
+  back to the physical Category column; #178 removes that fidelity gap with export v2.
 
 - [ ] **Richer recurrence** · **P3** · L — specific weekdays (e.g. Mon/Wed/Fri) and "end after N
       occurrences", beyond daily/weekly/monthly + interval + until. Schema:

@@ -9,7 +9,7 @@ function inboxTask(): Task {
     id: 't1',
     title: 'T',
     description: '',
-    category: 'work',
+    labelId: null,
     color: 'yellow',
     checklist: [],
     status: 'todo',

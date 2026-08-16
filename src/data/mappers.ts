@@ -1,6 +1,5 @@
 import {
   INBOX,
-  type Category,
   type ChecklistItem,
   type Color,
   type RecurFreq,
@@ -32,7 +31,7 @@ export function rowToTask(row: TaskRow): Task {
     id: row.id,
     title: row.title,
     description: row.description,
-    category: row.category as Category,
+    labelId: row.label_id,
     color: row.color as Color,
     checklist: parseChecklist(row.checklist),
     status: row.status as Status,
@@ -53,13 +52,9 @@ export function rowToTask(row: TaskRow): Task {
 
 /** app Task -> DB insert/update: inbox sentinel becomes NULL, order -> order_index, done is not stored. */
 /**
- * `boardId` is sent alongside `user_id` deliberately, not instead of it.
- *
- * Task policies still compare `user_id` to `auth.uid()`, so `user_id` is what authorizes the write
- * today and `board_id` is what will authorize it after the cutover. Writing both is what lets those
- * two facts be true at different times without a flag day: the database has a temporary trigger
- * inferring `board_id` for clients that predate this code, and this is the other half — new clients
- * stop depending on that trigger immediately, so dropping it later only breaks genuinely stale ones.
+ * `board_id` is the authorization boundary. `user_id` remains a temporary attribution/compatibility
+ * column until its cleanup migration. Label assignments are always explicit, including Unlabeled,
+ * so the deploy-window Category trigger cannot reinterpret a new client's intent.
  */
 export function taskToRow(task: Task, userId: string, boardId: string): TaskInsert {
   return {
@@ -68,7 +63,8 @@ export function taskToRow(task: Task, userId: string, boardId: string): TaskInse
     board_id: boardId,
     title: task.title,
     description: task.description,
-    category: task.category,
+    label_id: task.labelId,
+    label_assignment_explicit: true,
     color: task.color,
     checklist: task.checklist as unknown as Json,
     status: task.status,

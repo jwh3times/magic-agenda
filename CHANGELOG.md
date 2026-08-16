@@ -10,7 +10,21 @@ only work that is on a branch but not yet merged.
 
 ## [Unreleased]
 
-No unreleased changes.
+### Added
+
+- Replaced the fixed Category task experience with optional Board Labels. New Tasks start
+  Unlabeled; cards and drag previews show the current Label name/color; the editor assigns one
+  existing Label; filters support every Label plus Unlabeled; and recurrence carries Label edits
+  through the same series-scope rules as other shared content.
+- Added a Board-scoped Label Directory with per-Board offline snapshots and focus/online catch-up.
+  Viewer, Editor, and Owner assignment affordances follow the Board capability model, and an
+  offline Label snapshot makes the board read-only alongside task snapshots.
+
+### Changed
+
+- App-domain Tasks now use nullable `labelId`; normal writes explicitly distinguish Unlabeled from
+  omitted legacy fields. Snapshot v4 drops old Category-shaped task caches. Export v1 remains
+  operational through a contained compatibility adapter until the Label-aware v2 work in #178.
 
 ## [1.2.80] - 2026-08-16
 

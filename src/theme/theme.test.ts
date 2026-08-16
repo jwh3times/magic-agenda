@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { CAT, COLORS, STATUS, PAPER } from './constants'
+import { COLORS, STATUS, PAPER } from './constants'
 import { themeConf } from './themeConf'
 import { boardChrome, cellChrome, inboxChrome, columnChrome, scrollbars } from './chrome'
 import { rotOf, cardStyles } from './cardStyles'
@@ -12,7 +12,7 @@ function task(overrides: Partial<Task> = {}): Task {
     id: 't1001',
     title: 'Test',
     description: '',
-    category: 'work',
+    labelId: null,
     color: 'yellow',
     checklist: [],
     status: 'todo',
@@ -28,8 +28,7 @@ function task(overrides: Partial<Task> = {}): Task {
 }
 
 describe('constants', () => {
-  it('has 5 categories, 6 colors, 3 statuses', () => {
-    expect(Object.keys(CAT)).toHaveLength(5)
+  it('has 6 Note Colors and 3 statuses', () => {
     expect(COLORS).toHaveLength(6)
     expect(STATUS).toHaveLength(3)
   })

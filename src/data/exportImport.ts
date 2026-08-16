@@ -1,5 +1,7 @@
 import { isTemplate, type ChecklistItem, type Task } from '../types/task'
 import { newId } from '../lib/id'
+import { rowToTask, taskToRow } from './mappers'
+import type { Database } from '../types/database.types'
 
 export const EXPORT_VERSION = 1 as const
 
@@ -10,18 +12,27 @@ export interface ExportSettings {
   timezone: string | null
 }
 
-/** The on-disk backup shape — app-domain Task objects, never DB rows. */
+export const LEGACY_CATEGORIES = ['work', 'personal', 'errands', 'ideas', 'health'] as const
+export type LegacyCategory = (typeof LEGACY_CATEGORIES)[number]
+
+/**
+ * The v1 file task. Category is deliberately confined to this compatibility boundary; the app
+ * domain uses nullable `labelId`, while #178 owns the Label-aware v2 export format.
+ */
+export type LegacyTask = Omit<Task, 'labelId'> & { category: LegacyCategory }
+
+/** The on-disk v1 backup shape. It remains Category-shaped until #178 introduces v2. */
 export interface BoardExport {
   version: typeof EXPORT_VERSION
   exportedAt: string
   settings: ExportSettings
-  tasks: Task[]
-  templates: Task[]
+  tasks: LegacyTask[]
+  templates: LegacyTask[]
 }
 
 export function serializeExport(
-  tasks: Task[],
-  templates: Task[],
+  tasks: LegacyTask[],
+  templates: LegacyTask[],
   settings: ExportSettings,
   exportedAt: string,
 ): string {
@@ -32,7 +43,6 @@ export function serializeExport(
   )
 }
 
-const CATEGORIES = ['work', 'personal', 'errands', 'ideas', 'health'] as const
 const COLORS = ['yellow', 'pink', 'blue', 'mint', 'lilac', 'orange'] as const
 const STATUSES = ['todo', 'doing', 'done'] as const
 const FREQS = ['none', 'daily', 'weekly', 'monthly'] as const
@@ -51,14 +61,14 @@ function isChecklist(v: unknown): v is ChecklistItem[] {
   )
 }
 
-function isTask(v: unknown): v is Task {
+function isTask(v: unknown): v is LegacyTask {
   if (!v || typeof v !== 'object') return false
-  const t = v as Task
+  const t = v as LegacyTask
   return (
     typeof t.id === 'string' &&
     typeof t.title === 'string' &&
     typeof t.description === 'string' &&
-    (CATEGORIES as readonly string[]).includes(t.category) &&
+    (LEGACY_CATEGORIES as readonly string[]).includes(t.category) &&
     (COLORS as readonly string[]).includes(t.color) &&
     (STATUSES as readonly string[]).includes(t.status) &&
     typeof t.done === 'boolean' &&
@@ -111,8 +121,8 @@ export function parseExport(json: string): ParseResult {
  * template is missing from the file becomes a plain task.
  */
 export function remapIds(data: Pick<BoardExport, 'tasks' | 'templates'>): {
-  tasks: Task[]
-  templates: Task[]
+  tasks: LegacyTask[]
+  templates: LegacyTask[]
 } {
   const templateIdMap = new Map(data.templates.map((t) => [t.id, newId()]))
   const freshChecklist = (list: ChecklistItem[]) => list.map((c) => ({ ...c, id: newId() }))
@@ -134,6 +144,49 @@ export function remapIds(data: Pick<BoardExport, 'tasks' | 'templates'>): {
     }
   })
   return { tasks, templates }
+}
+
+type TaskRow = Database['public']['Tables']['tasks']['Row']
+type TaskInsert = Database['public']['Tables']['tasks']['Insert']
+
+function asLegacyCategory(value: string): LegacyCategory {
+  return (LEGACY_CATEGORIES as readonly string[]).includes(value)
+    ? (value as LegacyCategory)
+    : 'work'
+}
+
+/**
+ * Current DB row -> v1 file task.
+ *
+ * A canonical Label assignment wins when its seeded compatibility alias still exists. Unlabeled
+ * and an unaliased Label fall back to the physical Category column so v1 remains valid; v1 cannot
+ * represent either concept exactly, which is why the Label-aware format is a separate #178 slice.
+ */
+export function rowToLegacyTask(
+  row: TaskRow,
+  legacyCategoryByLabelId: ReadonlyMap<string, LegacyCategory>,
+): LegacyTask {
+  const current = rowToTask(row)
+  const { labelId, ...task } = current
+  const alias = labelId ? legacyCategoryByLabelId.get(labelId) : undefined
+  return { ...task, category: alias ?? asLegacyCategory(row.category) }
+}
+
+/**
+ * v1 file task -> deploy-window DB insert.
+ *
+ * `label_assignment_explicit = false` is intentional: the temporary database trigger maps this
+ * legacy Category to the selected Board's seeded Label. Every normal app write uses the opposite
+ * marker through `taskToRow`, including an explicit null for Unlabeled.
+ */
+export function legacyTaskToRow(task: LegacyTask, userId: string, boardId: string): TaskInsert {
+  const { category, ...legacyTask } = task
+  return {
+    ...taskToRow({ ...legacyTask, labelId: null }, userId, boardId),
+    category,
+    label_id: null,
+    label_assignment_explicit: false,
+  }
 }
 
 export function chunk<T>(arr: T[], size: number): T[][] {

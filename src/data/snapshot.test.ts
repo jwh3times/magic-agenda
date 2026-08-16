@@ -1,5 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest'
 import { NO_RECUR, type Task } from '../types/task'
+import type { Label } from '../types/label'
 import {
   cachedBoardIds,
   clearSnapshots,
@@ -8,9 +9,11 @@ import {
   purgeBoardSnapshots,
   readBoardSnapshot,
   readDirectorySnapshot,
+  readLabelSnapshot,
   readSettingsSnapshot,
   writeBoardSnapshot,
   writeDirectorySnapshot,
+  writeLabelSnapshot,
   writeSettingsSnapshot,
 } from './snapshot'
 
@@ -18,7 +21,7 @@ const task = (id: string): Task => ({
   id,
   title: id,
   description: '',
-  category: 'work',
+  labelId: null,
   color: 'yellow',
   checklist: [],
   status: 'todo',
@@ -29,6 +32,14 @@ const task = (id: string): Task => ({
   order: 0,
   korder: 0,
   ...NO_RECUR,
+})
+
+const label = (id: string): Label => ({
+  id,
+  boardId: 'b1',
+  name: `Label ${id}`,
+  dotColor: '#2563eb',
+  position: 0,
 })
 
 afterEach(() => vi.restoreAllMocks())
@@ -57,10 +68,25 @@ test('refuses an envelope from an older version', () => {
   expect(readBoardSnapshot('u1', 'b1')).toBeNull()
 })
 
+test('v4 refuses a category-shaped v3 task snapshot instead of corrupting Label state', () => {
+  localStorage.setItem(
+    'ma-snapshot-board.b1',
+    JSON.stringify({
+      v: 3,
+      userId: 'u1',
+      boardId: 'b1',
+      savedAt: Date.now(),
+      tasks: [{ ...task('old'), labelId: undefined, category: 'work' }],
+      templates: [],
+    }),
+  )
+  expect(readBoardSnapshot('u1', 'b1')).toBeNull()
+})
+
 test('refuses a payload whose shape is wrong', () => {
   localStorage.setItem(
     'ma-snapshot-board.b1',
-    JSON.stringify({ v: 3, userId: 'u1', boardId: 'b1', tasks: 'nope' }),
+    JSON.stringify({ v: 4, userId: 'u1', boardId: 'b1', tasks: 'nope' }),
   )
   expect(readBoardSnapshot('u1', 'b1')).toBeNull()
 })
@@ -131,6 +157,21 @@ test('the directory envelope round-trips and is user-scoped', () => {
   expect(readDirectorySnapshot('u2')).toBeNull()
 })
 
+test('labels round-trip per Board and are user-scoped', () => {
+  writeLabelSnapshot('u1', 'b1', [label('l1')])
+  expect(readLabelSnapshot('u1', 'b1')?.labels).toEqual([label('l1')])
+  expect(readLabelSnapshot('u2', 'b1')).toBeNull()
+  expect(readLabelSnapshot('u1', 'b2')).toBeNull()
+})
+
+test('purging a Board removes both its task and Label snapshots', () => {
+  writeBoardSnapshot('u1', 'b1', [task('a')], [])
+  writeLabelSnapshot('u1', 'b1', [label('l1')])
+  purgeBoardSnapshots(['b1'])
+  expect(readBoardSnapshot('u1', 'b1')).toBeNull()
+  expect(readLabelSnapshot('u1', 'b1')).toBeNull()
+})
+
 test('clearing sweeps every board, including ones this session never opened', () => {
   // Sign-out clearing is the entire justification for storing task text at rest, so it has to sweep
   // by prefix rather than by a known list — the account may hold snapshots for boards this session
@@ -138,12 +179,14 @@ test('clearing sweeps every board, including ones this session never opened', ()
   writeBoardSnapshot('u1', 'b1', [task('a')], [])
   writeBoardSnapshot('u1', 'b2', [task('b')], [])
   writeDirectorySnapshot('u1', [], 'b1')
+  writeLabelSnapshot('u1', 'b1', [label('l1')])
   localStorage.setItem('ma-snapshot-board', JSON.stringify({ v: 2, userId: 'u1', tasks: [] }))
 
   clearSnapshots()
 
   expect(cachedBoardIds()).toEqual([])
   expect(readDirectorySnapshot('u1')).toBeNull()
+  expect(readLabelSnapshot('u1', 'b1')).toBeNull()
   // The pre-v3 single key has no reader any more, but it still holds task text at rest.
   expect(localStorage.getItem('ma-snapshot-board')).toBeNull()
 })

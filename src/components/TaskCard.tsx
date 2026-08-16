@@ -1,12 +1,13 @@
 import type { CSSProperties } from 'react'
 import type { Task } from '../types/task'
-import { CAT } from '../theme/constants'
 import { cardStyles, type CardVariant } from '../theme/cardStyles'
 import { useTheme } from '../theme/ThemeProvider'
 import { isOverdue } from '../data/selectors'
 import { chipLabel, formatTime } from '../lib/dates'
 import { useToday } from '../data/todayContext'
 import { useBoardActions } from './boardActionContext'
+import { useLabel } from '../labels/LabelDirectoryProvider'
+import { labelPresentation } from '../labels/presentation'
 
 export interface TaskCardProps {
   task: Task
@@ -27,10 +28,15 @@ export function TaskCard({ task, variant, dragging, wrapStyle }: TaskCardProps) 
   const onToggleDone = actions?.onToggleDone
   const onTogglePin = actions?.onTogglePin
   const { theme } = useTheme()
+  const label = labelPresentation(useLabel(task.labelId))
   const overdue = isOverdue(task, useToday())
-  const s = cardStyles(theme, task, variant, { dragging, pop: actions?.popId === task.id, overdue })
+  const s = cardStyles(theme, task, variant, {
+    dragging,
+    pop: actions?.popId === task.id,
+    overdue,
+    labelColor: label.dotColor,
+  })
 
-  const cat = CAT[task.category]
   const done = task.status === 'done'
   const total = task.checklist.length
   const ck = task.checklist.filter((c) => c.done).length
@@ -49,7 +55,7 @@ export function TaskCard({ task, variant, dragging, wrapStyle }: TaskCardProps) 
 
       <div style={s.meta}>
         <span style={s.dot} />
-        <span style={s.catStyle}>{cat.label}</span>
+        <span style={s.labelStyle}>{label.name}</span>
         {task.atTime && <span style={s.chipStyle}>{formatTime(task.atTime)}</span>}
         {isKanban && !task.atTime && <span style={s.chipStyle}>{chipLabel(task.day)}</span>}
         {hasList && (

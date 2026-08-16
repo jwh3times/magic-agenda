@@ -5,13 +5,15 @@ import { ThemeProvider } from '../theme/ThemeProvider'
 import { TaskCard, type TaskCardProps } from './TaskCard'
 import { NO_RECUR, type Task } from '../types/task'
 import { BoardActionContext, type BoardActions } from './boardActionContext'
+import { LabelDirectoryContext } from '../labels/labelDirectoryContext'
+import { fakeLabelDirectory } from '../labels/fakeLabelDirectory'
 
 function mkTask(over: Partial<Task> = {}): Task {
   return {
     id: 't1',
     title: 'Card under test',
     description: '',
-    category: 'work',
+    labelId: 'l1',
     color: 'yellow',
     checklist: [],
     status: 'todo',
@@ -33,12 +35,36 @@ function renderCard(
 ) {
   return render(
     <ThemeProvider>
-      <BoardActionContext.Provider value={actions}>
-        <TaskCard task={task} variant="inbox" {...props} />
-      </BoardActionContext.Provider>
+      <LabelDirectoryContext.Provider value={fakeLabelDirectory()}>
+        <BoardActionContext.Provider value={actions}>
+          <TaskCard task={task} variant="inbox" {...props} />
+        </BoardActionContext.Provider>
+      </LabelDirectoryContext.Provider>
     </ThemeProvider>,
   )
 }
+
+test('shows the selected Label name and its dot color', () => {
+  renderCard(mkTask({ labelId: 'l1' }))
+  const name = screen.getByText('Work')
+  expect(name.previousElementSibling).toHaveStyle({ background: '#2563eb' })
+})
+
+test('shows a neutral Unlabeled presentation for a null or missing Label', () => {
+  const { rerender } = renderCard(mkTask({ labelId: null }))
+  expect(screen.getByText('Unlabeled')).toBeInTheDocument()
+
+  rerender(
+    <ThemeProvider>
+      <LabelDirectoryContext.Provider value={fakeLabelDirectory()}>
+        <BoardActionContext.Provider value={null}>
+          <TaskCard task={mkTask({ labelId: 'deleted-label' })} variant="inbox" />
+        </BoardActionContext.Provider>
+      </LabelDirectoryContext.Provider>
+    </ThemeProvider>,
+  )
+  expect(screen.getByText('Unlabeled')).toBeInTheDocument()
+})
 
 test('shows a compact time chip when the task has a due time', () => {
   renderCard(mkTask({ atTime: '14:30' }))

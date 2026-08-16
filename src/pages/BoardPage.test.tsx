@@ -1,10 +1,13 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, expect, test, vi } from 'vitest'
+import userEvent from '@testing-library/user-event'
 import { makeMockTasks } from '../data/mockTasks'
 import { fakeUseTasks } from '../data/fakeUseTasks'
-import { fakeBoardDirectory, fakeBoardSession } from '../board/fakeBoardDirectory'
+import { fakeBoardDirectory, fakeBoardSession, fakeBoardSummary } from '../board/fakeBoardDirectory'
 import { useTasks } from '../data/useTasks'
+import { LabelDirectoryContext } from '../labels/labelDirectoryContext'
+import { fakeLabelDirectory } from '../labels/fakeLabelDirectory'
 
 // Mocks the three data sources BoardPage composes, so this test can drive the offline-boot
 // scenario (no session, board hydrated from a snapshot) without dragging in Supabase or dnd-kit
@@ -18,6 +21,7 @@ interface MockSettings {
 const h = vi.hoisted<{
   auth: { user: { id: string } | null; signOut: ReturnType<typeof vi.fn> }
   settings: MockSettings
+  role: 'owner' | 'editor' | 'viewer'
 }>(() => ({
   auth: {
     user: null as { id: string } | null,
@@ -28,15 +32,17 @@ const h = vi.hoisted<{
     loading: false,
     saveTheme: vi.fn(),
   },
+  role: 'owner',
 }))
 
 const tasks = fakeUseTasks()
+const labels = fakeLabelDirectory()
 
 vi.mock('../auth/AuthProvider', () => ({ useAuth: () => h.auth }))
 vi.mock('../data/SettingsProvider', () => ({ useSettingsContext: () => h.settings }))
 vi.mock('../board/BoardDirectoryProvider', () => ({
   useBoardDirectoryContext: () => fakeBoardDirectory(),
-  useBoardSession: () => fakeBoardSession(),
+  useBoardSession: () => fakeBoardSession(fakeBoardSummary({ role: h.role })),
 }))
 vi.mock('../data/useTasks', () => ({ useTasks: vi.fn() }))
 vi.mocked(useTasks).mockImplementation(() => tasks)
@@ -46,13 +52,17 @@ import { BoardPage } from './BoardPage'
 afterEach(() => {
   h.auth.user = null
   h.settings.loading = false
+  h.role = 'owner'
   Object.assign(tasks, fakeUseTasks())
+  Object.assign(labels, fakeLabelDirectory())
 })
 
 function renderPage() {
   return render(
     <MemoryRouter>
-      <BoardPage />
+      <LabelDirectoryContext.Provider value={labels}>
+        <BoardPage />
+      </LabelDirectoryContext.Provider>
     </MemoryRouter>,
   )
 }
@@ -76,4 +86,43 @@ test('still shows a spinner for a genuinely signed-in user still loading setting
   h.settings.loading = true
   renderPage()
   expect(screen.getByText('Loading…')).toBeInTheDocument()
+})
+
+test('waits for the selected Board’s Label Directory before rendering tasks', () => {
+  h.auth.user = { id: 'u1' }
+  tasks.tasks = makeMockTasks()
+  labels.loading = true
+  renderPage()
+  expect(screen.getByText('Loading…')).toBeInTheDocument()
+  expect(screen.queryByText('Finish Q3 deck')).not.toBeInTheDocument()
+})
+
+test('a Label snapshot makes the whole board read-only while offline', () => {
+  h.auth.user = { id: 'u1' }
+  tasks.tasks = makeMockTasks()
+  labels.offline = true
+  labels.savedAt = 1_700_000_000_000
+  renderPage()
+  expect(screen.getByText(/offline/i)).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '+ New task' })).toBeDisabled()
+})
+
+test('a Viewer’s assignLabels capability disables Label assignment', async () => {
+  h.auth.user = { id: 'u1' }
+  h.role = 'viewer'
+  tasks.tasks = makeMockTasks()
+  renderPage()
+  await userEvent.click(screen.getByText('Finish Q3 deck'))
+  expect(screen.getByRole('button', { name: 'Work' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Unlabeled' })).toBeDisabled()
+})
+
+test.each(['owner', 'editor'] as const)('%s may assign Labels', async (role) => {
+  h.auth.user = { id: 'u1' }
+  h.role = role
+  tasks.tasks = makeMockTasks()
+  renderPage()
+  await userEvent.click(screen.getByText('Finish Q3 deck'))
+  expect(screen.getByRole('button', { name: 'Work' })).toBeEnabled()
+  expect(screen.getByRole('button', { name: 'Unlabeled' })).toBeEnabled()
 })

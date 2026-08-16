@@ -1,4 +1,5 @@
 import type { Task } from '../types/task'
+import type { Label } from '../types/label'
 import type { Settings } from './useSettings'
 
 // Last-known board + settings, so the app can render read-only with no network.
@@ -9,6 +10,7 @@ import type { Settings } from './useSettings'
 // several, and each must be droppable on its own — a purge that could only clear "the" snapshot
 // would have to clear all of them to remove one.
 const BOARD_KEY_PREFIX = 'ma-snapshot-board.'
+const LABEL_KEY_PREFIX = 'ma-snapshot-labels.'
 const SETTINGS_KEY = 'ma-snapshot-settings'
 const DIRECTORY_KEY = 'ma-snapshot-directory'
 
@@ -18,9 +20,12 @@ const DIRECTORY_KEY = 'ma-snapshot-directory'
 // v3: board snapshots are keyed per Board and carry `boardId`; the directory envelope is new. The
 // old single `ma-snapshot-board` key is not migrated — it is left to be swept by clearSnapshots()
 // and by the first successful load, which rewrites everything anyway.
-const V = 3
+// v4: Task classification is nullable `labelId`, so category-shaped task snapshots are dropped;
+// per-Board Label snapshots are introduced alongside the task envelope.
+const V = 4
 
 const boardKey = (boardId: string) => `${BOARD_KEY_PREFIX}${boardId}`
+const labelKey = (boardId: string) => `${LABEL_KEY_PREFIX}${boardId}`
 
 export interface BoardSnapshot {
   v: typeof V
@@ -44,6 +49,14 @@ export interface DirectorySnapshot {
   userId: string
   boards: unknown[]
   selectedBoardId: string | null
+}
+
+export interface LabelSnapshot {
+  v: typeof V
+  userId: string
+  boardId: string
+  savedAt: number
+  labels: Label[]
 }
 
 export interface SettingsSnapshot {
@@ -101,6 +114,19 @@ export function writeBoardSnapshot(
   write(boardKey(boardId), userId, { boardId, savedAt: Date.now(), tasks, templates })
 }
 
+export function readLabelSnapshot(userId: string, boardId: string): LabelSnapshot | null {
+  if (!boardId) return null
+  const env = readEnvelope(labelKey(boardId), userId)
+  if (!env || env.boardId !== boardId || !Array.isArray(env.labels)) return null
+  if (typeof env.savedAt !== 'number') return null
+  return env as unknown as LabelSnapshot
+}
+
+export function writeLabelSnapshot(userId: string, boardId: string, labels: Label[]): void {
+  if (!boardId) return
+  write(labelKey(boardId), userId, { boardId, savedAt: Date.now(), labels })
+}
+
 /**
  * Whether this Account has *any* Board snapshot — the offline-boot gate.
  *
@@ -142,7 +168,10 @@ export function cachedBoardIds(): string[] {
  */
 export function purgeBoardSnapshots(boardIds: readonly string[]): void {
   try {
-    for (const id of boardIds) localStorage.removeItem(boardKey(id))
+    for (const id of boardIds) {
+      localStorage.removeItem(boardKey(id))
+      localStorage.removeItem(labelKey(id))
+    }
   } catch {
     // ignore
   }
@@ -222,7 +251,7 @@ export function clearSnapshots(): void {
     const stale: string[] = []
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
-      if (key?.startsWith(BOARD_KEY_PREFIX)) stale.push(key)
+      if (key?.startsWith(BOARD_KEY_PREFIX) || key?.startsWith(LABEL_KEY_PREFIX)) stale.push(key)
     }
     for (const key of stale) localStorage.removeItem(key)
     localStorage.removeItem('ma-snapshot-board')
