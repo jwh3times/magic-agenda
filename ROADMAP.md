@@ -22,24 +22,24 @@ dependencies on them are satisfied. Items **5.7 (branded auth emails, 2026-07-26
 PWA, offline read, 2026-07-27)**, and **4.1 (settings: week-start & timezone, 2026-07-28)** shipped
 and have been removed the same way.
 
-| Order | Item                             | Pri | Size | Hard dependencies      |
-| ----- | -------------------------------- | --- | ---- | ---------------------- |
-| 3.2   | Reminders / notifications        | P2  | XL   | —                      |
-| 4.2   | Custom labels / categories       | P2  | XL   | — (6.2 step 1, landed) |
-| 4.3   | Richer recurrence                | P3  | L    | —                      |
-| 4.4   | Quick-add & keyboard shortcuts   | P3  | L    | —                      |
-| 4.5   | Bulk multi-select                | P3  | L    | —                      |
-| 4.6   | Undo                             | P3  | M    | best after 4.5         |
-| 4.7   | Completed / archive view + stats | P3  | M    | —                      |
-| 4.8   | Two-factor (TOTP) enrollment UI  | P3  | M    | —                      |
-| 5.4   | Roles & feature flags            | P2  | L    | —                      |
-| 5.5   | Admin dashboard                  | P2  | L    | 5.4                    |
-| 5.6   | Custom auth domain               | P3  | S    | Supabase Pro (~$35/mo) |
-| 5.8   | Leaked-password protection       | P3  | S    | Supabase Pro ($25/mo)  |
-| 6.1   | iCal calendar feed               | P3  | L    | —                      |
-| 6.3   | Attachments                      | P3  | L    | —                      |
-| 6.2   | Multiple private boards          | P3  | XL   | —                      |
-| 6.4   | Shared / collaborative boards    | P3  | L    | 6.2, 5.4               |
+| Order | Item                             | Pri | Size | Hard dependencies        |
+| ----- | -------------------------------- | --- | ---- | ------------------------ |
+| 3.2   | Reminders / notifications        | P2  | XL   | —                        |
+| 4.2   | Custom labels                    | P2  | XL   | — (6.2 steps 1–2 landed) |
+| 4.3   | Richer recurrence                | P3  | L    | —                        |
+| 4.4   | Quick-add & keyboard shortcuts   | P3  | L    | —                        |
+| 4.5   | Bulk multi-select                | P3  | L    | —                        |
+| 4.6   | Undo                             | P3  | M    | best after 4.5           |
+| 4.7   | Completed / archive view + stats | P3  | M    | —                        |
+| 4.8   | Two-factor (TOTP) enrollment UI  | P3  | M    | —                        |
+| 5.4   | Roles & feature flags            | P2  | L    | —                        |
+| 5.5   | Admin dashboard                  | P2  | L    | 5.4                      |
+| 5.6   | Custom auth domain               | P3  | S    | Supabase Pro (~$35/mo)   |
+| 5.8   | Leaked-password protection       | P3  | S    | Supabase Pro ($25/mo)    |
+| 6.1   | iCal calendar feed               | P3  | L    | —                        |
+| 6.3   | Attachments                      | P3  | L    | —                        |
+| 6.2   | Multiple private boards          | P3  | XL   | —                        |
+| 6.4   | Shared / collaborative boards    | P3  | L    | 6.2, 5.4                 |
 
 Total rough effort for the remaining items: ~7–10 weeks of focused solo work.
 
@@ -122,16 +122,23 @@ were added as their own effort rather than a roadmap feature — see
 
 ## Phase 4 — Productivity & personalization
 
-- [ ] **Custom labels / categories** · **P2** · XL — `category` is a hardcoded 5-value enum; let
-      users define their own labels and colors. The deepest data change on the list — three PRs:
-  1. Schema + backfill: `labels` table (`id, board_id, name, dot_color, position`, membership RLS);
-     `tasks.label_id uuid references labels on delete set null`, constrained so a task cannot carry
-     a label from another board. Backfill the 5 built-ins per board and map `category` → `label_id`;
-     keep the `category` column temporarily (deploy-window tolerance), drop one release later. Board
-     creation seeds defaults.
-  2. App read path: `useLabels(boardId)`; `Task.labelId`; `CAT` becomes a fallback. Card dot,
-     editor picker, and filter dropdown consume the board's label list.
-  3. Management UI on `/settings`: create/rename/recolor/reorder/delete (delete ⇒ "Unlabeled").
+- [~] **Custom labels** · **P2** · XL — issue #164 resolved the language: **Label** replaces
+      Category; each Task has zero or one Board-owned Label; **Unlabeled** is absence; Label Color is
+      independent from purely visual Note Color; names are trimmed and case-insensitively unique
+      within a Board; and the five seeded Labels are ordinary, editable definitions. Five bounded
+      releases track the work:
+  1. **Landed 2026-08-16:** [#176](https://github.com/jwh3times/magic-agenda/issues/176) —
+     Board-scoped schema, built-in backfill, membership RLS, cross-Board constraint, and
+     stale-client Category compatibility.
+  2. [#177](https://github.com/jwh3times/magic-agenda/issues/177) — Label directory/read path,
+     nullable `Task.labelId`, assignment, cards, filtering, recurrence propagation, and Unlabeled as
+     the new-Task default.
+  3. [#178](https://github.com/jwh3times/magic-agenda/issues/178) — export v2 plus v1 compatibility
+     and explicit mapping from every source Label to an existing destination Label or Unlabeled.
+  4. [#179](https://github.com/jwh3times/magic-agenda/issues/179) — Owner-only Label management on
+     `/settings`; deletion makes affected Tasks Unlabeled.
+  5. [#180](https://github.com/jwh3times/magic-agenda/issues/180) — remove the legacy Category
+     column and compatibility rule only after the deploy window has elapsed.
 
   **Labels are board-scoped from their first migration — `board_id`, never `user_id`.** An earlier
   version of this entry specified account-owned labels, which reads as the cheaper start and is not:
@@ -142,18 +149,15 @@ were added as their own effort rather than a roadmap feature — see
   backfilled board-per-account, but **not** the rest of 6.2 — labels land while every account still
   has exactly one board, which is the cheapest place to get the `category` → label migration wrong.
 
-  **The dependency landed 2026-08-13 (v1.2.76), as 6.2's step 1** — `boards`, `board_memberships`,
-  and one backfilled board per account all exist, and every task already carries a `board_id`
-  (nullable in the schema still, but never NULL in practice: the backfill closed the gap and a
-  compatibility trigger routes every new insert). 6.2's remaining steps — the RLS rewrite that makes
-  `board_id` NOT NULL, and step 3's board-creation UI — have **not** shipped, which per the paragraph
-  above is exactly the window this entry wanted: 4.2 can now start while every account still has
-  exactly one board, and doing it before step 3 lands is cheaper than doing it after. Priority
-  consequence, stated plainly: 4.2 is P2 and was blocked behind P3 work only for its dependency; that
-  dependency is now satisfied, so scheduling is a priority call, not a blocked one.
+  **The full data dependency landed by 2026-08-15 (v1.2.78)** — `boards`, `board_memberships`, and
+  one backfilled Board per Account exist; every Task's `board_id` is NOT NULL and authoritative; and
+  Task RLS now authorizes through current Board Membership. Board-creation UI still has not shipped,
+  so #176's Label schema and Category backfill landed in the intended low-risk window while every
+  Account still has one Board. The next release in this effort is #177's app read and assignment
+  path.
 
-  Risk: the `Category` type is load-bearing in `constants.ts` — it dissolves into `string` label
-  ids, a wide but shallow type ripple. Write the backfill migration idempotent.
+  Remaining risk: the `Category` type is load-bearing in `constants.ts` — #177 dissolves it into
+  `string` Label ids, a wide but shallow type ripple.
 
 - [ ] **Richer recurrence** · **P3** · L — specific weekdays (e.g. Mon/Wed/Fri) and "end after N
       occurrences", beyond daily/weekly/monthly + interval + until. Schema:
@@ -314,10 +318,10 @@ Larger efforts that fit the app's direction but are not near-term.
       constraints are now board-qualified, so a series cannot span boards.
 
   4.2 is **interleaved with this item, not before or after it** — a shape the Deps column cannot
-  express. Custom labels need the `boards` / `board_memberships` foundation above so they can be
-  board-scoped from birth, and they should land before step 3 enables a second board, so the
-  `category` → label migration happens while every account still has exactly one board. Sequencing
-  them the other way costs a double migration; sequencing them later costs a riskier one.
+  express. Custom labels needed the `boards` / `board_memberships` foundation above so they could be
+  board-scoped from birth, and #176 landed before step 3 enables a second board, so the `category` →
+  `label_id` migration happened while every account still had exactly one board. That sequencing
+  avoided both a double migration and a riskier multi-Board backfill.
 
 - [ ] **Shared / collaborative boards** · **P3** · L — a second person on a board. Sits on top of
       6.2, which does the containment and authorization work; what is left is genuinely about other

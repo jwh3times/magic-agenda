@@ -4,6 +4,20 @@ import { Client as PgClient } from 'pg'
 import type { Database } from '../../src/types/database.types'
 
 type TestSupabaseClient = SupabaseClient<Database>
+type TaskInsert = Database['public']['Tables']['tasks']['Insert']
+
+/**
+ * A pre-Board client payload, intentionally missing the now-required `board_id`.
+ *
+ * Generated types correctly model the current NOT NULL schema and therefore reject this shape.
+ * Tests that exercise the temporary `tasks_infer_board_id` compatibility trigger cross that
+ * version boundary explicitly through this adapter instead of weakening the checked-in DB types.
+ */
+export function legacyTaskInsert(
+  values: Omit<TaskInsert, 'board_id' | 'label_id' | 'label_assignment_explicit'>,
+): TaskInsert {
+  return values as TaskInsert
+}
 
 export interface Stack {
   apiUrl: string

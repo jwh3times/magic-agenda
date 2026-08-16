@@ -173,9 +173,10 @@ can legitimately edit both Boards.
 
 Four things here are load-bearing and none is obvious from the schema alone:
 
-- **`handle_new_user` now seeds four rows** — settings, profile, Board, Owner Membership — in the
-  signup transaction. A failure in any of them fails registration, which is the correct trade (an
-  Account with no Board is broken) but puts this function on the critical path of every signup. It
+- **`handle_new_user` now seeds the Account foundation** — settings, profile, Board, Owner
+  Membership, and the Board's five ordinary seeded Labels — in the signup transaction. A failure in
+  any of them fails registration, which is the correct trade (an Account with no usable Board is
+  broken) but puts this function on the critical path of every signup. It
   is hardened per the plan: `security definer` with `set search_path = ''`, so **every reference in
   its body must be schema-qualified** — an unqualified one is now a runtime error, not a silent
   resolution.
@@ -216,6 +217,35 @@ there is no correct direct-write grant. The one exception is column-level: `gran
 changed" — a policy cannot see the old row. Practical consequence: a fixture that reaches for the
 service client to create a Board gets a permission error; seed through direct SQL instead of
 widening the grant.
+
+### Labels: optional classification with a temporary legacy bridge
+
+`labels` is Board-owned vocabulary. Every current member may SELECT definitions; only an Owner may
+create, rename, recolor, reorder, or delete them. The grants carry part of that boundary: INSERT is
+limited to `(board_id, name, dot_color, position)` and UPDATE to `(name, dot_color, position)`, so a
+client cannot move a Label across Boards or forge the compatibility alias even if its RLS predicate
+would otherwise accept the row. There is deliberately no `service_role` grant.
+
+A Task has zero or one Label. The composite foreign key
+`(board_id, label_id) -> labels(board_id, id)` makes cross-Board assignment impossible, and its
+column-list `on delete set null (label_id)` preserves the Task's NOT NULL Board containment when a
+Label is deleted. `Unlabeled` is therefore `label_id = NULL`, never a Label row. Label Color is the
+definition's dot/accent and is independent from the Task's visual Note Color.
+
+Two columns and one trigger are **temporary deploy-window machinery**:
+
+- `labels.legacy_category` retains the seeded Label's old Category key through a rename. It does
+  not make that Label permanent; deletion removes the alias with the row.
+- `tasks.label_assignment_explicit` distinguishes a stale client that omitted `label_id` (false)
+  from the new client intentionally choosing Unlabeled (true).
+- `tasks_sync_legacy_category_label` maps a stale INSERT or Category change through the alias. Its
+  name sorts after `tasks_infer_board_id_before_insert`, so Board inference runs first and the Label
+  lookup is Board-scoped.
+
+The app still uses Category until #177. Issue #180 removes `tasks.category`, both compatibility
+columns, and the trigger only after the new task/export paths have had a release window. Collapsing
+that sequence makes either stale clients lose classification or new clients unable to create an
+Unlabeled Task.
 
 The app layer matches it. `BoardDirectoryProvider` (`src/board/BoardDirectoryProvider.tsx`, mounted
 above `<Routes>` beside `SettingsProvider`, see below) loads the signed-in Account's current

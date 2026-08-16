@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect, test } from 'vitest'
-import { createTestUser, deleteTestUser, type TestUser } from './helpers'
+import { createTestUser, deleteTestUser, legacyTaskInsert, type TestUser } from './helpers'
 
 let user: TestUser
 
@@ -18,7 +18,7 @@ afterAll(async () => {
 test('an authenticated user can insert and read back their own task', async () => {
   const { error: insertError } = await user.client
     .from('tasks')
-    .insert({ user_id: user.id, title: 'canary' })
+    .insert(legacyTaskInsert({ user_id: user.id, title: 'canary' }))
   expect(insertError).toBeNull()
 
   const { data, error } = await user.client.from('tasks').select('id, title')
