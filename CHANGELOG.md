@@ -12,6 +12,30 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.2.80] - 2026-08-16
+
+### Internal
+
+- Added Board-owned Label definitions and an optional `tasks.label_id`. Existing Boards receive the
+  five Category values as ordinary seeded Labels, existing Tasks are backfilled to those Labels,
+  and new-account setup seeds the same definitions. Labels are intentionally not exposed in the UI
+  until the next application-layer release.
+- Label access follows Board Membership: current members may read definitions, while only Owners may
+  create, rename, recolor, reorder, or delete them. A composite foreign key prevents cross-Board
+  assignment, and deleting a Label clears only the Task's Label so its Board containment remains
+  intact.
+- Added a temporary deploy-window bridge that maps writes from the currently deployed
+  Category-based client without overriding explicit Label or Unlabeled assignments from the next
+  client. Behavioural RLS and constraint coverage pins signup seeding, grants, backfill, stale-client
+  writes, renames, deletion, and cross-Board rejection.
+
+## [1.2.79] - 2026-08-14
+
+### Internal
+
+- Updated `@supabase/supabase-js` from 2.112.2 to 2.112.3, including its Auth, Functions,
+  PostgREST, Realtime, and Storage packages.
+
 ## [1.2.78] - 2026-08-14
 
 ### Fixed
@@ -1608,7 +1632,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.78...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.2.80...HEAD
+[1.2.80]: https://github.com/jwh3times/magic-agenda/compare/v1.2.79...v1.2.80
+[1.2.79]: https://github.com/jwh3times/magic-agenda/compare/v1.2.78...v1.2.79
 [1.2.78]: https://github.com/jwh3times/magic-agenda/compare/v1.2.77...v1.2.78
 [1.2.77]: https://github.com/jwh3times/magic-agenda/compare/v1.2.76...v1.2.77
 [1.2.76]: https://github.com/jwh3times/magic-agenda/compare/v1.2.75...v1.2.76

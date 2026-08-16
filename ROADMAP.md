@@ -127,8 +127,9 @@ were added as their own effort rather than a roadmap feature — see
       independent from purely visual Note Color; names are trimmed and case-insensitively unique
       within a Board; and the five seeded Labels are ordinary, editable definitions. Five bounded
       releases track the work:
-  1. [#176](https://github.com/jwh3times/magic-agenda/issues/176) — Board-scoped schema, built-in
-     backfill, membership RLS, cross-Board constraint, and stale-client Category compatibility.
+  1. **Landed 2026-08-16:** [#176](https://github.com/jwh3times/magic-agenda/issues/176) —
+     Board-scoped schema, built-in backfill, membership RLS, cross-Board constraint, and
+     stale-client Category compatibility.
   2. [#177](https://github.com/jwh3times/magic-agenda/issues/177) — Label directory/read path,
      nullable `Task.labelId`, assignment, cards, filtering, recurrence propagation, and Unlabeled as
      the new-Task default.
@@ -151,11 +152,12 @@ were added as their own effort rather than a roadmap feature — see
   **The full data dependency landed by 2026-08-15 (v1.2.78)** — `boards`, `board_memberships`, and
   one backfilled Board per Account exist; every Task's `board_id` is NOT NULL and authoritative; and
   Task RLS now authorizes through current Board Membership. Board-creation UI still has not shipped,
-  which is exactly the low-risk window this migration wanted: Labels can land while every Account
-  still has one Board. Priority consequence, stated plainly: 4.2 is unblocked and #176 is next.
+  so #176's Label schema and Category backfill landed in the intended low-risk window while every
+  Account still has one Board. The next release in this effort is #177's app read and assignment
+  path.
 
-  Risk: the `Category` type is load-bearing in `constants.ts` — it dissolves into `string` label
-  ids, a wide but shallow type ripple. Write the backfill migration idempotent.
+  Remaining risk: the `Category` type is load-bearing in `constants.ts` — #177 dissolves it into
+  `string` Label ids, a wide but shallow type ripple.
 
 - [ ] **Richer recurrence** · **P3** · L — specific weekdays (e.g. Mon/Wed/Fri) and "end after N
       occurrences", beyond daily/weekly/monthly + interval + until. Schema:
@@ -316,10 +318,10 @@ Larger efforts that fit the app's direction but are not near-term.
       constraints are now board-qualified, so a series cannot span boards.
 
   4.2 is **interleaved with this item, not before or after it** — a shape the Deps column cannot
-  express. Custom labels need the `boards` / `board_memberships` foundation above so they can be
-  board-scoped from birth, and they should land before step 3 enables a second board, so the
-  `category` → label migration happens while every account still has exactly one board. Sequencing
-  them the other way costs a double migration; sequencing them later costs a riskier one.
+  express. Custom labels needed the `boards` / `board_memberships` foundation above so they could be
+  board-scoped from birth, and #176 landed before step 3 enables a second board, so the `category` →
+  `label_id` migration happened while every account still had exactly one board. That sequencing
+  avoided both a double migration and a riskier multi-Board backfill.
 
 - [ ] **Shared / collaborative boards** · **P3** · L — a second person on a board. Sits on top of
       6.2, which does the containment and authorization work; what is left is genuinely about other
