@@ -301,8 +301,9 @@ settings/navigation plus the derived `assignLabels` capability, not task operati
 `Board` testable without Supabase: `Board.test.tsx` supplies the same `TaskBoard` interface with a
 stateful in-memory adapter. Tests that mock `useTasks` itself start from `fakeUseTasks()`, and tests
 that mock the Board Directory start from `fakeBoardDirectory()` (`src/board/fakeBoardDirectory.ts`,
-the same typed-fake precedent as `fakeUseTasks` and `fakeAuthGateway`), so interface additions
-cannot leave partial, untyped return objects behind.
+while Label Directory consumers start from `fakeLabelDirectory()`
+(`src/labels/fakeLabelDirectory.ts`). These follow the same typed-fake precedent as `fakeUseTasks`
+and `fakeAuthGateway`, so interface additions cannot leave partial, untyped return objects behind.
 `useTasks` remains the single source of truth for board tasks: optimistic CRUD with rollback, plus
 `persistReorder` (upserts only the changed lanes). Its raw React setter is private; drag-over uses
 the narrower `previewReorder(next)` command.
