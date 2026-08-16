@@ -117,12 +117,53 @@ export type Database = {
         }
         Relationships: []
       }
+      labels: {
+        Row: {
+          board_id: string
+          created_at: string
+          dot_color: string
+          id: string
+          legacy_category: string | null
+          name: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          board_id: string
+          created_at?: string
+          dot_color: string
+          id?: string
+          legacy_category?: string | null
+          name: string
+          position: number
+          updated_at?: string
+        }
+        Update: {
+          board_id?: string
+          created_at?: string
+          dot_color?: string
+          id?: string
+          legacy_category?: string | null
+          name?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'labels_board_id_fkey'
+            columns: ['board_id']
+            isOneToOne: false
+            referencedRelation: 'boards'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       tasks: {
         Row: {
           at_time: string | null
           author_id: string | null
           author_kind: string
-          board_id: string | null
+          board_id: string
           category: string
           checklist: Json
           color: string
@@ -131,6 +172,8 @@ export type Database = {
           description: string
           id: string
           korder: number
+          label_assignment_explicit: boolean
+          label_id: string | null
           last_editor_id: string | null
           order_index: number
           pinned: boolean
@@ -150,7 +193,7 @@ export type Database = {
           at_time?: string | null
           author_id?: string | null
           author_kind?: string
-          board_id?: string | null
+          board_id: string
           category?: string
           checklist?: Json
           color?: string
@@ -159,6 +202,8 @@ export type Database = {
           description?: string
           id?: string
           korder?: number
+          label_assignment_explicit?: boolean
+          label_id?: string | null
           last_editor_id?: string | null
           order_index?: number
           pinned?: boolean
@@ -178,7 +223,7 @@ export type Database = {
           at_time?: string | null
           author_id?: string | null
           author_kind?: string
-          board_id?: string | null
+          board_id?: string
           category?: string
           checklist?: Json
           color?: string
@@ -187,6 +232,8 @@ export type Database = {
           description?: string
           id?: string
           korder?: number
+          label_assignment_explicit?: boolean
+          label_id?: string | null
           last_editor_id?: string | null
           order_index?: number
           pinned?: boolean
@@ -211,11 +258,18 @@ export type Database = {
             referencedColumns: ['id']
           },
           {
-            foreignKeyName: 'tasks_recur_parent_id_fkey'
-            columns: ['recur_parent_id']
+            foreignKeyName: 'tasks_label_same_board'
+            columns: ['board_id', 'label_id']
+            isOneToOne: false
+            referencedRelation: 'labels'
+            referencedColumns: ['board_id', 'id']
+          },
+          {
+            foreignKeyName: 'tasks_recur_parent_same_board'
+            columns: ['board_id', 'recur_parent_id']
             isOneToOne: false
             referencedRelation: 'tasks'
-            referencedColumns: ['id']
+            referencedColumns: ['board_id', 'id']
           },
         ]
       }

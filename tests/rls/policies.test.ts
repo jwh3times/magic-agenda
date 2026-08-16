@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, expect, test } from 'vitest'
-import { anonClient, createTestUser, deleteTestUser, type TestUser } from './helpers'
+import {
+  anonClient,
+  createTestUser,
+  deleteTestUser,
+  legacyTaskInsert,
+  type TestUser,
+} from './helpers'
 
 let alice: TestUser
 let bob: TestUser
@@ -11,7 +17,7 @@ beforeAll(async () => {
 
   const { data, error } = await alice.client
     .from('tasks')
-    .insert({ user_id: alice.id, title: "alice's task" })
+    .insert(legacyTaskInsert({ user_id: alice.id, title: "alice's task" }))
     .select('id')
     .single()
   if (error) throw new Error(`fixture insert failed: ${error.message}`)
@@ -61,7 +67,9 @@ test("bob cannot delete alice's task", async () => {
 test('bob cannot insert a task owned by alice', async () => {
   // The sharp one. A policy with USING but no WITH CHECK passes every test above and still
   // lets one user write rows owned by another.
-  const { error } = await bob.client.from('tasks').insert({ user_id: alice.id, title: 'forged' })
+  const { error } = await bob.client
+    .from('tasks')
+    .insert(legacyTaskInsert({ user_id: alice.id, title: 'forged' }))
   expect(error).not.toBeNull()
   expect(error?.code).toBe('42501')
 })
@@ -144,7 +152,7 @@ test('an anonymous client reads zero rows WITHOUT an error', async () => {
 test('an anonymous client cannot write', async () => {
   const { error } = await anonClient()
     .from('tasks')
-    .insert({ user_id: alice.id, title: 'from nowhere' })
+    .insert(legacyTaskInsert({ user_id: alice.id, title: 'from nowhere' }))
   // Specifically the policy denial, not just any error -- a schema-level failure (a new NOT
   // NULL column, a check constraint) would satisfy `not.toBeNull()` just as well and mask a
   // missing or broken policy.

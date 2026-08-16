@@ -46,7 +46,9 @@ const row = (over: Partial<TaskRow> = {}): TaskRow => ({
   recur_origin_day: null,
   // Board containment, attribution, and the compare-and-swap token. Present on every row since the
   // Board foundation migration; the realtime reducer does not read them yet.
-  board_id: null,
+  board_id: 'b1',
+  label_id: null,
+  label_assignment_explicit: false,
   author_id: null,
   last_editor_id: null,
   author_kind: 'author',

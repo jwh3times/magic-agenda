@@ -29,7 +29,9 @@ function row(over: Partial<TaskRow> = {}): TaskRow {
     // Board containment, attribution, and the compare-and-swap token. On every row since the Board
     // foundation migration; the mapper deliberately does not carry them into the app-domain Task
     // yet, which is what the round-trip tests below still assert.
-    board_id: null,
+    board_id: 'b1',
+    label_id: null,
+    label_assignment_explicit: false,
     author_id: null,
     last_editor_id: null,
     author_kind: 'author',

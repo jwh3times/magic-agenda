@@ -1,5 +1,12 @@
 import { afterAll, beforeAll, expect, test } from 'vitest'
-import { anonClient, createTestUser, deleteTestUser, withPg, type TestUser } from './helpers'
+import {
+  anonClient,
+  createTestUser,
+  deleteTestUser,
+  legacyTaskInsert,
+  withPg,
+  type TestUser,
+} from './helpers'
 
 /**
  * Behavioural tests for the Board foundation.
@@ -189,7 +196,7 @@ test('a task inserted without board_id is routed to the account’s board', asyn
   // dropping it is what makes a stale client fail closed once a second board can exist.
   const { data, error } = await alice.client
     .from('tasks')
-    .insert({ user_id: alice.id, title: 'legacy-shaped insert' })
+    .insert(legacyTaskInsert({ user_id: alice.id, title: 'legacy-shaped insert' }))
     .select('board_id, revision, author_kind')
     .single()
   expect(error).toBeNull()
