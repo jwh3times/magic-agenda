@@ -232,6 +232,12 @@ export function cardStyles(
         ? `rgba(17,17,17,${a})`
         : `rgba(60,42,18,${a})`
 
+  // Fading text by opacity blends the ink toward the paper, so the fade is capped per
+  // theme to hold WCAG AA (4.5:1): every cork paper drops below it under 0.9, and
+  // brutal's blue paper has no headroom at all (#fff ink is 4.54:1 at full strength).
+  // Glass ink sits on a dark backdrop with contrast to spare and keeps the soft fade.
+  const textFade = (a: number) => (theme === 'glass' ? a : theme === 'cork' ? 0.9 : 1)
+
   const dot: CSSProperties = {
     width: '7px',
     height: '7px',
@@ -245,14 +251,14 @@ export function cardStyles(
     fontWeight: 700,
     letterSpacing: '.4px',
     textTransform: 'uppercase',
-    opacity: 0.75,
+    opacity: textFade(0.75),
     color: 'inherit',
   }
   const progStyle: CSSProperties = {
     marginLeft: 'auto',
     fontSize: '10.5px',
     fontWeight: 700,
-    opacity: 0.7,
+    opacity: textFade(0.7),
     fontVariantNumeric: 'tabular-nums',
   }
   const check: CSSProperties = {
@@ -320,7 +326,7 @@ export function cardStyles(
     fontSize: '12px',
     lineHeight: 1.35,
     marginTop: '5px',
-    opacity: 0.7,
+    opacity: textFade(0.7),
     display: '-webkit-box',
     WebkitLineClamp: 2,
     WebkitBoxOrient: 'vertical',
