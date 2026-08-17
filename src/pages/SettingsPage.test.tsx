@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, expect, test, vi } from 'vitest'
 import { fakeBoardDirectory, fakeBoardSession } from '../board/fakeBoardDirectory'
+import { fakeLabelDirectory } from '../labels/fakeLabelDirectory'
 
 const h = vi.hoisted(() => {
   const upsert = vi.fn(() => ({
@@ -38,6 +39,9 @@ vi.mock('../lib/supabase', () => ({
 vi.mock('../board/BoardDirectoryProvider', () => ({
   useBoardDirectoryContext: () => fakeBoardDirectory(),
   useBoardSession: () => fakeBoardSession(),
+}))
+vi.mock('../labels/LabelDirectoryProvider', () => ({
+  useLabelDirectoryContext: () => fakeLabelDirectory(),
 }))
 vi.mock('../auth/AuthProvider', () => ({ useAuth: () => h.auth }))
 

@@ -10,7 +10,18 @@ only work that is on a branch but not yet merged.
 
 ## [Unreleased]
 
-No unreleased changes.
+### Added
+
+- Added Label-aware v2 Board backups containing Label definitions and nullable assignments. Import
+  requires an explicit destination choice for every referenced source Label — an existing Label or
+  Unlabeled — without creating definitions or matching them automatically by name.
+
+### Changed
+
+- Category-shaped v1 files remain importable through the same mapping flow, with their Account
+  Preferences deliberately ignored. Imports retain fresh ids, template-first insertion, additive
+  semantics, and resumable batches; Owner-only export and Editor/Owner import now follow the Board
+  capability model.
 
 ## [1.3.0] - 2026-08-16
 

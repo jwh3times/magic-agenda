@@ -243,12 +243,23 @@ Two columns and one trigger are **temporary deploy-window machinery**:
   lookup is Board-scoped.
 
 The app domain now uses `Task.labelId: string | null`; Category is confined to raw DB rows and the
-v1 export/import adapter in `src/data/exportImport.ts`. Every normal `taskToRow` write sends
-`label_id` plus `label_assignment_explicit = true`, including null for Unlabeled, so the bridge
-cannot reinterpret new-client intent. V1 imports use the opposite marker deliberately so the
-database maps their Category to a seeded Label. Issue #180 removes `tasks.category`, both
-compatibility columns, and the trigger only after the new task/export paths have had a release
-window.
+v1 file parser in `src/data/exportImport.ts`. Every normal `taskToRow` write sends `label_id` plus
+`label_assignment_explicit = true`, including null for Unlabeled, so the bridge cannot reinterpret
+new-client intent. V1 Categories are normalized into synthetic source Labels and go through the
+same explicit destination mapping as v2; imports no longer opt into the database bridge. Issue #180
+removes `tasks.category`, both compatibility columns, and the trigger after the deploy window while
+retaining v1 parsing at the file-format seam.
+
+**`src/data/exportImport.ts` is the complete file-format and import-planning module.** V2 is a
+one-Board format containing Label definitions plus nullable Task/Series Label references; Account
+Preferences are excluded, and v1 settings are discarded on parse. `parseExport()` validates v1 or
+v2 into one `ImportBundle`; `referencedSourceLabels()` exposes only definitions that need choices;
+and `prepareImport()` requires every one to map explicitly to an existing destination Label or
+Unlabeled before it freshens ids and produces destination-scoped rows. It never matches by name or
+creates Label definitions. `DataSection` owns only file/download and Supabase I/O, keeps the
+template-first batch cursor for retry, freezes mapping after a partial write, and uses
+`transferContent` for import versus Owner-only `exportBoard` for export. Separate Task/Label export
+reads fail closed if a concurrent vocabulary change would create a dangling reference.
 
 `LabelDirectoryProvider` is mounted inside `BoardDirectoryProvider` above `<Routes>`. Its
 `useLabels(userId, boardId, hasSession)` adapter loads the selected Board's definitions, keeps a
@@ -265,8 +276,8 @@ Memberships joined to their Boards, resolves which one is open (`resolveSelectio
 `src/board/selection.ts`), and exposes it as `useBoardSession()`'s `board` + `can` — the first real
 caller of `src/board/role.ts`'s capabilities. `useTasks` takes a `boardId` and loads/writes
 `.eq('board_id', boardId)`; `taskToRow` sends both `user_id` and `board_id`; offline board snapshots
-are keyed per Board; realtime filters on `board_id`; and `DataSection`'s import/export is scoped the
-same way.
+are keyed per Board; realtime filters on `board_id`; and `DataSection`'s v2 import/export is scoped
+the same way.
 
 **Client-side scoping is still not the boundary — it just no longer disagrees with it.** Everything
 above narrows what the client *asks* for; RLS narrows what the server *allows*, and since the
@@ -300,7 +311,7 @@ read-only, since editing against only half of the Board vocabulary is unsafe. `B
 settings/navigation plus the derived `assignLabels` capability, not task operations. This keeps
 `Board` testable without Supabase: `Board.test.tsx` supplies the same `TaskBoard` interface with a
 stateful in-memory adapter. Tests that mock `useTasks` itself start from `fakeUseTasks()`, and tests
-that mock the Board Directory start from `fakeBoardDirectory()` (`src/board/fakeBoardDirectory.ts`,
+that mock the Board Directory start from `fakeBoardDirectory()` (`src/board/fakeBoardDirectory.ts`),
 while Label Directory consumers start from `fakeLabelDirectory()`
 (`src/labels/fakeLabelDirectory.ts`). These follow the same typed-fake precedent as `fakeUseTasks`
 and `fakeAuthGateway`, so interface additions cannot leave partial, untyped return objects behind.
