@@ -12,6 +12,24 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.4.2] - 2026-08-17
+
+### Fixed
+
+- Card meta text — the Label name row, checklist progress counter, and description preview — now
+  holds WCAG AA contrast (4.5:1) on every theme and Note Color. The opacity fade that softens this
+  text blended the ink toward the paper below the threshold on all six cork papers and on brutal's
+  blue paper; the fade is now capped per theme (cork floors at 0.9, brutal renders at full
+  strength, glass keeps its soft fade over the dark backdrop). Exposed by axe-core 4.13.0, which
+  resolves alpha-blended text colors (#186).
+
+## [1.4.1] - 2026-08-17
+
+### Internal
+
+- Bumped dev dependencies: `@testing-library/user-event` 14.6.3 → 14.6.4 and the `supabase` CLI
+  2.113.0 → 2.114.0 (Dependabot).
+
 ## [1.4.0] - 2026-08-17
 
 ### Added
@@ -1665,7 +1683,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.4.2...HEAD
+[1.4.2]: https://github.com/jwh3times/magic-agenda/compare/v1.4.1...v1.4.2
+[1.4.1]: https://github.com/jwh3times/magic-agenda/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/jwh3times/magic-agenda/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/jwh3times/magic-agenda/compare/v1.2.80...v1.3.0
 [1.2.80]: https://github.com/jwh3times/magic-agenda/compare/v1.2.79...v1.2.80
