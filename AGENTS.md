@@ -242,10 +242,22 @@ Two columns and one trigger are **temporary deploy-window machinery**:
   name sorts after `tasks_infer_board_id_before_insert`, so Board inference runs first and the Label
   lookup is Board-scoped.
 
-The app still uses Category until #177. Issue #180 removes `tasks.category`, both compatibility
-columns, and the trigger only after the new task/export paths have had a release window. Collapsing
-that sequence makes either stale clients lose classification or new clients unable to create an
-Unlabeled Task.
+The app domain now uses `Task.labelId: string | null`; Category is confined to raw DB rows and the
+v1 export/import adapter in `src/data/exportImport.ts`. Every normal `taskToRow` write sends
+`label_id` plus `label_assignment_explicit = true`, including null for Unlabeled, so the bridge
+cannot reinterpret new-client intent. V1 imports use the opposite marker deliberately so the
+database maps their Category to a seeded Label. Issue #180 removes `tasks.category`, both
+compatibility columns, and the trigger only after the new task/export paths have had a release
+window.
+
+`LabelDirectoryProvider` is mounted inside `BoardDirectoryProvider` above `<Routes>`. Its
+`useLabels(userId, boardId, hasSession)` adapter loads the selected Board's definitions, keeps a
+per-Board v4 snapshot, and reloads on visibility/online catch-up. Labels are deliberately absent
+from realtime until definition management ships in #179: #177 has no UI that changes them, while
+publishing another RLS table would widen the DELETE fan-out surface for no freshness benefit.
+Cards and drag overlays resolve names/colors through this provider; a null or missing definition
+renders the neutral Unlabeled presentation. Label Color supplies the accent only; Note Color still
+chooses the paper.
 
 The app layer matches it. `BoardDirectoryProvider` (`src/board/BoardDirectoryProvider.tsx`, mounted
 above `<Routes>` beside `SettingsProvider`, see below) loads the signed-in Account's current
@@ -275,19 +287,23 @@ database rather than merely absent from the UI.
 ### Data ownership: `BoardPage` owns state; task operations cross one context seam
 
 `pages/BoardPage.tsx` wires `useTasks(userId, boardId, hasSession)` + `useSettingsContext()` +
-`useBoardDirectoryContext()` / `useBoardSession()` + `ThemeProvider`, then publishes the
+`useBoardDirectoryContext()` / `useBoardSession()` + `useLabelDirectoryContext()` +
+`ThemeProvider`, then publishes the
 board-facing half of `useTasks` through `TaskBoardContext`. `boardId` is the session-wide Board
 Directory's resolved selection (`selectedBoardId`, see below), not something `BoardPage` decides
 itself: while the directory is still loading it is `null`, `useTasks` guards on `!boardId` the same
 shape as its existing `!userId` guard, and `BoardPage` gates its own render on `boardsLoading` too —
 rendering before the directory resolves would show the board's empty state, indistinguishable from a
-genuinely empty board. `Board` holds only **UI** state (view, anchor date, editing modal, pop
-animation, filter); its four props are account settings/navigation, not task operations. This keeps
+genuinely empty board. It also waits for Labels; a task or Label snapshot makes the whole board
+read-only, since editing against only half of the Board vocabulary is unsafe. `Board` holds only
+**UI** state (view, anchor date, editing modal, pop animation, filter); its props are account
+settings/navigation plus the derived `assignLabels` capability, not task operations. This keeps
 `Board` testable without Supabase: `Board.test.tsx` supplies the same `TaskBoard` interface with a
 stateful in-memory adapter. Tests that mock `useTasks` itself start from `fakeUseTasks()`, and tests
 that mock the Board Directory start from `fakeBoardDirectory()` (`src/board/fakeBoardDirectory.ts`,
-the same typed-fake precedent as `fakeUseTasks` and `fakeAuthGateway`), so interface additions
-cannot leave partial, untyped return objects behind.
+while Label Directory consumers start from `fakeLabelDirectory()`
+(`src/labels/fakeLabelDirectory.ts`). These follow the same typed-fake precedent as `fakeUseTasks`
+and `fakeAuthGateway`, so interface additions cannot leave partial, untyped return objects behind.
 `useTasks` remains the single source of truth for board tasks: optimistic CRUD with rollback, plus
 `persistReorder` (upserts only the changed lanes). Its raw React setter is private; drag-over uses
 the narrower `previewReorder(next)` command.

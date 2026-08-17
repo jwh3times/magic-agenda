@@ -1,19 +1,6 @@
-import type { Category, Color, Status, ThemeName } from '../types/task'
+import type { Color, Status, ThemeName } from '../types/task'
 
-// All values ported verbatim from design/Task Board.dc.html (CAT / COLORS / STATUS / PAPER).
-
-export interface CatDef {
-  label: string
-  dot: string
-}
-
-export const CAT: Record<Category, CatDef> = {
-  work: { label: 'Work', dot: '#2563eb' },
-  personal: { label: 'Personal', dot: '#db2777' },
-  errands: { label: 'Errands', dot: '#d97706' },
-  ideas: { label: 'Ideas', dot: '#7c3aed' },
-  health: { label: 'Health', dot: '#059669' },
-}
+// Note Color, Status, and paper values ported from design/Task Board.dc.html.
 
 export const COLORS: Color[] = ['yellow', 'pink', 'blue', 'mint', 'lilac', 'orange']
 

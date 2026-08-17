@@ -45,7 +45,7 @@ export function makeInstance(tmpl: Task, day: string, nextId: () => string): Tas
     id: nextId(),
     title: tmpl.title,
     description: tmpl.description,
-    category: tmpl.category,
+    labelId: tmpl.labelId,
     color: tmpl.color,
     checklist: tmpl.checklist.map((c) => ({ id: nextId(), text: c.text, done: false })),
     status: 'todo',
@@ -208,7 +208,7 @@ function seriesContent(draft: Task) {
   return {
     title: draft.title,
     description: draft.description,
-    category: draft.category,
+    labelId: draft.labelId,
     color: draft.color,
     atTime: draft.atTime,
   }

@@ -26,9 +26,7 @@ function row(over: Partial<TaskRow> = {}): TaskRow {
     recur_parent_id: null,
     recur_skip: [],
     recur_origin_day: null,
-    // Board containment, attribution, and the compare-and-swap token. On every row since the Board
-    // foundation migration; the mapper deliberately does not carry them into the app-domain Task
-    // yet, which is what the round-trip tests below still assert.
+    // Board containment, Label compatibility, attribution, and the compare-and-swap token.
     board_id: 'b1',
     label_id: null,
     label_assignment_explicit: false,
@@ -47,7 +45,7 @@ function task(over: Partial<Task> = {}): Task {
     id: 't1',
     title: 'T',
     description: 'D',
-    category: 'work',
+    labelId: null,
     color: 'yellow',
     checklist: [],
     status: 'todo',
@@ -96,6 +94,13 @@ describe('rowToTask', () => {
     expect(rowToTask(row({ recur_origin_day: '2026-07-01' })).recurOriginDay).toBe('2026-07-01')
     expect(rowToTask(row({ recur_origin_day: null })).recurOriginDay).toBeNull()
   })
+  it('maps the optional label relationship without exposing legacy Category', () => {
+    const labeled = rowToTask(row({ label_id: 'label-1', category: 'personal' }))
+    expect(labeled.labelId).toBe('label-1')
+    expect('category' in labeled).toBe(false)
+
+    expect(rowToTask(row({ label_id: null })).labelId).toBeNull()
+  })
 })
 
 describe('taskToRow', () => {
@@ -119,6 +124,16 @@ describe('taskToRow', () => {
       '2026-07-01',
     )
     expect(taskToRow(task({ recurOriginDay: null }), 'u1', 'b1').recur_origin_day).toBeNull()
+  })
+  it('writes an explicit nullable label assignment without writing legacy Category', () => {
+    const labeled = taskToRow(task({ labelId: 'label-1' }), 'u1', 'b1')
+    expect(labeled.label_id).toBe('label-1')
+    expect(labeled.label_assignment_explicit).toBe(true)
+    expect('category' in labeled).toBe(false)
+
+    const unlabeled = taskToRow(task({ labelId: null }), 'u1', 'b1')
+    expect(unlabeled.label_id).toBeNull()
+    expect(unlabeled.label_assignment_explicit).toBe(true)
   })
 })
 

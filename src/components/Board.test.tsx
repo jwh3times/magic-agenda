@@ -11,11 +11,21 @@ import { OfflineContext } from '../data/offlineContext'
 import { TodayContext } from '../data/todayContext'
 import { TaskBoardContext, type TaskBoard } from '../data/taskBoardContext'
 import type { Task, ViewName } from '../types/task'
+import { LabelDirectoryContext } from '../labels/labelDirectoryContext'
+import { MOCK_LABEL_DIRECTORY } from '../data/mockLabels'
 
 // Mimics BoardPage's data ownership with local state (no Supabase) so Board stays hermetic.
 // MemoryRouter is here because the inbox foot links to /privacy and /terms (ROADMAP 5.3); Board
 // still owns no data and touches no network.
-function Harness({ weekStart, initialView }: { weekStart?: number; initialView?: ViewName }) {
+function Harness({
+  weekStart,
+  initialView,
+  canAssignLabels,
+}: {
+  weekStart?: number
+  initialView?: ViewName
+  canAssignLabels?: boolean
+}) {
   const [tasks, setTasks] = useState<Task[]>(makeMockTasks)
   const taskBoard: TaskBoard = {
     tasks,
@@ -37,9 +47,15 @@ function Harness({ weekStart, initialView }: { weekStart?: number; initialView?:
   return (
     <MemoryRouter>
       <ThemeProvider>
-        <TaskBoardContext.Provider value={taskBoard}>
-          <Board weekStart={weekStart} initialView={initialView} />
-        </TaskBoardContext.Provider>
+        <LabelDirectoryContext.Provider value={MOCK_LABEL_DIRECTORY}>
+          <TaskBoardContext.Provider value={taskBoard}>
+            <Board
+              weekStart={weekStart}
+              initialView={initialView}
+              canAssignLabels={canAssignLabels}
+            />
+          </TaskBoardContext.Provider>
+        </LabelDirectoryContext.Provider>
       </ThemeProvider>
     </MemoryRouter>
   )
@@ -152,6 +168,21 @@ test('+ New task creates a task via the editor', async () => {
 
   expect(screen.queryByPlaceholderText('Task title…')).not.toBeInTheDocument()
   expect(screen.getByText('Water the plants')).toBeInTheDocument()
+})
+
+test('new tasks start Unlabeled', async () => {
+  const user = userEvent.setup()
+  renderBoard()
+  await user.click(screen.getByRole('button', { name: '+ New task' }))
+  expect(screen.getByRole('button', { name: 'Unlabeled' })).toHaveAttribute('aria-pressed', 'true')
+})
+
+test('the Board’s assignLabels capability gates editor Label controls', async () => {
+  const user = userEvent.setup()
+  render(<Harness canAssignLabels={false} />)
+  await user.click(screen.getByRole('button', { name: '+ New task' }))
+  expect(screen.getByRole('button', { name: 'Unlabeled' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Work' })).toBeDisabled()
 })
 
 test('clicking a card opens the editor prefilled', async () => {

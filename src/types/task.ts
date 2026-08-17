@@ -1,4 +1,3 @@
-export type Category = 'work' | 'personal' | 'errands' | 'ideas' | 'health'
 export type Color = 'yellow' | 'pink' | 'blue' | 'mint' | 'lilac' | 'orange'
 export type Status = 'todo' | 'doing' | 'done'
 export type RecurFreq = 'none' | 'daily' | 'weekly' | 'monthly'
@@ -15,7 +14,8 @@ export interface Task {
   id: string
   title: string
   description: string
-  category: Category
+  /** Optional Board Label. null is the first-class Unlabeled state. */
+  labelId: string | null
   color: Color
   checklist: ChecklistItem[]
   status: Status

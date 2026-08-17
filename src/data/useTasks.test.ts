@@ -109,7 +109,7 @@ const appTask = (over: Partial<Task>): Task => ({
   id: 't1',
   title: 'server',
   description: '',
-  category: 'work',
+  labelId: null,
   color: 'yellow',
   checklist: [],
   status: 'todo',
@@ -388,7 +388,7 @@ test('a failed load hydrates from the snapshot and materializes nothing', async 
   localStorage.setItem(
     'ma-snapshot-board.b1',
     JSON.stringify({
-      v: 3,
+      v: 4,
       userId: 'u1',
       boardId: 'b1',
       savedAt: 1_770_000_000_000,
@@ -449,7 +449,7 @@ test('a successful load writes a snapshot', async () => {
 test('reconnecting clears offline mode', async () => {
   localStorage.setItem(
     'ma-snapshot-board.b1',
-    JSON.stringify({ v: 3, userId: 'u1', boardId: 'b1', savedAt: 1, tasks: [], templates: [] }),
+    JSON.stringify({ v: 4, userId: 'u1', boardId: 'b1', savedAt: 1, tasks: [], templates: [] }),
   )
   h.capture.selectError = { message: 'FetchError: Failed to fetch' }
   const { result } = renderHook(() => useTasks('u1', 'b1', true))
@@ -472,7 +472,7 @@ test('reconnecting clears offline mode', async () => {
 // nothing under an "Offline" banner instead of the last-known tasks.
 test('reconnecting while sessionless does not poison the board snapshot with an empty board', async () => {
   const existing = {
-    v: 3,
+    v: 4,
     userId: 'u1',
     boardId: 'b1',
     savedAt: 1,

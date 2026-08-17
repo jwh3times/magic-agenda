@@ -20,9 +20,9 @@ of three hand‑built themes.
   shadows, and feel. Your choice persists.
 - **Drag‑and‑drop** — reorder within a day/column and move tasks across days, the week, columns, and the
   inbox, with a floating drag ghost (powered by [dnd‑kit](https://dndkit.com)).
-- **Rich task editor** — title, description, colour, category, checklist, status, schedule, an
-  optional due time, and a pin toggle for priority.
-- **Search & filter** — by text, category, status, and a "📌 Pinned" quick filter; non‑matching
+- **Rich task editor** — title, description, Note Color, an optional Board Label (or Unlabeled),
+  checklist, status, schedule, an optional due time, and a pin toggle for priority.
+- **Search & filter** — by text, Label (including Unlabeled), status, and a "📌 Pinned" quick filter; non‑matching
   cards hide live.
 - **Recurring tasks** — daily / weekly / monthly with an interval and end date, materialized over a
   rolling 90‑day horizon, with **this‑occurrence vs. all‑future** edit and delete semantics.
@@ -36,9 +36,10 @@ of three hand‑built themes.
   Settings → Dates. The timezone decides which day counts as "today" for the board's today‑highlight,
   overdue badges, and roll‑forward, so a traveling user's board stays on their home date; the week
   start re‑pads the month grid and rotates the weekday headers.
-- **Export & import** — back up your whole board as JSON from Settings → Data, and import it back
-  in additively (fresh ids, recurring series links preserved); the export also carries your week
-  start and timezone alongside theme and default view.
+- **Export & import** — export your board as JSON from Settings → Data, and import it back in
+  additively (fresh ids, recurring series links preserved); the export also carries your week start
+  and timezone alongside theme and default view. The current v1 format is Category-shaped, so it
+  cannot round-trip Unlabeled exactly; a Label-aware v2 format is planned.
 - **A public front door** — signed out, `magicagenda.app` is a landing page with a live, themed
   preview of the real board (rendered, not screenshotted); signed in, the same URL is your board.
 - **Accounts & sync** — email/password and Google sign‑in; every task is private to you via Postgres
@@ -151,6 +152,7 @@ src/
 ├─ components/   Board, views (Calendar/Week/Agenda/Kanban), TaskEditor, Toolbar, …
 ├─ data/         useTasks / useSettings hooks, mappers, selectors, filters, recurrence
 ├─ dnd/          pure drag logic (unit‑tested) + dnd‑kit wiring
+├─ labels/       selected-Board Label directory, presentation, and offline read path
 ├─ lib/          supabase client, date + id helpers
 ├─ pages/        Login, AuthCallback, AuthConfirm, ResetPassword, SettingsPage, BoardPage
 ├─ theme/        constants, per‑theme tokens, card styles, ThemeProvider

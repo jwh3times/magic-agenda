@@ -1,15 +1,17 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
-import { serializeExport } from '../data/exportImport'
-import { NO_RECUR, type Task } from '../types/task'
+import { serializeExport, type LegacyTask } from '../data/exportImport'
+import { NO_RECUR } from '../types/task'
 import { fakeBoardDirectory } from '../board/fakeBoardDirectory'
+import type { Database } from '../types/database.types'
 
 const h = vi.hoisted(() => {
   const inserted: unknown[][] = []
   return {
     inserted,
-    selectTasks: vi.fn(() => Promise.resolve({ data: [], error: null })),
+    selectTasks: vi.fn(() => Promise.resolve({ data: [] as unknown[], error: null })),
+    selectLabels: vi.fn(() => Promise.resolve({ data: [] as unknown[], error: null })),
     maybeSingle: vi.fn(() =>
       Promise.resolve({ data: { theme: 'cork', default_view: 'calendar' }, error: null }),
     ),
@@ -24,8 +26,10 @@ vi.mock('../lib/supabase', () => ({
   supabase: {
     from: vi.fn((table: string) =>
       table === 'tasks'
-        ? { select: h.selectTasks, insert: h.insert }
-        : { select: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: h.maybeSingle })) })) },
+        ? { select: vi.fn(() => ({ eq: h.selectTasks })), insert: h.insert }
+        : table === 'labels'
+          ? { select: vi.fn(() => ({ eq: h.selectLabels })) }
+          : { select: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: h.maybeSingle })) })) },
     ),
   },
 }))
@@ -39,7 +43,7 @@ vi.mock('../auth/AuthProvider', () => ({
 
 import { DataSection } from './DataSection'
 
-function mk(over: Partial<Task> = {}): Task {
+function mk(over: Partial<LegacyTask> = {}): LegacyTask {
   return {
     id: 'id-1',
     title: 'T',
@@ -59,11 +63,54 @@ function mk(over: Partial<Task> = {}): Task {
   }
 }
 
+type TaskRow = Database['public']['Tables']['tasks']['Row']
+
+function taskRow(over: Partial<TaskRow> = {}): TaskRow {
+  return {
+    id: 'r1',
+    user_id: 'u1',
+    board_id: 'b1',
+    title: 'Exported',
+    description: '',
+    category: 'work',
+    label_id: 'l-errands',
+    label_assignment_explicit: true,
+    color: 'yellow',
+    checklist: [],
+    status: 'todo',
+    day: null,
+    at_time: null,
+    pinned: false,
+    order_index: 0,
+    korder: 0,
+    recur_freq: 'none',
+    recur_interval: 1,
+    recur_until: null,
+    recur_parent_id: null,
+    recur_skip: [],
+    recur_origin_day: null,
+    author_id: null,
+    last_editor_id: null,
+    author_kind: 'author',
+    revision: 1,
+    created_at: '2026-08-16T00:00:00Z',
+    updated_at: '2026-08-16T00:00:00Z',
+    ...over,
+  }
+}
+
+let exportedBlob: Blob | null = null
+
 beforeEach(() => {
   h.inserted.length = 0
+  h.selectTasks.mockReset().mockResolvedValue({ data: [], error: null })
+  h.selectLabels.mockReset().mockResolvedValue({ data: [], error: null })
   vi.stubGlobal('URL', {
     ...URL,
-    createObjectURL: vi.fn(() => 'blob:test'),
+    createObjectURL: vi.fn((blob: Blob) => {
+      exportedBlob = blob
+      return 'blob:test'
+    }),
     revokeObjectURL: vi.fn(),
   })
 })
@@ -96,10 +143,32 @@ test('a valid file shows a summary; confirming inserts templates before instance
     recur_freq: string
     recur_parent_id: string | null
     id: string
+    category: string
+    label_assignment_explicit: boolean
   }[][]
   expect(firstBatch[0].recur_freq).toBe('daily') // templates first (FK)
   expect(secondBatch[0].recur_parent_id).toBe(firstBatch[0].id) // link preserved
   expect(firstBatch[0].id).not.toBe('tpl-1') // fresh ids
+  expect(firstBatch[0].category).toBe('work')
+  expect(firstBatch[0].label_assignment_explicit).toBe(false)
+})
+
+test('v1 export uses the canonical Label alias while keeping the file Category-shaped', async () => {
+  h.selectTasks.mockResolvedValue({ data: [taskRow()], error: null })
+  h.selectLabels.mockResolvedValue({
+    data: [{ id: 'l-errands', legacy_category: 'errands' }],
+    error: null,
+  })
+  render(<DataSection />)
+
+  await userEvent.click(screen.getByRole('button', { name: 'Export my data' }))
+  await screen.findByText('Export downloaded.')
+  if (!exportedBlob) throw new Error('export blob was not created')
+  const exported = JSON.parse(await exportedBlob.text()) as {
+    tasks: Array<Record<string, unknown>>
+  }
+  expect(exported.tasks[0].category).toBe('errands')
+  expect(exported.tasks[0]).not.toHaveProperty('labelId')
 })
 
 test('an invalid file surfaces the validator error and inserts nothing', async () => {

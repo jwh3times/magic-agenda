@@ -4,11 +4,19 @@ import { expect, test, vi } from 'vitest'
 import { ThemeProvider } from '../theme/ThemeProvider'
 import { SearchFilterBar } from './SearchFilterBar'
 import { EMPTY_FILTER, type FilterQuery } from '../data/filters'
+import { LabelDirectoryContext } from '../labels/labelDirectoryContext'
+import { fakeLabel, fakeLabelDirectory } from '../labels/fakeLabelDirectory'
+
+const directory = fakeLabelDirectory({
+  labels: [fakeLabel(), fakeLabel({ id: 'l2', name: 'Errands', position: 1 })],
+})
 
 function renderBar(query: FilterQuery, onChange: (q: FilterQuery) => void) {
   return render(
     <ThemeProvider>
-      <SearchFilterBar query={query} onChange={onChange} />
+      <LabelDirectoryContext.Provider value={directory}>
+        <SearchFilterBar query={query} onChange={onChange} />
+      </LabelDirectoryContext.Provider>
     </ThemeProvider>,
   )
 }
@@ -37,7 +45,21 @@ test('the filter bar is a search landmark and every control has an accessible na
   // substitution this test exists to prevent. Real browsers and axe-core see the implicit role.
   const { container } = renderBar(EMPTY_FILTER, vi.fn())
   expect(container.querySelector('search')).not.toBeNull()
-  expect(screen.getByRole('combobox', { name: 'Filter by category' })).toBeInTheDocument()
+  expect(screen.getByRole('combobox', { name: 'Filter by label' })).toBeInTheDocument()
   expect(screen.getByRole('combobox', { name: 'Filter by status' })).toBeInTheDocument()
   expect(screen.getByRole('textbox', { name: 'Search tasks' })).toBeInTheDocument()
+})
+
+test('offers All labels, Unlabeled, and the selected Board’s Labels', async () => {
+  const onChange = vi.fn()
+  renderBar(EMPTY_FILTER, onChange)
+  const select = screen.getByRole('combobox', { name: 'Filter by label' })
+
+  expect(screen.getByRole('option', { name: 'All labels' })).toBeInTheDocument()
+  expect(screen.getByRole('option', { name: 'Unlabeled' })).toBeInTheDocument()
+  expect(screen.getByRole('option', { name: 'Work' })).toBeInTheDocument()
+  expect(screen.getByRole('option', { name: 'Errands' })).toBeInTheDocument()
+
+  await userEvent.selectOptions(select, 'l2')
+  expect(onChange).toHaveBeenCalledWith({ ...EMPTY_FILTER, labelId: 'l2' })
 })

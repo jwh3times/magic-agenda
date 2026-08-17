@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import type { Task, ThemeName } from '../types/task'
-import { CAT, PAPER } from './constants'
+import { PAPER } from './constants'
+import { UNLABELED_DOT_COLOR } from '../labels/presentation'
 import { themeConf } from './themeConf'
 
 export type CardVariant = 'cell' | 'inbox' | 'kanban' | 'ghost'
@@ -17,7 +18,7 @@ export interface CardStyles {
   showStamp: boolean
   stampStyle: CSSProperties
   dot: CSSProperties
-  catStyle: CSSProperties
+  labelStyle: CSSProperties
   progStyle: CSSProperties
   check: CSSProperties
   pinBtn: CSSProperties
@@ -31,6 +32,7 @@ export interface CardStyleOpts {
   dragging?: boolean
   pop?: boolean
   overdue?: boolean
+  labelColor?: string
 }
 
 /** Deterministic per-id rotation in [-3, 3]. Ported from prototype `rotOf`. */
@@ -51,10 +53,9 @@ export function cardStyles(
   variant: CardVariant,
   opts: CardStyleOpts = {},
 ): CardStyles {
-  const { dragging = false, pop = false, overdue = false } = opts
+  const { dragging = false, pop = false, overdue = false, labelColor = UNLABELED_DOT_COLOR } = opts
   const C = themeConf(theme)
   const P = PAPER[theme][task.color] ?? PAPER[theme].yellow
-  const cat = CAT[task.category] ?? CAT.work
   const done = task.status === 'done'
   const total = task.checklist.length
   const ck = task.checklist.filter((c) => c.done).length
@@ -235,11 +236,11 @@ export function cardStyles(
     width: '7px',
     height: '7px',
     borderRadius: '50%',
-    background: cat.dot,
+    background: labelColor,
     flex: 'none',
     boxShadow: theme === 'cork' ? '0 0 0 1.5px rgba(255,255,255,.5)' : 'none',
   }
-  const catStyle: CSSProperties = {
+  const labelStyle: CSSProperties = {
     fontSize: '10.5px',
     fontWeight: 700,
     letterSpacing: '.4px',
@@ -264,7 +265,7 @@ export function cardStyles(
     cursor: 'pointer',
     borderRadius: theme === 'glass' ? '6px' : theme === 'brutal' ? '1px' : '4px',
     border: `1.5px solid ${inkSoft(0.4)}`,
-    background: done ? cat.dot : 'transparent',
+    background: done ? labelColor : 'transparent',
     color: done ? '#fff' : 'transparent',
     fontSize: '12px',
     lineHeight: 1,
@@ -298,7 +299,7 @@ export function cardStyles(
     height: '100%',
     borderRadius: '3px',
     background: done
-      ? cat.dot
+      ? labelColor
       : theme === 'glass'
         ? (P.edge ?? '').replace(/[\d.]+\)$/, '.9)')
         : inkSoft(0.55),
@@ -335,7 +336,7 @@ export function cardStyles(
     showStamp: done && theme === 'cork' && !isGhost,
     stampStyle,
     dot,
-    catStyle,
+    labelStyle,
     progStyle,
     check,
     pinBtn,

@@ -4,13 +4,16 @@ import { expect, test, vi } from 'vitest'
 import { ThemeProvider } from '../theme/ThemeProvider'
 import { TaskEditor } from './TaskEditor'
 import { NO_RECUR, type Task } from '../types/task'
+import type { ReactNode } from 'react'
+import { LabelDirectoryContext } from '../labels/labelDirectoryContext'
+import { fakeLabelDirectory } from '../labels/fakeLabelDirectory'
 
 function mkInstance(over: Partial<Task> = {}): Task {
   return {
     id: 'inst-1',
     title: 'Water the plants',
     description: '',
-    category: 'work',
+    labelId: null,
     color: 'yellow',
     checklist: [],
     status: 'todo',
@@ -26,12 +29,22 @@ function mkInstance(over: Partial<Task> = {}): Task {
   }
 }
 
+function TestProviders({ children }: { children: ReactNode }) {
+  return (
+    <ThemeProvider>
+      <LabelDirectoryContext.Provider value={fakeLabelDirectory()}>
+        {children}
+      </LabelDirectoryContext.Provider>
+    </ThemeProvider>
+  )
+}
+
 function renderEditor(initial: Task) {
   const onSave = vi.fn()
   const onDelete = vi.fn()
   const onClose = vi.fn()
   const { container } = render(
-    <ThemeProvider>
+    <TestProviders>
       <TaskEditor
         initial={initial}
         isNew={false}
@@ -39,10 +52,39 @@ function renderEditor(initial: Task) {
         onDelete={onDelete}
         onClose={onClose}
       />
-    </ThemeProvider>,
+    </TestProviders>,
   )
   return { onSave, onDelete, onClose, container }
 }
+
+test('assigns one existing Label or the first-class Unlabeled value', async () => {
+  const user = userEvent.setup()
+  const { onSave } = renderEditor(mkInstance({ recurParentId: null, labelId: null }))
+
+  expect(screen.getByRole('button', { name: 'Unlabeled' })).toHaveAttribute('aria-pressed', 'true')
+  await user.click(screen.getByRole('button', { name: 'Work' }))
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ labelId: 'l1' }))
+})
+
+test('disables only Label assignment when the Board role lacks assignLabels', () => {
+  render(
+    <TestProviders>
+      <TaskEditor
+        initial={mkInstance({ recurParentId: null })}
+        isNew={false}
+        onSave={vi.fn()}
+        onDelete={vi.fn()}
+        onClose={vi.fn()}
+        canAssignLabels={false}
+      />
+    </TestProviders>,
+  )
+
+  expect(screen.getByRole('button', { name: 'Unlabeled' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Work' })).toBeDisabled()
+  expect(screen.getByPlaceholderText('Task title…')).toBeEnabled()
+})
 
 test('saving a pin-only change to a recurring instance skips the scope prompt', async () => {
   const user = userEvent.setup()
@@ -156,7 +198,7 @@ test('hides an open scope prompt if the board goes read-only mid-interaction', a
   const user = userEvent.setup()
   const onSave = vi.fn()
   const { rerender } = render(
-    <ThemeProvider>
+    <TestProviders>
       <TaskEditor
         initial={mkInstance()}
         isNew={false}
@@ -164,7 +206,7 @@ test('hides an open scope prompt if the board goes read-only mid-interaction', a
         onDelete={vi.fn()}
         onClose={vi.fn()}
       />
-    </ThemeProvider>,
+    </TestProviders>,
   )
 
   await user.clear(screen.getByPlaceholderText('Task title…'))
@@ -173,7 +215,7 @@ test('hides an open scope prompt if the board goes read-only mid-interaction', a
   expect(screen.getByText('Save repeating task')).toBeInTheDocument()
 
   rerender(
-    <ThemeProvider>
+    <TestProviders>
       <TaskEditor
         initial={mkInstance()}
         isNew={false}
@@ -182,7 +224,7 @@ test('hides an open scope prompt if the board goes read-only mid-interaction', a
         onClose={vi.fn()}
         readOnly
       />
-    </ThemeProvider>,
+    </TestProviders>,
   )
 
   expect(screen.queryByText('Save repeating task')).not.toBeInTheDocument()
@@ -197,7 +239,7 @@ test('a scope prompt dismissed by read-only does not come back when the board re
   const user = userEvent.setup()
   const onSave = vi.fn()
   const tree = (readOnly?: boolean) => (
-    <ThemeProvider>
+    <TestProviders>
       <TaskEditor
         initial={mkInstance()}
         isNew={false}
@@ -206,7 +248,7 @@ test('a scope prompt dismissed by read-only does not come back when the board re
         onClose={vi.fn()}
         readOnly={readOnly}
       />
-    </ThemeProvider>
+    </TestProviders>
   )
   const { rerender } = render(tree())
 

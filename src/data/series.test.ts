@@ -16,7 +16,7 @@ function t(id: string, over: Partial<Task> = {}): Task {
     id,
     title: id,
     description: '',
-    category: 'work',
+    labelId: null,
     color: 'yellow',
     checklist: [],
     status: 'todo',
@@ -74,6 +74,7 @@ describe('makeInstance', () => {
       recurInterval: 2,
       recurUntil: '2026-12-31',
       title: 'Standup',
+      labelId: 'label-1',
       pinned: true,
       atTime: '09:00',
       checklist: [{ id: 'c1', text: 'agenda', done: true }],
@@ -88,6 +89,7 @@ describe('makeInstance', () => {
     expect(inst.recurUntil).toBeNull()
     // Content copies across; per-occurrence progress resets.
     expect(inst.title).toBe('Standup')
+    expect(inst.labelId).toBe('label-1')
     expect(inst.pinned).toBe(true)
     expect(inst.atTime).toBe('09:00')
     expect(inst.checklist).toHaveLength(1)
@@ -218,6 +220,17 @@ describe('planEditSeriesFrom', () => {
     expect(i3.done).toBe(true)
     expect(i3.status).toBe('done')
     expect(i3.pinned).toBe(true)
+  })
+
+  it('carries a Label edit through the template and future occurrences', () => {
+    const s = series()
+    const draft = t('i2', { labelId: 'label-2', recurFreq: 'weekly' })
+    const plan = planEditSeriesFrom(s, s.tasks[1], draft)!
+
+    expect(plan.state.tasks.find((x) => x.id === 'i1')?.labelId).toBeNull()
+    expect(plan.state.tasks.find((x) => x.id === 'i2')?.labelId).toBe('label-2')
+    expect(plan.state.tasks.find((x) => x.id === 'i3')?.labelId).toBe('label-2')
+    expect(plan.state.templates[0].labelId).toBe('label-2')
   })
 
   it('scopes by the occurrence origin, not the day a dragged card sits on', () => {

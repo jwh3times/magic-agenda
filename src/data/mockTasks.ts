@@ -1,4 +1,4 @@
-import { NO_RECUR, type Category, type Color, type Status, type Task } from '../types/task'
+import { NO_RECUR, type Color, type Status, type Task } from '../types/task'
 import { addDays, ymd } from '../lib/dates'
 
 let seq = 1000
@@ -7,7 +7,7 @@ const uid = (p: string) => `${p}${seq++}`
 interface MkInput {
   t: string
   d?: string
-  c: Category
+  labelId: string | null
   k: Color
   l?: { t: string; d?: boolean }[]
   s?: Status
@@ -22,7 +22,7 @@ function mk(o: MkInput): Task {
     id: uid('t'),
     title: o.t,
     description: o.d ?? '',
-    category: o.c,
+    labelId: o.labelId,
     color: o.k,
     checklist: (o.l ?? []).map((x) => ({ id: uid('c'), text: x.t, done: !!x.d })),
     status,
@@ -44,7 +44,7 @@ export function makeMockTasks(): Task[] {
     mk({
       t: 'Finish Q3 deck',
       d: 'Pull latest numbers, tighten the story.',
-      c: 'work',
+      labelId: 'demo-work',
       k: 'yellow',
       day: off(0),
       o: 0,
@@ -56,12 +56,28 @@ export function makeMockTasks(): Task[] {
         { t: 'Rehearse', d: false },
       ],
     }),
-    mk({ t: 'Call plumber', c: 'errands', k: 'pink', day: off(0), o: 1, s: 'todo', ko: 0 }),
-    mk({ t: 'Gym — leg day', c: 'health', k: 'mint', day: off(1), o: 0, s: 'done', ko: 0 }),
+    mk({
+      t: 'Call plumber',
+      labelId: 'demo-errands',
+      k: 'pink',
+      day: off(0),
+      o: 1,
+      s: 'todo',
+      ko: 0,
+    }),
+    mk({
+      t: 'Gym — leg day',
+      labelId: 'demo-health',
+      k: 'mint',
+      day: off(1),
+      o: 0,
+      s: 'done',
+      ko: 0,
+    }),
     mk({
       t: 'Review pull requests',
       d: 'Two from Sam, one from Dee.',
-      c: 'work',
+      labelId: 'demo-work',
       k: 'blue',
       day: off(1),
       o: 1,
@@ -72,12 +88,28 @@ export function makeMockTasks(): Task[] {
         { t: 'cal-grid', d: false },
       ],
     }),
-    mk({ t: 'Date night 🍝', c: 'personal', k: 'pink', day: off(2), o: 0, s: 'todo', ko: 1 }),
-    mk({ t: 'Pay rent', c: 'errands', k: 'orange', day: off(2), o: 1, s: 'done', ko: 1 }),
+    mk({
+      t: 'Date night 🍝',
+      labelId: 'demo-personal',
+      k: 'pink',
+      day: off(2),
+      o: 0,
+      s: 'todo',
+      ko: 1,
+    }),
+    mk({
+      t: 'Pay rent',
+      labelId: 'demo-errands',
+      k: 'orange',
+      day: off(2),
+      o: 1,
+      s: 'done',
+      ko: 1,
+    }),
     mk({
       t: 'Sketch app idea',
       d: 'The thing about offline notes.',
-      c: 'ideas',
+      labelId: 'demo-ideas',
       k: 'lilac',
       day: off(4),
       o: 0,
@@ -89,10 +121,18 @@ export function makeMockTasks(): Task[] {
         { t: 'Name it', d: false },
       ],
     }),
-    mk({ t: 'Dentist 9:00', c: 'health', k: 'blue', day: off(5), o: 0, s: 'done', ko: 2 }),
+    mk({
+      t: 'Dentist 9:00',
+      labelId: 'demo-health',
+      k: 'blue',
+      day: off(5),
+      o: 0,
+      s: 'done',
+      ko: 2,
+    }),
     mk({
       t: 'Birthday gift for Mom',
-      c: 'personal',
+      labelId: 'demo-personal',
       k: 'yellow',
       day: off(7),
       o: 0,
@@ -101,7 +141,7 @@ export function makeMockTasks(): Task[] {
     }),
     mk({
       t: 'Read “Shape Up”',
-      c: 'ideas',
+      labelId: 'demo-ideas',
       k: 'mint',
       day: 'inbox',
       o: 0,
@@ -115,13 +155,21 @@ export function makeMockTasks(): Task[] {
     mk({
       t: 'Renew passport',
       d: 'Expires in 4 months.',
-      c: 'errands',
+      labelId: 'demo-errands',
       k: 'orange',
       day: 'inbox',
       o: 1,
       s: 'todo',
       ko: 4,
     }),
-    mk({ t: 'Plan weekend trip', c: 'personal', k: 'lilac', day: 'inbox', o: 2, s: 'todo', ko: 5 }),
+    mk({
+      t: 'Plan weekend trip',
+      labelId: 'demo-personal',
+      k: 'lilac',
+      day: 'inbox',
+      o: 2,
+      s: 'todo',
+      ko: 5,
+    }),
   ]
 }

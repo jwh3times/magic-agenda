@@ -6,6 +6,8 @@ import { AgendaView } from './AgendaView'
 import { ymd, addDays } from '../lib/dates'
 import { NO_RECUR, type Task } from '../types/task'
 import { BoardActionContext, type BoardActions } from './boardActionContext'
+import { LabelDirectoryContext } from '../labels/labelDirectoryContext'
+import { fakeLabelDirectory } from '../labels/fakeLabelDirectory'
 
 // Local factory — do NOT import from TaskCard.test.tsx (importing a test file
 // registers and re-runs its tests inside this suite too).
@@ -14,7 +16,7 @@ function mkTask(over: Partial<Task> = {}): Task {
     id: 't1',
     title: 'T',
     description: '',
-    category: 'work',
+    labelId: null,
     color: 'yellow',
     checklist: [],
     status: 'todo',
@@ -45,9 +47,11 @@ test('overdue tasks appear once, in a top Overdue group with a roll-forward butt
   const value = { ...actions, onRollForward }
   render(
     <ThemeProvider>
-      <BoardActionContext.Provider value={value}>
-        <AgendaView tasks={[mkTask({ id: 'late', title: 'Late thing', day: yesterday })]} />
-      </BoardActionContext.Provider>
+      <LabelDirectoryContext.Provider value={fakeLabelDirectory()}>
+        <BoardActionContext.Provider value={value}>
+          <AgendaView tasks={[mkTask({ id: 'late', title: 'Late thing', day: yesterday })]} />
+        </BoardActionContext.Provider>
+      </LabelDirectoryContext.Provider>
     </ThemeProvider>,
   )
   expect(screen.getByText('Overdue')).toBeInTheDocument()

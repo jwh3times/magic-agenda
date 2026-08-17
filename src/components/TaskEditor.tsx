@@ -3,12 +3,14 @@ import type { RecurScope } from '../data/series'
 import { cleanDraft, intendDelete, intendSave } from '../data/editIntent'
 import { useTheme } from '../theme/ThemeProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
-import { CAT, COLORS, PAPER, STATUS } from '../theme/constants'
+import { COLORS, PAPER, STATUS } from '../theme/constants'
 import { newId } from '../lib/id'
 import { isScheduled } from '../lib/dates'
 import { editorChrome } from './editorChrome'
 import { ScopePrompt } from './ScopePrompt'
-import type { Category, RecurFreq, Task } from '../types/task'
+import type { RecurFreq, Task } from '../types/task'
+import { useLabelDirectoryContext } from '../labels/LabelDirectoryProvider'
+import { UNLABELED_DOT_COLOR } from '../labels/presentation'
 
 export interface TaskEditorProps {
   /**
@@ -29,6 +31,8 @@ export interface TaskEditorProps {
   /** True while hydrated from an offline snapshot: every field is disabled and there is no way
    * to save or delete, since a write against a dead network would fail silently. */
   readOnly?: boolean
+  /** Board capability: Viewers may edit other fields only when separately allowed, never Labels. */
+  canAssignLabels?: boolean
 }
 
 /** The task editor modal — ported from the prototype's buildEditor + markup. */
@@ -39,9 +43,11 @@ export function TaskEditor({
   onDelete,
   onClose,
   readOnly,
+  canAssignLabels = true,
 }: TaskEditorProps) {
   const { theme, conf } = useTheme()
   const isMobile = useIsMobile()
+  const { labels } = useLabelDirectoryContext()
   const [draft, setDraft] = useState<Task>(initial)
   const [newItem, setNewItem] = useState('')
   const [scopePrompt, setScopePrompt] = useState<null | 'save' | 'delete'>(null)
@@ -214,44 +220,48 @@ export function TaskEditor({
             })}
           </div>
 
-          <div style={fieldLabel}>Category</div>
+          <div style={fieldLabel}>Label</div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {(Object.keys(CAT) as Category[]).map((k) => {
-              const c = CAT[k]
-              const active = draft.category === k
-              return (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => patch({ category: k })}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '7px',
-                    padding: '7px 12px',
-                    borderRadius: '20px',
-                    cursor: 'pointer',
-                    fontFamily: conf.ui,
-                    fontSize: '12.5px',
-                    fontWeight: 700,
-                    border: `1px solid ${active ? c.dot : border}`,
-                    background: active ? `${c.dot}22` : 'transparent',
-                    color: fg,
-                  }}
-                >
-                  <span
+            {[{ id: null, name: 'Unlabeled', dotColor: UNLABELED_DOT_COLOR }, ...labels].map(
+              (label) => {
+                const active = draft.labelId === label.id
+                return (
+                  <button
+                    key={label.id ?? 'unlabeled'}
+                    type="button"
+                    aria-pressed={active}
+                    disabled={readOnly || !canAssignLabels}
+                    onClick={() => patch({ labelId: label.id })}
                     style={{
-                      width: '8px',
-                      height: '8px',
-                      borderRadius: '50%',
-                      background: c.dot,
-                      flex: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                      padding: '7px 12px',
+                      borderRadius: '20px',
+                      cursor: readOnly || !canAssignLabels ? 'not-allowed' : 'pointer',
+                      fontFamily: conf.ui,
+                      fontSize: '12.5px',
+                      fontWeight: 700,
+                      border: `1px solid ${active ? label.dotColor : border}`,
+                      background: active ? `${label.dotColor}22` : 'transparent',
+                      color: fg,
+                      opacity: readOnly || !canAssignLabels ? 0.55 : 1,
                     }}
-                  />
-                  {c.label}
-                </button>
-              )
-            })}
+                  >
+                    <span
+                      style={{
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        background: label.dotColor,
+                        flex: 'none',
+                      }}
+                    />
+                    {label.name}
+                  </button>
+                )
+              },
+            )}
           </div>
 
           <div style={fieldLabel}>Checklist</div>

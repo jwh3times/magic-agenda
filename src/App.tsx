@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { SettingsProvider } from './data/SettingsProvider'
 import { BoardDirectoryProvider } from './board/BoardDirectoryProvider'
+import { LabelDirectoryProvider } from './labels/LabelDirectoryProvider'
 import { TodayProvider } from './data/TodayProvider'
 import { Spinner } from './components/Spinner'
 import { UpdatePrompt } from './components/UpdatePrompt'
@@ -76,30 +77,32 @@ export default function App() {
             import, so it needs a Board id too. Without one it would depend on the database's
             temporary board_id inference trigger, which is dropped once a second Board can exist. */}
         <BoardDirectoryProvider>
-          <TodayProvider>
-            <BrowserRouter>
-              <Routes>
-                <Route path="/login" element={<Login />} />
-                <Route path="/auth/callback" element={<AuthCallback />} />
-                <Route path="/auth/confirm" element={<AuthConfirm />} />
-                <Route path="/auth/reset" element={<ResetPassword />} />
-                <Route path="/privacy" element={<Privacy />} />
-                <Route path="/terms" element={<Terms />} />
-                <Route
-                  path="/settings"
-                  element={
-                    <ProtectedRoute>
-                      <Suspense fallback={<Spinner label="Loading…" />}>
-                        <SettingsPage />
-                      </Suspense>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route path="/" element={<HomeRoute />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </BrowserRouter>
-          </TodayProvider>
+          <LabelDirectoryProvider>
+            <TodayProvider>
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/auth/callback" element={<AuthCallback />} />
+                  <Route path="/auth/confirm" element={<AuthConfirm />} />
+                  <Route path="/auth/reset" element={<ResetPassword />} />
+                  <Route path="/privacy" element={<Privacy />} />
+                  <Route path="/terms" element={<Terms />} />
+                  <Route
+                    path="/settings"
+                    element={
+                      <ProtectedRoute>
+                        <Suspense fallback={<Spinner label="Loading…" />}>
+                          <SettingsPage />
+                        </Suspense>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="/" element={<HomeRoute />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </BrowserRouter>
+            </TodayProvider>
+          </LabelDirectoryProvider>
         </BoardDirectoryProvider>
         <UpdatePrompt />
       </SettingsProvider>

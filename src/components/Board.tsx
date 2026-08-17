@@ -45,6 +45,8 @@ export interface BoardProps {
   weekStart?: number
   onSignOut?: () => void
   onOpenSettings?: () => void
+  /** Whether this Board membership may assign Labels to Tasks. */
+  canAssignLabels?: boolean
 }
 
 const VIEWS: ViewOption[] = [
@@ -59,7 +61,7 @@ function newTaskTemplate(day: string, status: Status): Task {
     id: newId(),
     title: '',
     description: '',
-    category: 'work',
+    labelId: null,
     color: 'yellow',
     checklist: [],
     status,
@@ -73,7 +75,13 @@ function newTaskTemplate(day: string, status: Status): Task {
   }
 }
 
-export function Board({ initialView, weekStart = 0, onSignOut, onOpenSettings }: BoardProps) {
+export function Board({
+  initialView,
+  weekStart = 0,
+  onSignOut,
+  onOpenSettings,
+  canAssignLabels = true,
+}: BoardProps) {
   const taskBoard = useTaskBoard()
   const { tasks } = taskBoard
   const { theme, conf } = useTheme()
@@ -263,6 +271,7 @@ export function Board({ initialView, weekStart = 0, onSignOut, onOpenSettings }:
             onDelete={handleDelete}
             onClose={() => setEditing(null)}
             readOnly={readOnly}
+            canAssignLabels={canAssignLabels}
           />
         )}
       </div>

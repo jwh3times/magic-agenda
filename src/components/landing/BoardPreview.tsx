@@ -6,6 +6,8 @@ import { cellChrome, weekdayStyle } from '../../theme/chrome'
 import { TaskCard } from '../TaskCard'
 import { addDays, ymd, WEEKDAYS_SHORT } from '../../lib/dates'
 import { useIsMobile } from '../../lib/useMediaQuery'
+import { LabelDirectoryContext } from '../../labels/labelDirectoryContext'
+import { MOCK_LABEL_DIRECTORY } from '../../data/mockLabels'
 
 /**
  * A real board, rendered small, for the signed-out landing page.
@@ -101,7 +103,9 @@ export function BoardPreview({ theme }: { theme: ThemeName }) {
     // what the product does — this only shows it.
     <div inert aria-hidden="true">
       <ThemeProvider initial={theme}>
-        <PreviewGrid columns={isMobile ? COLUMNS_MOBILE : COLUMNS_DESKTOP} />
+        <LabelDirectoryContext.Provider value={MOCK_LABEL_DIRECTORY}>
+          <PreviewGrid columns={isMobile ? COLUMNS_MOBILE : COLUMNS_DESKTOP} />
+        </LabelDirectoryContext.Provider>
       </ThemeProvider>
     </div>
   )
