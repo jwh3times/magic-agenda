@@ -36,10 +36,12 @@ of three hand‑built themes.
   Settings → Dates. The timezone decides which day counts as "today" for the board's today‑highlight,
   overdue badges, and roll‑forward, so a traveling user's board stays on their home date; the week
   start re‑pads the month grid and rotates the weekday headers.
-- **Export & import** — export your board as JSON from Settings → Data, and import it back in
-  additively (fresh ids, recurring series links preserved); the export also carries your week start
-  and timezone alongside theme and default view. The current v1 format is Category-shaped, so it
-  cannot round-trip Unlabeled exactly; a Label-aware v2 format is planned.
+- **Export & import** — export one Board's tasks, repeating series, and Label definitions as v2 JSON
+  from Settings → Data, then import additively with fresh ids and preserved series links. Every
+  referenced source Label must be mapped explicitly to an existing destination Label or Unlabeled;
+  Labels are never created or matched automatically by name. Existing Category-shaped v1 files
+  remain importable through the same mapping flow. Account preferences are not part of Board
+  backups.
 - **A public front door** — signed out, `magicagenda.app` is a landing page with a live, themed
   preview of the real board (rendered, not screenshotted); signed in, the same URL is your board.
 - **Accounts & sync** — email/password and Google sign‑in; every task is private to you via Postgres
