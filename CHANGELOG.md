@@ -10,6 +10,10 @@ only work that is on a branch but not yet merged.
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [1.4.0] - 2026-08-17
+
 ### Added
 
 - Added Label-aware v2 Board backups containing Label definitions and nullable assignments. Import
@@ -1661,7 +1665,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/jwh3times/magic-agenda/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/jwh3times/magic-agenda/compare/v1.2.80...v1.3.0
 [1.2.80]: https://github.com/jwh3times/magic-agenda/compare/v1.2.79...v1.2.80
 [1.2.79]: https://github.com/jwh3times/magic-agenda/compare/v1.2.78...v1.2.79

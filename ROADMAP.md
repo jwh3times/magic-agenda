@@ -126,8 +126,8 @@ were added as their own effort rather than a roadmap feature — see
       Category; each Task has zero or one Board-owned Label; **Unlabeled** is absence; Label Color is
       independent from purely visual Note Color; names are trimmed and case-insensitively unique
       within a Board; and the five seeded Labels are ordinary, editable definitions. The Board
-      schema and task experience shipped in #176/#177; the Label-aware backup path is implemented
-      in #178 and pending merge. Two bounded releases remain after it:
+      schema, task experience, and Label-aware backup path shipped in #176–#178. Two bounded
+      releases remain:
   1. [#179](https://github.com/jwh3times/magic-agenda/issues/179) — Owner-only Label management on
      `/settings`; deletion makes affected Tasks Unlabeled. This follows #178 so backups can
      represent Labels before users can rename, recolor, or delete their definitions.
