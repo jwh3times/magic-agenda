@@ -8,11 +8,11 @@ Three unrelated-looking items that share one branch because two of them were rec
 while the parent spec was being implemented, and the third was found by the visual check that closed
 it out.
 
-| # | Item | Origin |
-| --- | --- | --- |
-| 1 | The auth pages' logo overflows its card at every viewport width | Found during the parent branch's preview check; **pre-existing**, not introduced there |
-| 2 | `color-contrast` findings log their colours | Recorded as "the option not taken" in the parent spec |
-| 3 | A check that `EXPECTED_LABELS` matches the spec's actual scan call sites | Recorded as a follow-up by the parent branch's whole-branch review |
+| #   | Item                                                                     | Origin                                                                                 |
+| --- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| 1   | The auth pages' logo overflows its card at every viewport width          | Found during the parent branch's preview check; **pre-existing**, not introduced there |
+| 2   | `color-contrast` findings log their colours                              | Recorded as "the option not taken" in the parent spec                                  |
+| 3   | A check that `EXPECTED_LABELS` matches the spec's actual scan call sites | Recorded as a follow-up by the parent branch's whole-branch review                     |
 
 ## 1. The auth logo overflows its card
 
@@ -86,11 +86,11 @@ row to fit into.)
 Six call sites replace `style={{ height: 110, display: 'block' }}` with `style={authLogo}`, all
 currently byte-identical:
 
-| File | Lines |
-| --- | --- |
-| `src/pages/Login.tsx` | 123 |
+| File                          | Lines       |
+| ----------------------------- | ----------- |
+| `src/pages/Login.tsx`         | 123         |
 | `src/pages/ResetPassword.tsx` | 53, 74, 117 |
-| `src/pages/AuthConfirm.tsx` | 55, 73 |
+| `src/pages/AuthConfirm.tsx`   | 55, 73      |
 
 The surrounding `<h1 style={{ margin: '0 0 6px' }}>` added by the parent branch is unchanged.
 
@@ -152,7 +152,7 @@ and `a11y-baseline.json` are all untouched and the ratchet's semantics do not mo
 the log line and the assertion's failure message.
 
 Both `fgColor` and `bgColor` can be `undefined` when axe could not resolve a colour — but that path
-produces an *incomplete*, not a violation, and incompletes never enter `results.violations`. The
+produces an _incomplete_, not a violation, and incompletes never enter `results.violations`. The
 formatter still guards for it rather than printing `undefined on undefined`.
 
 ## 3. A check that `EXPECTED_LABELS` matches the scan call sites
@@ -219,7 +219,7 @@ no reason. It needs its own `test.describe` with `test.use({ viewport: … })`, 
 default viewport is desktop.
 
 **Manual:** the sign-in page on the deployed preview at desktop and phone widths, because §1 changes
-the desktop logo's size and no automated test asserts how it *looks*.
+the desktop logo's size and no automated test asserts how it _looks_.
 
 ## 5. Out of scope
 

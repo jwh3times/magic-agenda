@@ -47,10 +47,12 @@ Testing Library (jsdom), `@supabase/supabase-js` (auth-js 2.110.8).
 ### Task 1: Client configuration — the security fix
 
 **Files:**
+
 - Modify: `src/lib/supabase.ts`
 - Test (create): `src/lib/supabase.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing from other tasks.
 - Produces: the exported `supabase` singleton now has `flowType: 'pkce'` and function-form
   `detectSessionInUrl`. Later tasks call `supabase.auth.verifyOtp(...)` (already part of the SDK).
@@ -136,11 +138,13 @@ git commit -m "fix: disable implicit-grant URL token adoption (PKCE + detectSess
 ### Task 2: ResetPassword — redeem token_hash, render on recovery state
 
 **Files:**
+
 - Modify: `src/pages/ResetPassword.tsx` (full rewrite of the top half; the form + submit handler
   are unchanged)
 - Modify: `src/pages/ResetPassword.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `supabase.auth.verifyOtp({ token_hash: string, type: 'recovery' })` →
   `Promise<{ data: object, error: Error | null }>`; `useAuth()` (unchanged shape:
   `{ session, loading, passwordRecovery, clearPasswordRecovery }`).
@@ -150,13 +154,13 @@ git commit -m "fix: disable implicit-grant URL token adoption (PKCE + detectSess
 
 State machine being implemented (from the spec):
 
-| Auth state | URL | Render |
-|---|---|---|
-| `loading` | — | `<Spinner />` |
-| `session && passwordRecovery` | any | password form (fresh verify, reload, or re-entry) |
-| `session && !passwordRecovery` | any | "already signed in" refusal — never redeems |
-| no session | `?token_hash=…`, not yet failed | `<Spinner label="Checking your reset link…" />`, effect redeems **once** and scrubs the URL |
-| no session | no token, or redemption failed | existing "invalid or has expired" card |
+| Auth state                     | URL                             | Render                                                                                      |
+| ------------------------------ | ------------------------------- | ------------------------------------------------------------------------------------------- |
+| `loading`                      | —                               | `<Spinner />`                                                                               |
+| `session && passwordRecovery`  | any                             | password form (fresh verify, reload, or re-entry)                                           |
+| `session && !passwordRecovery` | any                             | "already signed in" refusal — never redeems                                                 |
+| no session                     | `?token_hash=…`, not yet failed | `<Spinner label="Checking your reset link…" />`, effect redeems **once** and scrubs the URL |
+| no session                     | no token, or redemption failed  | existing "invalid or has expired" card                                                      |
 
 - [ ] **Step 1: Update the test harness and add the failing tests**
 
@@ -348,9 +352,7 @@ export function ResetPassword() {
   const { session, loading, passwordRecovery, clearPasswordRecovery } = useAuth()
   const navigate = useNavigate()
   // One-shot: capture the token at mount; the redeem effect scrubs it from the URL.
-  const [tokenHash] = useState(() =>
-    new URLSearchParams(window.location.search).get('token_hash'),
-  )
+  const [tokenHash] = useState(() => new URLSearchParams(window.location.search).get('token_hash'))
   const redeemed = useRef(false)
   const [verifyError, setVerifyError] = useState<string | null>(null)
   const [password, setPassword] = useState('')
@@ -383,8 +385,8 @@ export function ResetPassword() {
             style={{ height: 110, display: 'block', margin: '0 0 6px' }}
           />
           <p style={{ margin: '0 0 18px', fontSize: 14, lineHeight: 1.5, opacity: 0.75 }}>
-            You’re already signed in, so this reset link wasn’t used. To reset a password, sign
-            out first and request a new link.
+            You’re already signed in, so this reset link wasn’t used. To reset a password, sign out
+            first and request a new link.
           </p>
           <Link to="/" style={{ color: '#a78bfa', fontWeight: 700, fontSize: 14 }}>
             Back to your board
@@ -506,11 +508,13 @@ git commit -m "feat: redeem recovery token_hash via verifyOtp on /auth/reset"
 ### Task 3: AuthConfirm page + public route
 
 **Files:**
+
 - Create: `src/pages/AuthConfirm.tsx`
 - Create: `src/pages/AuthConfirm.test.tsx`
 - Modify: `src/App.tsx` (route registration)
 
 **Interfaces:**
+
 - Consumes: `supabase.auth.verifyOtp({ token_hash: string, type: 'signup' })`; `useAuth()`
   (`{ session, loading }`).
 - Produces: `AuthConfirm` component (named export) registered at public route `/auth/confirm`.
@@ -641,9 +645,7 @@ export function AuthConfirm() {
   const { session, loading } = useAuth()
   const navigate = useNavigate()
   // One-shot: capture the token at mount; the redeem effect scrubs it from the URL.
-  const [tokenHash] = useState(() =>
-    new URLSearchParams(window.location.search).get('token_hash'),
-  )
+  const [tokenHash] = useState(() => new URLSearchParams(window.location.search).get('token_hash'))
   const redeemed = useRef(false)
   const [verifyError, setVerifyError] = useState<string | null>(null)
 
@@ -742,10 +744,12 @@ git commit -m "feat: add /auth/confirm signup-confirmation landing (verifyOtp si
 ### Task 4: Login — emailRedirectTo + copy
 
 **Files:**
+
 - Modify: `src/pages/Login.tsx` (the `signup` branch of `submit`, lines 57-60 today)
 - Modify: `src/pages/Login.test.tsx`
 
 **Interfaces:**
+
 - Consumes: route `/auth/confirm` from Task 3.
 - Produces: signup confirmation emails whose `{{ .RedirectTo }}` resolves to
   `<origin>/auth/confirm` (required by the Task 8 templates).
@@ -847,11 +851,11 @@ made auth email templates read-only for free-tier projects created on/after 2026
 the default email provider. This project (`mkhrdidosffuovqfooob`, created **2026-06-29**, custom
 SMTP off) is affected — **Jerry confirmed the dashboard templates are read-only**. So custom SMTP
 is a hard prerequisite for Task 8; a free SMTP provider tier keeps the whole stack at $0.
-(Empirical footnote: delivery to non-team addresses *does* work on the default provider here,
+(Empirical footnote: delivery to non-team addresses _does_ work on the default provider here,
 despite docs saying it's refused — editing, not delivery, is what gates this plan.)
 
 - [ ] **Step 0: STOP and walk Jerry through the custom SMTP setup (required), then wait for
-  confirmation it's done:**
+      confirmation it's done:**
 
 > Set up free custom SMTP — Resend's free tier (100 emails/day) is the usual pick with Supabase;
 > Brevo also works. With Resend:
@@ -892,11 +896,12 @@ despite docs saying it's refused — editing, not delivery, is what gates this p
 ### Task 6: Ship — docs, changelog, PR
 
 - [ ] **Step 1: Invoke the `ship` skill** (it refreshes `AGENTS.md`/`README.md`/`ROADMAP.md` via
-  `docs-updater`, writes the `CHANGELOG.md` entry for the exact version this merge will mint via
-  `scripts/next-version.mjs`, runs `format:check` + `lint` + `tsc -b`, pushes
-  `feat/pkce-auth-flow`, and opens the PR).
+      `docs-updater`, writes the `CHANGELOG.md` entry for the exact version this merge will mint via
+      `scripts/next-version.mjs`, runs `format:check` + `lint` + `tsc -b`, pushes
+      `feat/pkce-auth-flow`, and opens the PR).
 
 Notes for the changelog/docs pass:
+
 - Changelog entry: security fix — PKCE + explicit `token_hash` redemption for email flows; closes
   the 2026-07-25 review's Finding 1 (session fixation via implicit-flow URL tokens). New
   `/auth/confirm` page; signup confirmation now signs the user straight in.
@@ -904,7 +909,7 @@ Notes for the changelog/docs pass:
   existing prose style carries.
 
 - [ ] **Step 2: Wait for all required checks green** (`Format` / `Test` / `Build` / `Functions` /
-  `Agents` / `Changelog` + CodeQL). Fix anything red and push again.
+      `Agents` / `Changelog` + CodeQL). Fix anything red and push again.
 
 ---
 
@@ -932,7 +937,7 @@ gh pr merge --squash --delete-branch
 ```
 
 - [ ] **Step 3: Confirm the deploy landed** — wait a few minutes for Cloudflare Pages to build
-  `main`, then verify the security fix is live:
+      `main`, then verify the security fix is live:
 
 > Open `https://magicagenda.app/#access_token=x&refresh_token=x&expires_in=3600&token_type=bearer`
 > in a private window → it must land on `/login` with **no** session established and the fragment
@@ -968,13 +973,13 @@ Unit tests mock the SDK; the templates are the highest-risk part of this change 
 exercised by a real send.
 
 - [ ] **Step 1: STOP and prompt Jerry with exactly this checklist; the change is not done until
-  every item is confirmed:**
+      every item is confirmed:**
 
 > On production (`https://magicagenda.app`):
 >
 > 1. Sign up with a throwaway address → the confirmation link signs you in and lands on the
->    board (no "now sign in" round trip). *(Emails now come via the custom SMTP configured in
->    Task 5 — 30/hour, so the checklist won't hit rate limits.)*
+>    board (no "now sign in" round trip). _(Emails now come via the custom SMTP configured in
+>    Task 5 — 30/hour, so the checklist won't hit rate limits.)_
 > 2. Request a password reset → the link opens `/auth/reset`, a new password can be set, and it
 >    works on the next sign-in.
 > 3. Mid-reset reload: open a reset link, reload the page before submitting → the password form
@@ -987,8 +992,8 @@ exercised by a real send.
 > then see the rollback note in Task 8.
 
 - [ ] **Step 2: On full confirmation, the spec's Finding 1 is closed.** Remind Jerry of the two
-  follow-ups the spec filed (reconcile `supabase/config.toml` with production; then optionally
-  move templates into code) so they get tracked, not lost.
+      follow-ups the spec filed (reconcile `supabase/config.toml` with production; then optionally
+      move templates into code) so they get tracked, not lost.
 
 ---
 

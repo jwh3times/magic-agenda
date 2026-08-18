@@ -65,15 +65,21 @@ axe-core resolves it. Both page-level checks carry `passForModal: true`:
 
 ```js
 // axe-core 4.12.1 — rule landmark-one-main, axe.js:32662-32674
-all: [ { options: { selector: "main:not([role]), [role='main']", passForModal: true },
-         id: 'page-has-main' } ]
+all: [
+  {
+    options: { selector: "main:not([role]), [role='main']", passForModal: true },
+    id: 'page-has-main',
+  },
+]
 ```
 
 `page-has-heading-one` (`axe.js:32882-32892`) carries it too, and both route through
 `has-descendant-evaluate`, which short-circuits (`axe.js:26565-26567`):
 
 ```js
-if (options.passForModal && is_modal_open_default()) { return true; }
+if (options.passForModal && is_modal_open_default()) {
+  return true
+}
 ```
 
 `isModalOpen()` (`axe.js:17660`, `modalPercent` defaults to `.75`) treats any sufficiently large
@@ -81,13 +87,15 @@ positioned overlay as a modal:
 
 ```js
 // axe.js:17696-17699
-var modalElement = stacks[_i13].find(function(elm) {
-  var style = window.getComputedStyle(elm);
-  return parseInt(style.width, 10) >= percentWidth
-      && parseInt(style.height, 10) >= percentHeight
-      && style.getPropertyValue('pointer-events') !== 'none'
-      && (style.position === 'absolute' || style.position === 'fixed');
-});
+var modalElement = stacks[_i13].find(function (elm) {
+  var style = window.getComputedStyle(elm)
+  return (
+    parseInt(style.width, 10) >= percentWidth &&
+    parseInt(style.height, 10) >= percentHeight &&
+    style.getPropertyValue('pointer-events') !== 'none' &&
+    (style.position === 'absolute' || style.position === 'fixed')
+  )
+})
 ```
 
 `Spinner` renders `position: fixed; inset: 0` (`src/components/Spinner.tsx:5-6`) — 100% × 100% of
@@ -117,7 +125,7 @@ nested-interactive  board-glass:div:nth-child(16) > div:nth-child(2) > div[role=
 ```
 
 Those paths name tags as well as positions, so both inserting a wrapper and swapping a `<div>` for a
-`<main>` rewrite them. Adding landmarks would register 21 of 25 survivors as *new* pairs and fail the
+`<main>` rewrite them. Adding landmarks would register 21 of 25 survivors as _new_ pairs and fail the
 now-required `E2E` check.
 
 Regenerating in place is possible but costly: it needs `E2E_A11Y_UPDATE_BASELINE=1` run against a
@@ -135,23 +143,23 @@ post-remediation content is **8 entries covering 25 violations, down from 202**:
 
 ```json
 [
-  { "label": "board-brutal", "ruleId": "color-contrast",     "count": 9 },
+  { "label": "board-brutal", "ruleId": "color-contrast", "count": 9 },
   { "label": "board-brutal", "ruleId": "nested-interactive", "count": 3 },
-  { "label": "board-cork",   "ruleId": "color-contrast",     "count": 3 },
-  { "label": "board-cork",   "ruleId": "nested-interactive", "count": 3 },
-  { "label": "board-glass",  "ruleId": "color-contrast",     "count": 2 },
-  { "label": "board-glass",  "ruleId": "nested-interactive", "count": 3 },
-  { "label": "landing",      "ruleId": "color-contrast",     "count": 1 },
-  { "label": "login",        "ruleId": "color-contrast",     "count": 1 }
+  { "label": "board-cork", "ruleId": "color-contrast", "count": 3 },
+  { "label": "board-cork", "ruleId": "nested-interactive", "count": 3 },
+  { "label": "board-glass", "ruleId": "color-contrast", "count": 2 },
+  { "label": "board-glass", "ruleId": "nested-interactive", "count": 3 },
+  { "label": "landing", "ruleId": "color-contrast", "count": 1 },
+  { "label": "login", "ruleId": "color-contrast", "count": 1 }
 ]
 ```
 
 `settings` predicts to zero entries. Two reviewers disagreed about how likely that is, and the
 disagreement is worth recording because it tells the implementer how to read the first run:
 
-- *Expect nonzero.* Every other themed surface yields contrast findings and `SettingsShell` renders
+- _Expect nonzero._ Every other themed surface yields contrast findings and `SettingsShell` renders
   through the same `conf` tokens (`SettingsPage.tsx:89, :96`).
-- *Expect near-zero.* `SettingsShell`'s outer div carries `backgroundImage: conf.pageImg`, which for
+- _Expect near-zero._ `SettingsShell`'s outer div carries `backgroundImage: conf.pageImg`, which for
   cork is three radial gradients. axe's `getBackgroundColor` sets `bgColor: 'bgGradient'` and returns
   null the moment a `background-image` is in the element stack (`axe.js:17784-17788`), which makes
   the node **incomplete** rather than a violation — incompletes are not in `results.violations`. This
@@ -181,7 +189,7 @@ Equality is only safe if the scan is deterministic, which today it is not. See �
 
 ### Fail-closed reading and well-formedness
 
-`readBaseline()` (`a11y.spec.ts:25-31`) currently swallows *every* error — ENOENT, `SyntaxError`, a
+`readBaseline()` (`a11y.spec.ts:25-31`) currently swallows _every_ error — ENOENT, `SyntaxError`, a
 file full of merge-conflict markers — and returns `[]`. Under increases-only that is the **strictest
 possible** state: every finding is new, so a corrupt file can never go green. That property is what
 made the swallow survivable.
@@ -189,7 +197,7 @@ made the swallow survivable.
 Under strict equality with implicit-zero, `[]` means "expect zero violations everywhere" — a
 **legitimate passing state**. Today 5 of 6 surfaces have violations so corruption is loud. But a
 ratchet exists to trend to zero, and this spec defers both remaining families rather than
-abandoning them. The moment the last 25 are fixed the correct baseline *is* `[]`, and a deleted,
+abandoning them. The moment the last 25 are fixed the correct baseline _is_ `[]`, and a deleted,
 truncated or unparseable file becomes indistinguishable from success. **The check would disarm
 itself exactly on reaching its own goal.**
 
@@ -230,7 +238,7 @@ documentation must therefore **not** claim staleness detection is total.
   and continues), so one red run yields every surface's numbers — but only for surfaces that reach
   `scan()`. A timeout on the new settings wait would otherwise cost a second round trip on a
   required check that also holds the single `e2e-prod-account` concurrency slot.
-- **The failure message must stay actionable.** Counts alone do not say *which* node regressed, so
+- **The failure message must stay actionable.** Counts alone do not say _which_ node regressed, so
   the assertion passes the formatted list of observed `n.target` values as `expect`'s message
   argument. `expect(actual, 'msg').toEqual(expected)` is valid in the installed Playwright 1.62.0
   (`types/test.d.ts:8716`) and prints the message above the full diff.
@@ -253,7 +261,7 @@ would become a hybrid of two key schemes for two rule families that are both exp
 scope — and the eventual contrast redesign rewrites those entries wholesale anyway. If that redesign
 happens, adopting the colour keying at the same time is the right move.
 
-Two alternatives were rejected outright. A signature derived from `n.html` is *worse* than positional
+Two alternatives were rejected outright. A signature derived from `n.html` is _worse_ than positional
 paths here: this app's styling is inline style objects by architectural choice, so a node's
 serialized HTML carries the whole resolved theme token set, and any `themeConf.ts` edit — precisely
 the contrast fix these entries are waiting for — rewrites every signature. Storing counts plus a
@@ -379,20 +387,20 @@ Every candidate was checked against axe-core 4.12.1:
   `color-contrast` entirely, so `DatesSection`'s ~400 timezone options are inert.
 - Board gets exactly one `<h1>`: only one `Toolbar` branch renders. `Toolbar`, `Inbox` and
   `SearchFilterBar` are used only by `Board`, and `BoardPreview` on landing is `inert
-  aria-hidden="true"`.
+aria-hidden="true"`.
 
 ## Structural edits
 
-| File | Change |
-| --- | --- |
-| `src/components/Board.tsx:253` | the flex wrapper `<div>` → `<main>`. It holds the views and the Inbox; `DragOverlay` and `TaskEditor` stay outside it, which is correct — neither is page content. |
-| `src/components/Toolbar.tsx:49` and `:135` | both the mobile and desktop branches: root `<div>` → `<header>` (at `:49` the style is a spread `{{ ...c.toolbar, … }}`, not the bare `c.toolbar` of `:135`); the `<img alt="Magic Agenda">` wrapped in `<h1>`. |
-| `src/components/SearchFilterBar.tsx:33` | `<div>` → `<search>`; `aria-label` on both `<select>`s (`"Filter by category"`, `"Filter by status"`) and on the text input. |
-| `src/components/Inbox.tsx:30` | root `<div>` → `<aside aria-label="Inbox">`. |
-| `src/pages/Login.tsx:121-126` | `<div style={authCard}>` → `<main style={authCard}>`; the logo `<img>` wrapped in `<h1>`. |
-| `src/pages/SettingsPage.tsx:94-104` | the `SECTIONS.map(...)` output wrapped in `<main style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>`, leaving `<header>` and `<footer>` as siblings. **The inline style is not optional — see below.** |
-| `src/pages/Landing.tsx:155` and `:210` | `aria-label` on the two unnamed `<section>`s, with **distinct** strings. |
-| `src/components/LegalLayout.tsx:26-44` | `<header>` around the logo link, `<main>` from the `<h1>` down through the contact block. |
+| File                                       | Change                                                                                                                                                                                                             |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/components/Board.tsx:253`             | the flex wrapper `<div>` → `<main>`. It holds the views and the Inbox; `DragOverlay` and `TaskEditor` stay outside it, which is correct — neither is page content.                                                 |
+| `src/components/Toolbar.tsx:49` and `:135` | both the mobile and desktop branches: root `<div>` → `<header>` (at `:49` the style is a spread `{{ ...c.toolbar, … }}`, not the bare `c.toolbar` of `:135`); the `<img alt="Magic Agenda">` wrapped in `<h1>`.    |
+| `src/components/SearchFilterBar.tsx:33`    | `<div>` → `<search>`; `aria-label` on both `<select>`s (`"Filter by category"`, `"Filter by status"`) and on the text input.                                                                                       |
+| `src/components/Inbox.tsx:30`              | root `<div>` → `<aside aria-label="Inbox">`.                                                                                                                                                                       |
+| `src/pages/Login.tsx:121-126`              | `<div style={authCard}>` → `<main style={authCard}>`; the logo `<img>` wrapped in `<h1>`.                                                                                                                          |
+| `src/pages/SettingsPage.tsx:94-104`        | the `SECTIONS.map(...)` output wrapped in `<main style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>`, leaving `<header>` and `<footer>` as siblings. **The inline style is not optional — see below.** |
+| `src/pages/Landing.tsx:155` and `:210`     | `aria-label` on the two unnamed `<section>`s, with **distinct** strings.                                                                                                                                           |
+| `src/components/LegalLayout.tsx:26-44`     | `<header>` around the logo link, `<main>` from the `<h1>` down through the contact block.                                                                                                                          |
 
 ### Notes on individual edits
 
@@ -414,7 +422,7 @@ call site overrides it inline, so there is no UA-style problem elsewhere. `Login
 `implicitHtmlRoles` (`axe.js:16255-16258`) demotes `header` to `null` only inside
 `article` / `aside` / `nav` / `section` / `main`. Plain `<div>`s do not match, and `.app-root` is a
 `<div>` (`Board.tsx:221`) with `<Toolbar>` as a direct child (`:224`), so the toolbar qualifies. On
-the settings page `<header>` and `<footer>` must stay *siblings* of the new `<main>` for the same
+the settings page `<header>` and `<footer>` must stay _siblings_ of the new `<main>` for the same
 reason — moving them inside demotes both and re-opens `region`.
 
 **`<search>` is safe on both sides.** `@types/react` 19.2.17 declares `search` in
@@ -431,7 +439,7 @@ the `<img>` is a flex item:
   `height: 80, display: 'block'`.
 - `Toolbar.tsx:60-72` (mobile): `<h1 style={{ margin: 0, flex: '0 1 auto', minWidth: 0 }}>` with the
   img keeping `height: 44, display: 'block', objectFit, objectPosition` and gaining
-  `maxWidth: '100%'`. The comment at `Toolbar.tsx:66` records that the img is shrinkable *by design*
+  `maxWidth: '100%'`. The comment at `Toolbar.tsx:66` records that the img is shrinkable _by design_
   so the row always fits the viewport; that behaviour must survive.
 - `Login.tsx:122-126`: `<h1 style={{ margin: '0 0 6px' }}>` taking over the img's margin, with the
   img keeping `height: 110, display: 'block'`.
@@ -460,13 +468,15 @@ required.)
 await page.goto('/settings')
 await page.getByRole('heading', { name: 'Settings', level: 1 }).waitFor()
 await page.addStyleTag({ content: FREEZE_ANIMATION })
-await page.evaluate(async () => { await document.fonts.ready })
+await page.evaluate(async () => {
+  await document.fonts.ready
+})
 ```
 
 Three changes, each load-bearing:
 
 - **The heading wait** makes the settings scan deterministic and surfaces that page's real
-  violations for the first time. A comment must record *why* — the `isModalOpen` mechanism from §1 —
+  violations for the first time. A comment must record _why_ — the `isModalOpen` mechanism from §1 —
   so it is not later simplified away as a redundant wait.
 - **`FREEZE_ANIMATION`** applies to every surface, per §"Determinism".
 - **`document.fonts.ready` awaited inside the evaluate.** The current form
@@ -487,18 +497,18 @@ The reason is sharper than ordinary churn: **the `E2E` job cannot run on a Depen
 GitHub withholds regular repository secrets from the `dependabot` actor, so `HAS_SECRETS`
 (`ci.yml:261`) evaluates to the string `"false"`, the gate step takes the `!= "true"` branch, and
 every subsequent step is skipped — the job reports success having scanned nothing. An axe or
-Chromium change therefore merges green and breaks the *next human PR*, the same shape as the
+Chromium change therefore merges green and breaks the _next human PR_, the same shape as the
 Changelog-backfill trap already documented in `AGENTS.md`.
 
 **Strict equality makes this worse, not better, and the first draft had it backwards.** It claimed
 the rekey "defuses most of this — selector-path churn no longer matters". Selector churn does stop
-mattering, but increases-only tolerated a bump that *reduced* a count, and equality does not. A
+mattering, but increases-only tolerated a bump that _reduced_ a count, and equality does not. A
 `@playwright/test` bump changes the bundled Chromium, which changes rendering and therefore contrast
 counts in **both** directions. Isolating the group makes such a change attributable to one obvious
 PR; it does not make it survivable.
 
 The same asymmetry applies beyond Dependabot: any merge landing without an E2E run (non-PR event,
-fork PR, missing secrets) that incidentally *reduces* a count leaves the baseline stale, and the next
+fork PR, missing secrets) that incidentally _reduces_ a count leaves the baseline stale, and the next
 human PR goes red for a number it did not cause. Exposure is narrow — human PRs always run E2E — but
 the resolution (commit the lower number) must be written down, because that first encounter is
 confusing and lands on whoever happens to be next.
@@ -514,7 +524,7 @@ existing `JSON.stringify(x, null, 2)` indentation, and stops being invalidated b
 
 - `AGENTS.md:384` — the **only** line in that file touching the ratchet. It currently reads "Where
   the a11y baseline needs a stable CSS-target shape, `page.clock` is pinned and the seed anchor
-  pinned to match". Its reason must be *replaced*, not deleted, per §"Determinism" item 3. The
+  pinned to match". Its reason must be _replaced_, not deleted, per §"Determinism" item 3. The
   `isModalOpen` trap and the downward-staleness note belong alongside the three existing "non-obvious
   constraints on the specs themselves", each of which is there because it cost a debugging pass. The
   regeneration command is not documented in `AGENTS.md` today and does not need to be added.

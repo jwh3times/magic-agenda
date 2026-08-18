@@ -26,8 +26,8 @@ longer hold.
 ### 1. The preview-discovery mechanism does not exist — replaced
 
 The parent (§2.1) polls the GitHub deployments API for a Cloudflare Pages deployment matching
-`head.sha`. **This repository has zero GitHub Deployments.** Cloudflare Pages reports as a *check
-run* named `Cloudflare Pages`, whose `details_url` points at the Cloudflare dashboard rather than at
+`head.sha`. **This repository has zero GitHub Deployments.** Cloudflare Pages reports as a _check
+run_ named `Cloudflare Pages`, whose `details_url` points at the Cloudflare dashboard rather than at
 the preview. There is no preview URL anywhere in GitHub's deployments, commit-status, or check-run
 payloads.
 
@@ -82,12 +82,12 @@ what the tests assume.
 ## Decisions
 
 | Decision                                                          | Rationale                                                                                                                         |
-| ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Check run + URL convention for preview discovery                  | No new secret, commit-exact, verified across three deployments. Fails loudly if the convention breaks.                             |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Check run + URL convention for preview discovery                  | No new secret, commit-exact, verified across three deployments. Fails loudly if the convention breaks.                            |
 | `tests/e2e/`                                                      | Inherits Part 1's `npm test` exclude and tsconfig coverage.                                                                       |
 | Chromium only                                                     | The bugs this guards (CSP, service worker) are engine-behaviour, not cross-browser. Adding engines multiplies runtime for little. |
 | Desktop viewport only                                             | Mobile layouts branch on `useIsMobile`; covering them belongs with the visual work, which screenshots them.                       |
-| **smoke runs on real time; a11y pins the clock, with a fallback** | See Determinism. The parent makes the clock mandatory for screenshots; this slice has none.                                        |
+| **smoke runs on real time; a11y pins the clock, with a fallback** | See Determinism. The parent makes the clock mandatory for screenshots; this slice has none.                                       |
 | One job, `E2E`, carrying both specs                               | They share sign-in, seeding, and the preview URL. Splitting them doubles a 2–4 minute setup for no isolation benefit.             |
 | Merge non-required, promote after it reports                      | The repo's standing CI lesson. Same two-step used for `RLS` in v1.2.40 → v1.2.42.                                                 |
 

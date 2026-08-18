@@ -24,6 +24,7 @@ npm run dev
    use a prefix like `chore/release-vX.Y.Z` instead.
 3. Make your change with tests (see below).
 4. Ensure everything is green locally — these mirror the required CI checks:
+
    ```bash
    npm run format:check && npm run lint     # the "Format" check
    npm test                                 # the "Test" check
@@ -33,11 +34,14 @@ npm run dev
    npm run codex:check                      # the "Agents" check (only matters if you touched
                                             # .claude/ — see below)
    ```
+
    Also add a `## [x.y.z]` changelog section for the version this merge will mint (see
    [Versioning](#versioning)) and verify it with the same script CI runs:
+
    ```bash
    node scripts/check-changelog.mjs        # the "Changelog" check
    ```
+
    There is deliberately **no local equivalent of the `Config` check**. It previews
    `supabase config push` against the production project, and the Supabase CLI has no `--dry-run` —
    running it locally would apply your changes to production. Let CI preview it in the PR.
@@ -46,13 +50,16 @@ npm run dev
    network, so it says nothing about whether Row-Level Security itself still holds. If you touched
    a policy, a grant, or anything under `supabase/migrations/`, also run the separate integration
    suite against a real local stack:
+
    ```bash
    npm run test:rls:up   # starts a local Supabase stack (Docker; slow on the first run)
    npm run test:rls      # runs tests/rls/** against it
    npm run test:rls:down # stop it when you're done
    ```
+
    This is not yet one of the required checks above — see [Testing
    layers](./AGENTS.md#testing-layers) in AGENTS.md for why and what it covers.
+
 5. Open a Pull Request against `main` and fill in the template. The **`Format`, `Test`, `Build`,
    `Functions`, `Agents`, `Changelog`, and `Config`** checks plus **CodeQL** must pass and any review
    threads must be resolved before it can merge — no approvals are required, so you can self‑merge

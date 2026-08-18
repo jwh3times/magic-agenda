@@ -11,12 +11,12 @@ capabilities that don't exist in the code.
 
 ## Documents you maintain
 
-| File           | Audience                      | What it covers                                                                        |
-| -------------- | ----------------------------- | -------------------------------------------------------------------------------------- |
-| `AGENTS.md`    | Coding agents (every session) | Architecture (data boundary, recurrence, DnD, theming), commands, schema workflow      |
-| `README.md`    | Human developers              | Overview, setup, deploy notes                                                         |
-| `ROADMAP.md`   | Planning                      | Remaining/planned work — remove items when they ship                                  |
-| `CHANGELOG.md` | Release notes                 | Shipped changes                                                                       |
+| File           | Audience                      | What it covers                                                                    |
+| -------------- | ----------------------------- | --------------------------------------------------------------------------------- |
+| `AGENTS.md`    | Coding agents (every session) | Architecture (data boundary, recurrence, DnD, theming), commands, schema workflow |
+| `README.md`    | Human developers              | Overview, setup, deploy notes                                                     |
+| `ROADMAP.md`   | Planning                      | Remaining/planned work — remove items when they ship                              |
+| `CHANGELOG.md` | Release notes                 | Shipped changes                                                                   |
 
 `CLAUDE.md` is only an `@AGENTS.md` import — edit `AGENTS.md`, never add content to `CLAUDE.md`.
 `design/Task Board.dc.html` is the reference-only prototype — never edit or document it as
@@ -26,24 +26,30 @@ never update them to match current code.
 ## What triggers what update
 
 **New migration (`supabase/migrations/`)**
+
 - `AGENTS.md`: schema-related sections if a convention changed (e.g. a new column mapping in
   `mappers.ts`); confirm `src/types/database.types.ts` was regenerated
 - `CHANGELOG.md`: entry if user-visible
 
 **App/DB boundary change (`src/data/mappers.ts`, `src/types/task.ts`)**
+
 - `AGENTS.md`: "App / DB boundary conventions" section — these conventions are load-bearing
 
 **Recurrence, DnD, or theming change (`src/data/recurrence.ts`, `src/data/series.ts`, `src/dnd/`,
 `src/theme/`)**
+
 - `AGENTS.md`: the matching architecture subsection
 
 **New page, view, or major component (`src/pages/`, `src/components/`)**
+
 - `AGENTS.md`: "What this is" / architecture sections
 
 **New/renamed npm script or CI change**
+
 - `AGENTS.md`: Commands block; the PR-only/`main`-protection paragraph if the process changed
 
 **Feature shipped**
+
 - `ROADMAP.md`: remove the shipped item
 - `CHANGELOG.md`: add an entry
 

@@ -34,8 +34,11 @@ In `@supabase/auth-js@2.110.8`, `_initialize()` dispatches on callback type
 (`GoTrueClient.js:375-381`):
 
 ```js
-if (this._isImplicitGrantCallback(params)) { callbackUrlType = 'implicit' }
-else if (await this._isPKCECallback(params)) { callbackUrlType = 'pkce' }
+if (this._isImplicitGrantCallback(params)) {
+  callbackUrlType = 'implicit'
+} else if (await this._isPKCECallback(params)) {
+  callbackUrlType = 'pkce'
+}
 ```
 
 `_isImplicitGrantCallback` never consults `this.flowType`, and the only gate on processing
@@ -60,11 +63,11 @@ that currently depend on it.
 
 ## Decisions
 
-| Decision | Choice | Why |
-|---|---|---|
-| In-flight links at cutover | **Clean cut** — accept a brief break | All email OTPs share one `otp_expiry` (3600s in `config.toml`; the prod value is unverified — part of the config-drift follow-up), so the blast radius is users mid-reset **or mid-signup-confirm** within that window. Old-template signup links degrade gracefully: the `/verify` GET still confirms the email server-side, the fragment redirect is then ignored, and the user lands at `/login` signed out — confusing but recoverable (password sign-in works immediately). Old reset links land on the "invalid or expired" card and the user requests a new one. The alternative (dual-format tolerance) keeps the vulnerable path open and adds code written only to be deleted. |
-| Signup-confirm landing | **New `/auth/confirm`, signs the user straight in** | `verifyOtp` returns a session, so the "confirm, then come back and sign in" round trip is unnecessary. Keeps `/auth/callback` purely OAuth. |
-| Template delivery | **Manual dashboard edit** | Keeps the security fix small and shippable. See "Rejected: templates as code" below. |
+| Decision                   | Choice                                              | Why                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| -------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| In-flight links at cutover | **Clean cut** — accept a brief break                | All email OTPs share one `otp_expiry` (3600s in `config.toml`; the prod value is unverified — part of the config-drift follow-up), so the blast radius is users mid-reset **or mid-signup-confirm** within that window. Old-template signup links degrade gracefully: the `/verify` GET still confirms the email server-side, the fragment redirect is then ignored, and the user lands at `/login` signed out — confusing but recoverable (password sign-in works immediately). Old reset links land on the "invalid or expired" card and the user requests a new one. The alternative (dual-format tolerance) keeps the vulnerable path open and adds code written only to be deleted. |
+| Signup-confirm landing     | **New `/auth/confirm`, signs the user straight in** | `verifyOtp` returns a session, so the "confirm, then come back and sign in" round trip is unnecessary. Keeps `/auth/callback` purely OAuth.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Template delivery          | **Manual dashboard edit**                           | Keeps the security fix small and shippable. See "Rejected: templates as code" below.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 ### Rejected: templates as code via `supabase config push`
 
@@ -73,14 +76,14 @@ that currently depend on it.
 **Rejected for this change**, because the repo's `config.toml` has never been reconciled with
 production and a push today would be destructive:
 
-| `config.toml` | Production | Effect of a push |
-|---|---|---|
-| `site_url = "http://localhost:5173"` | `https://magicagenda.app` | Breaks prod auth entirely |
-| `additional_redirect_urls` = localhost only | prod + Pages URLs | Wipes the redirect allow-list |
-| `minimum_password_length = 6` | 10 | Reverts 2026-06-30 Finding 2 remediation |
-| `password_requirements = ""` | lower+upper+digit+symbol | Reverts complexity requirement |
-| `enable_confirmations = false` | on | Disables email confirmation |
-| `secure_password_change = false` | on | Reverts require-current-password |
+| `config.toml`                               | Production                | Effect of a push                         |
+| ------------------------------------------- | ------------------------- | ---------------------------------------- |
+| `site_url = "http://localhost:5173"`        | `https://magicagenda.app` | Breaks prod auth entirely                |
+| `additional_redirect_urls` = localhost only | prod + Pages URLs         | Wipes the redirect allow-list            |
+| `minimum_password_length = 6`               | 10                        | Reverts 2026-06-30 Finding 2 remediation |
+| `password_requirements = ""`                | lower+upper+digit+symbol  | Reverts complexity requirement           |
+| `enable_confirmations = false`              | on                        | Disables email confirmation              |
+| `secure_password_change = false`            | on                        | Reverts require-current-password         |
 
 Reconciling all of that is real work with a real blast radius, and wrapping it around a security
 fix would delay closing an open finding. **Filed as a separate item** — see "Follow-ups".
@@ -109,23 +112,23 @@ Two knock-on behaviors of `() => false`, both acceptable:
    `#error=access_denied…` with no `code`; today that classifies as an implicit callback and
    surfaces an error result, under the function form it classifies as `none` and is ignored. The
    app behaves identically either way — `AuthCallback` bounces any sessionless visitor to `/login`
-   without a message — but if we ever want to *show* OAuth errors on the callback page, this
+   without a message — but if we ever want to _show_ OAuth errors on the callback page, this
    predicate (or `AuthCallback` parsing the URL itself) is where that work lives.
 2. **A signed-in non-recovery user visiting `/auth/reset` with no token now gets the "already
    signed in" refusal card** (sign-out-first guidance), where today the live session shows the
-   change-password form (and `updateUser` would change *that* session's password). That path was
+   change-password form (and `updateUser` would change _that_ session's password). That path was
    an accident of `detectSessionInUrl`-era wiring, not a designed feature.
 
 ### Components
 
-| File | Change |
-|---|---|
-| `src/lib/supabase.ts` | The config above |
-| `src/pages/ResetPassword.tsx` | The password form renders whenever `session && passwordRecovery` — that covers fresh redemption *and* reload / `ProtectedRoute` re-entry (see "Single-use tokens" below). The mount effect exists only to redeem a fresh link: if `token_hash` is in the query string and there is no session, call `verifyOtp({ token_hash, type: 'recovery' })` **exactly once** (ref guard — StrictMode double-invokes the effect and the token is single-use; same class as `useTasks`' `reload()` in-flight guard) and scrub the token from the URL with `replaceState`. While redeeming, show a spinner, not the error card. If a non-recovery session already exists, refuse to redeem (see "Residual risk"). The existing "link is invalid or has expired" card (lines 25-44) is the state for a missing or failed token with no recovery session. |
-| `src/pages/AuthConfirm.tsx` *(new)* | Single purpose: `verifyOtp({ token_hash, type: 'signup' })` — **exactly once** (same StrictMode ref guard) — then redirect to `/`. If a session already exists, don't redeem: show "you're already signed in" with a link to `/` (covers a second click on the link, and is the fixation guard from "Residual risk"). On failure, an error message with a link to `/login`. |
-| `src/App.tsx` | Register `/auth/confirm` as a **public** route (not wrapped in `ProtectedRoute`), alongside the existing public `/auth/reset`. |
-| `src/pages/Login.tsx` | `signUp` gains `emailRedirectTo: ${window.location.origin}/auth/confirm`. Line 60 copy drops "then sign in" — confirmation now signs the user in. |
-| `src/auth/AuthProvider.tsx` | **No change.** `verifyOtp({ type: 'recovery' })` fires `PASSWORD_RECOVERY` itself, so the existing handler keeps setting the flag — see "Why the recovery gate still works". |
+| File                                | Change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/lib/supabase.ts`               | The config above                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `src/pages/ResetPassword.tsx`       | The password form renders whenever `session && passwordRecovery` — that covers fresh redemption _and_ reload / `ProtectedRoute` re-entry (see "Single-use tokens" below). The mount effect exists only to redeem a fresh link: if `token_hash` is in the query string and there is no session, call `verifyOtp({ token_hash, type: 'recovery' })` **exactly once** (ref guard — StrictMode double-invokes the effect and the token is single-use; same class as `useTasks`' `reload()` in-flight guard) and scrub the token from the URL with `replaceState`. While redeeming, show a spinner, not the error card. If a non-recovery session already exists, refuse to redeem (see "Residual risk"). The existing "link is invalid or has expired" card (lines 25-44) is the state for a missing or failed token with no recovery session. |
+| `src/pages/AuthConfirm.tsx` _(new)_ | Single purpose: `verifyOtp({ token_hash, type: 'signup' })` — **exactly once** (same StrictMode ref guard) — then redirect to `/`. If a session already exists, don't redeem: show "you're already signed in" with a link to `/` (covers a second click on the link, and is the fixation guard from "Residual risk"). On failure, an error message with a link to `/login`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `src/App.tsx`                       | Register `/auth/confirm` as a **public** route (not wrapped in `ProtectedRoute`), alongside the existing public `/auth/reset`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `src/pages/Login.tsx`               | `signUp` gains `emailRedirectTo: ${window.location.origin}/auth/confirm`. Line 60 copy drops "then sign in" — confirmation now signs the user in.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `src/auth/AuthProvider.tsx`         | **No change.** `verifyOtp({ type: 'recovery' })` fires `PASSWORD_RECOVERY` itself, so the existing handler keeps setting the flag — see "Why the recovery gate still works".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
 `src/pages/AuthCallback.tsx` is unchanged: Google OAuth returns `?code=`, PKCE handles it, and the
 component already just waits for a session.
@@ -159,7 +162,10 @@ event. URL parsing stops firing it — but `verifyOtp` fires it directly
 (`GoTrueClient.js:2021` in 2.110.8):
 
 ```js
-await this._notifyAllSubscribers(params.type == 'recovery' ? 'PASSWORD_RECOVERY' : 'SIGNED_IN', session);
+await this._notifyAllSubscribers(
+  params.type == 'recovery' ? 'PASSWORD_RECOVERY' : 'SIGNED_IN',
+  session,
+)
 ```
 
 The notification is awaited before `verifyOtp` resolves, so `AuthProvider`'s existing handler has
@@ -193,11 +199,11 @@ the link from their own inbox). Luring a victim to `/auth/confirm?token_hash=…
 `/auth/reset?token_hash=…&type=recovery` would still hand the victim the attacker's session. What
 this design changes versus Finding 1:
 
-|  | Implicit fragment (today) | `token_hash` redemption (after) |
-|---|---|---|
-| Surface | any URL on the origin | two dedicated routes |
-| Token | mintable at will, reusable while valid | single-use, expires per `otp_expiry` (1h) |
-| Visibility | silent — fragment scrubbed, no UI | recovery forces the reset form; confirm lands on an unfamiliar, empty board |
+|            | Implicit fragment (today)              | `token_hash` redemption (after)                                             |
+| ---------- | -------------------------------------- | --------------------------------------------------------------------------- |
+| Surface    | any URL on the origin                  | two dedicated routes                                                        |
+| Token      | mintable at will, reusable while valid | single-use, expires per `otp_expiry` (1h)                                   |
+| Visibility | silent — fragment scrubbed, no UI      | recovery forces the reset form; confirm lands on an unfamiliar, empty board |
 
 The refuse-to-redeem-over-an-existing-session guard on both pages (component table) removes the
 replace-a-real-session variant — the specific behavior that made Finding 1 Medium. What remains is
@@ -216,7 +222,7 @@ Performed close to the merge, per the clean-cut decision:
    (templates read-only for free-tier projects created on/after 2026-06-03 on the default email
    provider) applies to this project, created 2026-06-29 with custom SMTP off. Configure custom
    SMTP first — it restores template editing and the Supabase plan stays free (free-tier SMTP
-   providers suffice). Empirical footnote: non-team delivery *worked* on the default provider
+   providers suffice). Empirical footnote: non-team delivery _worked_ on the default provider
    here despite docs saying it's refused; editing, not delivery, is what gates steps 1-2.
 1. **Reset password** template → `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery`
 2. **Confirm signup** template → `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=signup`

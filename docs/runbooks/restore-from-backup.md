@@ -19,10 +19,10 @@ outage.
 
 ## What is in the bundle
 
-| File         | Contents                                                                                  | Why it matters                                                              |
-| ------------ | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `schema.sql` | DDL for the `public` schema **only**                                                        | Nearly a substitute for `supabase/migrations/` — but it omits `on_auth_user_created` and `on_auth_user_deleted`, both triggers on `auth.users`. See 3.1 |
-| `data.sql`   | **All** rows — `public` (`tasks`, `user_settings`, `boards`, `board_memberships`, `account_profiles`) **and** `auth` (`auth.users`, sessions…) | Everything. This single file carries the accounts and the boards they own      |
+| File         | Contents                                                                                                                                       | Why it matters                                                                                                                                          |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema.sql` | DDL for the `public` schema **only**                                                                                                           | Nearly a substitute for `supabase/migrations/` — but it omits `on_auth_user_created` and `on_auth_user_deleted`, both triggers on `auth.users`. See 3.1 |
+| `data.sql`   | **All** rows — `public` (`tasks`, `user_settings`, `boards`, `board_memberships`, `account_profiles`) **and** `auth` (`auth.users`, sessions…) | Everything. This single file carries the accounts and the boards they own                                                                               |
 
 `data.sql` holds the `auth` rows as well as the `public` ones — `supabase db dump --data-only`
 includes Supabase-managed schemas even though the schema dump excludes them. There is one data file
@@ -37,16 +37,16 @@ and you load it once.
 and its last is `RESET ALL;` — the Supabase CLI emits both. You cannot forget the setting, and the
 `-c "SET session_replication_role = replica;"` in step 3.2 is therefore **redundant**. It is kept
 only because it makes the requirement visible at the call site and costs nothing. What matters is
-that you never *strip* line 1.
+that you never _strip_ line 1.
 
 **What it is actually for: the `on_auth_user_created` trigger.** Inserting into `auth.users` fires
 `handle_new_user()` (`init.sql:95`), which creates a **default** `public.user_settings` row for that
 user. `data.sql` inserts `auth.users` well before `public.user_settings`, so the dump then tries to
-insert the user's *real* settings row with the same primary key and fails on a duplicate. The
+insert the user's _real_ settings row with the same primary key and fails on a duplicate. The
 trigger's own `on conflict do nothing` does not help — it guards the trigger's insert, not the
 restore's. Reproduced in the 2026-07-27 rehearsal: trigger present, replica mode off, and the load
 dies with `duplicate key value violates unique constraint "user_settings_pkey"`. This only bites
-when the target *has* the trigger, which is a live question — see step 3.1.
+when the target _has_ the trigger, which is a live question — see step 3.1.
 
 Since v1.2.76 the same trigger seeds two more rows the same way (`account_profiles`, guarded by its
 own `on conflict do nothing`) plus two it cannot guard at all (`boards`, `board_memberships`,
@@ -73,7 +73,7 @@ pg_dump: hint: You might not be able to restore the dump without using --disable
 That is `recur_parent_id` referencing `tasks(id)` — a recurring series is a hidden template row plus
 instance rows pointing back at it (`init.sql:42`). The warning is generic advice aimed at
 `COPY`-style dumps, and it does not apply to this bundle: the CLI emits **one multi-row `INSERT` per
-table**, and foreign keys are `AFTER … FOR EACH ROW` triggers queued to *end of statement*, so every
+table**, and foreign keys are `AFTER … FOR EACH ROW` triggers queued to _end of statement_, so every
 row is present before any check runs. Row order inside the statement is irrelevant. Verified in the
 2026-07-27 rehearsal by forcing the worst case — a template on the statement's final line, 5,064
 rows, replica mode off — which restored cleanly.
@@ -86,11 +86,11 @@ statements, would reintroduce exactly the ordering problem the warning describes
 either, for the same reason.** `session_replication_role = replica` disables every FK trigger for
 the duration of the load, so it does not matter whether `data.sql` happens to emit `boards` before
 `board_memberships` before `tasks` — untested here, since the CLI is not asked to justify its
-statement order and nothing in this repo pins it. What replica mode does *not* disable is `CHECK`
+statement order and nothing in this repo pins it. What replica mode does _not_ disable is `CHECK`
 constraints (evaluated directly by the executor, not as a trigger) and unique indexes such as
 `board_memberships_current_uniq` — but those need no ordering help either: they were satisfied by
 the live database this dump came from, and a dump reproduces rows, not the sequence of writes that
-produced them. The one thing that *would* defeat this is restoring a **partial** `data.sql` (for
+produced them. The one thing that _would_ defeat this is restoring a **partial** `data.sql` (for
 example, hand-extracting `public.tasks` rows without their boards) — do not do that; see Step 2 for
 when a targeted restore instead of a full one is the right call.
 
@@ -112,7 +112,7 @@ will work. There is no recovery path for a lost passphrase.
 
 Be honest about the failure before touching production. The three cases are different:
 
-- **Some rows were deleted or corrupted, the project is otherwise healthy.** Do *not* wholesale
+- **Some rows were deleted or corrupted, the project is otherwise healthy.** Do _not_ wholesale
   restore. Load the relevant dump into a **scratch project or a local `supabase start`**, extract
   just the affected rows, and apply them to production as targeted SQL. A full restore would revert
   every legitimate change made since the backup.
@@ -212,7 +212,7 @@ slow restore means something is wrong, not that it is working hard.
 `SET session_replication_role` needs privilege the Supabase `postgres` role does have — **verified
 2026-07-27**, where it reports `usesuper = f` and the `SET` still succeeds. If it is ever refused,
 remember the setting also sits on **line 1 of `data.sql`**, so the load aborts inside the file and
-`--single-transaction` rolls it back. You would then have to both strip that line *and* drop
+`--single-transaction` rolls it back. You would then have to both strip that line _and_ drop
 `on_auth_user_created` for the duration, then recreate it — and, since v1.2.76, `on_auth_user_deleted`
 too, though that one is far less likely to fire mid-load (nothing in `data.sql` deletes from
 `auth.users`). Dropping the trigger(s) alone is sufficient — the foreign-key ordering is a non-issue,

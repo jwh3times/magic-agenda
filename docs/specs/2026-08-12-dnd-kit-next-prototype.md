@@ -13,17 +13,17 @@ adapter and its legacy dependencies remain unchanged.
 
 ## API map
 
-| Current API | Successor 0.5 API | Adapter consequence |
-| --- | --- | --- |
-| `DndContext` | `DragDropProvider` | Provider events now expose `event.operation`. |
-| `event.active` / `event.over` | `operation.source` / `operation.target` | `nextDropInput()` maps ids and shapes into the unchanged vendor-free `DropInput`. |
-| `onDragCancel` | `onDragEnd` with `event.canceled` | The adapter skips persistence, then resets, for canceled operations. |
-| `MouseSensor` + `TouchSensor` | `PointerSensor` | One configured sensor branches by `pointerType`: mouse/pen distance 6; touch delay 250 ms with 8 px tolerance. |
-| Provider `collisionDetection` | Per-draggable/droppable `collisionDetector` | Sortables and empty lanes use `closestCorners`. |
-| `SortableContext` | `useSortable({ group, index })` | Each card supplies its lane group and explicit index. |
-| `useSortable({ disabled })` | Same concept | Search filtering can keep a stable provider/sensor list while disabling cards. |
-| `DragOverlay` child | `DragOverlay` source render prop | One overlay remains mounted per provider. |
-| Legacy sortable transforms | `OptimisticSortingPlugin` | The plugin is removed because `resolveDrop` owns Magic Agenda's optimistic preview. |
+| Current API                   | Successor 0.5 API                           | Adapter consequence                                                                                            |
+| ----------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `DndContext`                  | `DragDropProvider`                          | Provider events now expose `event.operation`.                                                                  |
+| `event.active` / `event.over` | `operation.source` / `operation.target`     | `nextDropInput()` maps ids and shapes into the unchanged vendor-free `DropInput`.                              |
+| `onDragCancel`                | `onDragEnd` with `event.canceled`           | The adapter skips persistence, then resets, for canceled operations.                                           |
+| `MouseSensor` + `TouchSensor` | `PointerSensor`                             | One configured sensor branches by `pointerType`: mouse/pen distance 6; touch delay 250 ms with 8 px tolerance. |
+| Provider `collisionDetection` | Per-draggable/droppable `collisionDetector` | Sortables and empty lanes use `closestCorners`.                                                                |
+| `SortableContext`             | `useSortable({ group, index })`             | Each card supplies its lane group and explicit index.                                                          |
+| `useSortable({ disabled })`   | Same concept                                | Search filtering can keep a stable provider/sensor list while disabling cards.                                 |
+| `DragOverlay` child           | `DragOverlay` source render prop            | One overlay remains mounted per provider.                                                                      |
+| Legacy sortable transforms    | `OptimisticSortingPlugin`                   | The plugin is removed because `resolveDrop` owns Magic Agenda's optimistic preview.                            |
 
 The migration guide also offers `move()` from `@dnd-kit/helpers`, but the app should keep its own
 tested `moveToDay` / `moveToStatus` logic because those functions reindex both lanes and preserve the
@@ -40,17 +40,17 @@ Both pages are explicitly throwaway and are not reachable from the production ap
 
 ## Verification
 
-| Invariant | Result |
-| --- | --- |
-| Persist after an optimistic move ends over the active card | Passed in the standalone walkthrough and live 0.5 runtime. |
-| Empty calendar lane | Passed in the live 0.5 runtime. |
-| Cross-lane and multi-hop touched-lane accumulation | Passed; the live calendar drag persisted `inbox -> 2026-07-01 -> 2026-07-02`. |
-| Kanban status movement | Passed; the live drag persisted `todo -> doing -> done`. |
-| Filter disables drag without changing sensors | Passed in the live runtime; sortables expose their disabled state and no persistence occurs. |
-| Unfiltered board reaches `resolveDrop` | Preserved by the adapter signature; the harness passes the complete task list while filtering only controls `disabled`. |
-| Mouse distance activation | Passed with browser-driven pointer input. |
-| Touch scroll before 250 ms / drag after long-press | Represented by the published constraint API and checked in the logic walkthrough; **not verified on real touch hardware**. |
-| Type compatibility | `npx tsc -b` passed. |
+| Invariant                                                  | Result                                                                                                                     |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Persist after an optimistic move ends over the active card | Passed in the standalone walkthrough and live 0.5 runtime.                                                                 |
+| Empty calendar lane                                        | Passed in the live 0.5 runtime.                                                                                            |
+| Cross-lane and multi-hop touched-lane accumulation         | Passed; the live calendar drag persisted `inbox -> 2026-07-01 -> 2026-07-02`.                                              |
+| Kanban status movement                                     | Passed; the live drag persisted `todo -> doing -> done`.                                                                   |
+| Filter disables drag without changing sensors              | Passed in the live runtime; sortables expose their disabled state and no persistence occurs.                               |
+| Unfiltered board reaches `resolveDrop`                     | Preserved by the adapter signature; the harness passes the complete task list while filtering only controls `disabled`.    |
+| Mouse distance activation                                  | Passed with browser-driven pointer input.                                                                                  |
+| Touch scroll before 250 ms / drag after long-press         | Represented by the published constraint API and checked in the logic walkthrough; **not verified on real touch hardware**. |
+| Type compatibility                                         | `npx tsc -b` passed.                                                                                                       |
 
 ## Remaining gaps and exit criteria
 

@@ -12,6 +12,47 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.5.0] - 2026-08-18
+
+### Added
+
+- Board Owners can manage their board's Label vocabulary from **Settings → Labels**: create,
+  rename, recolor, reorder, and delete definitions. Deleting a Label asks first and states the
+  consequence plainly — tasks using it become Unlabeled, and the tasks themselves are kept, which
+  the database enforces through the Label foreign key's column-list `on delete set null`. The five
+  seeded Labels are ordinary definitions here with no special status. Editors and Viewers see the
+  vocabulary read-only; Owner-only policies and column grants remain the actual boundary, now
+  covered by role-refusal tests with positive controls (#179).
+
+### Internal
+
+- Label management decisions live in a new pure `src/labels/labelIntent.ts` — name and colour
+  validation, reorder maths, and the translation of a PostgREST failure into the same app-owned
+  refusal vocabulary the client check produces, keyed on SQLSTATE and constraint names rather than
+  message prose. `useLabels` keeps only state, Supabase, and rollback.
+- Prettier now formats Markdown (`**/*.md`). `.agents/skills/` is excluded as vendored content the
+  skills installer expects byte-for-byte, and `private/` as git-ignored local-only files. Because
+  `.claude/agents/*.md` is both formatted and the source for `.codex/agents/*.toml`,
+  `npm run format` must now run before `npm run codex:sync`.
+
+### Docs
+
+- Recorded the Labels realtime deferral as an open decision rather than a settled one, tracked as
+  [#188](https://github.com/jwh3times/magic-agenda/issues/188). Its original justification was a
+  conjunction — no UI mutated definitions, **and** publishing would widen the DELETE fan-out for no
+  freshness benefit — and this release expired both halves. `AGENTS.md` now names the edge it
+  leaves open: `tasks` is published and `labels` is not, so a second focused surface re-renders
+  cards as Unlabeled correctly while its editor still offers the deleted definition, and the save
+  is then rejected by `tasks_label_same_board`.
+
+## [1.4.3] - 2026-08-17
+
+### Internal
+
+- Bumped the E2E toolchain dev dependency `@axe-core/playwright` (#184). Backfilled: Dependabot
+  merges release a build but are exempt from the changelog check, so this section was added by the
+  next human PR.
+
 ## [1.4.2] - 2026-08-17
 
 ### Fixed
@@ -134,7 +175,7 @@ No unreleased changes.
 - Offline snapshots are keyed per Board rather than one per account, with a separate directory
   envelope recording which Boards this device last saw. Snapshots of Boards the server no longer
   returns are purged on the next successful load — the client-side half of revocation, since access
-  ending is silent and nothing else would notice. The purge takes the ids to *remove*, computed from
+  ending is silent and nothing else would notice. The purge takes the ids to _remove_, computed from
   the server's list, so a load returning nothing correctly purges everything; it runs only under a
   real session, because a sessionless read succeeds against RLS with no rows and treating that as
   "you are in no Boards" would wipe the cache on exactly the offline path it exists to serve.
@@ -146,7 +187,7 @@ No unreleased changes.
   Board — written through the column-level grant added with the Board schema. Both copies are
   written until `user_settings.default_view` is dropped, since writing one is how they diverge.
 - Fixed a test-infrastructure bug worth recording: the `useTasks` Supabase mock returned a bare
-  Promise from `select()`, so adding `.eq('board_id', …)` made the load resolve as an *empty board*
+  Promise from `select()`, so adding `.eq('board_id', …)` made the load resolve as an _empty board_
   rather than an error — the loudest possible failure reported in the quietest possible way. The
   mock is now both awaitable and chainable.
 
@@ -386,9 +427,9 @@ backfilled for every instance that had a day. This is a latent-hazard fix.
 
 - **The task editor's decisions are now a pure module.** `src/data/editIntent.ts` owns `cleanDraft`,
   `changedTaskKeys`, `onlyPerOccurrenceChanged`, `PER_OCCURRENCE_FIELDS`, and the two decisions the
-  Save and Delete buttons make (`intendSave` / `intendDelete`). `series.ts` decides *which
-  occurrences* an operation touches; this decides *whether the editor may proceed at all* and
-  *whether it has to ask first*. Closes #138.
+  Save and Delete buttons make (`intendSave` / `intendDelete`). `series.ts` decides _which
+  occurrences_ an operation touches; this decides _whether the editor may proceed at all_ and
+  _whether it has to ask first_. Closes #138.
 - Those functions were private to a 739-line `TaskEditor.tsx`, so all eight of its tests reached
   them by rendering the modal and clicking through with `userEvent` — and the fail-safe property
   documented on `changedTaskKeys` (drifting checklist key order must over-show the prompt, never
@@ -432,7 +473,7 @@ Aside from the prompt fix above, no user-visible behaviour changes.
   rows that already exist (`23505`). Three of the four call sites took that default, untested.
 - `FailureHandling` deliberately carries two independent fields (`abort` and `recover`), because the
   existing behaviour answered them independently: a failed content upsert aborts the trim that
-  follows it, while a failed `recurSkip` write must *not* stop the occurrence being deleted.
+  follows it, while a failed `recurSkip` write must _not_ stop the occurrence being deleted.
 - `Board` loses three props and no longer encodes any recurrence rule — including stripping the rule
   fields on the this-occurrence save path, which had been enforced by a comment. `useTasks` exposes
   `saveTask(orig, draft, isNew, scope)` and `deleteTask(task, scope)` in place of the five members
@@ -471,7 +512,7 @@ No user-visible behaviour changes.
   `src/data/snapshot.ts`, with a docstring explaining why each of its five clauses is load-bearing.
   It previously had two implementations and three prose copies, one of which passed the rule as a
   positional boolean argument named `persistSnapshot`.
-- Newly testable, and previously unreachable in *either* copy because both test mocks fired
+- Newly testable, and previously unreachable in _either_ copy because both test mocks fired
   `'SUBSCRIBED'` unconditionally: the backoff curve and its 30 s cap, reconnect after
   `CHANNEL_ERROR`/`TIMED_OUT`/`CLOSED`, backoff reset after a successful resubscribe, a backoff
   timer firing after unmount, `visibilitychange` catch-up, and own-write TTL **expiry** — the old
@@ -489,7 +530,7 @@ No user-visible behaviour changes.
   and `src/dnd/reorder.ts` keeps only the splice math. The seam had been drawn at "pure vs impure"
   rather than "hard vs easy", so the thoroughly-tested half was the trivial half. Closes #136.
 - Removed `findContainer` and `reindex` from `src/dnd/reorder.ts`. Neither had a production call
-  site, and between them they carried 7 of that file's 17 tests. `findContainer` also *disagreed*
+  site, and between them they carried 7 of that file's 17 tests. `findContainer` also _disagreed_
   with the shipped inline copy in the wiring: it returned `undefined` for an id matching no task,
   where the real rule returns the id itself — which is the only reason dropping onto an empty lane
   works, since dnd-kit registers an empty lane as a droppable whose id is the lane.
@@ -558,7 +599,7 @@ unchanged.
 ### Docs
 
 - Added `docs/agents/` (`issue-tracker.md`, `triage-labels.md`, `domain.md`) plus an `## Agent
-  skills` section in `AGENTS.md`, configuring where third-party Claude Code skills such as
+skills` section in `AGENTS.md`, configuring where third-party Claude Code skills such as
   `triage`, `to-tickets`, and `to-spec` read and write: GitHub Issues on this repo via the `gh`
   CLI, the default five-role triage label vocabulary, and a single-context `CONTEXT.md`/`docs/adr/`
   layout for domain docs (neither exists yet — created lazily by `/domain-modeling`). No app
@@ -712,7 +753,7 @@ unchanged.
   Until now the automated tests all ran against mocks, which meant a whole class of problem was
   invisible: anything that only breaks on the real hosting. That is not hypothetical — the bug that
   silently replaced the site's fonts with system defaults shipped **twice**, because it cannot be
-  reproduced locally and only affects people on their *second* visit. The new checks catch it, along
+  reproduced locally and only affects people on their _second_ visit. The new checks catch it, along
   with sign-in, creating a task and having it survive a reload, and the board still rendering from
   its saved copy when the server cannot be reached.
 - Added an accessibility check to the same run. It scans six screens — the landing page, sign-in,
@@ -855,8 +896,7 @@ unchanged.
   settings), each keyed to the signed-in user id and cleared on sign-out. `useTasks` writes the
   board snapshot after every successful server load and, on a **failed** load, hydrates from it
   read-only — deliberately skipping recurrence `materialize()`, since replaying it against
-  snapshot data would insert duplicate instances and hit `tasks_recur_instance_uniq` (Postgres
-  23505) the moment the real load succeeds. `useSettings` falls back to its own snapshot on a
+  snapshot data would insert duplicate instances and hit `tasks_recur_instance_uniq` (Postgres 23505) the moment the real load succeeds. `useSettings` falls back to its own snapshot on a
   failed load rather than silently resetting the theme to defaults. While hydrated from a
   snapshot, the board is read-only (an offline banner; drag, add, and per-card done/pin are all
   disabled) via a small `OfflineContext`. A new-version toast (`UpdatePrompt`) offers a waiting
@@ -923,6 +963,7 @@ service worker itself:
 - Flagged for the next dated review in `private/`, not fixed here: storing task text at rest in
   `localStorage` (mitigated by clearing it on sign-out) is a new position for this app and belongs
   in the accepted-risk record, argued, rather than only inside this PR.
+
 ## [1.2.33] - 2026-07-27
 
 ### Docs
@@ -997,7 +1038,7 @@ service worker itself:
 
   - **The documented connection host cannot be reached.** `db.<ref>.supabase.co` is IPv6-only —
     Supabase publishes no `A` record for it — so step 3 died on its first command with `could not
-    translate host name`. The runbook now connects through the Session pooler
+translate host name`. The runbook now connects through the Session pooler
     (`postgres.<ref>@aws-0-<region>.pooler…:5432`) and explains why it must be the session pooler and
     not the transaction one: replica mode is a session setting and the load is one transaction.
   - **Restoring `schema.sql` silently omits `on_auth_user_created`.** That trigger sits on
@@ -1683,7 +1724,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.4.2...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/jwh3times/magic-agenda/compare/v1.4.3...v1.5.0
+[1.4.3]: https://github.com/jwh3times/magic-agenda/compare/v1.4.2...v1.4.3
 [1.4.2]: https://github.com/jwh3times/magic-agenda/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/jwh3times/magic-agenda/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/jwh3times/magic-agenda/compare/v1.3.0...v1.4.0

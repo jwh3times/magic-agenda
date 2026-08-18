@@ -22,6 +22,9 @@ of three hand‑built themes.
   inbox, with a floating drag ghost (powered by [dnd‑kit](https://dndkit.com)).
 - **Rich task editor** — title, description, Note Color, an optional Board Label (or Unlabeled),
   checklist, status, schedule, an optional due time, and a pin toggle for priority.
+- **Custom Labels** — create, rename, recolor, reorder, and delete your board's Labels from
+  Settings → Labels; the five starter Labels are ordinary, editable definitions, not built-ins.
+  Deleting a Label leaves its tasks in place and Unlabeled.
 - **Search & filter** — by text, Label (including Unlabeled), status, and a "📌 Pinned" quick filter; non‑matching
   cards hide live.
 - **Recurring tasks** — daily / weekly / monthly with an interval and end date, materialized over a
@@ -139,7 +142,7 @@ npm run dev      # start the dev server at http://localhost:5173
 | `npm run test:rls:up`   | Start a local Supabase stack for the RLS tests (Docker) |
 | `npm run test:rls`      | Run the RLS integration tests against that stack        |
 | `npm run test:rls:down` | Stop the local stack                                    |
-| `npm run test:e2e`      | Playwright smoke + a11y against `E2E_BASE_URL`           |
+| `npm run test:e2e`      | Playwright smoke + a11y against `E2E_BASE_URL`          |
 | `npm run lint`          | Lint with Oxlint, including type-aware rules            |
 | `npm run lint:fix`      | Apply safe lint fixes                                   |
 | `npm run format`        | Format with Prettier                                    |
@@ -154,7 +157,8 @@ src/
 ├─ components/   Board, views (Calendar/Week/Agenda/Kanban), TaskEditor, Toolbar, …
 ├─ data/         useTasks / useSettings hooks, mappers, selectors, filters, recurrence
 ├─ dnd/          pure drag logic (unit‑tested) + dnd‑kit wiring
-├─ labels/       selected-Board Label directory, presentation, and offline read path
+├─ labels/       selected-Board Label directory, presentation, offline read path, and Owner-only
+│                management (create/rename/recolor/reorder/delete)
 ├─ lib/          supabase client, date + id helpers
 ├─ pages/        Login, AuthCallback, AuthConfirm, ResetPassword, SettingsPage, BoardPage
 ├─ theme/        constants, per‑theme tokens, card styles, ThemeProvider
