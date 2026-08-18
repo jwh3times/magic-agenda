@@ -133,9 +133,9 @@ were added as their own effort rather than a roadmap feature — see
      management on `/settings`: create, rename, recolor, reorder, delete, with deletion making
      affected Tasks Unlabeled via `on delete set null (label_id)`. It followed #178 so backups
      could represent Labels before users could change their definitions. Labels stayed out of
-     realtime — the deferral's original reason ("no UI mutates definitions") expired here, but the
-     DELETE fan-out cost did not, and catch-up already covers a single-Owner Board. Revisit with
-     sharing.
+     realtime, but that is now a deferral with a named cost rather than a settled call —
+     [#188](https://github.com/jwh3times/magic-agenda/issues/188) carries the decision and the
+     deletion edge it leaves open.
   2. [#180](https://github.com/jwh3times/magic-agenda/issues/180) — remove the legacy Category
      column and compatibility rule only after the deploy window has elapsed. **Now unblocked by
      #179**, but still gated on current clients having had a release window.

@@ -268,13 +268,30 @@ Owner-only management writes. Cards and drag overlays resolve names/colors throu
 null or missing definition renders the neutral Unlabeled presentation. Label Color supplies the
 accent only; Note Color still chooses the paper.
 
-**Labels are still deliberately absent from realtime, and #179 did not change that.** The stated
-reason used to be "no shipped UI mutates definitions", which expired the moment management shipped;
-the reason it survives is the one underneath. Catch-up already refreshes on navigation and
-reconnect, definitions change rarely and only by one person per Board today, and publishing another
-RLS table widens the DELETE fan-out surface — the standing constraint on any published table. When
-sharing lands and a second person can rename a Label under you, revisit this together with the
-membership heartbeat that the Board Directory notes defer for the same reason.
+**Labels have no realtime channel, and since #179 that is a deferral with a known cost, not a
+settled decision — see [#188](https://github.com/jwh3times/magic-agenda/issues/188).** The original
+reason was a conjunction: no shipped UI mutated definitions, **and** publishing another RLS table
+would widen the DELETE fan-out surface for no freshness benefit. #179 expired both halves at once.
+It kept catch-up anyway, on the narrower argument that one Owner needs no push — which conflates one
+_person_ with one _surface_, and is the part to distrust.
+
+What catch-up does not cover is **a tab that stays open and focused**: `visibilitychange` and
+`online` are the only triggers, exactly the hole recorded below for the Board Directory's membership
+revalidation. The concrete edge is deletion, and its order matters. `tasks` _is_ published, so
+another surface's cards correctly re-render as Unlabeled the moment the Label foreign key's
+column-list `on delete set null` fires — while its Label directory stays stale, so `TaskEditor` goes
+on offering a chip for the deleted definition and the save is then rejected by
+`tasks_label_same_board`. Partial freshness is worse than uniform staleness here: the board looks
+trustworthy while the vocabulary under it is not.
+
+Bounded, though, and worth keeping in proportion. It takes a _delete_ — the rarest of the five
+operations — since a rename leaves the id intact and costs only a wrong chip name; the result is a
+confusing failed save, not data loss, and a reload clears it. Publishing is three lines of migration
+(`labels.id` is a uuid, so the structural uuid-key assertion covers it and the marginal fan-out is
+"some opaque uuid was deleted"), but the adapter is not a drop-in: `useLabels` is bespoke and does
+not go through `useSyncedTable`, which is shaped around its two existing adapters. Revisit at
+sharing at the latest — when a second person can delete a Label under you, the frequency argument
+stops holding — alongside the membership heartbeat deferred for the same reason.
 
 **`src/labels/labelIntent.ts` is the decision half of Label management** — `checkName`, `checkColor`,
 `moveLabel`, `changedPositions`, `labelProblemFromError`, `explainProblem` — with `useLabels` left
