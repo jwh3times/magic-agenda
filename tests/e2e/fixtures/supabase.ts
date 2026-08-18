@@ -36,3 +36,32 @@ export async function testUserId(client: SupabaseClient): Promise<string> {
   if (error || !data.user) throw new Error(`could not read the test user: ${error?.message}`)
   return data.user.id
 }
+
+/**
+ * The Board this account's tasks belong to.
+ *
+ * Required since Board creation dropped `tasks_infer_board_id`: a task insert that omits
+ * `board_id` no longer gets one filled in, it is refused by `tasks_insert_editor` — the seed
+ * fixture is itself a pre-cutover client, and fails closed exactly like any other.
+ *
+ * Reads the Membership rather than `boards` directly, because that is the only thing RLS scopes to
+ * this caller; `boards` is visible only *through* it. The account has exactly one Board, and the
+ * ordering makes "the first one" stable if that ever stops being true.
+ */
+export async function testBoardId(client: SupabaseClient): Promise<string> {
+  const { data, error } = await client
+    .from('board_memberships')
+    .select('board_id')
+    .is('ended_at', null)
+    .order('joined_at', { ascending: true })
+    .limit(1)
+    .single()
+  if (error || !data) throw new Error(`could not read the test board: ${error?.message}`)
+
+  // This client carries no `Database` generic, so the row is `any`. Narrow rather than assert: if
+  // the column is ever renamed, a checked failure here beats `undefined` reaching an insert and
+  // surfacing as an RLS refusal three call sites away.
+  const boardId: unknown = (data as Record<string, unknown>).board_id
+  if (typeof boardId !== 'string') throw new Error('membership row carried no board_id')
+  return boardId
+}

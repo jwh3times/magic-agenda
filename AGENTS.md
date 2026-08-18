@@ -895,6 +895,16 @@ evict a queued PR. Seeding uses the anon key and that account's own credentials 
 key must never enter CI.** All three skip conditions (non-PR events, fork PRs, runs without secrets)
 report success from inside a step, never a job-level `if:`.
 
+**A migration's effect on E2E is invisible until the PR after the one that introduced it.** E2E runs
+against the _production_ database, but `Deploy Migrations` only applies migrations on merge to
+`main` — so the PR carrying a schema change tests the new client against the OLD schema, and the
+next PR is the first to run against the new one. That is not hypothetical: dropping
+`tasks_infer_board_id` broke `seedBoard`, which inserted tasks without a `board_id` and so was
+itself a pre-cutover client. `v1.6.0`'s own E2E passed green; the failure landed on the following
+PR, which had not touched a line of it. **When a migration changes what a write must include, update
+`tests/e2e/fixtures/` in the same PR and expect no CI signal confirming you got it right.** The
+fixtures are the one Supabase client in this repo that no unit or RLS test covers.
+
 Five non-obvious constraints on the specs themselves. Four cost a real debugging pass; the fifth
 is a deliberate tradeoff worth understanding before it costs one:
 

@@ -45,6 +45,14 @@ No unreleased changes.
   overlay like `ErrorScreen` and `Spinner` — axe treats those as open modals, so the landmark and
   heading rules pass for free against them.
 
+### Fixed
+
+- The E2E seed fixture inserted tasks without a `board_id`, so it became a pre-cutover client the
+  moment `v1.6.0` dropped `tasks_infer_board_id` and began failing closed like any other. It now
+  resolves the account's Board and names it on every write. Note the failure could not have appeared
+  on `v1.6.0`'s own PR: E2E runs against the production database, and migrations apply only on merge,
+  so a schema change is first exercised by the _next_ PR.
+
 ## [1.6.0] - 2026-08-18
 
 ### Added
