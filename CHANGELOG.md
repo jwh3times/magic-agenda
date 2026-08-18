@@ -12,6 +12,50 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.6.0] - 2026-08-18
+
+### Added
+
+- You can now create more than one Board and switch between them. The switcher sits in the toolbar
+  beside the view switcher, and creating a Board is a "+ New board…" entry inside it rather than a
+  separate control. A new Board arrives with the same five starter Labels as the one signup creates,
+  so it is usable immediately. Switching changes tasks, Labels, and Default View together — Default
+  View is a per-Board preference, so each Board remembers how you like to look at it (#191).
+
+### Removed
+
+- The temporary compatibility trigger that guessed which Board a task belonged to when the client
+  did not say. It was correct only while an Account had exactly one Board; with a second now
+  possible it would have filed a task into an arbitrary one, silently. A client old enough not to
+  send a Board is now refused instead — the intended outcome, and the reason this had to ship in the
+  same release as Board creation rather than after it. Current clients are unaffected; they have
+  sent the Board with every task since `v1.2.75`. A tab left open since before then must be reloaded
+  before it can add tasks again.
+
+### Internal
+
+- Board creation is `public.create_board`, a `security definer` RPC, not a pair of client inserts. A
+  Board and its Owner Membership have to appear together — a Board with no Membership is unreachable
+  by every policy in the schema — and there is no non-escalating way to let a client write the
+  Membership itself, so `board_memberships` still has no INSERT policy at all and the function takes
+  no account parameter.
+- The function lives in `public` rather than `app_private`, because `[api] schemas` exposes only
+  `public` and `graphql_public` and PostgREST refuses an unlisted schema with `PGRST106` even for
+  `service_role` — an `app_private` RPC would be uncallable by construction. `app_private` remains
+  unbuilt; the first co-member predicate is still what introduces it. The rule in
+  `tests/rls/baseline.test.ts` was amended to distinguish a policy helper (which belongs in
+  `app_private`) from a client-invoked RPC (which cannot live there), since as written it would have
+  flagged a correct function as a mistake.
+- `BoardDirectoryContext` moved to its own hook-only module, mirroring `labelDirectoryContext`, so
+  an optional consumer no longer imports the provider module that several page tests mock wholesale.
+
+### Fixed
+
+- The nightly backup verification asserted that the schema dump defines `tasks_infer_board_id`,
+  which this release drops — it would have failed every run from tonight. It now asserts
+  `create_board`, checked against a real `supabase db dump` rather than against a close relative of
+  the command the workflow runs.
+
 ## [1.5.0] - 2026-08-18
 
 ### Added
@@ -1724,7 +1768,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/jwh3times/magic-agenda/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/jwh3times/magic-agenda/compare/v1.4.3...v1.5.0
 [1.4.3]: https://github.com/jwh3times/magic-agenda/compare/v1.4.2...v1.4.3
 [1.4.2]: https://github.com/jwh3times/magic-agenda/compare/v1.4.1...v1.4.2
