@@ -3,7 +3,8 @@ import {
   anonClient,
   createTestUser,
   deleteTestUser,
-  legacyTaskInsert,
+  boardTaskInsert,
+  currentBoardId,
   type TestUser,
 } from './helpers'
 
@@ -17,7 +18,9 @@ beforeAll(async () => {
 
   const { data, error } = await alice.client
     .from('tasks')
-    .insert(legacyTaskInsert({ user_id: alice.id, title: "alice's task" }))
+    .insert(
+      boardTaskInsert(await currentBoardId(alice.id), { user_id: alice.id, title: "alice's task" }),
+    )
     .select('id')
     .single()
   if (error) throw new Error(`fixture insert failed: ${error.message}`)
@@ -69,7 +72,7 @@ test('bob cannot insert a task owned by alice', async () => {
   // lets one user write rows owned by another.
   const { error } = await bob.client
     .from('tasks')
-    .insert(legacyTaskInsert({ user_id: alice.id, title: 'forged' }))
+    .insert(boardTaskInsert(await currentBoardId(alice.id), { user_id: alice.id, title: 'forged' }))
   expect(error).not.toBeNull()
   expect(error?.code).toBe('42501')
 })
@@ -152,7 +155,9 @@ test('an anonymous client reads zero rows WITHOUT an error', async () => {
 test('an anonymous client cannot write', async () => {
   const { error } = await anonClient()
     .from('tasks')
-    .insert(legacyTaskInsert({ user_id: alice.id, title: 'from nowhere' }))
+    .insert(
+      boardTaskInsert(await currentBoardId(alice.id), { user_id: alice.id, title: 'from nowhere' }),
+    )
   // Specifically the policy denial, not just any error -- a schema-level failure (a new NOT
   // NULL column, a check constraint) would satisfy `not.toBeNull()` just as well and mask a
   // missing or broken policy.

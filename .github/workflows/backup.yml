@@ -166,7 +166,12 @@ jobs:
           # ever narrows, or these functions move to another schema, the bundle would restore
           # policies that call functions it did not capture. That produces a database which cannot
           # authorize anything, from a backup that verified clean.
-          for fn in handle_new_user handle_account_deletion tasks_infer_board_id; do
+          # `tasks_infer_board_id` was in this list until Board creation shipped and dropped it; a
+          # dump asserting a function that no longer exists fails every night. `create_board`
+          # replaces it and matters more: it is the only way a Board and its Owner Membership are
+          # created together, so a restore without it leaves an account able to read Boards and
+          # unable to make one.
+          for fn in handle_new_user handle_account_deletion create_board; do
             has_function backup/schema.sql "public.$fn" \
               || fail "schema.sql does not define public.$fn — the authorization/lifecycle layer was not captured"
           done

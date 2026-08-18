@@ -1,11 +1,10 @@
-import { createContext, useContext, type ReactNode } from 'react'
+import { useContext, type ReactNode } from 'react'
+import { BoardDirectoryContext } from './boardDirectoryContext'
 import { useAuth } from '../auth/AuthProvider'
 import { readLastUserId } from '../lib/lastUser'
 import { useBoardDirectory, type UseBoardDirectory } from './useBoardDirectory'
 import { capabilitiesFor, type BoardCapabilities } from './role'
 import { selectedBoard, type BoardSummary } from './selection'
-
-const BoardDirectoryContext = createContext<UseBoardDirectory | null>(null)
 
 /**
  * Owns which Boards this Account has, and which one is open, for the whole signed-in session.

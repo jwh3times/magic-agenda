@@ -35,24 +35,40 @@ import { withPg } from './helpers'
  * they must write past RLS on four tables during a transaction where `auth.uid()` is not the
  * account in question — so the hardening is the mitigation, not the removal.
  *
- * `tasks_infer_board_id` is an **invoker** function and deliberately so; it is also temporary, and
- * dropping it is the stale-client fail-closed mechanism, not a cleanup chore.
+ * `tasks_infer_board_id` is **gone**, dropped in the same release that enabled Board creation. That
+ * removal was the stale-client fail-closed mechanism, not a cleanup chore: with it in place a
+ * second Board would have meant a pre-cutover insert landing in an arbitrary one.
  *
  * `set_updated_at` is the one function still carrying the default ACL. It stays that way knowingly:
  * it is an invoker trigger function, so `PUBLIC` executing it borrows no privilege, and a direct
  * call fails for want of a trigger context. It would matter the moment it became `security
  * definer`, which is exactly the change this baseline would catch.
  *
- * The rule for anything added here: a new `security definer` function belongs in `app_private` with
- * `set search_path = ''` and an explicit grant — so a new entry with `secdef: true` should be read
- * as a mistake before it is read as a baseline update.
+ * `create_board(text)` is `security definer` in `public`, and that is deliberate rather than a
+ * lapse. It must insert a `boards` row and its Owner `board_memberships` row together — a Board
+ * with no Membership is unreachable by every policy here — and there is no non-escalating way to
+ * express that as client INSERTs, so `board_memberships` still has no INSERT policy at all. It
+ * takes no account parameter, precisely so no caller can name an account other than its own.
+ *
+ * The rule for anything added here, in two cases rather than one:
+ *
+ *   - A **policy helper** — something a policy calls, which clients must never invoke — belongs in
+ *     `app_private` with `set search_path = ''` and an explicit grant. A new `public` entry of that
+ *     kind should be read as a mistake before it is read as a baseline update.
+ *   - A **client-invoked RPC** has no such option: `[api] schemas` lists only `public` and
+ *     `graphql_public`, and PostgREST refuses an unlisted schema with `PGRST106` even for
+ *     `service_role`, so an `app_private` RPC is uncallable by construction. It lives in `public`
+ *     and is hardened instead — empty `search_path`, explicit ACL, no account parameter.
+ *
+ * This distinction was added with `create_board`; the single-case version of the rule above it
+ * would have flagged a correct function as an error.
  */
 const PUBLIC_FUNCTIONS: Record<string, { secdef: boolean; config: string; explicitAcl: boolean }> =
   {
+    'create_board(text)': { secdef: true, config: 'search_path=""', explicitAcl: true },
     'handle_account_deletion()': { secdef: true, config: 'search_path=""', explicitAcl: true },
     'handle_new_user()': { secdef: true, config: 'search_path=""', explicitAcl: true },
     'set_updated_at()': { secdef: false, config: '(none)', explicitAcl: false },
-    'tasks_infer_board_id()': { secdef: false, config: 'search_path=""', explicitAcl: true },
     'tasks_sync_legacy_category_label()': {
       secdef: false,
       config: 'search_path=""',

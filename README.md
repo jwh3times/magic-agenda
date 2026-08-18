@@ -49,6 +49,8 @@ of three hand‑built themes.
   preview of the real board (rendered, not screenshotted); signed in, the same URL is your board.
 - **Accounts & sync** — email/password and Google sign‑in; every task is private to you via Postgres
   Row‑Level Security; optimistic updates with rollback.
+- **Multiple Boards** — every account starts with one private Board; create more and switch between
+  them from the Board switcher in the Toolbar. Each Board has its own Tasks, Series, and Labels.
 - **Works on your phone** — responsive layouts for every view (stacked week, swipeable kanban,
   collapsible inbox, bottom‑sheet editor) and long‑press touch drag‑and‑drop.
 - **Installable, and readable offline** — add it to your Home Screen for a standalone app; with no
@@ -153,7 +155,7 @@ npm run dev      # start the dev server at http://localhost:5173
 ```
 src/
 ├─ auth/         AuthProvider + ProtectedRoute + the auth gateway (only module calling supabase.auth)
-├─ board/        Board directory/selection, role capabilities, BoardDirectoryProvider
+├─ board/        Board directory/selection/creation, role capabilities, BoardDirectoryProvider
 ├─ components/   Board, views (Calendar/Week/Agenda/Kanban), TaskEditor, Toolbar, …
 ├─ data/         useTasks / useSettings hooks, mappers, selectors, filters, recurrence
 ├─ dnd/          pure drag logic (unit‑tested) + dnd‑kit wiring

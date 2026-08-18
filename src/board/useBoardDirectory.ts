@@ -36,6 +36,11 @@ export interface UseBoardDirectory {
   reload: () => Promise<void>
   /** Set the Default View for one Board's Membership. The only Membership Preference so far. */
   setDefaultView: (boardId: string, view: ViewName) => Promise<void>
+  /**
+   * Create a Board, become its Owner, and open it. Resolves to an error message, or null on
+   * success — nothing here rejects, for the same reason `AuthGateway` does not.
+   */
+  createBoard: (name: string) => Promise<string | null>
 }
 
 const REMEMBERED_KEY = 'ma-selected-board'
@@ -202,6 +207,39 @@ export function useBoardDirectory(userId: string, hasSession: boolean): UseBoard
   }, [])
 
   /**
+   * Create a Board through `public.create_board`, then reload and open it.
+   *
+   * An RPC rather than a pair of inserts, and not for convenience: a Board and its Owner Membership
+   * must appear together — a Board with no Membership is unreachable by every policy — and there is
+   * no non-escalating way to let a client write the Membership itself. `board_memberships` has no
+   * INSERT policy at all, so this is the only path.
+   *
+   * Deliberately NOT optimistic, unlike every other write in this codebase. The server assigns the
+   * id, and a `BoardSummary` also needs the Membership id that the same call creates, so there is
+   * nothing truthful to render until the reload returns. Inventing a placeholder Board would mean
+   * showing an entry that no query can find.
+   */
+  const createBoard = useCallback(
+    async (name: string): Promise<string | null> => {
+      if (!hasSession) return 'You need to be signed in to create a board.'
+
+      const { data, error: rpcError } = await supabase.rpc('create_board', { board_name: name })
+      if (rpcError || !data) {
+        return rpcError?.message ?? 'Could not create the board.'
+      }
+
+      // Remember before reloading: `reload` resolves the selection itself and writes the result, so
+      // setting it first is what makes the new Board the one that opens rather than a Board the
+      // user was already on.
+      writeRemembered(data)
+      setRemembered(data)
+      await reload()
+      return null
+    },
+    [hasSession, reload],
+  )
+
+  /**
    * Set this Membership's Default View — the one Membership Preference the domain model defines.
    *
    * Written through the column-level `grant update (default_view)` rather than a command, which is
@@ -229,5 +267,15 @@ export function useBoardDirectory(userId: string, hasSession: boolean): UseBoard
   // instead of a blank screen — and so the answer cannot drift from the list it is derived from.
   const selectedBoardId = resolveSelection(boards, remembered)
 
-  return { boards, selectedBoardId, selectBoard, setDefaultView, loading, error, offline, reload }
+  return {
+    boards,
+    selectedBoardId,
+    selectBoard,
+    createBoard,
+    setDefaultView,
+    loading,
+    error,
+    offline,
+    reload,
+  }
 }

@@ -1,6 +1,7 @@
 import { useTheme } from '../theme/ThemeProvider'
 import { toolbarChrome } from '../theme/chrome'
 import { useIsMobile } from '../lib/useMediaQuery'
+import { BoardSwitcher } from './BoardSwitcher'
 import { ViewSwitcher, type ViewOption } from './ViewSwitcher'
 import logoDark from '../assets/logo-dark.svg'
 import type { ViewName } from '../types/task'
@@ -114,6 +115,7 @@ export function Toolbar({
             overflowX: 'auto',
           }}
         >
+          <BoardSwitcher />
           <ViewSwitcher views={views} view={view} onChange={onChangeView} />
         </div>
         {showNav && (
@@ -140,6 +142,7 @@ export function Toolbar({
         <h1 style={{ margin: 0, flex: 'none' }}>
           <img src={logoDark} alt="Magic Agenda" style={{ height: 80, display: 'block' }} />
         </h1>
+        <BoardSwitcher />
         <ViewSwitcher views={views} view={view} onChange={onChangeView} />
         {showNav && (
           <div style={c.navGroup}>

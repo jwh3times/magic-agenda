@@ -280,8 +280,8 @@ Larger efforts that fit the app's direction but are not near-term.
      account has been backfilled with one board and an owner membership. `tasks.board_id` shipped
      **nullable** at this step, not NOT NULL as originally sketched here: it became NOT NULL only at
      the authorization cutover in step 2, so the currently-deployed client — which sent no
-     `board_id` — kept working via a temporary insert trigger, still in place until Board creation
-     ships (see AGENTS.md's `tasks_infer_board_id` bullet). `tasks.revision` and the attribution
+     `board_id` — kept working via a temporary insert trigger, which was dropped when Board creation
+     shipped (see AGENTS.md's `tasks_infer_board_id` bullet, now a record of its removal). `tasks.revision` and the attribution
      columns (`author_id`, `last_editor_id`, `author_kind`) also landed with this step rather than
      waiting for step 2 as sketched below. At this point it was not yet an authorization boundary —
      `tasks` policies still compared `user_id` to `auth.uid()` — so containment was data integrity,
@@ -303,17 +303,22 @@ Larger efforts that fit the app's direction but are not near-term.
      AGENTS.md § "Board ownership: containment IS the authorization boundary".
   3. App: board directory and selection, per-board offline snapshots with an authoritative
      access-loss purge, `board_id` realtime filter, and a one-board export/import format.
-     **Mostly landed; board creation/switching UI and the export format are what remain.**
+     **Landed.** Board creation and switching shipped with #191; the export format became a
+     one-Board v2 in #178.
      `useBoardDirectory` loads `board_memberships` joined to `boards`, remembers the open Board,
      purges any Board snapshot the server stops returning, and (landed with step 2) revalidates
      membership on `visibilitychange`/`online` so a revoked client stops rendering a Board it no
      longer has; `useTasks` takes a `boardId` and loads/writes `.eq('board_id', boardId)`; board
      snapshots are keyed per Board; and the realtime channel in `useSyncedTable` now filters on
      `board_id` for `tasks` (landed with step 2 — it was still per-user, not per-Board, when this
-     line last said so). Still outstanding: there is still no UI to create a second Board or switch
-     between Boards — every account still has exactly one — and `DataSection`'s import/export is
-     scoped by `board_id` but the export file format itself is unchanged (still v1, not a
-     one-Board format yet).
+     line last said so). Board creation is `public.create_board`, a `security definer` RPC rather
+     than client inserts — a Board and its Owner Membership must appear together and
+     `board_memberships` has no INSERT policy — and the same migration dropped
+     `tasks_infer_board_id`, which is the half of that release that actually mattered: a
+     pre-cutover client now fails closed instead of filing tasks into an arbitrary Board. The
+     switcher lives in the Toolbar and carries creation behind its own "+ New board…" entry.
+     Remaining Board lifecycle work is rename ([#190](https://github.com/jwh3times/magic-agenda/issues/190))
+     and deletion ([#192](https://github.com/jwh3times/magic-agenda/issues/192)).
   4. **Landed 2026-08-14, together with step 2** (see there for the mechanism): recurrence carries
      over cleanly — nothing keyed on `user_id` except RLS — but its uniqueness and parent
      constraints are now board-qualified, so a series cannot span boards.
