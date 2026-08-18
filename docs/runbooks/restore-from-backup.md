@@ -259,7 +259,10 @@ select count(*) from public.tasks t
 select bool_and(relrowsecurity) from pg_class
  where relname in ('tasks', 'user_settings', 'boards', 'board_memberships', 'account_profiles');
                                                                  -- must be true
-select count(*) from pg_policies where schemaname = 'public';  -- must be 12
+-- 12 at the authorization cutover (2026-08-14 rehearsal log below), +4 from Labels
+-- (20260816134515_board_labels.sql), +1 from Board deletion's Owner-only DELETE policy on
+-- `boards` (20260818140000_board_deletion.sql):
+select count(*) from pg_policies where schemaname = 'public';  -- must be 17
 
 -- The two auth-schema triggers exist. schema.sql cannot carry either (see 3.1), and their absence
 -- is invisible until, respectively, a new user signs up and silently gets no settings/board row, or

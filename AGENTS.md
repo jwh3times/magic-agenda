@@ -833,9 +833,10 @@ ACL, every schema reachable by the Data API roles, and every policy that applies
 because it names no role. The remaining known weakness: `set_updated_at` is still EXECUTE-able by
 `PUBLIC` via PostgreSQL's default, tolerable only because it is an invoker trigger function
 unreachable outside a trigger context, and the three legacy policies on `user_settings` still
-target `PUBLIC` (the four `tasks` policies and the five Board policies all name `authenticated`
-explicitly instead — the `tasks` ones only since the authorization cutover, which is when this list
-shrank from seven to three). This paragraph used to also record `handle_new_user` as `security
+target `PUBLIC` (the four `tasks` policies and the six Board policies — five from the authorization
+cutover plus `boards_delete_owner` — all name `authenticated` explicitly instead; the `tasks` ones
+only since that cutover, which is when this list shrank from seven to three). This paragraph used
+to also record `handle_new_user` as `security
 definer` with `search_path=public` rather than the empty path a definer should have, and as
 EXECUTE-able by `PUBLIC` — that was the
 "specific point in the board work" the surrounding prose said it would stop being tolerable at:

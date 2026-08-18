@@ -12,6 +12,39 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.7.0] - 2026-08-18
+
+### Added
+
+- Board Owners can delete a Board from **Settings → Boards**, which also lists the Boards you belong
+  to and marks the one you have open. Deletion is behind a confirmation that asks you to type the
+  Board's **name** — not a generic "delete" — because an Account has several Boards and a generic
+  confirmation reads identically for the one you meant and the one above it in the list. The
+  confirmation states plainly what goes: every task and label in that Board, permanently, with no
+  undo. Editors and Viewers see the Board listed with no delete control, and the database enforces
+  Owner-only regardless (#192).
+- A zero-Board screen. Deleting your last Board is allowed — an Account with none is a legitimate
+  state, not an error — and you now get a screen that says so and offers to create one, rather than
+  something that looks like an empty board.
+
+### Internal
+
+- Deletion is a plain DELETE with an Owner-only policy, deliberately unlike creation, which is an
+  RPC. Creation has to write a Board and its Owner Membership together and no client-writable
+  Membership INSERT can be made non-escalating; deletion writes one row and the contents follow
+  through foreign keys that already exist, so a definer function would add privilege for nothing.
+- The cascade is the whole risk and no policy states it: `tasks`, `labels`, and `board_memberships`
+  are each `on delete cascade`, and referential actions are **not** subject to RLS — they run as the
+  referencing table's owner — so `boards_delete_owner` is the only thing standing in front of all of
+  it. `tests/rls/board_deletion.test.ts` asserts the cascade really reaches every child table and
+  that the blast radius stops at the Board deleted, and was mutation-checked by widening the policy
+  to any current member.
+- The zero-Board branch in `BoardPage` is load-bearing rather than defensive: `useTasks` given no
+  Board loads nothing and reports no error, which would otherwise render as a board with no tasks.
+  `NoBoards` is ordinary page content with its own `<main>` and `<h1>`, not a fixed full-viewport
+  overlay like `ErrorScreen` and `Spinner` — axe treats those as open modals, so the landmark and
+  heading rules pass for free against them.
+
 ## [1.6.0] - 2026-08-18
 
 ### Added
@@ -1768,7 +1801,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/jwh3times/magic-agenda/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/jwh3times/magic-agenda/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/jwh3times/magic-agenda/compare/v1.4.3...v1.5.0
 [1.4.3]: https://github.com/jwh3times/magic-agenda/compare/v1.4.2...v1.4.3
