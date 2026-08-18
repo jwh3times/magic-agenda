@@ -1,3 +1,4 @@
+import { fakeLabelDirectory } from '../labels/fakeLabelDirectory'
 import type { UseLabels } from '../labels/useLabels'
 import type { Label } from '../types/label'
 
@@ -28,11 +29,8 @@ export const MOCK_LABELS: Label[] = [
   },
 ]
 
-export const MOCK_LABEL_DIRECTORY: UseLabels = {
-  labels: MOCK_LABELS,
-  loading: false,
-  error: null,
-  offline: false,
-  savedAt: null,
-  reload: async () => {},
-}
+/**
+ * Built from the typed fake rather than hand-rolled, so an addition to `UseLabels` cannot leave a
+ * partial object here — which is exactly what happened when the management writes landed.
+ */
+export const MOCK_LABEL_DIRECTORY: UseLabels = fakeLabelDirectory({ labels: MOCK_LABELS })

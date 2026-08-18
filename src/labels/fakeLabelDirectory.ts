@@ -20,7 +20,12 @@ export function fakeLabelDirectory(overrides: Partial<UseLabels> = {}): UseLabel
     error: null,
     offline: false,
     savedAt: null,
-    reload: async () => {},
+    reload: () => Promise.resolve(),
+    createLabel: () => Promise.resolve(null),
+    renameLabel: () => Promise.resolve(null),
+    recolorLabel: () => Promise.resolve(null),
+    reorderLabel: () => Promise.resolve(null),
+    deleteLabel: () => Promise.resolve(null),
     ...overrides,
   }
 }

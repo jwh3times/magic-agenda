@@ -127,13 +127,18 @@ were added as their own effort rather than a roadmap feature — see
   Category; each Task has zero or one Board-owned Label; **Unlabeled** is absence; Label Color is
   independent from purely visual Note Color; names are trimmed and case-insensitively unique
   within a Board; and the five seeded Labels are ordinary, editable definitions. The Board
-  schema, task experience, and Label-aware backup path shipped in #176–#178. Two bounded
-  releases remain:
-  1. [#179](https://github.com/jwh3times/magic-agenda/issues/179) — Owner-only Label management on
-     `/settings`; deletion makes affected Tasks Unlabeled. This follows #178 so backups can
-     represent Labels before users can rename, recolor, or delete their definitions.
+  schema, task experience, Label-aware backup path, and Owner-only management shipped in
+  #176–#179. One bounded release remains:
+  1. [#179](https://github.com/jwh3times/magic-agenda/issues/179) — **shipped.** Owner-only Label
+     management on `/settings`: create, rename, recolor, reorder, delete, with deletion making
+     affected Tasks Unlabeled via `on delete set null (label_id)`. It followed #178 so backups
+     could represent Labels before users could change their definitions. Labels stayed out of
+     realtime — the deferral's original reason ("no UI mutates definitions") expired here, but the
+     DELETE fan-out cost did not, and catch-up already covers a single-Owner Board. Revisit with
+     sharing.
   2. [#180](https://github.com/jwh3times/magic-agenda/issues/180) — remove the legacy Category
-     column and compatibility rule only after the deploy window has elapsed.
+     column and compatibility rule only after the deploy window has elapsed. **Now unblocked by
+     #179**, but still gated on current clients having had a release window.
 
   **Labels are board-scoped from their first migration — `board_id`, never `user_id`.** An earlier
   version of this entry specified account-owned labels, which reads as the cheaper start and is not:
@@ -152,7 +157,7 @@ were added as their own effort rather than a roadmap feature — see
   Export v2 carries every Label definition and nullable assignment. Import requires an explicit
   mapping for each referenced source Label and never creates or name-matches definitions; v1
   Categories are normalized into the same mapping flow. That closes the backup fidelity gate before
-  #179 exposes definition changes while keeping old files parseable through #180 and beyond.
+  #179 exposed definition changes, while keeping old files parseable through #180 and beyond.
 
 - [ ] **Richer recurrence** · **P3** · L — specific weekdays (e.g. Mon/Wed/Fri) and "end after N
       occurrences", beyond daily/weekly/monthly + interval + until. Schema:

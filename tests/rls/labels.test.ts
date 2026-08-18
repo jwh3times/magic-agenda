@@ -508,3 +508,225 @@ test('renaming a seeded Label does not break stale Category mapping', async () =
   })
   expect(assigned).toBe('Professional')
 })
+
+// ---------------------------------------------------------------------------
+// #179: Owner-only Label management. The UI hides these controls for non-Owners; the tests below
+// are what make the hiding cosmetic rather than load-bearing.
+// ---------------------------------------------------------------------------
+
+/**
+ * Adds `user` to `boardId` with `role`.
+ *
+ * Seeded through direct SQL on purpose: `board_memberships` grants SELECT only, so there is no
+ * correct client-side write here and reaching for the service client would need a widened grant.
+ */
+async function addMember(boardId: string, accountId: string, role: string): Promise<void> {
+  await withPg(async (pg) => {
+    await pg.query(
+      `insert into public.board_memberships (board_id, account_id, role) values ($1, $2, $3)`,
+      [boardId, accountId, role],
+    )
+  })
+}
+
+async function labelIdNamed(boardId: string, name: string): Promise<string> {
+  return withPg(async (pg) => {
+    const result = await pg.query<{ id: string }>(
+      `select id from public.labels where board_id = $1 and name = $2`,
+      [boardId, name],
+    )
+    return result.rows[0].id
+  })
+}
+
+test('an Editor may read the vocabulary but may not create, rename, or delete a Label', async () => {
+  const boardId = await ownerBoardId()
+  const editor = await createTestUser()
+  try {
+    await addMember(boardId, editor.id, 'editor')
+
+    const { data: readable } = await editor.client
+      .from('labels')
+      .select('name')
+      .eq('board_id', boardId)
+    expect((readable ?? []).length).toBeGreaterThan(0)
+
+    const { error: insertError } = await editor.client
+      .from('labels')
+      .insert({ board_id: boardId, name: 'Editor made this', dot_color: '#123456', position: 50 })
+    expect(insertError).not.toBeNull()
+
+    const workId = await labelIdNamed(boardId, 'Personal')
+    // An UPDATE the policy refuses matches zero rows rather than erroring, so assert the row.
+    await editor.client.from('labels').update({ name: 'Editor renamed this' }).eq('id', workId)
+    await editor.client.from('labels').delete().eq('id', workId)
+
+    const survived = await withPg(async (pg) => {
+      const result = await pg.query<{ name: string }>(
+        `select name from public.labels where id = $1`,
+        [workId],
+      )
+      return result.rows[0]?.name
+    })
+    expect(survived).toBe('Personal')
+  } finally {
+    await deleteTestUser(editor)
+  }
+})
+
+test('a Viewer is refused the same three writes', async () => {
+  const boardId = await ownerBoardId()
+  const viewer = await createTestUser()
+  try {
+    await addMember(boardId, viewer.id, 'viewer')
+
+    // Positive control: a Viewer really is a current member, so the refusals below are about the
+    // role rather than about a seed that quietly did nothing.
+    const { data: readable } = await viewer.client
+      .from('labels')
+      .select('name')
+      .eq('board_id', boardId)
+    expect((readable ?? []).length).toBeGreaterThan(0)
+
+    const { error: insertError } = await viewer.client
+      .from('labels')
+      .insert({ board_id: boardId, name: 'Viewer made this', dot_color: '#123456', position: 51 })
+    expect(insertError).not.toBeNull()
+
+    const id = await labelIdNamed(boardId, 'Ideas')
+    await viewer.client.from('labels').update({ name: 'Viewer renamed this' }).eq('id', id)
+    await viewer.client.from('labels').delete().eq('id', id)
+
+    const survived = await withPg(async (pg) => {
+      const result = await pg.query<{ name: string }>(
+        `select name from public.labels where id = $1`,
+        [id],
+      )
+      return result.rows[0]?.name
+    })
+    expect(survived).toBe('Ideas')
+  } finally {
+    await deleteTestUser(viewer)
+  }
+})
+
+test('a non-member sees none of the Board vocabulary and cannot add to it', async () => {
+  const boardId = await ownerBoardId()
+  const stranger = await createTestUser()
+  try {
+    const { data } = await stranger.client.from('labels').select('id').eq('board_id', boardId)
+    expect(data).toEqual([])
+
+    const { error } = await stranger.client
+      .from('labels')
+      .insert({ board_id: boardId, name: 'Stranger made this', dot_color: '#123456', position: 52 })
+    expect(error).not.toBeNull()
+  } finally {
+    await deleteTestUser(stranger)
+  }
+})
+
+test('an ended Membership grants no management, even to a former Owner', async () => {
+  const boardId = await ownerBoardId()
+  const formerOwner = await createTestUser()
+  try {
+    await withPg(async (pg) => {
+      await pg.query(
+        `insert into public.board_memberships
+           (board_id, account_id, role, ended_at, end_reason)
+         values ($1, $2, 'owner', now(), 'removed')`,
+        [boardId, formerOwner.id],
+      )
+    })
+
+    // Positive control on the other side: the Membership row exists and names 'owner', so what
+    // follows tests `ended_at`, not a missing row.
+    const seeded = await withPg(async (pg) => {
+      const result = await pg.query<{ role: string; ended: boolean }>(
+        `select role, ended_at is not null as ended from public.board_memberships
+          where board_id = $1 and account_id = $2`,
+        [boardId, formerOwner.id],
+      )
+      return result.rows[0]
+    })
+    expect(seeded).toEqual({ role: 'owner', ended: true })
+    // An ended Membership also stops returning the vocabulary at all.
+    const { data: readable } = await formerOwner.client
+      .from('labels')
+      .select('id')
+      .eq('board_id', boardId)
+    expect(readable).toEqual([])
+
+    const { error } = await formerOwner.client
+      .from('labels')
+      .insert({ board_id: boardId, name: 'Ghost made this', dot_color: '#123456', position: 53 })
+    expect(error).not.toBeNull()
+  } finally {
+    await deleteTestUser(formerOwner)
+  }
+})
+
+test('the column grants stop an Owner moving a Label to another Board or forging the alias', async () => {
+  const boardId = await ownerBoardId()
+  const id = await labelIdNamed(boardId, 'Health')
+  const local = stack()
+
+  const { data } = await owner.client.auth.getSession()
+  const token = data.session?.access_token
+  expect(token).toBeTruthy()
+
+  const patch = async (body: Record<string, unknown>) =>
+    fetch(`${local.apiUrl}/rest/v1/labels?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: {
+        apikey: local.anonKey,
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+
+  // `grant update (name, dot_color, position)` omits both columns, so PostgREST is refused by the
+  // grant before any policy is consulted. This is what keeps Board containment and the temporary
+  // compatibility alias out of client reach.
+  expect((await patch({ board_id: boardId })).status).toBe(403)
+  expect((await patch({ legacy_category: 'work' })).status).toBe(403)
+})
+
+test('deleting a Label makes its Tasks Unlabeled instead of deleting them', async () => {
+  const boardId = await ownerBoardId()
+
+  const doomedId = await withPg(async (pg) => {
+    const result = await pg.query<{ id: string }>(
+      `insert into public.labels (board_id, name, dot_color, position)
+       values ($1, 'Doomed', '#654321', 60) returning id`,
+      [boardId],
+    )
+    return result.rows[0].id
+  })
+
+  const { data: task, error } = await owner.client
+    .from('tasks')
+    .insert({
+      ...legacyTaskInsert({ user_id: owner.id, title: 'survives its Label', category: 'work' }),
+      board_id: boardId,
+      label_id: doomedId,
+      label_assignment_explicit: true,
+    })
+    .select('id')
+    .single()
+  expect(error).toBeNull()
+
+  const { error: deleteError } = await owner.client.from('labels').delete().eq('id', doomedId)
+  expect(deleteError).toBeNull()
+
+  const after = await withPg(async (pg) => {
+    const result = await pg.query<{ label_id: string | null; board_id: string }>(
+      `select label_id, board_id from public.tasks where id = $1`,
+      [task!.id],
+    )
+    return result.rows[0]
+  })
+  // `on delete set null (label_id)` is a column list: the Task keeps its NOT NULL Board.
+  expect(after).toEqual({ label_id: null, board_id: boardId })
+})

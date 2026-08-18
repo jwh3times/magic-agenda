@@ -12,6 +12,37 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.4.4] - 2026-08-18
+
+### Added
+
+- Board Owners can manage their board's Label vocabulary from **Settings → Labels**: create,
+  rename, recolor, reorder, and delete definitions. Deleting a Label asks first and states the
+  consequence plainly — tasks using it become Unlabeled, and the tasks themselves are kept, which
+  the database enforces through the Label foreign key's column-list `on delete set null`. The five
+  seeded Labels are ordinary definitions here with no special status. Editors and Viewers see the
+  vocabulary read-only; Owner-only policies and column grants remain the actual boundary, now
+  covered by role-refusal tests with positive controls (#179).
+
+### Internal
+
+- Label management decisions live in a new pure `src/labels/labelIntent.ts` — name and colour
+  validation, reorder maths, and the translation of a PostgREST failure into the same app-owned
+  refusal vocabulary the client check produces, keyed on SQLSTATE and constraint names rather than
+  message prose. `useLabels` keeps only state, Supabase, and rollback.
+- Prettier now formats Markdown (`**/*.md`). `.agents/skills/` is excluded as vendored content the
+  skills installer expects byte-for-byte, and `private/` as git-ignored local-only files. Because
+  `.claude/agents/*.md` is both formatted and the source for `.codex/agents/*.toml`,
+  `npm run format` must now run before `npm run codex:sync`.
+
+## [1.4.3] - 2026-08-17
+
+### Internal
+
+- Bumped the E2E toolchain dev dependency `@axe-core/playwright` (#184). Backfilled: Dependabot
+  merges release a build but are exempt from the changelog check, so this section was added by the
+  next human PR.
+
 ## [1.4.2] - 2026-08-17
 
 ### Fixed

@@ -6,6 +6,7 @@ import { ThemeSwitcher } from '../components/ThemeSwitcher'
 import { DangerZone } from '../components/DangerZone'
 import { DataSection } from '../components/DataSection'
 import { DatesSection } from '../components/DatesSection'
+import { LabelsSection } from '../components/LabelsSection'
 import { Spinner } from '../components/Spinner'
 import { useSettingsContext } from '../data/SettingsProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
@@ -24,10 +25,10 @@ export interface SettingsSection {
   render: (ctx: SectionContext) => ReactNode
 }
 
-// Later features append here (labels…).
 const SECTIONS: SettingsSection[] = [
   { id: 'appearance', title: 'Appearance', render: (ctx) => <AppearanceSection {...ctx} /> },
   { id: 'dates', title: 'Dates', render: () => <DatesSection /> },
+  { id: 'labels', title: 'Labels', render: () => <LabelsSection /> },
   { id: 'data', title: 'Data', render: () => <DataSection /> },
   { id: 'danger', title: 'Danger zone', render: () => <DangerZone /> },
 ]

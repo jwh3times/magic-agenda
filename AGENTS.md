@@ -263,12 +263,43 @@ reads fail closed if a concurrent vocabulary change would create a dangling refe
 
 `LabelDirectoryProvider` is mounted inside `BoardDirectoryProvider` above `<Routes>`. Its
 `useLabels(userId, boardId, hasSession)` adapter loads the selected Board's definitions, keeps a
-per-Board v4 snapshot, and reloads on visibility/online catch-up. Labels are deliberately absent
-from realtime until definition management ships in #179: #177 has no UI that changes them, while
-publishing another RLS table would widen the DELETE fan-out surface for no freshness benefit.
-Cards and drag overlays resolve names/colors through this provider; a null or missing definition
-renders the neutral Unlabeled presentation. Label Color supplies the accent only; Note Color still
-chooses the paper.
+per-Board v4 snapshot, reloads on visibility/online catch-up, and since #179 also owns the
+Owner-only management writes. Cards and drag overlays resolve names/colors through this provider; a
+null or missing definition renders the neutral Unlabeled presentation. Label Color supplies the
+accent only; Note Color still chooses the paper.
+
+**Labels are still deliberately absent from realtime, and #179 did not change that.** The stated
+reason used to be "no shipped UI mutates definitions", which expired the moment management shipped;
+the reason it survives is the one underneath. Catch-up already refreshes on navigation and
+reconnect, definitions change rarely and only by one person per Board today, and publishing another
+RLS table widens the DELETE fan-out surface — the standing constraint on any published table. When
+sharing lands and a second person can rename a Label under you, revisit this together with the
+membership heartbeat that the Board Directory notes defer for the same reason.
+
+**`src/labels/labelIntent.ts` is the decision half of Label management** — `checkName`, `checkColor`,
+`moveLabel`, `changedPositions`, `labelProblemFromError`, `explainProblem` — with `useLabels` left
+holding only state, Supabase, and rollback. It follows `series.ts` / `editIntent.ts`, and the
+payoff is the same: one vocabulary of refusals rendered identically whether the client caught the
+problem or PostgREST did. `LabelProblem` is app-owned and keyed on SQLSTATE plus _constraint names_,
+never on message prose, the same bargain `authOutcome.ts` makes.
+
+Two schema facts shape the write path and are not guessable from the UI. The INSERT grant is
+`(board_id, name, dot_color, position)`, so **the client cannot supply an `id`** — creation reads
+the row back rather than inventing a temporary id — and PostgREST upsert, which is
+`INSERT ... ON CONFLICT` and needs the key, is therefore **unavailable for reorder**. Reorder is one
+UPDATE per moved row, which is why `changedPositions` exists; nothing constrains
+`(board_id, position)` to be unique, so a partially applied reorder is a cosmetic ordering rather
+than a broken row, and the next move renumbers densely over it. Deletion clears assignments through
+`on delete set null (label_id)` — a _column list_, so the Task keeps its NOT NULL Board — which is
+why the UI can promise "tasks become Unlabeled" without touching `tasks` itself.
+
+`can.manageLabels` only hides controls; the Owner-only policies and column grants are the boundary.
+`tests/rls/labels.test.ts` is what makes that hiding cosmetic rather than load-bearing: an Editor
+and a Viewer are each refused create/rename/delete while still reading, a non-member sees nothing,
+an ended Membership grants nothing even to a former Owner, and the column grants return `403` for a
+client trying to move a Label across Boards or forge `legacy_category`. The role-refusal tests carry
+positive controls on purpose — without one, a membership seed that quietly failed would make every
+refusal pass for the wrong reason.
 
 The app layer matches it. `BoardDirectoryProvider` (`src/board/BoardDirectoryProvider.tsx`, mounted
 above `<Routes>` beside `SettingsProvider`, see below) loads the signed-in Account's current
