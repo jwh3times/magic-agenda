@@ -12,7 +12,7 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
-## [1.4.4] - 2026-08-18
+## [1.5.0] - 2026-08-18
 
 ### Added
 
@@ -34,6 +34,16 @@ No unreleased changes.
   skills installer expects byte-for-byte, and `private/` as git-ignored local-only files. Because
   `.claude/agents/*.md` is both formatted and the source for `.codex/agents/*.toml`,
   `npm run format` must now run before `npm run codex:sync`.
+
+### Docs
+
+- Recorded the Labels realtime deferral as an open decision rather than a settled one, tracked as
+  [#188](https://github.com/jwh3times/magic-agenda/issues/188). Its original justification was a
+  conjunction — no UI mutated definitions, **and** publishing would widen the DELETE fan-out for no
+  freshness benefit — and this release expired both halves. `AGENTS.md` now names the edge it
+  leaves open: `tasks` is published and `labels` is not, so a second focused surface re-renders
+  cards as Unlabeled correctly while its editor still offers the deleted definition, and the save
+  is then rejected by `tasks_label_same_board`.
 
 ## [1.4.3] - 2026-08-17
 
@@ -1714,7 +1724,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.4.2...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/jwh3times/magic-agenda/compare/v1.4.3...v1.5.0
+[1.4.3]: https://github.com/jwh3times/magic-agenda/compare/v1.4.2...v1.4.3
 [1.4.2]: https://github.com/jwh3times/magic-agenda/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/jwh3times/magic-agenda/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/jwh3times/magic-agenda/compare/v1.3.0...v1.4.0

@@ -139,7 +139,7 @@ Cheap gates that catch most mistakes in seconds. **Tests, the full build, and th
 edge-function tests run in CI, not here** (`Test`, `Build`, `Functions` jobs).
 
 ```bash
-npm run format:check      # prettier (src only) — half of the CI "Format" check
+npm run format:check      # prettier (src, tests, scripts, and all .md) — half of CI "Format"
 npm run lint              # oxlint, including type-aware rules — the other half
 npx tsc -b                # typecheck (the first half of `npm run build`)
 node scripts/check-changelog.mjs   # the exact script the required `Changelog` check runs
@@ -148,9 +148,11 @@ node scripts/check-changelog.mjs   # the exact script the required `Changelog` c
 `check-changelog.mjs` must now exit 0: this branch's entry names `$next`, and step 3 filled every
 backfill gap. If it still reports missing builds, go back to step 3 — do not push.
 
-`format:check` only covers `src/**`, so the docs/changelog markdown you edited is not
-formatting-gated (there is no markdown check in CI) — no root Prettier run is needed. Fix format
-failures with `npm run format`. If any check is red, stop and report — do not push.
+`format:check` covers `**/*.md` as of v1.5.0, so **the CHANGELOG and docs you just edited are
+formatting-gated in CI** — this used to be untrue and the old text said so. Fix failures with
+`npm run format`, then re-run `npm run codex:sync`: `.claude/agents/*.md` is formatted *and* is the
+source for `.codex/agents/*.toml`, so formatting after syncing leaves the generated TOML stale and
+fails the required `Agents` check. If any check is red, stop and report — do not push.
 
 ### 7. Commit the version, docs, and changelog
 
@@ -199,5 +201,5 @@ beyond the fast checks.
 | Letting `docs-updater` edit `CHANGELOG.md` too | Tell it to skip `CHANGELOG.md`; the skill owns that file. |
 | Stacking a second section on re-ship | Rewrite in place; renumber if `$next` changed since last ship. |
 | Skipping the backfill because "it's not my change" | The guard fails your PR for someone else's undocumented build. Step 3 is how it gets paid. |
-| Adding a root Prettier run to gate the docs | `format:check` is `src`-only and there's no markdown check in CI — nothing to gate. |
+| Editing the CHANGELOG or docs and skipping `npm run format` | Markdown is formatting-gated since v1.5.0. Run `npm run format`, then `npm run codex:sync` — in that order. |
 | Merging once green | Stop at PR open — the human self-merges. |
