@@ -22,6 +22,8 @@ const h = vi.hoisted<{
   auth: { user: { id: string } | null; signOut: ReturnType<typeof vi.fn> }
   settings: MockSettings
   role: 'owner' | 'editor' | 'viewer'
+  /** null keeps the default one-Board directory; [] drives the zero-Board state. */
+  boards: unknown[] | null
 }>(() => ({
   auth: {
     user: null as { id: string } | null,
@@ -33,6 +35,7 @@ const h = vi.hoisted<{
     saveTheme: vi.fn(),
   },
   role: 'owner',
+  boards: null,
 }))
 
 const tasks = fakeUseTasks()
@@ -41,7 +44,10 @@ const labels = fakeLabelDirectory()
 vi.mock('../auth/AuthProvider', () => ({ useAuth: () => h.auth }))
 vi.mock('../data/SettingsProvider', () => ({ useSettingsContext: () => h.settings }))
 vi.mock('../board/BoardDirectoryProvider', () => ({
-  useBoardDirectoryContext: () => fakeBoardDirectory(),
+  useBoardDirectoryContext: () =>
+    h.boards === null
+      ? fakeBoardDirectory()
+      : fakeBoardDirectory({ boards: h.boards as never, selectedBoardId: null }),
   useBoardSession: () => fakeBoardSession(fakeBoardSummary({ role: h.role })),
 }))
 vi.mock('../data/useTasks', () => ({ useTasks: vi.fn() }))
@@ -125,4 +131,20 @@ test.each(['owner', 'editor'] as const)('%s may assign Labels', async (role) => 
   await userEvent.click(screen.getByText('Finish Q3 deck'))
   expect(screen.getByRole('button', { name: 'Work' })).toBeEnabled()
   expect(screen.getByRole('button', { name: 'Unlabeled' })).toBeEnabled()
+})
+
+test('an Account with no Boards gets the zero-Board screen, not an empty board', () => {
+  // The failure this prevents is silent: `useTasks` was handed an empty board id, so it loads
+  // nothing and reports no error — which renders as a board with no tasks and reads as data loss.
+  // Reachable only by deleting your last Board, which is why it arrived with deletion.
+  h.boards = []
+  h.auth.user = { id: 'u1' }
+  try {
+    renderPage()
+    expect(screen.getByRole('heading', { name: /No boards yet/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Create board' })).toBeInTheDocument()
+  } finally {
+    h.boards = null
+    h.auth.user = null
+  }
 })

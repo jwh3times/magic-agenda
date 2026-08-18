@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router'
 import { useAuth } from '../auth/AuthProvider'
 import { ThemeProvider } from '../theme/ThemeProvider'
 import { Board } from '../components/Board'
+import { NoBoards } from '../components/NoBoards'
 import { Spinner } from '../components/Spinner'
 import { ErrorScreen } from '../components/ErrorScreen'
 import { Toast } from '../components/Toast'
@@ -47,6 +48,19 @@ export function BoardPage() {
     labelDirectory.offline ? labelDirectory.savedAt : null,
   ].filter((value): value is number => value !== null)
   const savedAt = offlineSavedAt.length > 0 ? Math.min(...offlineSavedAt) : null
+
+  // Zero Boards is a legitimate state, not an error, and it is reachable only by deleting your last
+  // one. It has to be handled HERE rather than below: `useTasks` was given an empty board id, so it
+  // loaded nothing and reports no error — which renders as a board with no tasks, indistinguishable
+  // from a real empty board and reading as data loss. Same class of mistake as rendering before
+  // `boardsLoading` resolves, one state further along.
+  if (selectedBoardId === null) {
+    return (
+      <ThemeProvider initial={settings.theme} onThemeChange={(theme) => void saveTheme(theme)}>
+        <NoBoards />
+      </ThemeProvider>
+    )
+  }
 
   return (
     <ThemeProvider initial={settings.theme} onThemeChange={(theme) => void saveTheme(theme)}>

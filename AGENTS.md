@@ -224,14 +224,42 @@ recursion detected in policy for relation`. That clause is a sharing feature wit
   schema off the Data API is `[api] schemas` in `config.toml`; PostgREST refuses an unlisted schema
   with `PGRST106` even for `service_role`.
 
-The Board tables grant **SELECT only**, and nothing at all to `service_role` — a deliberate
-departure from `tasks`/`user_settings`, which grant full DML to all three Data API roles. Board
-lifecycle and membership administration carry invariants a direct table write cannot enforce, so
-there is no correct direct-write grant. The one exception is column-level: `grant update
-(default_view)` and `grant update (display_name)`, because RLS cannot express "only this column
-changed" — a policy cannot see the old row. Practical consequence: a fixture that reaches for the
-service client to create a Board gets a permission error; seed through direct SQL instead of
-widening the grant.
+The Board tables grant **nothing to `service_role`**, and almost nothing to anyone — a deliberate
+departure from `tasks`/`user_settings`, which grant full DML to all three Data API roles. Membership
+administration carries invariants a direct table write cannot enforce, so `board_memberships` has no
+INSERT grant or policy at all and never will have a self-serve one. What has since been added to
+`boards` is exactly two things, and the asymmetry between them is the point:
+
+- **`grant delete`, with an Owner-only DELETE policy.** Deletion writes one row and the contents
+  follow through `on delete cascade`, so there is nothing to make atomic that Postgres is not
+  already making atomic and a definer function would add privilege for nothing.
+- **Creation is still not a grant.** `create_board` is an RPC because a Board and its Owner
+  Membership must appear together and no client-writable Membership INSERT can be made
+  non-escalating.
+
+The other exceptions are column-level: `grant update (default_view)` and `grant update
+(display_name)`, because RLS cannot express "only this column changed" — a policy cannot see the old
+row. Note DELETE takes no column list; PostgreSQL does not column-scope it, so the policy is the
+whole boundary there.
+
+**Deleting a Board destroys everything in it, and no policy says so.** `tasks.board_id`,
+`labels.board_id`, and `board_memberships.board_id` are each `on delete cascade`, and referential
+actions are **not** subject to RLS — they run as the referencing table's owner — so the caller's
+policies on `tasks` and `labels` neither permit nor prevent any of it. `boards_delete_owner` is the
+only thing standing in front of the lot. `tests/rls/board_deletion.test.ts` asserts the cascade
+actually reaches every child table rather than assuming it, and that the blast radius stops at the
+Board deleted.
+
+Deleting your **last** Board is allowed: zero Boards is a legitimate domain state that
+`resolveSelection` already returns null for, and `BoardPage` renders `NoBoards` for it. That branch
+is load-bearing rather than defensive — `useTasks` receives an empty board id, loads nothing, and
+reports no error, so without it the screen is a board with no tasks, which is indistinguishable from
+real data loss. Deletion is deliberately **not** guarded against a Board other people are members
+of, unlike `handle_account_deletion`: there the account is leaving and destroying other members'
+content is not its call, whereas here the caller is the Owner and that is what Ownership means.
+
+Practical consequence for fixtures: a test that reaches for the service client to create a Board
+gets a permission error; seed through direct SQL or `create_board`, never by widening the grant.
 
 ### Labels: optional classification with a temporary legacy bridge
 

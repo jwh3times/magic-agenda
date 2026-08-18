@@ -317,8 +317,12 @@ Larger efforts that fit the app's direction but are not near-term.
      `tasks_infer_board_id`, which is the half of that release that actually mattered: a
      pre-cutover client now fails closed instead of filing tasks into an arbitrary Board. The
      switcher lives in the Toolbar and carries creation behind its own "+ New board…" entry.
-     Remaining Board lifecycle work is rename ([#190](https://github.com/jwh3times/magic-agenda/issues/190))
-     and deletion ([#192](https://github.com/jwh3times/magic-agenda/issues/192)).
+     Deletion shipped in [#192](https://github.com/jwh3times/magic-agenda/issues/192): an Owner-only
+     DELETE policy, a typed-Board-name confirmation in Settings, and a zero-Board screen — reachable
+     only by deleting your last Board, and load-bearing rather than defensive, since `useTasks`
+     given no Board loads nothing and reports no error, which otherwise renders as an empty board.
+     Remaining Board lifecycle work is rename
+     ([#190](https://github.com/jwh3times/magic-agenda/issues/190)).
   4. **Landed 2026-08-14, together with step 2** (see there for the mechanism): recurrence carries
      over cleanly — nothing keyed on `user_id` except RLS — but its uniqueness and parent
      constraints are now board-qualified, so a series cannot span boards.
