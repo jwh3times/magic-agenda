@@ -20,7 +20,7 @@ npm test               # vitest run (all tests once)
 npm run test:watch     # vitest watch mode
 npm run lint           # Oxlint, including TypeScript 7 type-aware linting
 npm run lint:fix       # apply Oxlint's safe fixes
-npm run format         # prettier --write (src only; design/ is .prettierignore'd)
+npm run format         # prettier --write (src, tests, scripts, and all .md; see .prettierignore)
 npm run format:check   # prettier --check (the CI "Format" job runs this + lint)
 npm run codex:sync     # regenerate Codex's agent config from .claude/ (see below)
 npm run codex:check    # verify it is in sync (the CI "Agents" job runs this)
@@ -126,13 +126,13 @@ overlooked.
 It is pure and total, and **the clause order is the security property**: `hasSession` is tested
 before `tokenHash`, so an existing session always wins and a valid token is never redeemed over it.
 Reordering those two lines silently reopens the finding the 2026-07-25 review closed, which is why
-`redemption.test.ts` asserts the refusal for a *valid* token specifically.
+`redemption.test.ts` asserts the refusal for a _valid_ token specifically.
 
 `useTokenRedemption()` wraps it, and its two guards are separate on purpose. The **decision is
 latched in state** once auth settles — without that, the app's own successful redemption produces a
 session, the decision recomputes to `refuse`, and the page announces "you're already signed in" in
 the middle of the flow it just completed (the real client fires `SIGNED_IN`/`PASSWORD_RECOVERY` from
-*inside* `verifyOtp`, before the promise resolves, so this is the normal path, not a race). A
+_inside_ `verifyOtp`, before the promise resolves, so this is the normal path, not a race). A
 **ref guards the redemption call itself and is read only inside the effect** — StrictMode runs
 effect setup → cleanup → setup against the same latched decision, so without it a single-use token
 is spent twice. Note `react-hooks/refs` forbids reading a ref during render, so the latch cannot be
@@ -189,7 +189,7 @@ Four things here are load-bearing and none is obvious from the schema alone:
   future deletion failure points here, fix the ordering, not the constraint.
 - **`tasks_infer_board_id` is temporary, and dropping it is a security event.** It routes a
   board-less insert (what the currently-deployed client sends) to the account's single Board. That
-  is only correct while there *is* a single Board: the moment a second can exist, it silently files
+  is only correct while there _is_ a single Board: the moment a second can exist, it silently files
   a stale client's task into the wrong one. It must be dropped in the same release that enables
   Board creation, so stale clients hit the NOT NULL and fail closed. A client-version prompt cannot
   substitute — navigations are network-first, so the worker updates on navigation and a long-open
@@ -199,9 +199,9 @@ Four things here are load-bearing and none is obvious from the schema alone:
   populated column rather than the `NULL` the client actually sent — a board-less insert would
   otherwise fail that check outright (`NULL in (select …)` is not `true`), not just the `NOT NULL`
   constraint below it.
-- **No `app_private` schema yet, deliberately.** Only the *co-member* clause on `board_memberships`
+- **No `app_private` schema yet, deliberately.** Only the _co-member_ clause on `board_memberships`
   needs a `security definer` helper, because it subqueries its own table and raises `infinite
-  recursion detected in policy for relation`. That clause is a sharing feature with nothing to do
+recursion detected in policy for relation`. That clause is a sharing feature with nothing to do
   while every Board has one Membership. Everything shipped is self-scoped or crosses relations.
   Measured, not assumed: a policy calling a function in a private schema requires the **calling**
   role to hold `USAGE` and `EXECUTE` or the query dies with `permission denied for function`, so
@@ -280,7 +280,7 @@ are keyed per Board; realtime filters on `board_id`; and `DataSection`'s v2 impo
 the same way.
 
 **Client-side scoping is still not the boundary — it just no longer disagrees with it.** Everything
-above narrows what the client *asks* for; RLS narrows what the server *allows*, and since the
+above narrows what the client _asks_ for; RLS narrows what the server _allows_, and since the
 cutover the two agree. `src/board/role.ts` says so in its own header, and it matters: a capability
 returning `true` grants nothing, and a `board_id` the caller cannot reach is now refused by the
 database rather than merely absent from the UI.
@@ -320,7 +320,7 @@ and `fakeAuthGateway`, so interface additions cannot leave partial, untyped retu
 the narrower `previewReorder(next)` command.
 
 Default View is a **Membership Preference, not an Account Preference**:
-`board_memberships.default_view` describes how this Account experiences *this* Board, so
+`board_memberships.default_view` describes how this Account experiences _this_ Board, so
 `BoardPage` reads `board?.defaultView ?? settings.defaultView` and `SettingsPage` writes both copies
 on change — `useBoardDirectory`'s `setDefaultView()` (through the column-level `grant update
 (default_view)` above) and the existing `user_settings` write via `saveView()`. Writing only one is
@@ -431,7 +431,7 @@ Three details worth keeping:
   false-triggering the whole-series branch of a delete.
 - **`FailureHandling` is two independent questions** (`abort` and `recover`) because the original
   behaviour answered them independently: a failed content upsert aborts the trim that follows it,
-  while a failed `recurSkip` write must *not* stop the occurrence being deleted.
+  while a failed `recurSkip` write must _not_ stop the occurrence being deleted.
 - **`pendingInstances` takes the board as a required argument.** It used to default to a ref whose
   own docstring called the default unsafe — `setTasks` writes that ref inside a deferred React
   updater, so passing it right after a load makes every occurrence look missing and re-inserts rows
@@ -442,9 +442,9 @@ Three details worth keeping:
 used to live in the UI shell — including the rule-stripping on the this-occurrence path, enforced by
 nothing but a comment — are `resolveSave` / `resolveDelete`.
 
-**`src/data/editIntent.ts` is the editor's half of the same split.** `series.ts` decides *which
-occurrences* an operation touches; `editIntent.ts` decides *whether the editor may proceed at all*
-and *whether it has to ask first* — `cleanDraft`, `changedTaskKeys`, `onlyPerOccurrenceChanged`,
+**`src/data/editIntent.ts` is the editor's half of the same split.** `series.ts` decides _which
+occurrences_ an operation touches; `editIntent.ts` decides _whether the editor may proceed at all_
+and _whether it has to ask first_ — `cleanDraft`, `changedTaskKeys`, `onlyPerOccurrenceChanged`,
 `intendSave`, `intendDelete`. All pure, and all previously private to a 739-line
 `TaskEditor.tsx`, which is why its eight tests reached them by clicking through the DOM and why the
 fail-safe property documented on `changedTaskKeys` was asserted by nothing.
@@ -502,7 +502,7 @@ Critical, non-obvious detail: persistence must fire **even when `over.id === act
 optimistic move the dragged card sits under the cursor as its own drop target), tracked by
 `DragSession.didMove` — `resolveDrop` returns `null` for that event while the session stays
 "moved". Container ids are overloaded on purpose: `dateStr | 'inbox'` (day mode) or a status
-(kanban) identifies a *lane*, and an id matching no task **is** a lane id.
+(kanban) identifies a _lane_, and an id matching no task **is** a lane id.
 
 `useBoardDnd` must be given the **unfiltered** board, even though views render `visibleTasks`.
 Passing the filtered list would corrupt data rather than merely narrow the drag: `persistReorder`
@@ -724,16 +724,16 @@ split across two files, and the distinction matters when adding one.
 
 `structure.test.ts` holds **catch-alls** that need no knowledge of any particular table and hold
 forever: RLS enabled everywhere, every RLS-enabled table has a policy, no security-definer views,
-every table reachable by the Data API roles, a newly created table reachable by *none* of them, and
+every table reachable by the Data API roles, a newly created table reachable by _none_ of them, and
 every realtime-published table keyed on uuid only. That last one is the machine-checkable half of
 the publication rule above — DELETE fan-out caps its payload at the primary key, so the PK is the
 entire content of a cross-tenant broadcast, and a `text` PK on a published table (an email, a slug,
 a board name) is the realistic version of that mistake. It follows the publication rather than
-assuming `public`, and it treats a published table with *no* PK as a failure too: under replica
+assuming `public`, and it treats a published table with _no_ PK as a failure too: under replica
 identity DEFAULT that table publishes no old record, so deletes stop reaching subscribers and the
 client reducer silently diverges.
 
-`baseline.test.ts` holds **baselines** — the security posture as it is *today*, asserted by strict
+`baseline.test.ts` holds **baselines** — the security posture as it is _today_, asserted by strict
 equality in both directions, so changing it is a deliberate act with a diff attached. Three of
 them: every function in `public` with its definer flag / `search_path` / whether it carries its own
 ACL, every schema reachable by the Data API roles, and every policy that applies to `PUBLIC`
@@ -750,7 +750,7 @@ EXECUTE-able by `PUBLIC` — that was the
 lifecycle functions the board work added beside it (`handle_account_deletion`, also `security
 definer`; `tasks_infer_board_id`, deliberately an invoker) are hardened the same way from birth.
 Each remaining weakness is tolerable for a specific reason stated in the file; recording them is
-what turns "someday" into a line someone has to delete. A baseline that *shrinks* is a failure too:
+what turns "someday" into a line someone has to delete. A baseline that _shrinks_ is a failure too:
 that means it is stale and the smaller set must be committed.
 
 Of the catch-alls, the definer-view check asserts over an **empty set** today because `public` holds no views, so the
@@ -914,7 +914,7 @@ Both Claude Code and Codex are used on this repo, and they read different files.
 hand-written copies that drift, each generated tree is produced from an authored one by
 `scripts/sync-codex.mjs` (`npm run codex:sync`):
 
-| Authored (edit this)   | Generated (never edit)   | How                                            |
+| Authored (edit this)    | Generated (never edit)   | How                                            |
 | ----------------------- | ------------------------ | ---------------------------------------------- |
 | `.claude/agents/<n>.md` | `.codex/agents/<n>.toml` | frontmatter + body -> `developer_instructions` |
 | `.agents/skills/<n>/**` | `.claude/skills/<n>/**`  | copied verbatim, plus a "generated" banner     |
@@ -960,10 +960,21 @@ Rules for this pipeline:
 - A generated `SKILL.md` carries its banner as a YAML comment on line 2 — line 1 stays `---`, so the
   frontmatter still parses — rather than as prose after the closing `---`; every other file in a
   skill directory (`references/*.md`, `scripts/*.sh`, `agents/*.yaml`, …) is copied byte-for-byte.
-- Neither generated tree is covered by `npm run format` (its globs are `src`/`tests`/`scripts` TS
-  only), so there is no format-before-sync ordering concern today — but if a future formatter glob
-  ever reaches `.md`/`.yaml`/`.sh`, run `npm run format` before `npm run codex:sync`, not after, or
-  the generated copy mirrors unformatted content and drifts again on the next format pass.
+- **Run `npm run format` before `npm run codex:sync`, never after.** The formatter's globs reached
+  `**/*.md` in v1.4.4, which is the situation this bullet used to describe hypothetically. Neither
+  _generated_ tree is formatted — `.codex/` and `.claude/skills/` are both `.prettierignore`'d, so a
+  generated file is never rewritten out from under the script — but `.claude/agents/<n>.md` **is**
+  formatted and is the source for `.codex/agents/<n>.toml`. Sync first and the TOML embeds the
+  pre-format body, so the next format pass makes it stale and the `Agents` job fails. Landing the
+  markdown glob updated exactly one generated file for this reason.
+- **`.agents/skills/` is `.prettierignore`'d even though it is authored**, which looks inconsistent
+  with the table above until you check `skills-lock.json`: those files are vendored from
+  `mattpocock/skills` with a `computedHash` per skill. Formatting them would rewrite third-party
+  content the installer expects byte-for-byte, so every skill update would churn and fight the
+  formatter. Authored-vs-generated and ours-vs-vendored are separate axes; this directory is
+  authored _and_ vendored, and the vendoring wins. `private/` is ignored for a different reason —
+  git-ignored and local-only, so CI never sees it and formatting only rewrites security-review
+  evidence in the maintainer's checkout.
 - The required **`Agents` CI job** runs `npm run codex:check`, which fails on any missing, hand-edited,
   or stale generated file, and also asserts `CLAUDE.md` still contains its `@AGENTS.md` import line.
   Pure logic in the script is unit-tested in `scripts/sync-codex.test.mjs`.
@@ -990,7 +1001,7 @@ It also asserts the three Board tables are in `data.sql` and that `schema.sql` d
 same failure: a bundle that verifies clean and restores into a broken database. Without the Board
 tables, every restored task carries a `board_id` pointing at nothing — and because `data.sql` sets
 `session_replication_role = replica` on its own first line, the foreign key does not stop it, so the
-restore *succeeds* into a database where no task belongs to any reachable board. Without the
+restore _succeeds_ into a database where no task belongs to any reachable board. Without the
 functions, the restored schema has policies and constraints whose lifecycle triggers are missing,
 which shows up first as `Database error deleting user`. The function check matters most because
 `supabase db dump` takes **no `--schema` flag** here, so what it captures is a vendor default this

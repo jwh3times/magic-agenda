@@ -27,12 +27,12 @@
 
 ## PR sequencing
 
-| Part | Roadmap item | Branch | Depends on |
-| ---- | ---------------------------- | ------------------------- | ------------------- |
-| A | 2.1 Due time / time-of-day | `feat/due-time` | — |
-| B | 2.2 Priority via pins | `feat/priority-pins` | A merged |
-| C | 2.3 Overdue & roll-forward | `feat/overdue-rollforward` | B merged |
-| D | 2.4 Export / import | `feat/export-import` | B merged (exports include `atTime`+`pinned`); run after C for simplicity |
+| Part | Roadmap item               | Branch                     | Depends on                                                               |
+| ---- | -------------------------- | -------------------------- | ------------------------------------------------------------------------ |
+| A    | 2.1 Due time / time-of-day | `feat/due-time`            | —                                                                        |
+| B    | 2.2 Priority via pins      | `feat/priority-pins`       | A merged                                                                 |
+| C    | 2.3 Overdue & roll-forward | `feat/overdue-rollforward` | B merged                                                                 |
+| D    | 2.4 Export / import        | `feat/export-import`       | B merged (exports include `atTime`+`pinned`); run after C for simplicity |
 
 ---
 
@@ -43,11 +43,13 @@
 ### Task A1: Data layer — migration, types, `Task.atTime`, mappers (TDD)
 
 **Files:**
+
 - Create: `supabase/migrations/20260705100000_task_at_time.sql`
 - Modify: `src/types/database.types.ts` (tasks Row/Insert/Update — hand-edit), `src/types/task.ts`, `src/data/mappers.ts`, `src/components/Board.tsx` (`newTaskTemplate`), `src/data/useTasks.ts` (`makeInstance`), `src/data/mockTasks.ts`, `src/theme/theme.test.ts` (`task()` factory), `src/data/realtime.test.ts` (`base`+`row()`), `src/data/useTasks.test.ts` (`appTask`+`serverRow`)
 - Test: `src/data/mappers.test.ts` (extend)
 
 **Interfaces:**
+
 - Produces: `Task.atTime: string | null` ('HH:MM', required field); DB column `at_time time NULL`; `rowToTask` normalizes Postgres 'HH:MM:SS' → 'HH:MM'; `taskToRow` writes `at_time: task.atTime`.
 
 - [ ] **Step 1: Branch**
@@ -100,8 +102,8 @@ alter table public.tasks add column at_time time;
 3. `src/types/task.ts` — add to the `Task` interface after `day`:
 
 ```ts
-  /** Optional due time 'HH:MM' (24h). null = all-day. Maps to the nullable at_time column. */
-  atTime: string | null
+/** Optional due time 'HH:MM' (24h). null = all-day. Maps to the nullable at_time column. */
+atTime: string | null
 ```
 
 4. `src/data/mappers.ts`:
@@ -134,10 +136,12 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ### Task A2: Pure logic — `formatTime` + Agenda time sorting (TDD)
 
 **Files:**
+
 - Modify: `src/lib/dates.ts`, `src/data/selectors.ts` (`agendaGroups` sort)
 - Test: `src/lib/dates.test.ts` (new), `src/data/selectors.test.ts` (extend)
 
 **Interfaces:**
+
 - Produces: `formatTime(hhmm: string): string` ('14:30' → '2:30pm', '09:00' → '9am', '00:15' → '12:15am', '12:00' → '12pm'); `agendaGroups` sorts each day's tasks timed-first (by time, ties by `order`), untimed after (by `order`).
 
 - [ ] **Step 1: Write the failing tests**
@@ -231,10 +235,12 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ### Task A3: UI — editor time input + card time chip (TDD)
 
 **Files:**
+
 - Modify: `src/components/TaskEditor.tsx` (Schedule row), `src/components/TaskCard.tsx`
 - Test: `src/components/TaskCard.test.tsx` (new)
 
 **Interfaces:**
+
 - Consumes: `formatTime` (A2), `Task.atTime` (A1).
 - Produces: nothing later tasks need; the new `TaskCard.test.tsx` file is extended by Parts B/C.
 
@@ -295,53 +301,58 @@ Expected: the time-chip test FAILS (no chip rendered).
 - [ ] **Step 3: Implement**
 
 `src/components/TaskCard.tsx`:
+
 1. Extend the dates import: `import { chipLabel, formatTime } from '../lib/dates'`
 2. In the meta row, immediately after `<span style={s.catStyle}>{cat.label}</span>`, insert:
 
 ```tsx
-        {task.atTime && <span style={s.chipStyle}>{formatTime(task.atTime)}</span>}
+{
+  task.atTime && <span style={s.chipStyle}>{formatTime(task.atTime)}</span>
+}
 ```
 
 `src/components/TaskEditor.tsx` — in the Schedule row (the `<div>` holding the date input and the Send-to-inbox button), insert between the date `<input type="date">` and the inbox button:
 
 ```tsx
-            <input
-              type="time"
-              aria-label="Due time"
-              value={draft.atTime ?? ''}
-              onChange={(e) => patch({ atTime: e.target.value || null })}
-              style={{
-                padding: '9px 12px',
-                borderRadius: '9px',
-                border: `1px solid ${border}`,
-                background: fieldBg,
-                color: fg,
-                fontFamily: conf.ui,
-                fontSize: ctlFont,
-                fontWeight: 600,
-                colorScheme: dark ? 'dark' : 'light',
-              }}
-            />
-            {draft.atTime && (
-              <button
-                type="button"
-                aria-label="Clear time"
-                onClick={() => patch({ atTime: null })}
-                style={{
-                  padding: '9px 12px',
-                  borderRadius: '9px',
-                  cursor: 'pointer',
-                  fontFamily: conf.ui,
-                  fontSize: '12.5px',
-                  fontWeight: 700,
-                  border: `1px solid ${border}`,
-                  background: 'transparent',
-                  color: fg,
-                }}
-              >
-                ✕ time
-              </button>
-            )}
+;<input
+  type="time"
+  aria-label="Due time"
+  value={draft.atTime ?? ''}
+  onChange={(e) => patch({ atTime: e.target.value || null })}
+  style={{
+    padding: '9px 12px',
+    borderRadius: '9px',
+    border: `1px solid ${border}`,
+    background: fieldBg,
+    color: fg,
+    fontFamily: conf.ui,
+    fontSize: ctlFont,
+    fontWeight: 600,
+    colorScheme: dark ? 'dark' : 'light',
+  }}
+/>
+{
+  draft.atTime && (
+    <button
+      type="button"
+      aria-label="Clear time"
+      onClick={() => patch({ atTime: null })}
+      style={{
+        padding: '9px 12px',
+        borderRadius: '9px',
+        cursor: 'pointer',
+        fontFamily: conf.ui,
+        fontSize: '12.5px',
+        fontWeight: 700,
+        border: `1px solid ${border}`,
+        background: 'transparent',
+        color: fg,
+      }}
+    >
+      ✕ time
+    </button>
+  )
+}
 ```
 
 (The style objects duplicate the adjacent date input's — that's this file's existing idiom; don't extract a shared const.)
@@ -362,6 +373,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ### Task A4: CHANGELOG + PR 1
 
 **Files:**
+
 - Modify: `CHANGELOG.md`
 
 - [ ] **Step 1: CHANGELOG entry** — first bullet under `## [Unreleased]` → `### Added`:
@@ -402,11 +414,13 @@ Merge when green; the migration auto-applies on merge.
 ### Task B1: Data layer — migration, types, `Task.pinned`, mappers, filter logic (TDD)
 
 **Files:**
+
 - Create: `supabase/migrations/20260705110000_task_pinned.sql`
 - Modify: `src/types/database.types.ts` (hand-edit), `src/types/task.ts`, `src/data/mappers.ts`, `src/data/filters.ts`, plus the same Task-literal ripple sites as Task A1 (this time adding `pinned: false` / `pinned: false` in `serverRow`/`row()`; `makeInstance` copies `tmpl.pinned`)
 - Test: `src/data/mappers.test.ts`, `src/data/filters.test.ts` (extend both)
 
 **Interfaces:**
+
 - Produces: `Task.pinned: boolean` (required); `FilterQuery.pinned: boolean` (`EMPTY_FILTER.pinned = false`; active filter when true; `applyFilters` keeps only pinned when on). `makeInstance` copies the template's pinned flag; `updateSeries` deliberately does NOT propagate pin changes (pinning stays per-occurrence, like status).
 
 - [ ] **Step 1: Branch** — `git checkout main && git pull --ff-only && git checkout -b feat/priority-pins`
@@ -454,8 +468,8 @@ alter table public.tasks add column pinned boolean not null default false;
 3. `task.ts` — after `atTime`:
 
 ```ts
-  /** Sticky-note pin (importance flag). Filterable, never a sort key. */
-  pinned: boolean
+/** Sticky-note pin (importance flag). Filterable, never a sort key. */
+pinned: boolean
 ```
 
 4. `mappers.ts`: `rowToTask` adds `pinned: row.pinned ?? false,`; `taskToRow` adds `pinned: task.pinned,`
@@ -494,10 +508,12 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ### Task B2: Per-theme pin visuals in `cardStyles` (TDD)
 
 **Files:**
+
 - Modify: `src/theme/cardStyles.ts`
 - Test: `src/theme/theme.test.ts`
 
 **Interfaces:**
+
 - Produces: `showPin` true only for a PINNED task on cork (existing red pin) or brutal (new corner flash), never for ghost; glass expresses pinning as a violet glow appended to `wrap.boxShadow`. `CardStyles` gains `pinBtn: CSSProperties` (the tap-target style Task B3 consumes).
 
 - [ ] **Step 1: Update + write tests (one of these is a semantics CHANGE)**
@@ -505,22 +521,22 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 In `src/theme/theme.test.ts`, REPLACE the existing test `'cork shows a pin; non-cork themes do not'` (lines ~59-63) with:
 
 ```ts
-  it('the pin is the pinned signal: cork red pin / brutal corner flash, only when pinned', () => {
-    expect(cardStyles('cork', task(), 'cell').showPin).toBe(false)
-    expect(cardStyles('cork', task({ pinned: true }), 'cell').showPin).toBe(true)
-    expect(cardStyles('brutal', task(), 'cell').showPin).toBe(false)
-    const b = cardStyles('brutal', task({ pinned: true }), 'cell')
-    expect(b.showPin).toBe(true)
-    expect(String(b.pinStyle.borderTop)).toContain('#FF4D2E')
-    expect(cardStyles('glass', task({ pinned: true }), 'cell').showPin).toBe(false)
-  })
+it('the pin is the pinned signal: cork red pin / brutal corner flash, only when pinned', () => {
+  expect(cardStyles('cork', task(), 'cell').showPin).toBe(false)
+  expect(cardStyles('cork', task({ pinned: true }), 'cell').showPin).toBe(true)
+  expect(cardStyles('brutal', task(), 'cell').showPin).toBe(false)
+  const b = cardStyles('brutal', task({ pinned: true }), 'cell')
+  expect(b.showPin).toBe(true)
+  expect(String(b.pinStyle.borderTop)).toContain('#FF4D2E')
+  expect(cardStyles('glass', task({ pinned: true }), 'cell').showPin).toBe(false)
+})
 
-  it('glass pinned cards glow; unpinned do not', () => {
-    const off = String(cardStyles('glass', task(), 'cell').wrap.boxShadow)
-    const on = String(cardStyles('glass', task({ pinned: true }), 'cell').wrap.boxShadow)
-    expect(off).not.toContain('rgba(124,92,255')
-    expect(on).toContain('rgba(124,92,255')
-  })
+it('glass pinned cards glow; unpinned do not', () => {
+  const off = String(cardStyles('glass', task(), 'cell').wrap.boxShadow)
+  const on = String(cardStyles('glass', task({ pinned: true }), 'cell').wrap.boxShadow)
+  expect(off).not.toContain('rgba(124,92,255')
+  expect(on).toContain('rgba(124,92,255')
+})
 ```
 
 Also update the existing `'ghost variant suppresses pin and rotation'` test: change its first line to `const g = cardStyles('cork', task({ pinned: true }), 'ghost')` (a ghost must hide even a pinned task's pin).
@@ -532,48 +548,48 @@ Also update the existing `'ghost variant suppresses pin and rotation'` test: cha
 1. In the brutal branch (`else if (theme === 'brutal')`), after the `titleStyle` assignment, add:
 
 ```ts
-    if (task.pinned) {
-      // Corner flash — brutal's pinned signal.
-      pinStyle = {
-        position: 'absolute',
-        top: '-2px',
-        right: '-2px',
-        width: 0,
-        height: 0,
-        borderTop: '16px solid #FF4D2E',
-        borderLeft: '16px solid transparent',
-        zIndex: 2,
-      }
-    }
+if (task.pinned) {
+  // Corner flash — brutal's pinned signal.
+  pinStyle = {
+    position: 'absolute',
+    top: '-2px',
+    right: '-2px',
+    width: 0,
+    height: 0,
+    borderTop: '16px solid #FF4D2E',
+    borderLeft: '16px solid transparent',
+    zIndex: 2,
+  }
+}
 ```
 
 2. In the glass branch (the final `else`), after its `titleStyle` assignment, add:
 
 ```ts
-    if (task.pinned && !isGhost) {
-      // Violet glow — glass's pinned signal (accent #7c5cff).
-      wrap.boxShadow = `${wrap.boxShadow}, 0 0 0 1.5px rgba(124,92,255,.85), 0 0 16px rgba(124,92,255,.35)`
-    }
+if (task.pinned && !isGhost) {
+  // Violet glow — glass's pinned signal (accent #7c5cff).
+  wrap.boxShadow = `${wrap.boxShadow}, 0 0 0 1.5px rgba(124,92,255,.85), 0 0 16px rgba(124,92,255,.35)`
+}
 ```
 
 3. Add the tap-target style next to `check`:
 
 ```ts
-  const pinBtn: CSSProperties = {
-    width: '19px',
-    height: '19px',
-    flex: 'none',
-    marginLeft: total ? '0px' : 'auto',
-    display: 'grid',
-    placeItems: 'center',
-    cursor: 'pointer',
-    border: 'none',
-    background: 'transparent',
-    fontSize: '12px',
-    lineHeight: 1,
-    padding: 0,
-    opacity: task.pinned ? 1 : 0.35,
-  }
+const pinBtn: CSSProperties = {
+  width: '19px',
+  height: '19px',
+  flex: 'none',
+  marginLeft: total ? '0px' : 'auto',
+  display: 'grid',
+  placeItems: 'center',
+  cursor: 'pointer',
+  border: 'none',
+  background: 'transparent',
+  fontSize: '12px',
+  lineHeight: 1,
+  padding: 0,
+  opacity: task.pinned ? 1 : 0.35,
+}
 ```
 
 4. Change the return: `showPin: (theme === 'cork' || theme === 'brutal') && task.pinned && !isGhost,` and add `pinBtn,` to the returned object (+ `pinBtn: CSSProperties` in the `CardStyles` interface).
@@ -592,10 +608,12 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ### Task B3: Editor toggle + card pin tap-target (TDD)
 
 **Files:**
+
 - Modify: `src/components/TaskEditor.tsx`, `src/components/TaskCard.tsx`, `src/dnd/SortableCard.tsx`, `src/components/boardHandlers.ts`, `src/components/Board.tsx`, `src/components/DayCell.tsx`, `src/components/Column.tsx`, `src/components/Inbox.tsx`, `src/components/AgendaView.tsx`
 - Test: `src/components/TaskCard.test.tsx` (extend)
 
 **Interfaces:**
+
 - Consumes: `s.pinBtn` (B2), `Task.pinned` (B1).
 - Produces: `TaskCardProps.onTogglePin?: (id: string) => void` (button renders only when provided — the drag overlay/ghost never passes it); `BoardHandlers.onTogglePin: (id: string) => void`; `SortableCardProps.onTogglePin?: (id: string) => void`.
 
@@ -629,20 +647,22 @@ test('no pin button renders when no handler is provided (drag overlay)', () => {
 1. `TaskCard.tsx` — add to `TaskCardProps`: `onTogglePin?: (id: string) => void` (destructure it too). In the meta row, immediately BEFORE the done-check `<button>`:
 
 ```tsx
-        {onTogglePin && (
-          <button
-            type="button"
-            aria-label={task.pinned ? 'Unpin' : 'Pin'}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation()
-              onTogglePin(task.id)
-            }}
-            style={s.pinBtn}
-          >
-            📌
-          </button>
-        )}
+{
+  onTogglePin && (
+    <button
+      type="button"
+      aria-label={task.pinned ? 'Unpin' : 'Pin'}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation()
+        onTogglePin(task.id)
+      }}
+      style={s.pinBtn}
+    >
+      📌
+    </button>
+  )
+}
 ```
 
 and change the check button's style attribute to keep its layout correct when the pin button takes over the auto margin:
@@ -655,10 +675,10 @@ and change the check button's style attribute to keep its layout correct when th
 3. `Board.tsx` — next to `handleToggle`, add:
 
 ```ts
-  const handlePin = (id: string) => {
-    const t = tasks.find((x) => x.id === id)
-    if (t) onUpdate({ ...t, pinned: !t.pinned })
-  }
+const handlePin = (id: string) => {
+  const t = tasks.find((x) => x.id === id)
+  if (t) onUpdate({ ...t, pinned: !t.pinned })
+}
 ```
 
 and add `onTogglePin: handlePin,` to the `handlers` object.
@@ -705,24 +725,25 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ### Task B4: Pinned quick filter in the filter bar + CHANGELOG + PR 2
 
 **Files:**
+
 - Modify: `src/components/SearchFilterBar.tsx`, `CHANGELOG.md`
 
 - [ ] **Step 1: Implement the quick filter** — in `SearchFilterBar.tsx`, insert between the status `<select>` and the `{active && (` Clear button:
 
 ```tsx
-      <button
-        type="button"
-        aria-label={query.pinned ? 'Show all tasks' : 'Show pinned only'}
-        onClick={() => onChange({ ...query, pinned: !query.pinned })}
-        style={{
-          ...control,
-          cursor: 'pointer',
-          fontWeight: 700,
-          ...(query.pinned ? { color: conf.accent, borderColor: conf.accent } : {}),
-        }}
-      >
-        📌 Pinned
-      </button>
+<button
+  type="button"
+  aria-label={query.pinned ? 'Show all tasks' : 'Show pinned only'}
+  onClick={() => onChange({ ...query, pinned: !query.pinned })}
+  style={{
+    ...control,
+    cursor: 'pointer',
+    fontWeight: 700,
+    ...(query.pinned ? { color: conf.accent, borderColor: conf.accent } : {}),
+  }}
+>
+  📌 Pinned
+</button>
 ```
 
 (Note: while this filter is on, drag is disabled — that's the existing `DragDisabledContext` behavior for any active filter, and it's exactly why pinned-first never fights reorder math.)
@@ -763,10 +784,12 @@ EOF
 ### Task C1: Pure selectors — `isOverdue`, `overdueTasks`, `applyRollForward` (TDD)
 
 **Files:**
+
 - Modify: `src/data/selectors.ts`
 - Test: `src/data/selectors.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `isOverdue(t: Task, todayStr: string): boolean`
   - `overdueTasks(tasks: Task[], todayStr: string): Task[]` — sorted by day asc, ties by `order`
@@ -880,10 +903,12 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ### Task C2: `useTasks.rollForward` (batched, echo-marked, rollback)
 
 **Files:**
+
 - Modify: `src/data/useTasks.ts`
 - Test: `src/data/useTasks.test.ts` (extend)
 
 **Interfaces:**
+
 - Consumes: `applyRollForward` (C1); the hook's existing `markWrites` / `setTasks` / `taskToRow` plumbing.
 - Produces: `UseTasks.rollForward: (todayStr: string) => Promise<void>` — no-op when nothing is overdue; optimistic apply → `markWrites(changed ids)` → single upsert of the changed rows → rollback + `setError` on failure.
 
@@ -915,33 +940,31 @@ test('rollForward moves overdue tasks to today and upserts only them', async () 
 2. Add to the `UseTasks` interface (after `persistReorder`):
 
 ```ts
-  /** Move every overdue task to today, appended to today's order (batched upsert). */
-  rollForward: (todayStr: string) => Promise<void>
+/** Move every overdue task to today, appended to today's order (batched upsert). */
+rollForward: (todayStr: string) => Promise<void>
 ```
 
 3. Add the callback (next to `persistReorder`):
 
 ```ts
-  const rollForward = useCallback(
-    async (todayStr: string) => {
-      const prev = tasksRef.current
-      const { tasks: next, changed } = applyRollForward(prev, todayStr)
-      if (changed.length === 0) return
-      setTasks(next)
-      markWrites(changed.map((t) => t.id))
-      const { error: err } = await supabase
-        .from('tasks')
-        .upsert(
-          changed.map((t) => taskToRow(t, userId)),
-          { onConflict: 'id' },
-        )
-      if (err) {
-        setTasks(prev)
-        setError(err.message)
-      }
-    },
-    [setTasks, markWrites, userId],
-  )
+const rollForward = useCallback(
+  async (todayStr: string) => {
+    const prev = tasksRef.current
+    const { tasks: next, changed } = applyRollForward(prev, todayStr)
+    if (changed.length === 0) return
+    setTasks(next)
+    markWrites(changed.map((t) => t.id))
+    const { error: err } = await supabase.from('tasks').upsert(
+      changed.map((t) => taskToRow(t, userId)),
+      { onConflict: 'id' },
+    )
+    if (err) {
+      setTasks(prev)
+      setError(err.message)
+    }
+  },
+  [setTasks, markWrites, userId],
+)
 ```
 
 4. Add `rollForward,` to the returned object.
@@ -958,10 +981,12 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ### Task C3: UI — card accent, Today badge, Agenda Overdue group (TDD)
 
 **Files:**
+
 - Modify: `src/theme/cardStyles.ts` (overdue opt), `src/components/TaskCard.tsx`, `src/components/Toolbar.tsx`, `src/components/AgendaView.tsx`, `src/components/Board.tsx`, `src/pages/BoardPage.tsx`
 - Test: `src/theme/theme.test.ts`, `src/components/Toolbar.test.tsx`, `src/components/AgendaView.test.tsx` (new)
 
 **Interfaces:**
+
 - Consumes: `isOverdue`/`overdueTasks` (C1), `rollForward` (C2).
 - Produces: `CardStyleOpts.overdue?: boolean` (red inset accent on `wrap`, tinted day chip); `ToolbarProps.overdueCount?: number` (Today button suffix ` (n)`); `AgendaViewProps.onRollForward?: () => void`; `BoardProps.rollForward?: (todayStr: string) => void` (optional so `Board.test.tsx` needs no changes).
 
@@ -970,13 +995,13 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 Append to `src/theme/theme.test.ts` (inside the `cardStyles` describe):
 
 ```ts
-  it('overdue cards carry the red inset accent and tinted chip', () => {
-    const s = cardStyles('cork', task({ day: '2020-01-01' }), 'kanban', { overdue: true })
-    expect(String(s.wrap.boxShadow)).toContain('#e0524a')
-    expect(String(s.chipStyle.background)).toContain('rgba(224,82,74')
-    const plain = cardStyles('cork', task(), 'kanban')
-    expect(String(plain.wrap.boxShadow)).not.toContain('#e0524a')
-  })
+it('overdue cards carry the red inset accent and tinted chip', () => {
+  const s = cardStyles('cork', task({ day: '2020-01-01' }), 'kanban', { overdue: true })
+  expect(String(s.wrap.boxShadow)).toContain('#e0524a')
+  expect(String(s.chipStyle.background)).toContain('rgba(224,82,74')
+  const plain = cardStyles('cork', task(), 'kanban')
+  expect(String(plain.wrap.boxShadow)).not.toContain('#e0524a')
+})
 ```
 
 Append to `src/components/Toolbar.test.tsx` (reuse its existing render scaffold — pass `showNav={true}` and `navLabel="July 2026"` for this one):
@@ -1053,7 +1078,6 @@ test('overdue tasks appear once, in a top Overdue group with a roll-forward butt
 })
 ```
 
-
 - [ ] **Step 2: Run to verify they fail** — the three targeted files → new tests FAIL.
 
 - [ ] **Step 3: Implement**
@@ -1063,16 +1087,16 @@ test('overdue tasks appear once, in a top Overdue group with a roll-forward butt
    - After the three theme branches (right before the `if (dragging && !isGhost)` line):
 
 ```ts
-  if (overdue && !isGhost) {
-    // Red inset accent — overdue signal, theme-independent.
-    wrap.boxShadow = `${wrap.boxShadow}, inset 3px 0 0 0 #e0524a`
-  }
+if (overdue && !isGhost) {
+  // Red inset accent — overdue signal, theme-independent.
+  wrap.boxShadow = `${wrap.boxShadow}, inset 3px 0 0 0 #e0524a`
+}
 ```
 
-   - After the `chipStyle` definition:
+- After the `chipStyle` definition:
 
 ```ts
-  if (overdue) Object.assign(chipStyle, { background: 'rgba(224,82,74,.22)', fontWeight: 800 })
+if (overdue) Object.assign(chipStyle, { background: 'rgba(224,82,74,.22)', fontWeight: 800 })
 ```
 
 2. `TaskCard.tsx`: import `isOverdue` from `../data/selectors` and `ymd` from `../lib/dates`; compute `const overdue = isOverdue(task, ymd(new Date()))` and pass `{ dragging, pop, overdue }` to `cardStyles`.
@@ -1088,74 +1112,75 @@ test('overdue tasks appear once, in a top Overdue group with a roll-forward butt
    - Replace the two computation lines at the top with:
 
 ```ts
-  const today = ymd(new Date())
-  const overdue = overdueTasks(tasks, today)
-  const overdueIds = new Set(overdue.map((t) => t.id))
-  const groups = agendaGroups(tasks.filter((t) => !overdueIds.has(t.id)))
-  const inbox = notesForDay(tasks, INBOX)
+const today = ymd(new Date())
+const overdue = overdueTasks(tasks, today)
+const overdueIds = new Set(overdue.map((t) => t.id))
+const groups = agendaGroups(tasks.filter((t) => !overdueIds.has(t.id)))
+const inbox = notesForDay(tasks, INBOX)
 ```
 
-   - Change `const empty = groups.length === 0 && inbox.length === 0` to also require `overdue.length === 0`.
-   - Insert the Overdue section immediately before `{groups.map((g) => (`:
+- Change `const empty = groups.length === 0 && inbox.length === 0` to also require `overdue.length === 0`.
+- Insert the Overdue section immediately before `{groups.map((g) => (`:
 
 ```tsx
-        {overdue.length > 0 && (
-          <div>
-            <div
-              style={{
-                ...header,
-                borderBottom: '2px solid #e0524a',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <span>Overdue</span>
-              {onRollForward && (
-                <button
-                  type="button"
-                  onClick={onRollForward}
-                  style={{
-                    border: 'none',
-                    borderRadius: 7,
-                    padding: '4px 10px',
-                    cursor: 'pointer',
-                    fontFamily: conf.ui,
-                    fontSize: 11.5,
-                    fontWeight: 800,
-                    background: '#e0524a',
-                    color: '#fff',
-                  }}
-                >
-                  Move all to today
-                </button>
-              )}
-            </div>
-            <div style={list}>
-              {overdue.map((t) => (
-                <TaskCard
-                  key={t.id}
-                  task={t}
-                  variant="inbox"
-                  pop={pop === t.id}
-                  onOpen={handlers.onOpen}
-                  onToggleDone={handlers.onToggleDone}
-                  onTogglePin={handlers.onTogglePin}
-                />
-              ))}
-            </div>
-          </div>
+{
+  overdue.length > 0 && (
+    <div>
+      <div
+        style={{
+          ...header,
+          borderBottom: '2px solid #e0524a',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <span>Overdue</span>
+        {onRollForward && (
+          <button
+            type="button"
+            onClick={onRollForward}
+            style={{
+              border: 'none',
+              borderRadius: 7,
+              padding: '4px 10px',
+              cursor: 'pointer',
+              fontFamily: conf.ui,
+              fontSize: 11.5,
+              fontWeight: 800,
+              background: '#e0524a',
+              color: '#fff',
+            }}
+          >
+            Move all to today
+          </button>
         )}
+      </div>
+      <div style={list}>
+        {overdue.map((t) => (
+          <TaskCard
+            key={t.id}
+            task={t}
+            variant="inbox"
+            pop={pop === t.id}
+            onOpen={handlers.onOpen}
+            onToggleDone={handlers.onToggleDone}
+            onTogglePin={handlers.onTogglePin}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
 ```
 
 5. `Board.tsx`: `BoardProps` gains `rollForward?: (todayStr: string) => void` (destructure). Compute below `visibleTasks`:
 
 ```ts
-  const overdueCount = useMemo(() => overdueTasks(tasks, ymd(new Date())).length, [tasks])
+const overdueCount = useMemo(() => overdueTasks(tasks, ymd(new Date())).length, [tasks])
 ```
 
-(imports: `overdueTasks` from `../data/selectors`, `ymd` added to the dates import). Pass `overdueCount={overdueCount}` to `<Toolbar>` and `onRollForward={rollForward ? () => rollForward(ymd(new Date())) : undefined}` to `<AgendaView>`.
-6. `BoardPage.tsx`: pass `rollForward={t.rollForward}` on `<Board>`.
+(imports: `overdueTasks` from `../data/selectors`, `ymd` added to the dates import). Pass `overdueCount={overdueCount}` to `<Toolbar>` and `onRollForward={rollForward ? () => rollForward(ymd(new Date())) : undefined}` to `<AgendaView>`. 6. `BoardPage.tsx`: pass `rollForward={t.rollForward}` on `<Board>`.
 
 - [ ] **Step 4: Tests + full gate** — all three targeted files PASS; full `npm test` (Board.test unaffected — new props optional), lint, build, per-file prettier.
 
@@ -1203,20 +1228,39 @@ EOF
 ### Task D1: Pure module `src/data/exportImport.ts` (TDD)
 
 **Files:**
+
 - Create: `src/data/exportImport.ts`
 - Test: `src/data/exportImport.test.ts`
 
 **Interfaces:**
+
 - Produces:
 
 ```ts
 export const EXPORT_VERSION = 1
-export interface ExportSettings { theme: string; defaultView: string }
-export interface BoardExport { version: 1; exportedAt: string; settings: ExportSettings; tasks: Task[]; templates: Task[] }
-export function serializeExport(tasks: Task[], templates: Task[], settings: ExportSettings, exportedAt: string): string
+export interface ExportSettings {
+  theme: string
+  defaultView: string
+}
+export interface BoardExport {
+  version: 1
+  exportedAt: string
+  settings: ExportSettings
+  tasks: Task[]
+  templates: Task[]
+}
+export function serializeExport(
+  tasks: Task[],
+  templates: Task[],
+  settings: ExportSettings,
+  exportedAt: string,
+): string
 export type ParseResult = { ok: true; data: BoardExport } | { ok: false; error: string }
 export function parseExport(json: string): ParseResult
-export function remapIds(data: Pick<BoardExport, 'tasks' | 'templates'>): { tasks: Task[]; templates: Task[] }
+export function remapIds(data: Pick<BoardExport, 'tasks' | 'templates'>): {
+  tasks: Task[]
+  templates: Task[]
+}
 export function chunk<T>(arr: T[], size: number): T[][]
 ```
 
@@ -1474,11 +1518,13 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ### Task D2: Settings "Data" section — export download + additive import (TDD)
 
 **Files:**
+
 - Create: `src/components/DataSection.tsx`
 - Modify: `src/pages/SettingsPage.tsx` (SECTIONS registration)
 - Test: `src/components/DataSection.test.tsx`
 
 **Interfaces:**
+
 - Consumes: D1's module; `useAuth()`; `rowToTask`/`taskToRow`; `isTemplate`; `SECTIONS` registry.
 - Produces: `export function DataSection()` registered as `{ id: 'data', title: 'Data', render: () => <DataSection /> }` between the appearance and danger sections.
 
@@ -1707,9 +1753,9 @@ export function DataSection() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 460 }}>
       <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5 }}>
-        Download everything (tasks, repeating series, settings) as a JSON file, or import a
-        previous export. Import is additive — nothing is overwritten, and importing the same
-        file twice creates duplicates.
+        Download everything (tasks, repeating series, settings) as a JSON file, or import a previous
+        export. Import is additive — nothing is overwritten, and importing the same file twice
+        creates duplicates.
       </p>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <button type="button" disabled={busy} onClick={exportBoard} style={btn}>
@@ -1731,8 +1777,8 @@ export function DataSection() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13.5 }}>
           <div>
             This file contains {pending.tasks.length} task
-            {pending.tasks.length === 1 ? '' : 's'} and {pending.templates.length} repeating
-            series. Import them?
+            {pending.tasks.length === 1 ? '' : 's'} and {pending.templates.length} repeating series.
+            Import them?
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button type="button" disabled={busy} onClick={confirmImport} style={btn}>

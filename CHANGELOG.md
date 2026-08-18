@@ -134,7 +134,7 @@ No unreleased changes.
 - Offline snapshots are keyed per Board rather than one per account, with a separate directory
   envelope recording which Boards this device last saw. Snapshots of Boards the server no longer
   returns are purged on the next successful load — the client-side half of revocation, since access
-  ending is silent and nothing else would notice. The purge takes the ids to *remove*, computed from
+  ending is silent and nothing else would notice. The purge takes the ids to _remove_, computed from
   the server's list, so a load returning nothing correctly purges everything; it runs only under a
   real session, because a sessionless read succeeds against RLS with no rows and treating that as
   "you are in no Boards" would wipe the cache on exactly the offline path it exists to serve.
@@ -146,7 +146,7 @@ No unreleased changes.
   Board — written through the column-level grant added with the Board schema. Both copies are
   written until `user_settings.default_view` is dropped, since writing one is how they diverge.
 - Fixed a test-infrastructure bug worth recording: the `useTasks` Supabase mock returned a bare
-  Promise from `select()`, so adding `.eq('board_id', …)` made the load resolve as an *empty board*
+  Promise from `select()`, so adding `.eq('board_id', …)` made the load resolve as an _empty board_
   rather than an error — the loudest possible failure reported in the quietest possible way. The
   mock is now both awaitable and chainable.
 
@@ -386,9 +386,9 @@ backfilled for every instance that had a day. This is a latent-hazard fix.
 
 - **The task editor's decisions are now a pure module.** `src/data/editIntent.ts` owns `cleanDraft`,
   `changedTaskKeys`, `onlyPerOccurrenceChanged`, `PER_OCCURRENCE_FIELDS`, and the two decisions the
-  Save and Delete buttons make (`intendSave` / `intendDelete`). `series.ts` decides *which
-  occurrences* an operation touches; this decides *whether the editor may proceed at all* and
-  *whether it has to ask first*. Closes #138.
+  Save and Delete buttons make (`intendSave` / `intendDelete`). `series.ts` decides _which
+  occurrences_ an operation touches; this decides _whether the editor may proceed at all_ and
+  _whether it has to ask first_. Closes #138.
 - Those functions were private to a 739-line `TaskEditor.tsx`, so all eight of its tests reached
   them by rendering the modal and clicking through with `userEvent` — and the fail-safe property
   documented on `changedTaskKeys` (drifting checklist key order must over-show the prompt, never
@@ -432,7 +432,7 @@ Aside from the prompt fix above, no user-visible behaviour changes.
   rows that already exist (`23505`). Three of the four call sites took that default, untested.
 - `FailureHandling` deliberately carries two independent fields (`abort` and `recover`), because the
   existing behaviour answered them independently: a failed content upsert aborts the trim that
-  follows it, while a failed `recurSkip` write must *not* stop the occurrence being deleted.
+  follows it, while a failed `recurSkip` write must _not_ stop the occurrence being deleted.
 - `Board` loses three props and no longer encodes any recurrence rule — including stripping the rule
   fields on the this-occurrence save path, which had been enforced by a comment. `useTasks` exposes
   `saveTask(orig, draft, isNew, scope)` and `deleteTask(task, scope)` in place of the five members
@@ -471,7 +471,7 @@ No user-visible behaviour changes.
   `src/data/snapshot.ts`, with a docstring explaining why each of its five clauses is load-bearing.
   It previously had two implementations and three prose copies, one of which passed the rule as a
   positional boolean argument named `persistSnapshot`.
-- Newly testable, and previously unreachable in *either* copy because both test mocks fired
+- Newly testable, and previously unreachable in _either_ copy because both test mocks fired
   `'SUBSCRIBED'` unconditionally: the backoff curve and its 30 s cap, reconnect after
   `CHANNEL_ERROR`/`TIMED_OUT`/`CLOSED`, backoff reset after a successful resubscribe, a backoff
   timer firing after unmount, `visibilitychange` catch-up, and own-write TTL **expiry** — the old
@@ -489,7 +489,7 @@ No user-visible behaviour changes.
   and `src/dnd/reorder.ts` keeps only the splice math. The seam had been drawn at "pure vs impure"
   rather than "hard vs easy", so the thoroughly-tested half was the trivial half. Closes #136.
 - Removed `findContainer` and `reindex` from `src/dnd/reorder.ts`. Neither had a production call
-  site, and between them they carried 7 of that file's 17 tests. `findContainer` also *disagreed*
+  site, and between them they carried 7 of that file's 17 tests. `findContainer` also _disagreed_
   with the shipped inline copy in the wiring: it returned `undefined` for an id matching no task,
   where the real rule returns the id itself — which is the only reason dropping onto an empty lane
   works, since dnd-kit registers an empty lane as a droppable whose id is the lane.
@@ -558,7 +558,7 @@ unchanged.
 ### Docs
 
 - Added `docs/agents/` (`issue-tracker.md`, `triage-labels.md`, `domain.md`) plus an `## Agent
-  skills` section in `AGENTS.md`, configuring where third-party Claude Code skills such as
+skills` section in `AGENTS.md`, configuring where third-party Claude Code skills such as
   `triage`, `to-tickets`, and `to-spec` read and write: GitHub Issues on this repo via the `gh`
   CLI, the default five-role triage label vocabulary, and a single-context `CONTEXT.md`/`docs/adr/`
   layout for domain docs (neither exists yet — created lazily by `/domain-modeling`). No app
@@ -712,7 +712,7 @@ unchanged.
   Until now the automated tests all ran against mocks, which meant a whole class of problem was
   invisible: anything that only breaks on the real hosting. That is not hypothetical — the bug that
   silently replaced the site's fonts with system defaults shipped **twice**, because it cannot be
-  reproduced locally and only affects people on their *second* visit. The new checks catch it, along
+  reproduced locally and only affects people on their _second_ visit. The new checks catch it, along
   with sign-in, creating a task and having it survive a reload, and the board still rendering from
   its saved copy when the server cannot be reached.
 - Added an accessibility check to the same run. It scans six screens — the landing page, sign-in,
@@ -855,8 +855,7 @@ unchanged.
   settings), each keyed to the signed-in user id and cleared on sign-out. `useTasks` writes the
   board snapshot after every successful server load and, on a **failed** load, hydrates from it
   read-only — deliberately skipping recurrence `materialize()`, since replaying it against
-  snapshot data would insert duplicate instances and hit `tasks_recur_instance_uniq` (Postgres
-  23505) the moment the real load succeeds. `useSettings` falls back to its own snapshot on a
+  snapshot data would insert duplicate instances and hit `tasks_recur_instance_uniq` (Postgres 23505) the moment the real load succeeds. `useSettings` falls back to its own snapshot on a
   failed load rather than silently resetting the theme to defaults. While hydrated from a
   snapshot, the board is read-only (an offline banner; drag, add, and per-card done/pin are all
   disabled) via a small `OfflineContext`. A new-version toast (`UpdatePrompt`) offers a waiting
@@ -923,6 +922,7 @@ service worker itself:
 - Flagged for the next dated review in `private/`, not fixed here: storing task text at rest in
   `localStorage` (mitigated by clearing it on sign-out) is a new position for this app and belongs
   in the accepted-risk record, argued, rather than only inside this PR.
+
 ## [1.2.33] - 2026-07-27
 
 ### Docs
@@ -997,7 +997,7 @@ service worker itself:
 
   - **The documented connection host cannot be reached.** `db.<ref>.supabase.co` is IPv6-only —
     Supabase publishes no `A` record for it — so step 3 died on its first command with `could not
-    translate host name`. The runbook now connects through the Session pooler
+translate host name`. The runbook now connects through the Session pooler
     (`postgres.<ref>@aws-0-<region>.pooler…:5432`) and explains why it must be the session pooler and
     not the transaction one: replica mode is a session setting and the load is one transaction.
   - **Restoring `schema.sql` silently omits `on_auth_user_created`.** That trigger sits on

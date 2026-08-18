@@ -26,13 +26,13 @@
 
 ## PR sequencing
 
-| Part | Roadmap item | Branch | Depends on |
-| ---- | ------------------------------ | ------------------------------ | ---------- |
-| A | 0.1 Edge Function scaffolding | `feat/edge-function-scaffolding` | — |
-| B | 0.2 Settings page shell | `feat/settings-page-shell` | — |
-| C | 1.1 Password reset | `feat/password-reset` | — |
-| D | 1.2 Delete account | `feat/delete-account` | A + B merged |
-| E | 1.3 Realtime sync | `feat/realtime-sync` | — (merge last anyway) |
+| Part | Roadmap item                  | Branch                           | Depends on            |
+| ---- | ----------------------------- | -------------------------------- | --------------------- |
+| A    | 0.1 Edge Function scaffolding | `feat/edge-function-scaffolding` | —                     |
+| B    | 0.2 Settings page shell       | `feat/settings-page-shell`       | —                     |
+| C    | 1.1 Password reset            | `feat/password-reset`            | —                     |
+| D    | 1.2 Delete account            | `feat/delete-account`            | A + B merged          |
+| E    | 1.3 Realtime sync             | `feat/realtime-sync`             | — (merge last anyway) |
 
 A, B, C are mutually independent. D branches from `main` only after A and B are merged.
 
@@ -47,11 +47,13 @@ New top-level surface: `supabase/functions/`. Establishes the JWT-verification a
 ### Task A1: Branch + shared function utilities (`cors.ts`, `auth.ts`) with Deno tests
 
 **Files:**
+
 - Create: `supabase/functions/_shared/cors.ts`
 - Create: `supabase/functions/_shared/auth.ts`
 - Test: `supabase/functions/_shared/auth.test.ts`
 
 **Interfaces:**
+
 - Produces: `corsHeaders: Record<string, string>`; `bearerToken(header: string | null): string | null`; `requireUser(req: Request): Promise<User | Response>` — returns the authenticated Supabase `User`, or a ready-to-return 401 `Response`. Callers check `instanceof Response`.
 
 - [ ] **Step 1: Create the branch**
@@ -163,12 +165,14 @@ git commit -m "Add shared edge-function auth and CORS utilities"
 ### Task A2: The `hello` template function
 
 **Files:**
+
 - Create: `supabase/functions/hello/handler.ts`
 - Create: `supabase/functions/hello/index.ts`
 - Test: `supabase/functions/hello/handler.test.ts`
 - Modify: `supabase/config.toml` (append at end of file)
 
 **Interfaces:**
+
 - Consumes: `requireUser`, `corsHeaders` from Task A1.
 - Produces: the handler/index split pattern — `handler(req: Request): Promise<Response>` exported from `handler.ts` (testable without starting a server); `index.ts` contains only `Deno.serve(handler)`. Part D copies this pattern.
 
@@ -245,6 +249,7 @@ git commit -m "Add hello edge function as the JWT-verified function template"
 ### Task A3: Keep Node tooling away from Deno code; add Functions CI job
 
 **Files:**
+
 - Modify: `eslint.config.js:8` (the `ignores` entry)
 - Modify: `vite.config.ts` (test.exclude)
 - Modify: `.github/workflows/ci.yml` (new job)
@@ -292,14 +297,14 @@ Expected: both PASS; Vitest collects no files under `supabase/`.
 In `.github/workflows/ci.yml`, append after the `Build` job (same indentation as the other jobs):
 
 ```yaml
-  Functions:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
-      - run: cd supabase/functions && deno test
+Functions:
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v7
+    - uses: denoland/setup-deno@v2
+      with:
+        deno-version: v2.x
+    - run: cd supabase/functions && deno test
 ```
 
 - [ ] **Step 5: Commit**
@@ -312,6 +317,7 @@ git commit -m "Exclude Deno function code from Node tooling and test it in CI"
 ### Task A4: Deploy Functions workflow, docs, and PR
 
 **Files:**
+
 - Create: `.github/workflows/deploy-functions.yml`
 - Modify: `CONTRIBUTING.md` (new subsection under "Project layout" or after "Conventions to honour")
 - Modify: `CHANGELOG.md` (under `## [Unreleased]` → `### Internal`)
@@ -412,15 +418,17 @@ Wait for checks, merge, then verify the `Deploy Functions` workflow run succeeds
 
 # Part B — 0.2 Settings page shell (PR 2)
 
-A protected `/settings` route with a section registry later items append to (Danger zone in Part D; export/import, week-start/timezone, labels later). Moves nothing away from the toolbar — settings *duplicates* the theme/default-view controls. Includes the Privacy/Terms footer links (roadmap 5.3, first half).
+A protected `/settings` route with a section registry later items append to (Danger zone in Part D; export/import, week-start/timezone, labels later). Moves nothing away from the toolbar — settings _duplicates_ the theme/default-view controls. Includes the Privacy/Terms footer links (roadmap 5.3, first half).
 
 ### Task B1: `SettingsPage` component, test-first
 
 **Files:**
+
 - Create: `src/pages/SettingsPage.tsx`
 - Test: `src/pages/SettingsPage.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `useAuth()` (`src/auth/AuthProvider.tsx`), `useSettings(userId)` (`src/data/useSettings.ts`), `ThemeProvider`/`useTheme` (`src/theme/ThemeProvider.tsx`), `ThemeSwitcher` (no props), `useIsMobile()`, `Spinner`.
 - Produces: `export function SettingsPage()`; an internal `SECTIONS: SettingsSection[]` registry where `interface SettingsSection { id: string; title: string; render: (ctx: SectionContext) => ReactNode }` and `interface SectionContext { defaultView: ViewName; onChangeView: (v: ViewName) => void }`. Part D appends a section to `SECTIONS`.
 
@@ -664,6 +672,7 @@ git commit -m "Add the /settings page shell with a section registry"
 ### Task B2: Route + toolbar gear button
 
 **Files:**
+
 - Modify: `src/App.tsx`
 - Modify: `src/components/Toolbar.tsx`
 - Modify: `src/components/Board.tsx` (prop threading)
@@ -671,6 +680,7 @@ git commit -m "Add the /settings page shell with a section registry"
 - Test: `src/components/Toolbar.test.tsx` (new)
 
 **Interfaces:**
+
 - Produces: optional prop `onOpenSettings?: () => void` on `ToolbarProps` and `BoardProps`, threaded `BoardPage → Board → Toolbar`.
 
 - [ ] **Step 1: Write the failing Toolbar test**
@@ -726,41 +736,46 @@ In `src/components/Toolbar.tsx`:
 
 2. Add `onOpenSettings` to the destructured props in the function signature.
 
-3. **Mobile branch** — inside the first row `<div>` (the one with the logo and `+ New task`), insert *before* the Sign out button:
+3. **Mobile branch** — inside the first row `<div>` (the one with the logo and `+ New task`), insert _before_ the Sign out button:
 
 ```tsx
-          {onOpenSettings && (
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              aria-label="Settings"
-              title="Settings"
-              style={{ ...c.todayBtn, flex: 'none' }}
-            >
-              ⚙
-            </button>
-          )}
+{
+  onOpenSettings && (
+    <button
+      type="button"
+      onClick={onOpenSettings}
+      aria-label="Settings"
+      title="Settings"
+      style={{ ...c.todayBtn, flex: 'none' }}
+    >
+      ⚙
+    </button>
+  )
+}
 ```
 
 4. **Desktop branch** — in the right-hand group (`<div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>`), insert between `<ThemeSwitcher />` and the `+ New task` button:
 
 ```tsx
-        {onOpenSettings && (
-          <button
-            type="button"
-            onClick={onOpenSettings}
-            aria-label="Settings"
-            title="Settings"
-            style={c.todayBtn}
-          >
-            ⚙
-          </button>
-        )}
+{
+  onOpenSettings && (
+    <button
+      type="button"
+      onClick={onOpenSettings}
+      aria-label="Settings"
+      title="Settings"
+      style={c.todayBtn}
+    >
+      ⚙
+    </button>
+  )
+}
 ```
 
 - [ ] **Step 4: Thread the prop through `Board` and `BoardPage`**
 
 In `src/components/Board.tsx`:
+
 - Add `onOpenSettings?: () => void` to `BoardProps` (next to `onSignOut?: () => void`, around line 45).
 - Add `onOpenSettings` to the destructuring (around line 86).
 - Pass it in the `<Toolbar …>` call (around line 194): `onOpenSettings={onOpenSettings}`.
@@ -790,16 +805,16 @@ const SettingsPage = lazy(() =>
 Inside `<Routes>`, before the `/` route:
 
 ```tsx
-          <Route
-            path="/settings"
-            element={
-              <ProtectedRoute>
-                <Suspense fallback={<Spinner label="Loading…" />}>
-                  <SettingsPage />
-                </Suspense>
-              </ProtectedRoute>
-            }
-          />
+<Route
+  path="/settings"
+  element={
+    <ProtectedRoute>
+      <Suspense fallback={<Spinner label="Loading…" />}>
+        <SettingsPage />
+      </Suspense>
+    </ProtectedRoute>
+  }
+/>
 ```
 
 - [ ] **Step 6: Run all tests and the dev server**
@@ -819,6 +834,7 @@ git commit -m "Route /settings and add a toolbar gear to reach it"
 ### Task B3: CHANGELOG + PR
 
 **Files:**
+
 - Modify: `CHANGELOG.md` (under `## [Unreleased]` → `### Added`)
 
 - [ ] **Step 1: CHANGELOG entry**
@@ -856,11 +872,13 @@ Two halves: request (Login gains a `forgot` mode) and complete (new `/auth/reset
 ### Task C1: `passwordRecovery` state in AuthProvider + ProtectedRoute redirect, test-first
 
 **Files:**
+
 - Modify: `src/auth/AuthProvider.tsx`
 - Modify: `src/auth/ProtectedRoute.tsx`
 - Test: `src/auth/ProtectedRoute.test.tsx` (new)
 
 **Interfaces:**
+
 - Produces: `AuthContextValue` gains `passwordRecovery: boolean` and `clearPasswordRecovery: () => void`. `ProtectedRoute` redirects to `/auth/reset` while `passwordRecovery` is true.
 
 - [ ] **Step 1: Write the failing test**
@@ -947,20 +965,20 @@ interface AuthContextValue {
 3. Inside `AuthProvider`, add state and wire the event (replace the existing `onAuthStateChange` callback):
 
 ```ts
-  const [passwordRecovery, setPasswordRecovery] = useState(false)
+const [passwordRecovery, setPasswordRecovery] = useState(false)
 ```
 
 ```ts
-    const { data: sub } = supabase.auth.onAuthStateChange((event, next) => {
-      setSession(next)
-      if (event === 'PASSWORD_RECOVERY') setPasswordRecovery(true)
-    })
+const { data: sub } = supabase.auth.onAuthStateChange((event, next) => {
+  setSession(next)
+  if (event === 'PASSWORD_RECOVERY') setPasswordRecovery(true)
+})
 ```
 
 4. Add the clear callback and extend the provider value:
 
 ```ts
-  const clearPasswordRecovery = useCallback(() => setPasswordRecovery(false), [])
+const clearPasswordRecovery = useCallback(() => setPasswordRecovery(false), [])
 ```
 
 ```tsx
@@ -1005,11 +1023,13 @@ git commit -m "Track password-recovery sessions and keep them off the board"
 ### Task C2: Shared auth-page styles + Login "Forgot password?" mode
 
 **Files:**
+
 - Create: `src/pages/authChrome.ts`
 - Modify: `src/pages/Login.tsx`
 - Test: `src/pages/Login.test.tsx` (new)
 
 **Interfaces:**
+
 - Produces: `authPage`, `authCard`, `authField: CSSProperties` in `src/pages/authChrome.ts` (extracted verbatim from Login's current inline styles; ResetPassword reuses them in C3). Login `Mode` becomes `'signin' | 'signup' | 'forgot'`.
 
 - [ ] **Step 1: Write the failing test**
@@ -1063,9 +1083,7 @@ test('forgot mode hides the password field and sends the reset email', async () 
     redirectTo: `${window.location.origin}/auth/reset`,
   })
   // Same notice whether or not the account exists — never leak existence.
-  expect(
-    await screen.findByText(/If an account exists for that email/),
-  ).toBeInTheDocument()
+  expect(await screen.findByText(/If an account exists for that email/)).toBeInTheDocument()
 })
 
 test('back link returns from forgot mode to sign in', async () => {
@@ -1167,26 +1185,26 @@ type Mode = 'signin' | 'signup' | 'forgot'
 3. In `submit`, add the forgot branch at the top of the `try` block:
 
 ```ts
-      if (mode === 'forgot') {
-        const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth/reset`,
-        })
-        if (err) throw err
-        setNotice('If an account exists for that email, a password reset link is on its way.')
-        return
-      }
+if (mode === 'forgot') {
+  const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/auth/reset`,
+  })
+  if (err) throw err
+  setNotice('If an account exists for that email, a password reset link is on its way.')
+  return
+}
 ```
 
 4. Update the subtitle copy:
 
 ```tsx
-        <p style={{ margin: '0 0 22px', opacity: 0.55, fontSize: 14 }}>
-          {mode === 'signin'
-            ? 'Welcome back — sign in to your board.'
-            : mode === 'signup'
-              ? 'Create your account.'
-              : 'Enter your email and we’ll send you a reset link.'}
-        </p>
+<p style={{ margin: '0 0 22px', opacity: 0.55, fontSize: 14 }}>
+  {mode === 'signin'
+    ? 'Welcome back — sign in to your board.'
+    : mode === 'signup'
+      ? 'Create your account.'
+      : 'Enter your email and we’ll send you a reset link.'}
+</p>
 ```
 
 5. Hide the Google button and divider in forgot mode: wrap the Google `<button>` and the `or` divider `<div>` in `{mode !== 'forgot' && (<> … </>)}`.
@@ -1196,66 +1214,70 @@ type Mode = 'signin' | 'signup' | 'forgot'
 7. Add a "Forgot password?" link under the form fields, visible in signin mode only (insert between the password input block and the error/notice block):
 
 ```tsx
-          {mode === 'signin' && (
-            <button
-              type="button"
-              onClick={() => {
-                setMode('forgot')
-                setError(null)
-                setNotice(null)
-              }}
-              style={{ ...authLinkBtn, alignSelf: 'flex-end', fontSize: 12 }}
-            >
-              Forgot password?
-            </button>
-          )}
+{
+  mode === 'signin' && (
+    <button
+      type="button"
+      onClick={() => {
+        setMode('forgot')
+        setError(null)
+        setNotice(null)
+      }}
+      style={{ ...authLinkBtn, alignSelf: 'flex-end', fontSize: 12 }}
+    >
+      Forgot password?
+    </button>
+  )
+}
 ```
 
 8. Update the submit button label:
 
 ```tsx
-            {busy
-              ? 'Please wait…'
-              : mode === 'signin'
-                ? 'Sign in'
-                : mode === 'signup'
-                  ? 'Create account'
-                  : 'Send reset link'}
+{
+  busy
+    ? 'Please wait…'
+    : mode === 'signin'
+      ? 'Sign in'
+      : mode === 'signup'
+        ? 'Create account'
+        : 'Send reset link'
+}
 ```
 
 9. Update the mode-toggle footer to handle forgot mode (replace the existing footer `<div>` content):
 
 ```tsx
-        <div style={{ marginTop: 18, fontSize: 13, opacity: 0.7, textAlign: 'center' }}>
-          {mode === 'forgot' ? (
-            <button
-              type="button"
-              onClick={() => {
-                setMode('signin')
-                setError(null)
-                setNotice(null)
-              }}
-              style={authLinkBtn}
-            >
-              Back to sign in
-            </button>
-          ) : (
-            <>
-              {mode === 'signin' ? "Don't have an account? " : 'Already have an account? '}
-              <button
-                type="button"
-                onClick={() => {
-                  setMode(mode === 'signin' ? 'signup' : 'signin')
-                  setError(null)
-                  setNotice(null)
-                }}
-                style={authLinkBtn}
-              >
-                {mode === 'signin' ? 'Sign up' : 'Sign in'}
-              </button>
-            </>
-          )}
-        </div>
+<div style={{ marginTop: 18, fontSize: 13, opacity: 0.7, textAlign: 'center' }}>
+  {mode === 'forgot' ? (
+    <button
+      type="button"
+      onClick={() => {
+        setMode('signin')
+        setError(null)
+        setNotice(null)
+      }}
+      style={authLinkBtn}
+    >
+      Back to sign in
+    </button>
+  ) : (
+    <>
+      {mode === 'signin' ? "Don't have an account? " : 'Already have an account? '}
+      <button
+        type="button"
+        onClick={() => {
+          setMode(mode === 'signin' ? 'signup' : 'signin')
+          setError(null)
+          setNotice(null)
+        }}
+        style={authLinkBtn}
+      >
+        {mode === 'signin' ? 'Sign up' : 'Sign in'}
+      </button>
+    </>
+  )}
+</div>
 ```
 
 - [ ] **Step 5: Run the tests to verify they pass**
@@ -1273,11 +1295,13 @@ git commit -m "Add a forgot-password mode to the login page"
 ### Task C3: `/auth/reset` page
 
 **Files:**
+
 - Create: `src/pages/ResetPassword.tsx`
 - Modify: `src/App.tsx` (route)
 - Test: `src/pages/ResetPassword.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `useAuth()` (`session`, `loading`, `clearPasswordRecovery` from C1), `authPage`/`authCard`/`authField`/`authSubmit` from C2, `supabase.auth.updateUser`.
 - Produces: `export function ResetPassword()` mounted at `/auth/reset` (NOT inside `ProtectedRoute` — it handles the no-session case itself, and ProtectedRoute would bounce recovery sessions right back here anyway).
 
@@ -1399,8 +1423,8 @@ export function ResetPassword() {
             style={{ height: 110, display: 'block', margin: '0 0 6px' }}
           />
           <p style={{ margin: '0 0 18px', fontSize: 14, lineHeight: 1.5, opacity: 0.75 }}>
-            This password reset link is invalid or has expired. Request a new one from the
-            sign-in page.
+            This password reset link is invalid or has expired. Request a new one from the sign-in
+            page.
           </p>
           <Link to="/login" style={{ color: '#a78bfa', fontWeight: 700, fontSize: 14 }}>
             Back to sign in
@@ -1462,8 +1486,7 @@ export function ResetPassword() {
             style={authField}
           />
           <div style={{ fontSize: 12, opacity: 0.5, lineHeight: 1.4 }}>
-            At least 10 characters, including upper- and lower-case letters, a number, and a
-            symbol.
+            At least 10 characters, including upper- and lower-case letters, a number, and a symbol.
           </div>
           {error && <div style={{ color: '#ff8b8b', fontSize: 13, lineHeight: 1.4 }}>{error}</div>}
           <button
@@ -1489,7 +1512,7 @@ import { ResetPassword } from './pages/ResetPassword'
 ```
 
 ```tsx
-          <Route path="/auth/reset" element={<ResetPassword />} />
+<Route path="/auth/reset" element={<ResetPassword />} />
 ```
 
 - [ ] **Step 5: Run the tests to verify they pass**
@@ -1507,6 +1530,7 @@ git commit -m "Add the /auth/reset password-recovery page"
 ### Task C4: Local auth config, CHANGELOG, PR + manual production steps
 
 **Files:**
+
 - Modify: `supabase/config.toml:163` (`additional_redirect_urls`)
 - Modify: `CHANGELOG.md`
 
@@ -1543,7 +1567,7 @@ Under `## [Unreleased]` → `### Added`:
 Run: `npm test && npm run lint && npm run build`
 Expected: all PASS.
 
-Manual (local): `npm run dev`, click "Forgot password?", submit your email, open Mailpit at `http://127.0.0.1:54324` (requires `npx supabase start`) *or* skip the local email check and verify on the preview deploy after the PR opens.
+Manual (local): `npm run dev`, click "Forgot password?", submit your email, open Mailpit at `http://127.0.0.1:54324` (requires `npx supabase start`) _or_ skip the local email check and verify on the preview deploy after the PR opens.
 
 - [ ] **Step 4: Commit, push, PR**
 
@@ -1573,12 +1597,14 @@ Wait for checks, complete the two dashboard steps, merge, then run the productio
 ### Task D1: `delete-account` function, test-first
 
 **Files:**
+
 - Create: `supabase/functions/delete-account/handler.ts`
 - Create: `supabase/functions/delete-account/index.ts`
 - Test: `supabase/functions/delete-account/handler.test.ts`
 - Modify: `supabase/config.toml` (append)
 
 **Interfaces:**
+
 - Consumes: `requireUser`, `corsHeaders` (Part A).
 - Produces: POST-only endpoint; 401 without a valid JWT, 405 for other methods, `{ ok: true }` on success. Client calls it via `supabase.functions.invoke('delete-account', { method: 'POST' })`.
 
@@ -1680,12 +1706,14 @@ git commit -m "Add the delete-account edge function"
 ### Task D2: Danger-zone settings section, test-first
 
 **Files:**
+
 - Create: `src/components/DangerZone.tsx`
 - Test: `src/components/DangerZone.test.tsx`
 - Modify: `src/pages/SettingsPage.tsx` (append to `SECTIONS`)
 - Modify: `src/pages/Login.tsx` (goodbye notice)
 
 **Interfaces:**
+
 - Consumes: `SECTIONS` registry (Part B), `useAuth().signOut`, `supabase.functions.invoke`.
 - Produces: `export function DangerZone()`; navigates to `/login` with `state: { accountDeleted: true }`, which Login renders as a green notice.
 
@@ -1802,8 +1830,8 @@ export function DangerZone() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 420 }}>
       <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5 }}>
-        Permanently delete your account and all of your tasks and settings. This cannot be
-        undone. Type <strong>delete</strong> to confirm.
+        Permanently delete your account and all of your tasks and settings. This cannot be undone.
+        Type <strong>delete</strong> to confirm.
       </p>
       <input
         value={confirm}
@@ -1863,20 +1891,22 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 2. Inside `Login()`, read the flag:
 
 ```ts
-  const location = useLocation()
-  const accountDeleted = Boolean(
-    (location.state as { accountDeleted?: boolean } | null)?.accountDeleted,
-  )
+const location = useLocation()
+const accountDeleted = Boolean(
+  (location.state as { accountDeleted?: boolean } | null)?.accountDeleted,
+)
 ```
 
 3. Render it next to the existing notice block (immediately before `{error && …}` inside the form):
 
 ```tsx
-          {accountDeleted && (
-            <div style={{ color: '#86efac', fontSize: 13, lineHeight: 1.4 }}>
-              Your account and all of its data have been deleted. Thanks for trying Magic Agenda.
-            </div>
-          )}
+{
+  accountDeleted && (
+    <div style={{ color: '#86efac', fontSize: 13, lineHeight: 1.4 }}>
+      Your account and all of its data have been deleted. Thanks for trying Magic Agenda.
+    </div>
+  )
+}
 ```
 
 - [ ] **Step 5: Run the tests to verify they pass**
@@ -1931,6 +1961,7 @@ Wait for checks, merge, run the post-merge verification with a throwaway account
 The riskiest item: a pure reducer (`src/data/realtime.ts`, test-first) applies remote `postgres_changes` events to `{ tasks, templates }`; `useTasks` wires a per-user channel with self-echo suppression, reconnect-with-backoff, and reload-on-wake; `useSettings` + `ThemeProvider` make theme/default-view changes propagate live.
 
 **Known caveats (documented, accepted):**
+
 - DELETE events carry only the primary key (replica identity), so the `user_id=eq.` filter can't apply to them — other rows' delete events may arrive and must no-op (the reducer drops unknown ids). Leaked information is limited to opaque UUIDs.
 - Last-write-wins on concurrent edits of the same task (single-user boards; acceptable).
 - A template INSERT from another device does **not** trigger local materialization — the originating device materializes, and instances arrive as their own events (next `reload()` is the backstop).
@@ -1938,6 +1969,7 @@ The riskiest item: a pure reducer (`src/data/realtime.ts`, test-first) applies r
 ### Task E1: Publication migration
 
 **Files:**
+
 - Create: `supabase/migrations/20260704090000_realtime_tasks.sql`
 
 - [ ] **Step 1: Create the migration**
@@ -1963,19 +1995,22 @@ git commit -m "Publish tasks and user_settings on the realtime publication"
 ### Task E2: Pure reducer `applyTaskChange` + `payloadToChange`, test-first
 
 **Files:**
+
 - Create: `src/data/realtime.ts`
 - Test: `src/data/realtime.test.ts`
 
 **Interfaces:**
+
 - Consumes: `rowToTask` (mappers), `instanceOrigin` (recurrence), `isTemplate`/`Task`/`NO_RECUR` (types), `Database` row types.
 - Produces:
 
 ```ts
-export interface BoardState { tasks: Task[]; templates: Task[] }
+export interface BoardState {
+  tasks: Task[]
+  templates: Task[]
+}
 export type TaskChange =
-  | { type: 'INSERT'; task: Task }
-  | { type: 'UPDATE'; task: Task }
-  | { type: 'DELETE'; id: string }
+  { type: 'INSERT'; task: Task } | { type: 'UPDATE'; task: Task } | { type: 'DELETE'; id: string }
 export function payloadToChange(p: RealtimePostgresChangesPayload<TaskRow>): TaskChange | null
 export function applyTaskChange(state: BoardState, change: TaskChange): BoardState
 // Contract: returns the SAME state object (referential identity) when the change is a no-op.
@@ -2172,9 +2207,7 @@ export interface BoardState {
 }
 
 export type TaskChange =
-  | { type: 'INSERT'; task: Task }
-  | { type: 'UPDATE'; task: Task }
-  | { type: 'DELETE'; id: string }
+  { type: 'INSERT'; task: Task } | { type: 'UPDATE'; task: Task } | { type: 'DELETE'; id: string }
 
 /** Normalize a realtime payload into a TaskChange, or null for unusable payloads. */
 export function payloadToChange(p: RealtimePostgresChangesPayload<TaskRow>): TaskChange | null {
@@ -2267,10 +2300,12 @@ git commit -m "Add the pure realtime change reducer"
 ### Task E3: Wire the channel into `useTasks` with self-echo suppression
 
 **Files:**
+
 - Modify: `src/data/useTasks.ts`
 - Test: `src/data/useTasks.test.ts` (new)
 
 **Interfaces:**
+
 - Consumes: `applyTaskChange`, `payloadToChange` (E2).
 - Produces: no public API change to `UseTasks`. Internals: `ownWrites: Map<id, expiryMs>` with a 5s TTL; `markWrites(ids)` called by **every** mutation before its Supabase call; a `postgres_changes` subscription effect; reconnect with exponential backoff; `reload()` on `visibilitychange`→visible and `online`.
 
@@ -2420,21 +2455,21 @@ type TaskRow = Database['public']['Tables']['tasks']['Row']
 2. Inside `useTasks`, after the `inFlight` ref, add the own-write tracking:
 
 ```ts
-  // Ids this client just wrote, with expiry. Realtime echoes of our own writes are
-  // skipped so they can't clobber newer optimistic state (e.g. during rapid drags).
-  const ownWrites = useRef(new Map<string, number>())
-  const OWN_WRITE_TTL_MS = 5000
+// Ids this client just wrote, with expiry. Realtime echoes of our own writes are
+// skipped so they can't clobber newer optimistic state (e.g. during rapid drags).
+const ownWrites = useRef(new Map<string, number>())
+const OWN_WRITE_TTL_MS = 5000
 
-  const markWrites = useCallback((ids: readonly (string | null | undefined)[]) => {
-    const now = Date.now()
-    for (const [id, exp] of ownWrites.current) if (exp < now) ownWrites.current.delete(id)
-    for (const id of ids) if (id) ownWrites.current.set(id, now + OWN_WRITE_TTL_MS)
-  }, [])
+const markWrites = useCallback((ids: readonly (string | null | undefined)[]) => {
+  const now = Date.now()
+  for (const [id, exp] of ownWrites.current) if (exp < now) ownWrites.current.delete(id)
+  for (const id of ids) if (id) ownWrites.current.set(id, now + OWN_WRITE_TTL_MS)
+}, [])
 
-  const isOwnWrite = useCallback((id: string) => {
-    const exp = ownWrites.current.get(id)
-    return exp !== undefined && exp > Date.now()
-  }, [])
+const isOwnWrite = useCallback((id: string) => {
+  const exp = ownWrites.current.get(id)
+  return exp !== undefined && exp > Date.now()
+}, [])
 ```
 
 3. Add `markWrites(...)` to every mutation, immediately before its Supabase call:
@@ -2448,103 +2483,105 @@ type TaskRow = Database['public']['Tables']['tasks']['Row']
 - `updateSeries`: after building `rows`: `markWrites(rows.map((r) => r.id))`; and in the shortened-rule branch, before the delete call:
 
 ```ts
-        markWrites(
-          tasksRef.current
-            .filter((t) => t.recurParentId === template.id && instanceOrigin(t) > until)
-            .map((t) => t.id),
-        )
+markWrites(
+  tasksRef.current
+    .filter((t) => t.recurParentId === template.id && instanceOrigin(t) > until)
+    .map((t) => t.id),
+)
 ```
 
-  (place this line ABOVE the `setTasks` filter in that branch so the ids are still present in `tasksRef`).
+(place this line ABOVE the `setTasks` filter in that branch so the ids are still present in `tasksRef`).
+
 - `deleteOccurrence`: `markWrites([template?.id, instance.id])` (top of function; `template` may be undefined — `markWrites` skips nullish).
 
   Note: `deleteOccurrence` currently destructures `template` inside an `if (template)` block — hoist the lookup above the mark call, i.e. keep `const template = templatesRef.current.find(…)` first, then `markWrites([template?.id, instance.id])`, then the existing `if (template) { … }`.
+
 - `deleteSeriesFuture`: after `const cut = instanceOrigin(instance)`, add:
 
 ```ts
-      markWrites([
-        template.id,
-        ...tasksRef.current
-          .filter((t) => t.recurParentId === template.id && isFromOccurrenceOnward(t, cut))
-          .map((t) => t.id),
-      ])
+markWrites([
+  template.id,
+  ...tasksRef.current
+    .filter((t) => t.recurParentId === template.id && isFromOccurrenceOnward(t, cut))
+    .map((t) => t.id),
+])
 ```
 
-  and in the whole-series branch (before its `setTasks`):
+and in the whole-series branch (before its `setTasks`):
 
 ```ts
-        markWrites([
-          template.id,
-          ...tasksRef.current.filter((t) => t.recurParentId === template.id).map((t) => t.id),
-        ])
+markWrites([
+  template.id,
+  ...tasksRef.current.filter((t) => t.recurParentId === template.id).map((t) => t.id),
+])
 ```
 
-  Also add `markWrites([instance.id])` before the early `removeTask(instance.id)` return (no template found) — actually unnecessary: `removeTask` already marks. Skip it.
+Also add `markWrites([instance.id])` before the early `removeTask(instance.id)` return (no template found) — actually unnecessary: `removeTask` already marks. Skip it.
 
 4. Add the subscription effect (after the `useEffect` that calls `reload`):
 
 ```ts
-  // Live changes from other devices/sessions. Sub-epoch bumps force a fresh
-  // channel after an error (with backoff); reload() covers anything missed.
-  const [subEpoch, setSubEpoch] = useState(0)
-  const retries = useRef(0)
+// Live changes from other devices/sessions. Sub-epoch bumps force a fresh
+// channel after an error (with backoff); reload() covers anything missed.
+const [subEpoch, setSubEpoch] = useState(0)
+const retries = useRef(0)
 
-  useEffect(() => {
-    if (!userId) return
-    let disposed = false
-    const channel = supabase
-      .channel(`tasks-${userId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${userId}` },
-        (payload) => {
-          const change = payloadToChange(payload as RealtimePostgresChangesPayload<TaskRow>)
-          if (!change) return
-          const id = change.type === 'DELETE' ? change.id : change.task.id
-          if (isOwnWrite(id)) return
-          const prev = { tasks: tasksRef.current, templates: templatesRef.current }
-          const next = applyTaskChange(prev, change)
-          if (next === prev) return
-          templatesRef.current = next.templates
-          if (next.tasks !== prev.tasks) setTasks(next.tasks)
-        },
-      )
-      .subscribe((status) => {
-        if (disposed) return
-        if (status === 'SUBSCRIBED') {
-          retries.current = 0
-          return
-        }
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          const backoff = Math.min(30_000, 1000 * 2 ** retries.current++)
-          void reload()
-          window.setTimeout(() => {
-            if (!disposed) setSubEpoch((e) => e + 1)
-          }, backoff)
-        }
-      })
-    return () => {
-      disposed = true
-      void supabase.removeChannel(channel)
-    }
-  }, [userId, subEpoch, isOwnWrite, reload, setTasks])
+useEffect(() => {
+  if (!userId) return
+  let disposed = false
+  const channel = supabase
+    .channel(`tasks-${userId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${userId}` },
+      (payload) => {
+        const change = payloadToChange(payload as RealtimePostgresChangesPayload<TaskRow>)
+        if (!change) return
+        const id = change.type === 'DELETE' ? change.id : change.task.id
+        if (isOwnWrite(id)) return
+        const prev = { tasks: tasksRef.current, templates: templatesRef.current }
+        const next = applyTaskChange(prev, change)
+        if (next === prev) return
+        templatesRef.current = next.templates
+        if (next.tasks !== prev.tasks) setTasks(next.tasks)
+      },
+    )
+    .subscribe((status) => {
+      if (disposed) return
+      if (status === 'SUBSCRIBED') {
+        retries.current = 0
+        return
+      }
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        const backoff = Math.min(30_000, 1000 * 2 ** retries.current++)
+        void reload()
+        window.setTimeout(() => {
+          if (!disposed) setSubEpoch((e) => e + 1)
+        }, backoff)
+      }
+    })
+  return () => {
+    disposed = true
+    void supabase.removeChannel(channel)
+  }
+}, [userId, subEpoch, isOwnWrite, reload, setTasks])
 ```
 
 5. Add the wake/online effect (mobile Safari kills sockets aggressively):
 
 ```ts
-  useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') void reload()
-    }
-    const onOnline = () => void reload()
-    document.addEventListener('visibilitychange', onVisible)
-    window.addEventListener('online', onOnline)
-    return () => {
-      document.removeEventListener('visibilitychange', onVisible)
-      window.removeEventListener('online', onOnline)
-    }
-  }, [reload])
+useEffect(() => {
+  const onVisible = () => {
+    if (document.visibilityState === 'visible') void reload()
+  }
+  const onOnline = () => void reload()
+  document.addEventListener('visibilitychange', onVisible)
+  window.addEventListener('online', onOnline)
+  return () => {
+    document.removeEventListener('visibilitychange', onVisible)
+    window.removeEventListener('online', onOnline)
+  }
+}, [reload])
 ```
 
 - [ ] **Step 4: Run the tests to verify they pass**
@@ -2562,11 +2599,13 @@ git commit -m "Stream task changes into useTasks with self-echo suppression"
 ### Task E4: Live settings sync (`useSettings` + `ThemeProvider`)
 
 **Files:**
+
 - Modify: `src/data/useSettings.ts`
 - Modify: `src/theme/ThemeProvider.tsx`
 - Test: `src/data/useSettings.test.ts` (extend), `src/theme/ThemeProvider.test.tsx` (new)
 
 **Interfaces:**
+
 - Produces: `useSettings` applies remote `user_settings` changes to its state (3-second suppression window after any local persist); `ThemeProvider` re-syncs its internal theme when the `initial` prop changes (that's what restyles device B).
 
 - [ ] **Step 1: Write the failing tests**
@@ -2659,12 +2698,12 @@ Expected: both new tests FAIL (theme stays `cork`; `h.capture.handler` is null).
 In `src/theme/ThemeProvider.tsx`, add `useEffect` to the react import and add inside `ThemeProvider` (after the `useState`):
 
 ```ts
-  // Re-sync when the persisted theme changes elsewhere (another device via realtime).
-  // Local changes are unaffected: they flow through setTheme and land back here as
-  // the same value, which React bails out on.
-  useEffect(() => {
-    setThemeState(initial)
-  }, [initial])
+// Re-sync when the persisted theme changes elsewhere (another device via realtime).
+// Local changes are unaffected: they flow through setTheme and land back here as
+// the same value, which React bails out on.
+useEffect(() => {
+  setThemeState(initial)
+}, [initial])
 ```
 
 In `src/data/useSettings.ts`:
@@ -2672,47 +2711,46 @@ In `src/data/useSettings.ts`:
 1. Extend the react import with `useEffect` (already there) — add a `lastLocalWrite` ref and stamp it in `persist`:
 
 ```ts
-  const lastLocalWrite = useRef(0)
+const lastLocalWrite = useRef(0)
 ```
 
 and as the first line of `persist`:
 
 ```ts
-      lastLocalWrite.current = Date.now()
+lastLocalWrite.current = Date.now()
 ```
 
 2. Add the subscription effect after the load effect:
 
 ```ts
-  // Live settings changes from other devices. Skip events shortly after a local
-  // persist — the echo of our own upsert could otherwise transiently revert a
-  // rapid second change.
-  useEffect(() => {
-    if (!userId) return
-    const channel = supabase
-      .channel(`settings-${userId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'user_settings', filter: `user_id=eq.${userId}` },
-        (payload) => {
-          if (Date.now() - lastLocalWrite.current < 3000) return
-          const row = payload.new as { theme?: string; default_view?: string } | null
-          if (!row?.theme || !row.default_view) return
-          const next: Settings = {
-            theme: row.theme as ThemeName,
-            defaultView: row.default_view as ViewName,
-          }
-          if (next.theme === ref.current.theme && next.defaultView === ref.current.defaultView)
-            return
-          ref.current = next
-          setSettings(next)
-        },
-      )
-      .subscribe()
-    return () => {
-      void supabase.removeChannel(channel)
-    }
-  }, [userId])
+// Live settings changes from other devices. Skip events shortly after a local
+// persist — the echo of our own upsert could otherwise transiently revert a
+// rapid second change.
+useEffect(() => {
+  if (!userId) return
+  const channel = supabase
+    .channel(`settings-${userId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'user_settings', filter: `user_id=eq.${userId}` },
+      (payload) => {
+        if (Date.now() - lastLocalWrite.current < 3000) return
+        const row = payload.new as { theme?: string; default_view?: string } | null
+        if (!row?.theme || !row.default_view) return
+        const next: Settings = {
+          theme: row.theme as ThemeName,
+          defaultView: row.default_view as ViewName,
+        }
+        if (next.theme === ref.current.theme && next.defaultView === ref.current.defaultView) return
+        ref.current = next
+        setSettings(next)
+      },
+    )
+    .subscribe()
+  return () => {
+    void supabase.removeChannel(channel)
+  }
+}, [userId])
 ```
 
 - [ ] **Step 4: Run the tests to verify they pass**
@@ -2730,6 +2768,7 @@ git commit -m "Sync settings and theme live across devices"
 ### Task E5: Docs, CHANGELOG, two-device verification, PR
 
 **Files:**
+
 - Modify: `CHANGELOG.md`
 - Modify: `CLAUDE.md` (architecture section)
 

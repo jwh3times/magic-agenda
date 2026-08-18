@@ -20,13 +20,13 @@ than Google's mark, which their branding guidelines require (5.2).
 
 ## Decisions
 
-| Question | Decision | Why |
-| --- | --- | --- |
-| How does `/` serve two audiences? | `HomeRoute` branches on session; signed-in still renders `BoardPage` | No URL migration, no broken bookmarks, no second domain |
-| How is the product shown? | A **live mini-board** rendered from `makeMockTasks()` and the real theme layer | Cannot go stale — it *is* the component. No screenshots to capture, commit at 2× or re-take on every UI change |
-| Does the preview persist theme choice? | No — its own `ThemeProvider` with local state and no `onThemeChange` | A visitor toggling themes must never write to `user_settings`, and a signed-in user's saved theme must not change by visiting `/` |
-| Landing eager or lazy? | **Eager**; `BoardPage` stays lazy | Signed-out is the cold-visitor path; a spinner is the worst possible first frame for a marketing page and for a reviewer |
-| Where does the preview live? | `src/components/landing/` | Keeps `components/` root for board UI |
+| Question                               | Decision                                                                       | Why                                                                                                                               |
+| -------------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| How does `/` serve two audiences?      | `HomeRoute` branches on session; signed-in still renders `BoardPage`           | No URL migration, no broken bookmarks, no second domain                                                                           |
+| How is the product shown?              | A **live mini-board** rendered from `makeMockTasks()` and the real theme layer | Cannot go stale — it _is_ the component. No screenshots to capture, commit at 2× or re-take on every UI change                    |
+| Does the preview persist theme choice? | No — its own `ThemeProvider` with local state and no `onThemeChange`           | A visitor toggling themes must never write to `user_settings`, and a signed-in user's saved theme must not change by visiting `/` |
+| Landing eager or lazy?                 | **Eager**; `BoardPage` stays lazy                                              | Signed-out is the cold-visitor path; a spinner is the worst possible first frame for a marketing page and for a reviewer          |
+| Where does the preview live?           | `src/components/landing/`                                                      | Keeps `components/` root for board UI                                                                                             |
 
 ## Architecture
 
@@ -39,7 +39,11 @@ const { session, loading, passwordRecovery } = useAuth()
 if (loading) return <Spinner />
 if (!session) return <Landing />
 if (passwordRecovery) return <Navigate to="/auth/reset" replace />
-return <Suspense fallback={<Spinner label="Loading…" />}><BoardPage /></Suspense>
+return (
+  <Suspense fallback={<Spinner label="Loading…" />}>
+    <BoardPage />
+  </Suspense>
+)
 ```
 
 **The `passwordRecovery` branch is load-bearing and must not be dropped.** It is part of the

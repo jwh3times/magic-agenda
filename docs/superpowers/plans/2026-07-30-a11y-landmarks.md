@@ -8,7 +8,7 @@
 
 **Tech Stack:** React 19 + TypeScript, Vitest (jsdom), Playwright 1.62 + `@axe-core/playwright` 4.12.1, axe-core 4.12.1.
 
-**Spec:** `docs/superpowers/specs/2026-07-30-a11y-landmarks-design.md` — read it before starting. It records *why* each of these changes is shaped the way it is, and several are non-obvious.
+**Spec:** `docs/superpowers/specs/2026-07-30-a11y-landmarks-design.md` — read it before starting. It records _why_ each of these changes is shaped the way it is, and several are non-obvious.
 
 ## Global Constraints
 
@@ -27,36 +27,38 @@
 
 ## File Structure
 
-| File | Responsibility |
-| --- | --- |
-| `scripts/a11y-baseline.ts` | **New.** Pure baseline logic: parse + validate, tally findings, look up a label's expected counts, build a baseline from findings, format findings for a failure message. No I/O, no Playwright. |
-| `scripts/a11y-baseline.test.ts` | **New.** Vitest unit tests for the above. Runs in `npm test`. |
-| `tsconfig.node.json` | Gains the two new files in `include` (explicit file list, matching `tsconfig.worker.json`'s pattern). |
-| `package.json` | `format` / `format:check` globs gain `scripts/*.ts`. |
-| `tests/e2e/a11y.spec.ts` | Rewired to the module; gains animation freeze, the settings heading wait, the third seeded-card wait, the unconditional log line, and a corrected `page.clock` rationale. |
-| `tests/e2e/a11y-baseline.json` | Replaced: 810 lines of `{ruleId, target}` → 8 entries of `{label, ruleId, count}`. |
-| `src/components/Board.tsx` | The view/Inbox flex wrapper becomes `<main>`. |
-| `src/components/Toolbar.tsx` | Both branches: root becomes `<header>`; logo `<img>` gains an `<h1>` wrapper. |
-| `src/components/SearchFilterBar.tsx` | Root becomes `<search>`; the two selects and the input gain `aria-label`s. |
-| `src/components/Inbox.tsx` | Root becomes `<aside aria-label="Inbox">`. |
-| `src/pages/Login.tsx` | Card becomes `<main>`; logo `<img>` gains an `<h1>` wrapper. |
-| `src/pages/SettingsPage.tsx` | Sections wrapped in a **styled** `<main>`. |
-| `src/pages/Landing.tsx` | The two unnamed `<section>`s gain distinct `aria-label`s. |
-| `src/components/LegalLayout.tsx` | `<header>` around the logo link, `<main>` from the `<h1>` through the contact block. |
-| `.github/dependabot.yml` | `@axe-core/playwright` + `@playwright/test` move to their own group. |
-| `AGENTS.md`, `ROADMAP.md`, `CHANGELOG.md` | Realigned. |
+| File                                      | Responsibility                                                                                                                                                                                   |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `scripts/a11y-baseline.ts`                | **New.** Pure baseline logic: parse + validate, tally findings, look up a label's expected counts, build a baseline from findings, format findings for a failure message. No I/O, no Playwright. |
+| `scripts/a11y-baseline.test.ts`           | **New.** Vitest unit tests for the above. Runs in `npm test`.                                                                                                                                    |
+| `tsconfig.node.json`                      | Gains the two new files in `include` (explicit file list, matching `tsconfig.worker.json`'s pattern).                                                                                            |
+| `package.json`                            | `format` / `format:check` globs gain `scripts/*.ts`.                                                                                                                                             |
+| `tests/e2e/a11y.spec.ts`                  | Rewired to the module; gains animation freeze, the settings heading wait, the third seeded-card wait, the unconditional log line, and a corrected `page.clock` rationale.                        |
+| `tests/e2e/a11y-baseline.json`            | Replaced: 810 lines of `{ruleId, target}` → 8 entries of `{label, ruleId, count}`.                                                                                                               |
+| `src/components/Board.tsx`                | The view/Inbox flex wrapper becomes `<main>`.                                                                                                                                                    |
+| `src/components/Toolbar.tsx`              | Both branches: root becomes `<header>`; logo `<img>` gains an `<h1>` wrapper.                                                                                                                    |
+| `src/components/SearchFilterBar.tsx`      | Root becomes `<search>`; the two selects and the input gain `aria-label`s.                                                                                                                       |
+| `src/components/Inbox.tsx`                | Root becomes `<aside aria-label="Inbox">`.                                                                                                                                                       |
+| `src/pages/Login.tsx`                     | Card becomes `<main>`; logo `<img>` gains an `<h1>` wrapper.                                                                                                                                     |
+| `src/pages/SettingsPage.tsx`              | Sections wrapped in a **styled** `<main>`.                                                                                                                                                       |
+| `src/pages/Landing.tsx`                   | The two unnamed `<section>`s gain distinct `aria-label`s.                                                                                                                                        |
+| `src/components/LegalLayout.tsx`          | `<header>` around the logo link, `<main>` from the `<h1>` through the contact block.                                                                                                             |
+| `.github/dependabot.yml`                  | `@axe-core/playwright` + `@playwright/test` move to their own group.                                                                                                                             |
+| `AGENTS.md`, `ROADMAP.md`, `CHANGELOG.md` | Realigned.                                                                                                                                                                                       |
 
 ---
 
 ### Task 1: Pure baseline module + unit tests
 
 **Files:**
+
 - Create: `scripts/a11y-baseline.ts`
 - Create: `scripts/a11y-baseline.test.ts`
 - Modify: `tsconfig.node.json:31` (the `include` array)
 - Modify: `package.json` (`format` and `format:check` scripts)
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces, all imported by Task 2:
   - `interface BaselineEntry { label: string; ruleId: string; count: number }`
@@ -390,10 +392,12 @@ Claude-Session: https://claude.ai/code/session_013hHaNZxiiDYHhzeoRbCUgp"
 ### Task 2: Rewire the a11y spec to counts
 
 **Files:**
+
 - Modify: `tests/e2e/a11y.spec.ts` (full rewrite)
 - Modify: `tests/e2e/a11y-baseline.json` (full replacement)
 
 **Interfaces:**
+
 - Consumes: everything Task 1 produces.
 - Produces: the new `a11y-baseline.json` format, which Task 9 updates with real numbers.
 
@@ -684,7 +688,7 @@ Expected: all pass. If `tsc` cannot resolve `../../scripts/a11y-baseline`, confi
 
 - [ ] **Step 4: Add a permanent guard that the committed baseline is well-formed**
 
-Nothing else checks this without credentials: the validator only runs inside the E2E spec, which needs a deployed preview. Append to `scripts/a11y-baseline.test.ts` (it must go in *this* task, not Task 1 — before Step 1 above the committed file is still the old format and this would fail):
+Nothing else checks this without credentials: the validator only runs inside the E2E spec, which needs a deployed preview. Append to `scripts/a11y-baseline.test.ts` (it must go in _this_ task, not Task 1 — before Step 1 above the committed file is still the old format and this would fail):
 
 ```ts
 describe('the committed baseline', () => {
@@ -742,6 +746,7 @@ Claude-Session: https://claude.ai/code/session_013hHaNZxiiDYHhzeoRbCUgp"
 ### Task 3: Board chrome landmarks
 
 **Files:**
+
 - Modify: `src/components/Board.tsx:253-263`
 - Modify: `src/components/Toolbar.tsx:49-58` and `:60-72` and `:135` and `:137-141`
 - Modify: `src/components/SearchFilterBar.tsx:33-43`, `:44-49`, `:50-54`, `:62-66`
@@ -749,6 +754,7 @@ Claude-Session: https://claude.ai/code/session_013hHaNZxiiDYHhzeoRbCUgp"
 - Test: `src/components/Board.test.tsx`, `src/components/Toolbar.test.tsx`, `src/components/SearchFilterBar.test.tsx`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: the board surface exposes `banner`, `search`, `main`, `complementary` (named "Inbox") landmarks and one `<h1>` named "Magic Agenda".
 
@@ -834,30 +840,30 @@ In `src/components/Board.tsx`, the flex `<div>` opening at line 253 becomes `<ma
 In `src/components/Toolbar.tsx`, the **mobile** branch: change the opening tag at line 49 from `<div` to `<header` and its matching closing tag (line 130) to `</header>`, keeping the style spread unchanged. Then wrap the logo at lines 60-72:
 
 ```tsx
-          <h1 style={{ margin: 0, flex: '0 1 auto', minWidth: 0 }}>
-            <img
-              src={logoDark}
-              alt="Magic Agenda"
-              style={{
-                height: 44,
-                display: 'block',
-                // Shrinkable (unlike the buttons) so the row always fits the viewport. The flex
-                // properties moved to the <h1> when it became the flex item; maxWidth keeps the
-                // image itself shrinking with it.
-                maxWidth: '100%',
-                objectFit: 'contain',
-                objectPosition: 'left center',
-              }}
-            />
-          </h1>
+<h1 style={{ margin: 0, flex: '0 1 auto', minWidth: 0 }}>
+  <img
+    src={logoDark}
+    alt="Magic Agenda"
+    style={{
+      height: 44,
+      display: 'block',
+      // Shrinkable (unlike the buttons) so the row always fits the viewport. The flex
+      // properties moved to the <h1> when it became the flex item; maxWidth keeps the
+      // image itself shrinking with it.
+      maxWidth: '100%',
+      objectFit: 'contain',
+      objectPosition: 'left center',
+    }}
+  />
+</h1>
 ```
 
 The **desktop** branch: change line 135 from `<div style={c.toolbar}>` to `<header style={c.toolbar}>` and its matching closing tag at line 185 to `</header>`. Then wrap the logo at lines 137-141:
 
 ```tsx
-        <h1 style={{ margin: 0, flex: 'none' }}>
-          <img src={logoDark} alt="Magic Agenda" style={{ height: 80, display: 'block' }} />
-        </h1>
+<h1 style={{ margin: 0, flex: 'none' }}>
+  <img src={logoDark} alt="Magic Agenda" style={{ height: 80, display: 'block' }} />
+</h1>
 ```
 
 No `lineHeight: 0` is needed at either site: the `<img>` keeps `display: block`, so the `<h1>` contains no inline-level content and generates no line box. Zeroing the UA margin is required.
@@ -931,10 +937,12 @@ Claude-Session: https://claude.ai/code/session_013hHaNZxiiDYHhzeoRbCUgp"
 ### Task 4: Login landmark and heading
 
 **Files:**
+
 - Modify: `src/pages/Login.tsx:121-126`
 - Test: `src/pages/Login.test.tsx`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: `/login` exposes a `main` landmark and one `<h1>` named "Magic Agenda".
 
@@ -960,9 +968,9 @@ Expected: FAIL — `Unable to find an accessible element with the role "main"`.
 In `src/pages/Login.tsx`, change line 121 from `<div style={authCard}>` to `<main style={authCard}>`, change the matching closing tag at line 275 to `</main>`, and wrap the logo:
 
 ```tsx
-        <h1 style={{ margin: '0 0 6px' }}>
-          <img src={logoDark} alt="Magic Agenda" style={{ height: 110, display: 'block' }} />
-        </h1>
+<h1 style={{ margin: '0 0 6px' }}>
+  <img src={logoDark} alt="Magic Agenda" style={{ height: 110, display: 'block' }} />
+</h1>
 ```
 
 The `<h1>` takes over the `margin: '0 0 6px'` the `<img>` carried; the img keeps `height` and `display: 'block'`. `authPage` is `display: grid; placeItems: center`, so `<main style={authCard}>` lays out identically to the div it replaces.
@@ -996,10 +1004,12 @@ Claude-Session: https://claude.ai/code/session_013hHaNZxiiDYHhzeoRbCUgp"
 ### Task 5: Settings main landmark
 
 **Files:**
+
 - Modify: `src/pages/SettingsPage.tsx:94-104`
 - Test: `src/pages/SettingsPage.test.tsx`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: `/settings` exposes a `main` landmark alongside its existing `banner` and `contentinfo`.
 
@@ -1036,19 +1046,19 @@ Expected: FAIL — `Unable to find role="main"`.
 In `src/pages/SettingsPage.tsx`, wrap the `SECTIONS.map(...)` block at lines 94-104:
 
 ```tsx
-        <main style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {SECTIONS.map((s) => (
-            <section key={s.id} aria-labelledby={`settings-${s.id}`} style={card}>
-              <h2
-                id={`settings-${s.id}`}
-                style={{ margin: '0 0 12px', fontSize: 17, fontFamily: conf.title }}
-              >
-                {s.title}
-              </h2>
-              {s.render({ defaultView, onChangeView })}
-            </section>
-          ))}
-        </main>
+<main style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+  {SECTIONS.map((s) => (
+    <section key={s.id} aria-labelledby={`settings-${s.id}`} style={card}>
+      <h2
+        id={`settings-${s.id}`}
+        style={{ margin: '0 0 12px', fontSize: 17, fontFamily: conf.title }}
+      >
+        {s.title}
+      </h2>
+      {s.render({ defaultView, onChangeView })}
+    </section>
+  ))}
+</main>
 ```
 
 Leave `<header>` (line 85) and `<footer>` (line 106) exactly where they are, as siblings of the new `<main>`.
@@ -1082,11 +1092,13 @@ Claude-Session: https://claude.ai/code/session_013hHaNZxiiDYHhzeoRbCUgp"
 ### Task 6: Landing section names and the legal-page shell
 
 **Files:**
+
 - Modify: `src/pages/Landing.tsx:155`, `:210`
 - Modify: `src/components/LegalLayout.tsx:26-52`
 - Test: `src/pages/Landing.test.tsx`, `src/pages/legal.test.tsx`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: both landing `<section>`s are named `region` landmarks; `/privacy` and `/terms` expose `banner` + `main`.
 
@@ -1148,40 +1160,36 @@ and line 210:
 In `src/components/LegalLayout.tsx`, replace lines 26-52 (the inner `maxWidth: 760` div and its contents) with:
 
 ```tsx
-      <div style={{ maxWidth: 760, margin: '0 auto' }}>
-        <header>
-          <a href="/" aria-label="Magic Agenda home" style={{ display: 'inline-block' }}>
-            <img src={logoDark} alt="Magic Agenda" style={{ height: 30, display: 'block' }} />
-          </a>
-        </header>
-        <main>
-          <h1 style={{ fontFamily: "'Caveat', cursive", fontSize: 44, margin: '18px 0 2px' }}>
-            {title}
-          </h1>
-          <p style={{ opacity: 0.5, fontSize: 13, margin: '0 0 28px' }}>
-            Last updated: {lastUpdated}
-          </p>
-          <div style={{ fontSize: 15, lineHeight: 1.65 }}>{children}</div>
-          <div
-            style={{
-              marginTop: 40,
-              paddingTop: 18,
-              borderTop: '1px solid rgba(255,255,255,.1)',
-              fontSize: 13,
-              opacity: 0.6,
-            }}
-          >
-            Questions about this policy? Contact{' '}
-            <a href="mailto:jerryholland00@gmail.com" style={link}>
-              jerryholland00@gmail.com
-            </a>
-            .
-          </div>
-        </main>
-      </div>
+<div style={{ maxWidth: 760, margin: '0 auto' }}>
+  <header>
+    <a href="/" aria-label="Magic Agenda home" style={{ display: 'inline-block' }}>
+      <img src={logoDark} alt="Magic Agenda" style={{ height: 30, display: 'block' }} />
+    </a>
+  </header>
+  <main>
+    <h1 style={{ fontFamily: "'Caveat', cursive", fontSize: 44, margin: '18px 0 2px' }}>{title}</h1>
+    <p style={{ opacity: 0.5, fontSize: 13, margin: '0 0 28px' }}>Last updated: {lastUpdated}</p>
+    <div style={{ fontSize: 15, lineHeight: 1.65 }}>{children}</div>
+    <div
+      style={{
+        marginTop: 40,
+        paddingTop: 18,
+        borderTop: '1px solid rgba(255,255,255,.1)',
+        fontSize: 13,
+        opacity: 0.6,
+      }}
+    >
+      Questions about this policy? Contact{' '}
+      <a href="mailto:jerryholland00@gmail.com" style={link}>
+        jerryholland00@gmail.com
+      </a>
+      .
+    </div>
+  </main>
+</div>
 ```
 
-Both new elements are unstyled on purpose: the outer div is not a flex or grid container (it is `maxWidth` + `margin` only), so block children lay out exactly as they did before. This is *not* the Task 5 situation — verify that by reading line 17-25 before proceeding.
+Both new elements are unstyled on purpose: the outer div is not a flex or grid container (it is `maxWidth` + `margin` only), so block children lay out exactly as they did before. This is _not_ the Task 5 situation — verify that by reading line 17-25 before proceeding.
 
 - [ ] **Step 5: Run the tests to verify they pass**
 
@@ -1211,9 +1219,11 @@ Claude-Session: https://claude.ai/code/session_013hHaNZxiiDYHhzeoRbCUgp"
 ### Task 7: Isolate the E2E toolchain in Dependabot
 
 **Files:**
+
 - Modify: `.github/dependabot.yml` (the `groups:` block)
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: nothing consumed by later tasks.
 
@@ -1222,26 +1232,26 @@ Claude-Session: https://claude.ai/code/session_013hHaNZxiiDYHhzeoRbCUgp"
 In `.github/dependabot.yml`, insert this group immediately **before** the `npm-minor-and-patch` group (a package matches the first group it qualifies for, so it must precede the `"*"` catch-all):
 
 ```yaml
-      # The E2E toolchain, isolated from the daily catch-all — all update types, not just majors.
-      #
-      # The `E2E` job CANNOT RUN on a Dependabot PR: GitHub withholds regular repository secrets
-      # from the `dependabot` actor, so HAS_SECRETS is "false", the gate step takes its
-      # `!= "true"` branch, and the job reports success having scanned nothing. An axe rule change
-      # or a bundled-Chromium change therefore merges green and lands red on the NEXT HUMAN PR —
-      # the same shape as the Changelog-backfill trap in AGENTS.md.
-      #
-      # The counts-keyed baseline does not defuse this. Selector-path churn stops mattering, but
-      # the old ratchet failed only on INCREASES and tolerated a bump that reduced a count; strict
-      # equality does not. A @playwright/test bump changes the bundled Chromium, which moves
-      # color-contrast counts in BOTH directions. Grouping makes such a change attributable to one
-      # obvious PR; it does not make it survivable.
-      #
-      # axe-core is transitive under @axe-core/playwright and Dependabot does not open
-      # indirect-only npm PRs, so naming the two direct packages captures the family.
-      e2e-toolchain:
-        patterns:
-          - "@axe-core/playwright"
-          - "@playwright/test"
+# The E2E toolchain, isolated from the daily catch-all — all update types, not just majors.
+#
+# The `E2E` job CANNOT RUN on a Dependabot PR: GitHub withholds regular repository secrets
+# from the `dependabot` actor, so HAS_SECRETS is "false", the gate step takes its
+# `!= "true"` branch, and the job reports success having scanned nothing. An axe rule change
+# or a bundled-Chromium change therefore merges green and lands red on the NEXT HUMAN PR —
+# the same shape as the Changelog-backfill trap in AGENTS.md.
+#
+# The counts-keyed baseline does not defuse this. Selector-path churn stops mattering, but
+# the old ratchet failed only on INCREASES and tolerated a bump that reduced a count; strict
+# equality does not. A @playwright/test bump changes the bundled Chromium, which moves
+# color-contrast counts in BOTH directions. Grouping makes such a change attributable to one
+# obvious PR; it does not make it survivable.
+#
+# axe-core is transitive under @axe-core/playwright and Dependabot does not open
+# indirect-only npm PRs, so naming the two direct packages captures the family.
+e2e-toolchain:
+  patterns:
+    - '@axe-core/playwright'
+    - '@playwright/test'
 ```
 
 - [ ] **Step 2: Verify the YAML parses**
@@ -1269,11 +1279,13 @@ Claude-Session: https://claude.ai/code/session_013hHaNZxiiDYHhzeoRbCUgp"
 ### Task 8: Documentation realignment
 
 **Files:**
+
 - Modify: `AGENTS.md:384` and the surrounding bullet list
 - Modify: `ROADMAP.md:49`, `:73-74`, `:81`
 - Modify: `CHANGELOG.md`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: nothing consumed by later tasks.
 
@@ -1382,9 +1394,11 @@ Claude-Session: https://claude.ai/code/session_013hHaNZxiiDYHhzeoRbCUgp"
 ### Task 9: Open the PR and converge the baseline against CI
 
 **Files:**
+
 - Modify: `tests/e2e/a11y-baseline.json` (with the numbers CI reports)
 
 **Interfaces:**
+
 - Consumes: the baseline format from Task 2.
 - Produces: a green `E2E` check.
 

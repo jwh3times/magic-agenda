@@ -48,6 +48,7 @@ pipeline with an exactly-known diff.
 - [ ] **Step 1: STOP and prompt Jerry with exactly this checklist; record every answer:**
 
 > **A. Transcribe from the Supabase dashboard (Authentication section):**
+>
 > 1. **URL Configuration:** Site URL, and the complete Redirect URLs list (every entry, verbatim).
 > 2. **Providers → Email:** Confirm email ON/OFF, Secure email change ON/OFF, Secure password
 >    change ON/OFF, Minimum password length, Password requirements (which complexity option),
@@ -63,24 +64,28 @@ pipeline with an exactly-known diff.
 >    templates differ from stock (expected: Confirm signup and Reset password only).
 >
 > **B. Add the two new repo secrets yourself (values must not pass through chat):**
+>
 > ```
 > gh secret set RESEND_API_KEY               # paste the Resend API key when prompted
 > gh secret set GOOGLE_OAUTH_CLIENT_SECRET   # from dashboard Google provider / GCP console
 > ```
+>
 > Confirm with `gh secret list` (should show 5 secrets).
 
 - [ ] **Step 2: Record the transcribed values in the run ledger** (they parameterize Task 2) and
-  do not proceed until both secrets show in `gh secret list`.
+      do not proceed until both secrets show in `gh secret list`.
 
 ---
 
 ### Task 2: Reconcile `supabase/config.toml` to production
 
 **Files:**
+
 - Modify: `supabase/config.toml` (the `[auth]`… sections only; `[api]`/`[db]`/`[storage]`/
   `[realtime]`/`[studio]`/`[local_smtp]`/`[edge_runtime]` untouched)
 
 **Interfaces:**
+
 - Consumes: the Gate 1 value inventory (orchestrator inserts real values into this dispatch).
 - Produces: a `config.toml` whose `[auth]` tree exactly describes production; the only `env()`
   references this change leaves in the [auth] tree are `RESEND_API_KEY` and
@@ -89,7 +94,7 @@ pipeline with an exactly-known diff.
 - [ ] **Step 1: Apply the edits.** With `<G1:…>` meaning "the value recorded at Gate 1":
 
 1. `[auth]`: `site_url = "https://magicagenda.app"`; `additional_redirect_urls = [ <G1:full
-   redirect list, one quoted string per entry> ]`; `minimum_password_length = <G1>` (expected 10);
+redirect list, one quoted string per entry> ]`; `minimum_password_length = <G1>` (expected 10);
    `password_requirements = "<G1>"` (expected `lower_upper_letters_digits_symbols`); leave
    `jwt_expiry`, `enable_refresh_token_rotation`, `refresh_token_reuse_interval`,
    `enable_signup`, `enable_anonymous_sign_ins`, `enable_manual_linking` at current file values
@@ -133,7 +138,7 @@ secret = "env(GOOGLE_OAUTH_CLIENT_SECRET)"
    workflow). Keep the block's DO-NOT-COMMIT comment.
 
 - [ ] **Step 2: Verify the CLI still parses the file without the new env vars set** (read-only
-  command; also regression-checks generated types):
+      command; also regression-checks generated types):
 
 Run: `npx supabase gen types typescript --linked > "$TEMP/gen-types-check.ts" && node -e "const fs=require('fs');const a=fs.readFileSync('src/types/database.types.ts','utf8');const b=fs.readFileSync(process.env.TEMP+'/gen-types-check.ts','utf8');process.exit(a.trim()===b.trim()?0:1)" && echo TYPES-MATCH`
 Expected: `TYPES-MATCH`, possibly with CLI warnings about unset env vars (warnings are fine).
@@ -154,11 +159,13 @@ git commit -m "chore: reconcile supabase config.toml with production auth settin
 ### Task 3: Deploy workflow + env vars for existing workflows
 
 **Files:**
+
 - Create: `.github/workflows/deploy-auth-config.yml`
 - Modify: `.github/workflows/deploy-migrations.yml` (env block)
 - Modify: `.github/workflows/deploy-functions.yml` (env block)
 
 **Interfaces:**
+
 - Consumes: the reconciled `config.toml` (Task 2) with its two `env()` references.
 - Produces: `Deploy Auth Config` workflow that Task 6/10's merges trigger; migrations/functions
   workflows immune to the new `env()` refs.
@@ -212,12 +219,12 @@ jobs:
 ```
 
 - [ ] **Step 2: Add the two new env lines to `deploy-migrations.yml`** — in the `Deploy` job's
-  `env:` block, after `SUPABASE_PROJECT_ID`:
+      `env:` block, after `SUPABASE_PROJECT_ID`:
 
 ```yaml
-      # config.toml now contains env() references; the CLI parses it during link/push.
-      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+# config.toml now contains env() references; the CLI parses it during link/push.
+RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
 ```
 
 - [ ] **Step 3: Same two lines (same comment) in `deploy-functions.yml`'s `env:` block.**
@@ -234,94 +241,96 @@ git commit -m "ci: deploy auth config from config.toml on merge to main"
 ### Task 4: `Config` preview job in `ci.yml`
 
 **Files:**
+
 - Modify: `.github/workflows/ci.yml` (append one job)
 
 **Interfaces:**
+
 - Consumes: same five secrets; the reconciled config.
 - Produces: a job named `Config` that ALWAYS reports a status (required-check-safe), and on
   config-touching PRs writes the pending push diff to the job summary without applying it.
 
 - [ ] **Step 1: Append after the `Changelog` job:**
 
-```yaml
-  # Previews what `supabase config push` would change, WITHOUT applying it. The CLI
-  # has no --dry-run, and running it non-interactively with closed stdin is NOT safe:
-  # its confirmation prompts default to YES on EOF (verified against the CLI source
-  # and its integration tests). `yes n |` streams a decline to every prompt, so this
-  # job can never apply config. The prompt lines in the output ARE the preview: no
-  # prompts + exit 0 = remote already matches the file; each "Do you want to push…?"
-  # line names a service with pending changes. The real push happens in
-  # deploy-auth-config.yml on merge (--yes). This job always reports a status (a
-  # required check that skips wedges the PR — see AGENTS.md), exiting early when the
-  # PR doesn't touch config paths, and for Dependabot PRs (which get no secrets).
-  # NOTE: output patterns below were written before the first real run; PR 1 of the
-  # config-as-code plan is the calibration run — adjust there if wording differs.
-  Config:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
-      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - name: Skip when the PR touches no config paths (or author is Dependabot)
-        id: paths
-        env:
-          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
-          BASE_REF: ${{ github.base_ref }}
-        run: |
-          set -euo pipefail
-          if [[ "$PR_AUTHOR" == "dependabot[bot]" ]]; then
-            echo "Dependabot PR: no secrets available; preview skipped." | tee -a "$GITHUB_STEP_SUMMARY"
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          changed_files=$(git diff --name-only "origin/${BASE_REF}...HEAD" -- supabase/config.toml 'supabase/templates/**')
-          if [ -n "$changed_files" ]; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "No auth-config changes in this PR." | tee -a "$GITHUB_STEP_SUMMARY"
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          fi
-      - uses: supabase/setup-cli@v3
-        if: steps.paths.outputs.changed == 'true'
-        with:
-          version: latest
-      - name: Link project
-        if: steps.paths.outputs.changed == 'true'
-        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
-      - name: Preview config push (declines every prompt — never applies)
-        if: steps.paths.outputs.changed == 'true'
-        run: |
-          # Never add shell: bash to this job: that turns on pipefail, and yes(1) dying of SIGPIPE would misreport config push's exit code (141) and corrupt the no-op classification.
-          set +e
-          out=$(yes n | supabase config push 2>&1)
-          code=$?
-          set -e
-          {
-            echo '## Pending `supabase config push` changes (each declined prompt = one pending service)'
-            echo '```'
-            echo "$out"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+````yaml
+# Previews what `supabase config push` would change, WITHOUT applying it. The CLI
+# has no --dry-run, and running it non-interactively with closed stdin is NOT safe:
+# its confirmation prompts default to YES on EOF (verified against the CLI source
+# and its integration tests). `yes n |` streams a decline to every prompt, so this
+# job can never apply config. The prompt lines in the output ARE the preview: no
+# prompts + exit 0 = remote already matches the file; each "Do you want to push…?"
+# line names a service with pending changes. The real push happens in
+# deploy-auth-config.yml on merge (--yes). This job always reports a status (a
+# required check that skips wedges the PR — see AGENTS.md), exiting early when the
+# PR doesn't touch config paths, and for Dependabot PRs (which get no secrets).
+# NOTE: output patterns below were written before the first real run; PR 1 of the
+# config-as-code plan is the calibration run — adjust there if wording differs.
+Config:
+  if: github.event_name == 'pull_request'
+  runs-on: ubuntu-latest
+  env:
+    SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+    RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+    GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+  steps:
+    - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+    - name: Skip when the PR touches no config paths (or author is Dependabot)
+      id: paths
+      env:
+        PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        BASE_REF: ${{ github.base_ref }}
+      run: |
+        set -euo pipefail
+        if [[ "$PR_AUTHOR" == "dependabot[bot]" ]]; then
+          echo "Dependabot PR: no secrets available; preview skipped." | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        changed_files=$(git diff --name-only "origin/${BASE_REF}...HEAD" -- supabase/config.toml 'supabase/templates/**')
+        if [ -n "$changed_files" ]; then
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "No auth-config changes in this PR." | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+        fi
+    - uses: supabase/setup-cli@v3
+      if: steps.paths.outputs.changed == 'true'
+      with:
+        version: latest
+    - name: Link project
+      if: steps.paths.outputs.changed == 'true'
+      run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
+    - name: Preview config push (declines every prompt — never applies)
+      if: steps.paths.outputs.changed == 'true'
+      run: |
+        # Never add shell: bash to this job: that turns on pipefail, and yes(1) dying of SIGPIPE would misreport config push's exit code (141) and corrupt the no-op classification.
+        set +e
+        out=$(yes n | supabase config push 2>&1)
+        code=$?
+        set -e
+        {
+          echo '## Pending `supabase config push` changes (each declined prompt = one pending service)'
+          echo '```'
           echo "$out"
-          prompts=$(echo "$out" | grep -ciE 'do you want|\[y/n\]' || true)
-          if [ "$code" -eq 0 ] && [ "$prompts" -eq 0 ]; then
-            echo "No pending changes — remote already matches the file."
-            exit 0
-          fi
-          if [ "$prompts" -gt 0 ]; then
-            echo "Preview complete: $prompts pending change prompt(s), all declined — nothing applied."
-            exit 0
-          fi
-          echo "config push failed before reaching any confirmation prompt."
-          exit "$code"
-```
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+        echo "$out"
+        prompts=$(echo "$out" | grep -ciE 'do you want|\[y/n\]' || true)
+        if [ "$code" -eq 0 ] && [ "$prompts" -eq 0 ]; then
+          echo "No pending changes — remote already matches the file."
+          exit 0
+        fi
+        if [ "$prompts" -gt 0 ]; then
+          echo "Preview complete: $prompts pending change prompt(s), all declined — nothing applied."
+          exit 0
+        fi
+        echo "config push failed before reaching any confirmation prompt."
+        exit "$code"
+````
 
 - [ ] **Step 2: Sanity-check the workflow file parses** (no YAML errors):
 
@@ -341,10 +350,11 @@ git commit -m "ci: add Config job previewing supabase config push on PRs"
 ### Task 5: PKCE spec status correction + ship PR 1
 
 **Files:**
+
 - Modify: `docs/specs/2026-07-25-pkce-auth-flow-design.md` (status line only)
 
 - [ ] **Step 1:** In the PKCE spec header, change `- **Status:** Approved, not yet implemented`
-  to `- **Status:** Shipped as v1.2.19 (PR #92, 2026-07-25)`.
+      to `- **Status:** Shipped as v1.2.19 (PR #92, 2026-07-25)`.
 
 - [ ] **Step 2:** Commit:
 
@@ -354,15 +364,15 @@ git commit -m "docs: mark PKCE auth spec shipped (v1.2.19)"
 ```
 
 - [ ] **Step 3: Invoke the `ship` skill** for PR 1. Changelog notes for the entry (Internal +
-  Security flavored): config.toml now describes production (closes the "config push is a
-  landmine" follow-up from the PKCE spec); new `Deploy Auth Config` workflow + `Config` PR
-  preview job; two new repo secrets referenced via `env()`. Docs pass: AGENTS.md's "When
-  changing the schema" / commands area may warrant one sentence on config-as-code (docs-updater
-  decides); ROADMAP untouched.
+      Security flavored): config.toml now describes production (closes the "config push is a
+      landmine" follow-up from the PKCE spec); new `Deploy Auth Config` workflow + `Config` PR
+      preview job; two new repo secrets referenced via `env()`. Docs pass: AGENTS.md's "When
+      changing the schema" / commands area may warrant one sentence on config-as-code (docs-updater
+      decides); ROADMAP untouched.
 
 - [ ] **Step 4:** Wait for all checks green. The `Config` job on this PR is the **calibration
-  run** — if it fails on output-pattern matching (see Task 4 NOTE), fix the pattern in the same
-  PR and re-push.
+      run** — if it fails on output-pattern matching (see Task 4 NOTE), fix the pattern in the same
+      PR and re-push.
 
 ---
 
@@ -381,8 +391,8 @@ git commit -m "docs: mark PKCE auth spec shipped (v1.2.19)"
 > smoke: password sign-in, Google OAuth, and one password-reset email arriving.
 
 - [ ] **Step 2: Record the outcome** (preview no-op confirmed, merge SHA, smoke results) in the
-  ledger. If the preview showed changes: loop back to Task 2 with the diff as input (this is the
-  one sanctioned re-entry in the plan).
+      ledger. If the preview showed changes: loop back to Task 2 with the diff as input (this is the
+      one sanctioned re-entry in the plan).
 
 ---
 
@@ -395,19 +405,21 @@ git commit -m "docs: mark PKCE auth spec shipped (v1.2.19)"
 > These are not secrets. Don't edit anything in the dashboard — we're copying, not changing.
 
 - [ ] **Step 2: Verify each pasted body contains its expected link** —
-  `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=signup` (confirmation) and
-  `…&type=recovery` (recovery). If either is missing, stop and reconcile with Jerry before
-  proceeding (the dashboard is the source of truth for what's live).
+      `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=signup` (confirmation) and
+      `…&type=recovery` (recovery). If either is missing, stop and reconcile with Jerry before
+      proceeding (the dashboard is the source of truth for what's live).
 
 ---
 
 ### Task 8: Templates as code
 
 **Files:**
+
 - Create: `supabase/templates/confirmation.html`, `supabase/templates/recovery.html`
 - Modify: `supabase/config.toml` (two template blocks)
 
 **Interfaces:**
+
 - Consumes: Gate 7's subjects + HTML; the merged PR 1 state of `config.toml`.
 - Produces: template files whose `content_path`s the deploy workflow pushes.
 
@@ -418,10 +430,10 @@ git checkout main && git pull && git checkout -b chore/auth-templates-as-code
 ```
 
 - [ ] **Step 2:** Write the two files with Gate 7's HTML, byte-for-byte (no reformatting — these
-  files are outside `src/`, so Prettier does not touch them; keep them out of any format run).
+      files are outside `src/`, so Prettier does not touch them; keep them out of any format run).
 
 - [ ] **Step 3:** In `supabase/config.toml`, replace the commented
-  `# [auth.email.template.invite]` example block with:
+      `# [auth.email.template.invite]` example block with:
 
 ```toml
 # The two templates the app actually sends. Content is version-controlled; the
@@ -437,9 +449,9 @@ content_path = "./supabase/templates/recovery.html"
 ```
 
 - [ ] **Step 4: Verify `content_path` resolution locally** (the CLI resolves paths relative to
-  the repo root, mirroring the stock comment's `./supabase/templates/…` form): re-run the Task 2
-  Step 2 gen-types check — the CLI parsing config.toml without error is the assertion here.
-  Expected: `TYPES-MATCH` again.
+      the repo root, mirroring the stock comment's `./supabase/templates/…` form): re-run the Task 2
+      Step 2 gen-types check — the CLI parsing config.toml without error is the assertion here.
+      Expected: `TYPES-MATCH` again.
 
 - [ ] **Step 5: Commit**
 
@@ -453,14 +465,14 @@ git commit -m "feat: manage auth email templates as code"
 ### Task 9: Ship PR 2
 
 - [ ] **Step 1: Invoke the `ship` skill.** Changelog notes: auth email templates
-  (confirm-signup, reset-password) now live in `supabase/templates/` and deploy on merge;
-  dashboard edits are no longer the source of truth. Docs: AGENTS.md gains one line in the
-  agents/docs or schema section pointing at `supabase/templates/` (docs-updater decides
-  placement); note the ROADMAP 5.7 enablement in the changelog entry, not ROADMAP itself.
+      (confirm-signup, reset-password) now live in `supabase/templates/` and deploy on merge;
+      dashboard edits are no longer the source of truth. Docs: AGENTS.md gains one line in the
+      agents/docs or schema section pointing at `supabase/templates/` (docs-updater decides
+      placement); note the ROADMAP 5.7 enablement in the changelog entry, not ROADMAP itself.
 
 - [ ] **Step 2:** Checks green; this PR's `Config` job summary must show **exactly the two
-  template blocks** as the pending diff — nothing else. Anything else pending = PR 1 left drift
-  or the dashboard changed since; stop and reconcile with Jerry before the merge gate.
+      template blocks** as the pending diff — nothing else. Anything else pending = PR 1 left drift
+      or the dashboard changed since; stop and reconcile with Jerry before the merge gate.
 
 ---
 
@@ -481,11 +493,11 @@ git commit -m "feat: manage auth email templates as code"
 ### Task 11: MANUAL GATE + ruleset edit — make `Config` required (Jerry approves, orchestrator executes)
 
 - [ ] **Step 1: STOP and confirm with Jerry** that he wants `Config` added to the required
-  checks now that it exists on `main` (it always reports a status, so it cannot wedge PRs —
-  including Dependabot's).
+      checks now that it exists on `main` (it always reports a status, so it cannot wedge PRs —
+      including Dependabot's).
 
 - [ ] **Step 2: Edit the ruleset** (id 18273908, "Main/Release branch rules" — the legacy
-  branch-protection API 404s on this repo; the ruleset PUT needs the FULL rules array):
+      branch-protection API 404s on this repo; the ruleset PUT needs the FULL rules array):
 
 ```bash
 gh api repos/jwh3times/magic-agenda/rulesets/18273908 > /tmp/ruleset.json
@@ -507,8 +519,8 @@ Expected verification output includes `"Config"` alongside `Format`, `Test`, `Bu
 `Functions`, `Agents`, `Changelog`.
 
 - [ ] **Step 3: Close out** — update the agent memory (config-as-code live; `config push` no
-  longer a landmine; ROADMAP 5.7 unblocked), and confirm to Jerry that both spec follow-ups are
-  done.
+      longer a landmine; ROADMAP 5.7 unblocked), and confirm to Jerry that both spec follow-ups are
+      done.
 
 ---
 

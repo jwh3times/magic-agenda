@@ -27,22 +27,23 @@
 
 ## File Structure
 
-| File | Responsibility |
-| --- | --- |
-| `src/pages/authChrome.ts` | Gains `gridTemplateColumns` on `authPage` and a new `authLogo` export. Already the shared home for auth-page style objects. |
-| `src/pages/Login.tsx`, `ResetPassword.tsx`, `AuthConfirm.tsx` | Six `<img>` call sites adopt `authLogo`. |
-| `src/pages/Login.test.tsx`, `ResetPassword.test.tsx`, `AuthConfirm.test.tsx` | One assertion each that the logo carries the fluid style. |
-| `tests/e2e/smoke.spec.ts` | **New describe block:** no horizontal overflow at 390px across the six public routes. Belongs here, not in `a11y.spec.ts` — it is a layout assertion, not an axe scan. |
-| `scripts/a11y-baseline.ts` | Gains `Finding.detail`, `ContrastData`, `formatContrast()`, `parseScanCallSites()`; `formatFindings()` learns to print a detail line. All pure. |
-| `scripts/a11y-baseline.test.ts` | Unit tests for the three new/changed functions. |
-| `tests/e2e/a11y.spec.ts` | `scan()` populates `detail` for `color-contrast` findings. No other change. |
-| `CHANGELOG.md` | A section for the version this merge mints. |
+| File                                                                         | Responsibility                                                                                                                                                         |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/pages/authChrome.ts`                                                    | Gains `gridTemplateColumns` on `authPage` and a new `authLogo` export. Already the shared home for auth-page style objects.                                            |
+| `src/pages/Login.tsx`, `ResetPassword.tsx`, `AuthConfirm.tsx`                | Six `<img>` call sites adopt `authLogo`.                                                                                                                               |
+| `src/pages/Login.test.tsx`, `ResetPassword.test.tsx`, `AuthConfirm.test.tsx` | One assertion each that the logo carries the fluid style.                                                                                                              |
+| `tests/e2e/smoke.spec.ts`                                                    | **New describe block:** no horizontal overflow at 390px across the six public routes. Belongs here, not in `a11y.spec.ts` — it is a layout assertion, not an axe scan. |
+| `scripts/a11y-baseline.ts`                                                   | Gains `Finding.detail`, `ContrastData`, `formatContrast()`, `parseScanCallSites()`; `formatFindings()` learns to print a detail line. All pure.                        |
+| `scripts/a11y-baseline.test.ts`                                              | Unit tests for the three new/changed functions.                                                                                                                        |
+| `tests/e2e/a11y.spec.ts`                                                     | `scan()` populates `detail` for `color-contrast` findings. No other change.                                                                                            |
+| `CHANGELOG.md`                                                               | A section for the version this merge mints.                                                                                                                            |
 
 ---
 
 ### Task 1: Make the auth logo fluid
 
 **Files:**
+
 - Modify: `src/pages/authChrome.ts:4-13` (`authPage`) and a new export after it
 - Modify: `src/pages/Login.tsx:7,123`
 - Modify: `src/pages/ResetPassword.tsx:7,53,74,117`
@@ -50,10 +51,11 @@
 - Test: `src/pages/Login.test.tsx`, `src/pages/ResetPassword.test.tsx`, `src/pages/AuthConfirm.test.tsx`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: `export const authLogo: CSSProperties` in `src/pages/authChrome.ts`.
 
-> **Why the fixed height has to go.** The logo source is 900×260. With `height: 110` and no `max-width`, its used width is 381px and cannot shrink — 37px wider than the card's 344px content box at *every* viewport width. Keeping the fixed height and merely clamping the width would squash the image, because `object-fit` defaults to `fill`.
+> **Why the fixed height has to go.** The logo source is 900×260. With `height: 110` and no `max-width`, its used width is 381px and cannot shrink — 37px wider than the card's 344px content box at _every_ viewport width. Keeping the fixed height and merely clamping the width would squash the image, because `object-fit` defaults to `fill`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -184,9 +186,11 @@ Claude-Session: https://claude.ai/code/session_013hHaNZxiiDYHhzeoRbCUgp"
 ### Task 2: Guard horizontal overflow at phone width
 
 **Files:**
+
 - Modify: `tests/e2e/smoke.spec.ts` (append a new `test.describe` at the end)
 
 **Interfaces:**
+
 - Consumes: the fluid logo from Task 1. Without it, three of these six routes fail.
 - Produces: nothing consumed by later tasks.
 
@@ -267,11 +271,13 @@ Claude-Session: https://claude.ai/code/session_013hHaNZxiiDYHhzeoRbCUgp"
 ### Task 3: Log the colours behind `color-contrast` findings
 
 **Files:**
+
 - Modify: `scripts/a11y-baseline.ts` (the `Finding` interface, `formatFindings()`, plus two new exports)
 - Modify: `scripts/a11y-baseline.test.ts`
 - Modify: `tests/e2e/a11y.spec.ts` (the `scan()` function only)
 
 **Interfaces:**
+
 - Consumes: the existing `Finding`, `formatFindings()`.
 - Produces:
   - `Finding` gains an optional `detail?: string`
@@ -406,23 +412,22 @@ Expected: PASS, including every pre-existing test in the file.
 In `tests/e2e/a11y.spec.ts`, add `formatContrast` and `type ContrastData` to the existing import from `'../../scripts/a11y-baseline'`, then change the `found` construction inside `scan()`:
 
 ```ts
-  const found = results.violations.flatMap((violation) =>
-    violation.nodes.map((node) => ({
-      label,
-      ruleId: violation.id,
-      target: node.target.join(' '),
-      // Only color-contrast carries colour data, and it is the only family where knowing WHICH
-      // colours failed saves work later — see this file's header note on the deferred redesign.
-      detail:
-        violation.id === 'color-contrast'
-          ? formatContrast(
-              node.any.find((check) => check.id === 'color-contrast')?.data as
-                | ContrastData
-                | undefined,
-            )
-          : undefined,
-    })),
-  )
+const found = results.violations.flatMap((violation) =>
+  violation.nodes.map((node) => ({
+    label,
+    ruleId: violation.id,
+    target: node.target.join(' '),
+    // Only color-contrast carries colour data, and it is the only family where knowing WHICH
+    // colours failed saves work later — see this file's header note on the deferred redesign.
+    detail:
+      violation.id === 'color-contrast'
+        ? formatContrast(
+            node.any.find((check) => check.id === 'color-contrast')?.data as
+              ContrastData | undefined,
+          )
+        : undefined,
+  })),
+)
 ```
 
 Change nothing else in that function — the `scanned.add(label)` call, the `console.log`, and the return all stay exactly as they are.
@@ -454,10 +459,12 @@ Claude-Session: https://claude.ai/code/session_013hHaNZxiiDYHhzeoRbCUgp"
 ### Task 4: Check `EXPECTED_LABELS` against the real call sites
 
 **Files:**
+
 - Modify: `scripts/a11y-baseline.ts` (one new export)
 - Modify: `scripts/a11y-baseline.test.ts`
 
 **Interfaces:**
+
 - Consumes: `EXPECTED_LABELS`.
 - Produces: `export function parseScanCallSites(specSource: string): string[]`
 
@@ -604,9 +611,11 @@ Claude-Session: https://claude.ai/code/session_013hHaNZxiiDYHhzeoRbCUgp"
 ### Task 5: Changelog
 
 **Files:**
+
 - Modify: `CHANGELOG.md`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: nothing.
 
@@ -666,6 +675,7 @@ Claude-Session: https://claude.ai/code/session_013hHaNZxiiDYHhzeoRbCUgp"
 **Files:** none.
 
 **Interfaces:**
+
 - Consumes: everything above.
 - Produces: a green PR.
 
@@ -686,6 +696,7 @@ gh pr create --fill
 ```bash
 gh pr checks --watch
 ```
+
 All of Format, Test, Build, Functions, Changelog, Agents, Config, RLS and E2E must pass. **Unlike the previous branch, no check is expected to be red here** — this plan moves no baseline numbers. An `E2E` failure means something real: most likely a public route that overflows for a reason Task 1 did not address, in which case the failure message names the route and the pixel delta.
 
 - [ ] **Step 4: Confirm the a11y counts did not move**
@@ -693,7 +704,9 @@ All of Format, Test, Build, Functions, Changelog, Agents, Config, RLS and E2E mu
 ```bash
 gh run view --log | grep '^\[a11y\]'
 ```
+
 Expected, unchanged from the previous branch — the colour detail is additive and no count should differ:
+
 ```
 [a11y] landing {"color-contrast":1}
 [a11y] login {"color-contrast":1}
@@ -702,14 +715,17 @@ Expected, unchanged from the previous branch — the colour detail is additive a
 [a11y] board-brutal {"color-contrast":9,"nested-interactive":3}
 [a11y] board-glass {"color-contrast":2,"nested-interactive":3}
 ```
+
 The `color-contrast` lines should now be followed by indented `#fg on #bg — R:1 (needs E:1)` lines. If a **count** changed, stop and diagnose — this plan should not have moved one. A changed count on `login` specifically would mean the logo resize altered a contrast result.
 
 - [ ] **Step 5: Look at the preview**
 
 Get the URL from the PR's `Cloudflare Pages` check, or:
+
 ```bash
 GITHUB_REPOSITORY=jwh3times/magic-agenda node scripts/preview-url.mjs $(git rev-parse HEAD)
 ```
+
 Open `/login` at desktop and phone widths. Confirm the logo sits inside the card with even padding on both sides, and that the page does not scroll sideways on the phone width. **The desktop logo is intentionally about 10% smaller than production** — confirm it still looks right rather than assuming the smaller size is a bug.
 
 ---

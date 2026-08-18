@@ -62,6 +62,7 @@ were added as their own effort rather than a roadmap feature — see
   platform itself creates in `public` are therefore still auto-granted. Closing it needs the
   dashboard or Supabase support. Narrow in practice — this project's tables are all created as
   `postgres` — but it is the one part of the boundary that no test or migration here can reach.
+
 - **Part 2A (Playwright smoke + a11y) has shipped** in v1.2.43 — `tests/e2e/`, driven against the
   PR's Cloudflare Pages preview. Two follow-ups remain:
   - **Part 2B (visual regression)** is still unbuilt — see
@@ -123,11 +124,11 @@ were added as their own effort rather than a roadmap feature — see
 ## Phase 4 — Productivity & personalization
 
 - [~] **Custom labels** · **P2** · XL — issue #164 resolved the language: **Label** replaces
-      Category; each Task has zero or one Board-owned Label; **Unlabeled** is absence; Label Color is
-      independent from purely visual Note Color; names are trimmed and case-insensitively unique
-      within a Board; and the five seeded Labels are ordinary, editable definitions. The Board
-      schema, task experience, and Label-aware backup path shipped in #176–#178. Two bounded
-      releases remain:
+  Category; each Task has zero or one Board-owned Label; **Unlabeled** is absence; Label Color is
+  independent from purely visual Note Color; names are trimmed and case-insensitively unique
+  within a Board; and the five seeded Labels are ordinary, editable definitions. The Board
+  schema, task experience, and Label-aware backup path shipped in #176–#178. Two bounded
+  releases remain:
   1. [#179](https://github.com/jwh3times/magic-agenda/issues/179) — Owner-only Label management on
      `/settings`; deletion makes affected Tasks Unlabeled. This follows #178 so backups can
      represent Labels before users can rename, recolor, or delete their definitions.
@@ -269,47 +270,48 @@ Larger efforts that fit the app's direction but are not near-term.
       rewrite, per-board storage and realtime) is needed whether or not a second person ever joins.
       Milestone-level plan only; re-plan in detail when scheduled:
   1. **Landed 2026-08-13 (v1.2.76), schema and backfill only — this is one step of the epic, not the
-      epic.** `account_profiles`, `boards`, and `board_memberships` (carrying `role` from the first
-      migration — it is the column you never want to retrofit under live policies) exist, and every
-      account has been backfilled with one board and an owner membership. `tasks.board_id` shipped
-      **nullable** at this step, not NOT NULL as originally sketched here: it became NOT NULL only at
-      the authorization cutover in step 2, so the currently-deployed client — which sent no
-      `board_id` — kept working via a temporary insert trigger, still in place until Board creation
-      ships (see AGENTS.md's `tasks_infer_board_id` bullet). `tasks.revision` and the attribution
-      columns (`author_id`, `last_editor_id`, `author_kind`) also landed with this step rather than
-      waiting for step 2 as sketched below. At this point it was not yet an authorization boundary —
-      `tasks` policies still compared `user_id` to `auth.uid()` — so containment was data integrity,
-      not access control, until step 2 shipped. The reasoning for the NOT NULL cutover wasn't
-      relitigated when it landed:
+     epic.** `account_profiles`, `boards`, and `board_memberships` (carrying `role` from the first
+     migration — it is the column you never want to retrofit under live policies) exist, and every
+     account has been backfilled with one board and an owner membership. `tasks.board_id` shipped
+     **nullable** at this step, not NOT NULL as originally sketched here: it became NOT NULL only at
+     the authorization cutover in step 2, so the currently-deployed client — which sent no
+     `board_id` — kept working via a temporary insert trigger, still in place until Board creation
+     ships (see AGENTS.md's `tasks_infer_board_id` bullet). `tasks.revision` and the attribution
+     columns (`author_id`, `last_editor_id`, `author_kind`) also landed with this step rather than
+     waiting for step 2 as sketched below. At this point it was not yet an authorization boundary —
+     `tasks` policies still compared `user_id` to `auth.uid()` — so containment was data integrity,
+     not access control, until step 2 shipped. The reasoning for the NOT NULL cutover wasn't
+     relitigated when it landed:
 
-      Explicitly *not* `NULL = personal board`: the zero-migration appeal is real, but it preserves
-      two task-ownership models indefinitely, and every reader, policy, realtime filter, snapshot,
-      and export path then has to handle both forever.
+     Explicitly _not_ `NULL = personal board`: the zero-migration appeal is real, but it preserves
+     two task-ownership models indefinitely, and every reader, policy, realtime filter, snapshot,
+     and export path then has to handle both forever.
+
   2. **Landed 2026-08-14, the authorization cutover — the single riskiest change in the roadmap.**
-      `tasks.board_id` is NOT NULL; the four legacy `user_id`-scoped policies are dropped and
-      replaced with four board-membership ones, all naming `authenticated` explicitly: any current
-      member may SELECT (Viewers included), only `owner`/`editor` may INSERT/UPDATE/DELETE. A
-      composite foreign key (`(board_id, recur_parent_id) -> (board_id, id)`) stops a series from
-      spanning boards, and the recur-instance uniqueness index is now board-qualified — both of
-      which are step 4 below, landed here rather than separately. `tests/rls/baseline.test.ts`'s
-      PUBLIC-targeting policy list shrank from seven entries to three (`user_settings` only). See
-      AGENTS.md § "Board ownership: containment IS the authorization boundary".
+     `tasks.board_id` is NOT NULL; the four legacy `user_id`-scoped policies are dropped and
+     replaced with four board-membership ones, all naming `authenticated` explicitly: any current
+     member may SELECT (Viewers included), only `owner`/`editor` may INSERT/UPDATE/DELETE. A
+     composite foreign key (`(board_id, recur_parent_id) -> (board_id, id)`) stops a series from
+     spanning boards, and the recur-instance uniqueness index is now board-qualified — both of
+     which are step 4 below, landed here rather than separately. `tests/rls/baseline.test.ts`'s
+     PUBLIC-targeting policy list shrank from seven entries to three (`user_settings` only). See
+     AGENTS.md § "Board ownership: containment IS the authorization boundary".
   3. App: board directory and selection, per-board offline snapshots with an authoritative
-      access-loss purge, `board_id` realtime filter, and a one-board export/import format.
-      **Mostly landed; board creation/switching UI and the export format are what remain.**
-      `useBoardDirectory` loads `board_memberships` joined to `boards`, remembers the open Board,
-      purges any Board snapshot the server stops returning, and (landed with step 2) revalidates
-      membership on `visibilitychange`/`online` so a revoked client stops rendering a Board it no
-      longer has; `useTasks` takes a `boardId` and loads/writes `.eq('board_id', boardId)`; board
-      snapshots are keyed per Board; and the realtime channel in `useSyncedTable` now filters on
-      `board_id` for `tasks` (landed with step 2 — it was still per-user, not per-Board, when this
-      line last said so). Still outstanding: there is still no UI to create a second Board or switch
-      between Boards — every account still has exactly one — and `DataSection`'s import/export is
-      scoped by `board_id` but the export file format itself is unchanged (still v1, not a
-      one-Board format yet).
+     access-loss purge, `board_id` realtime filter, and a one-board export/import format.
+     **Mostly landed; board creation/switching UI and the export format are what remain.**
+     `useBoardDirectory` loads `board_memberships` joined to `boards`, remembers the open Board,
+     purges any Board snapshot the server stops returning, and (landed with step 2) revalidates
+     membership on `visibilitychange`/`online` so a revoked client stops rendering a Board it no
+     longer has; `useTasks` takes a `boardId` and loads/writes `.eq('board_id', boardId)`; board
+     snapshots are keyed per Board; and the realtime channel in `useSyncedTable` now filters on
+     `board_id` for `tasks` (landed with step 2 — it was still per-user, not per-Board, when this
+     line last said so). Still outstanding: there is still no UI to create a second Board or switch
+     between Boards — every account still has exactly one — and `DataSection`'s import/export is
+     scoped by `board_id` but the export file format itself is unchanged (still v1, not a
+     one-Board format yet).
   4. **Landed 2026-08-14, together with step 2** (see there for the mechanism): recurrence carries
-      over cleanly — nothing keyed on `user_id` except RLS — but its uniqueness and parent
-      constraints are now board-qualified, so a series cannot span boards.
+     over cleanly — nothing keyed on `user_id` except RLS — but its uniqueness and parent
+     constraints are now board-qualified, so a series cannot span boards.
 
   4.2 is **interleaved with this item, not before or after it** — a shape the Deps column cannot
   express. Custom labels needed the `boards` / `board_memberships` foundation above so they could be
@@ -327,5 +329,5 @@ Larger efforts that fit the app's direction but are not near-term.
   3. Two product decisions this forces that 6.2 does not: whether tasks get an **assignee**, and who
      materialises recurrence on a board whose viewer cannot write.
 
-  Depends on 6.2 and 5.4 (roles pattern). Note that feature flags matter *here*, not in 6.2 — this
+  Depends on 6.2 and 5.4 (roles pattern). Note that feature flags matter _here_, not in 6.2 — this
   is the first change that reaches someone other than the account holder.

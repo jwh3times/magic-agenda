@@ -15,7 +15,7 @@
 - Single branch + single PR: `feat/settings-only-theme-view`, off freshly-pulled `main`. `main` is PR-only; required checks Format / Test / Build / Functions + CodeQL must pass; self-merge once green. Merge this **before** starting Phase 2.
 - **Per-commit gate (every task):** `npm test`, `npm run lint`, `npm run build` (tsc — catches removed-prop ripples), and `npx prettier --check <every touched src/** file>` (`--write` those exact files if it warns, then re-run tests). NEVER run repo-wide `npm run format` (local CRLF noise rewrites ~38 unrelated files; CI is authoritative).
 - Commit messages: plain imperative subjects (no `feat:` prefixes), ending with the line `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
-- No schema, no `database.types.ts` change, no realtime change. Live theme sync and live settings sync (Part E) must stay intact — this plan only removes the in-board theme *control*, never the applier (`ThemeProvider` stays in `BoardPage`).
+- No schema, no `database.types.ts` change, no realtime change. Live theme sync and live settings sync (Part E) must stay intact — this plan only removes the in-board theme _control_, never the applier (`ThemeProvider` stays in `BoardPage`).
 - sessionStorage key is exactly `ma-board-view`. Every storage access is wrapped in `try/catch` (privacy-mode browsers throw).
 - Test-first for the pure storage helper; UI/behavior gets Testing Library coverage.
 
@@ -24,10 +24,12 @@
 ## Task 1: `viewStorage.ts` — sessionStorage wrapper (TDD)
 
 **Files:**
+
 - Create: `src/lib/viewStorage.ts`
 - Test: `src/lib/viewStorage.test.ts`
 
 **Interfaces:**
+
 - Produces: `readBoardView(): ViewName | null` (null when absent OR when the stored string isn't a known view), `writeBoardView(view: ViewName): void`, `clearBoardView(): void`. Key `ma-board-view`. `ViewName` = `'calendar' | 'week' | 'agenda' | 'kanban'` (from `src/types/task.ts`).
 
 - [ ] **Step 1: Branch**
@@ -133,6 +135,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ## Task 2: Remove the theme switcher from the toolbar
 
 **Files:**
+
 - Modify: `src/components/Toolbar.tsx`
 
 **Interfaces:** none produced/consumed. `ThemeSwitcher` stays exported and is still used by `SettingsPage`.
@@ -170,10 +173,12 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ## Task 3: Decouple the default view; remember the session view per tab (TDD)
 
 **Files:**
+
 - Modify: `src/test/setup.ts` (global test isolation), `src/components/Board.tsx`, `src/pages/BoardPage.tsx`
 - Test: `src/components/Board.test.tsx` (extend)
 
 **Interfaces:**
+
 - Consumes: `readBoardView` / `writeBoardView` (Task 1).
 - Produces: `BoardProps` loses `onViewChange`. `Board` seeds `view` from `readBoardView() ?? initialView ?? 'calendar'` and writes storage on each switch. The Settings default-view `<select>` (unchanged) becomes the sole caller of `saveView`.
 
@@ -231,16 +236,16 @@ import { readBoardView, writeBoardView } from '../lib/viewStorage'
 3. Change the `view` state initializer:
 
 ```ts
-  const [view, setView] = useState<ViewName>(() => readBoardView() ?? initialView ?? 'calendar')
+const [view, setView] = useState<ViewName>(() => readBoardView() ?? initialView ?? 'calendar')
 ```
 
 4. Change `changeView`:
 
 ```ts
-  const changeView = (v: ViewName) => {
-    setView(v)
-    writeBoardView(v)
-  }
+const changeView = (v: ViewName) => {
+  setView(v)
+  writeBoardView(v)
+}
 ```
 
 In `src/pages/BoardPage.tsx`:
@@ -248,7 +253,7 @@ In `src/pages/BoardPage.tsx`:
 5. Drop `saveView` from the `useSettings` destructure:
 
 ```ts
-  const { settings, loading: settingsLoading, saveTheme } = useSettings(userId)
+const { settings, loading: settingsLoading, saveTheme } = useSettings(userId)
 ```
 
 6. Remove the `onViewChange={saveView}` line from the `<Board … />` element. (`initialView={settings.defaultView}` stays — that's the login landing view.)
@@ -273,10 +278,12 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ## Task 4: Clear the remembered view on sign-out (TDD)
 
 **Files:**
+
 - Modify: `src/auth/AuthProvider.tsx`
 - Test: `src/auth/AuthProvider.test.tsx` (extend)
 
 **Interfaces:**
+
 - Consumes: `clearBoardView` (Task 1).
 - Produces: on `SIGNED_OUT`, the stored board view is removed — so a subsequent sign-in reads no stored view and lands on the default.
 
@@ -312,13 +319,13 @@ import { clearBoardView } from '../lib/viewStorage'
 2. In the existing `SIGNED_OUT` branch of the `onAuthStateChange` callback, add `clearBoardView()`:
 
 ```ts
-      // A recovery flow abandoned before setting a new password must not haunt the next sign-in.
-      if (event === 'SIGNED_OUT') {
-        sessionStorage.removeItem(RECOVERY_FLAG_KEY)
-        setPasswordRecovery(false)
-        // Next sign-in should land on the default view, not the signed-out user's last view.
-        clearBoardView()
-      }
+// A recovery flow abandoned before setting a new password must not haunt the next sign-in.
+if (event === 'SIGNED_OUT') {
+  sessionStorage.removeItem(RECOVERY_FLAG_KEY)
+  setPasswordRecovery(false)
+  // Next sign-in should land on the default view, not the signed-out user's last view.
+  clearBoardView()
+}
 ```
 
 - [ ] **Step 4: Run tests + full gate**
@@ -341,6 +348,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ## Task 5: CHANGELOG + PR
 
 **Files:**
+
 - Modify: `CHANGELOG.md`
 
 - [ ] **Step 1: CHANGELOG entry**

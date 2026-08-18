@@ -21,7 +21,7 @@ The desired model separates three concepts:
 - **Session view** — what the board currently shows; changed by the view tabs; local to the
   browser tab; **never** writes back to `default_view`. Remembered across a refresh.
 - **Theme** — still applied on the board and still synced live across devices; only its
-  *control* moves to Settings.
+  _control_ moves to Settings.
 
 ## Non-goals
 
@@ -39,7 +39,7 @@ branches) and drop its now-unused import. The switcher stays in Settings → App
 (`AppearanceSection` in `src/pages/SettingsPage.tsx`), which is already wired to `saveTheme`.
 
 `ThemeProvider` remains in `BoardPage` as the **applier** of `settings.theme`; only the in-board
-*control* is removed. Live cross-device theme sync is therefore unaffected: a theme change on
+_control_ is removed. Live cross-device theme sync is therefore unaffected: a theme change on
 device A still flows A → `saveTheme` → `user_settings` upsert → device B's `useSettings`
 subscription → `settings.theme` → `BoardPage` re-render with a new `initial` prop →
 `ThemeProvider`'s `initial`-effect re-syncs → board restyles.
@@ -96,9 +96,7 @@ export function clearBoardView(): void {
 on every switch:
 
 ```ts
-const [view, setView] = useState<ViewName>(
-  () => readBoardView() ?? initialView ?? 'calendar',
-)
+const [view, setView] = useState<ViewName>(() => readBoardView() ?? initialView ?? 'calendar')
 // changeView:
 const changeView = (v: ViewName) => {
   setView(v)
@@ -112,14 +110,14 @@ is what makes "sign out → sign back in" show the default view even within the 
 
 ### Resulting observable behavior
 
-| Action | Result |
-| --- | --- |
-| Switch view mid-session | shows the new view (not saved as default) |
-| Refresh the tab | stays on the current view (sessionStorage) |
-| Open a **new tab** | default view (fresh tab has no sessionStorage) |
-| Close tab, reopen later | default view |
-| Sign out → sign back in | default view (`clearBoardView` on `SIGNED_OUT`) |
-| Change the default in Settings | next new tab / next login lands on it |
+| Action                         | Result                                          |
+| ------------------------------ | ----------------------------------------------- |
+| Switch view mid-session        | shows the new view (not saved as default)       |
+| Refresh the tab                | stays on the current view (sessionStorage)      |
+| Open a **new tab**             | default view (fresh tab has no sessionStorage)  |
+| Close tab, reopen later        | default view                                    |
+| Sign out → sign back in        | default view (`clearBoardView` on `SIGNED_OUT`) |
+| Change the default in Settings | next new tab / next login lands on it           |
 
 A live `default_view` change from another device does **not** move the current session's view
 (the board reads the default only at mount) — deliberate: default view is a landing preference,
@@ -145,7 +143,7 @@ not a live restyle like theme.
 - `src/components/Toolbar.test.tsx`: still passes with the switcher removed (verify no assertion
   depends on `ThemeSwitcher`; the existing test targets the settings gear).
 - `src/pages/SettingsPage.test.tsx`: unchanged — already asserts the picker persists the default
-  view; that path is now the *only* writer.
+  view; that path is now the _only_ writer.
 - `src/auth/AuthProvider.test.tsx` (extend): `SIGNED_OUT` clears the stored board view (stub
   `sessionStorage`).
 

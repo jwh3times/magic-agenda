@@ -42,14 +42,14 @@
 
 **Modified**
 
-| File                                                      | Change                                                                                        |
-| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `vite.config.ts`                                          | Exclude `tests/rls/**`; change the dummy Supabase URL off the live local port.                |
-| `tsconfig.json`                                           | Add a reference to `tsconfig.test.json`.                                                      |
-| `tsconfig.node.json`                                      | Add `vitest.rls.config.ts` to `include` — otherwise it is untypechecked.                      |
+| File                                                      | Change                                                                                             |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `vite.config.ts`                                          | Exclude `tests/rls/**`; change the dummy Supabase URL off the live local port.                     |
+| `tsconfig.json`                                           | Add a reference to `tsconfig.test.json`.                                                           |
+| `tsconfig.node.json`                                      | Add `vitest.rls.config.ts` to `include` — otherwise it is untypechecked.                           |
 | `package.json`                                            | `test:rls*` scripts; widened prettier globs; `pg`, `@types/pg`, `@types/node`, `supabase` devDeps. |
-| `.github/workflows/ci.yml`                                | New `RLS` job.                                                                                |
-| `AGENTS.md` / `README.md` / `ROADMAP.md` / `CHANGELOG.md` | Docs.                                                                                         |
+| `.github/workflows/ci.yml`                                | New `RLS` job.                                                                                     |
+| `AGENTS.md` / `README.md` / `ROADMAP.md` / `CHANGELOG.md` | Docs.                                                                                              |
 
 ---
 
@@ -791,7 +791,7 @@ and so does this `create table`, so `leaky` is granted automatically — which i
 behaviour that clause exists to produce.
 
 > **Post-execution note:** this described the migration as it stood when Task 4 ran. The `alter
-> default privileges` clauses were removed in the 2026-07-29 fix wave (see the note on Task 1), so
+default privileges` clauses were removed in the 2026-07-29 fix wave (see the note on Task 1), so
 > re-running Stage 1 against the current migration would now fail **both** the RLS-enabled test
 > and the Data API reachability test for `leaky` — there is no default-privileges clause left to
 > auto-grant it. That is the intended, fail-closed behaviour; it does not change Stage 2 below.
@@ -1008,44 +1008,44 @@ block below is already indented for a direct paste — do not dedent it, or `RLS
 top-level key and the workflow silently stops defining the job.
 
 ```yaml
-  RLS:
-    runs-on: ubuntu-latest
-    # A wedged image pull would otherwise hold a runner for the 360-minute default.
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      # This installs the pinned CLI too. Deliberately NO `supabase/setup-cli` step here, unlike
-      # the Config job: every Supabase call in this job and in tests/rls/globalSetup.ts goes
-      # through `npx supabase`, and `npx` prefers a local binary but silently installs `latest`
-      # from the registry when there is none -- so a setup-cli pin would be ignored and the
-      # version would float. `supabase` is an exact-pinned devDependency instead, which pins CI
-      # and local runs with one mechanism. If you add setup-cli back, change these to bare
-      # `supabase` or the pin does nothing.
-      - run: npm ci
-      - name: Start a local stack
-        # Only the database, auth, and PostgREST are needed; skipping the rest cuts minutes off
-        # a cold runner. Every value below is a DUMMY: config.toml references these via env().
-        # RESEND_API_KEY and GOOGLE_OAUTH_CLIENT_SECRET are the load-bearing two -- never pass
-        # the real RESEND_API_KEY, since config.toml enables SMTP against smtp.resend.com and a
-        # local GoTrue holding the real key could send real email from a test run. The rest are
-        # cheap insurance: the Config job passes today with only those two set, so the CLI does
-        # tolerate unresolved env() at parse time, but this job actually STARTS storage
-        # (config.toml:147-149) rather than only parsing the file.
-        run: npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy
-        env:
-          RESEND_API_KEY: dummy-not-a-real-key
-          GOOGLE_OAUTH_CLIENT_SECRET: dummy-not-a-real-secret
-          OPENAI_API_KEY: dummy-not-a-real-key
-          S3_HOST: dummy.local
-          S3_REGION: local
-          S3_ACCESS_KEY: dummy-access-key
-          S3_SECRET_KEY: dummy-secret-key
-      - name: Run the RLS suite
-        run: npm run test:rls
+RLS:
+  runs-on: ubuntu-latest
+  # A wedged image pull would otherwise hold a runner for the 360-minute default.
+  timeout-minutes: 20
+  steps:
+    - uses: actions/checkout@v7
+    - uses: actions/setup-node@v7
+      with:
+        node-version-file: .nvmrc
+        cache: npm
+    # This installs the pinned CLI too. Deliberately NO `supabase/setup-cli` step here, unlike
+    # the Config job: every Supabase call in this job and in tests/rls/globalSetup.ts goes
+    # through `npx supabase`, and `npx` prefers a local binary but silently installs `latest`
+    # from the registry when there is none -- so a setup-cli pin would be ignored and the
+    # version would float. `supabase` is an exact-pinned devDependency instead, which pins CI
+    # and local runs with one mechanism. If you add setup-cli back, change these to bare
+    # `supabase` or the pin does nothing.
+    - run: npm ci
+    - name: Start a local stack
+      # Only the database, auth, and PostgREST are needed; skipping the rest cuts minutes off
+      # a cold runner. Every value below is a DUMMY: config.toml references these via env().
+      # RESEND_API_KEY and GOOGLE_OAUTH_CLIENT_SECRET are the load-bearing two -- never pass
+      # the real RESEND_API_KEY, since config.toml enables SMTP against smtp.resend.com and a
+      # local GoTrue holding the real key could send real email from a test run. The rest are
+      # cheap insurance: the Config job passes today with only those two set, so the CLI does
+      # tolerate unresolved env() at parse time, but this job actually STARTS storage
+      # (config.toml:147-149) rather than only parsing the file.
+      run: npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy
+      env:
+        RESEND_API_KEY: dummy-not-a-real-key
+        GOOGLE_OAUTH_CLIENT_SECRET: dummy-not-a-real-secret
+        OPENAI_API_KEY: dummy-not-a-real-key
+        S3_HOST: dummy.local
+        S3_REGION: local
+        S3_ACCESS_KEY: dummy-access-key
+        S3_SECRET_KEY: dummy-secret-key
+    - name: Run the RLS suite
+      run: npm run test:rls
 ```
 
 - [ ] **Step 2: Do NOT make it required yet**
@@ -1125,7 +1125,7 @@ unauthenticated select returning zero rows rather than an error.
 
 > **Post-execution note:** the `AGENTS.md` text above reflects the final, shipped state after the
 > 2026-07-29 fix wave. The version originally drafted here (which promised `alter default
-> privileges` made "forgetting survivable," and drew an exact parity with `src/sw/policy.ts`) was
+privileges` made "forgetting survivable," and drew an exact parity with `src/sw/policy.ts`) was
 > corrected before merge; see the Task 1 post-execution note and `AGENTS.md`'s own history for why.
 
 - [ ] **Step 2: Add the commands to `README.md`**
@@ -1134,9 +1134,9 @@ The commands live in a markdown **table** under `## Scripts` (`README.md:129-138
 block. Add three rows after `npm run test:watch`, keeping the existing column alignment:
 
 ```markdown
-| `npm run test:rls:up`   | Start a local Supabase stack for the RLS tests (Docker) |
-| `npm run test:rls`      | Run the RLS integration tests against that stack        |
-| `npm run test:rls:down` | Stop the local stack                                    |
+| `npm run test:rls:up` | Start a local Supabase stack for the RLS tests (Docker) |
+| `npm run test:rls` | Run the RLS integration tests against that stack |
+| `npm run test:rls:down` | Stop the local stack |
 ```
 
 Prettier reformats the whole table's padding, so run `npm run format` if the alignment drifts —
