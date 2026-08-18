@@ -2,7 +2,7 @@ import { afterAll, beforeAll, expect, test } from 'vitest'
 import {
   createTestUser,
   deleteTestUser,
-  legacyTaskInsert,
+  boardTaskInsert,
   stack,
   withPg,
   type TestUser,
@@ -156,10 +156,16 @@ test('updating a Label refreshes its modification timestamp', async () => {
 })
 
 test('a stale Category-shaped insert receives its matching seeded Label', async () => {
+  // NOTE: since Board creation shipped and `tasks_infer_board_id` was dropped, a genuinely stale
+  // client can no longer reach this trigger by INSERT at all — it fails closed on containment
+  // first. This payload is therefore synthetic: `board_id` present, `label_assignment_explicit`
+  // absent. The trigger's live path is now UPDATE (the next test), which a stale client can still
+  // take against a row whose Board is already set. #180 removes the trigger and both tests.
+  const boardId = await ownerBoardId()
   const { data: task, error } = await owner.client
     .from('tasks')
     .insert(
-      legacyTaskInsert({
+      boardTaskInsert(boardId, {
         user_id: owner.id,
         title: 'legacy personal task',
         category: 'personal',
@@ -217,10 +223,12 @@ test('a new client can explicitly create an Unlabeled Task during the compatibil
 })
 
 test('a stale Category change remaps the Task to the matching seeded Label', async () => {
+  // The bridge's still-reachable path: a pre-#177 client updating a task it can already see.
+  const boardId = await ownerBoardId()
   const { data: task, error: insertError } = await owner.client
     .from('tasks')
     .insert(
-      legacyTaskInsert({
+      boardTaskInsert(boardId, {
         user_id: owner.id,
         title: 'legacy recategorization',
         category: 'work',
@@ -491,7 +499,13 @@ test('renaming a seeded Label does not break stale Category mapping', async () =
 
   const { data: task, error } = await owner.client
     .from('tasks')
-    .insert(legacyTaskInsert({ user_id: owner.id, title: 'stale after rename', category: 'work' }))
+    .insert(
+      boardTaskInsert(boardId, {
+        user_id: owner.id,
+        title: 'stale after rename',
+        category: 'work',
+      }),
+    )
     .select('id')
     .single()
   expect(error).toBeNull()
@@ -708,8 +722,11 @@ test('deleting a Label makes its Tasks Unlabeled instead of deleting them', asyn
   const { data: task, error } = await owner.client
     .from('tasks')
     .insert({
-      ...legacyTaskInsert({ user_id: owner.id, title: 'survives its Label', category: 'work' }),
-      board_id: boardId,
+      ...boardTaskInsert(boardId, {
+        user_id: owner.id,
+        title: 'survives its Label',
+        category: 'work',
+      }),
       label_id: doomedId,
       label_assignment_explicit: true,
     })

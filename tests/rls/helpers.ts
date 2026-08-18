@@ -7,16 +7,49 @@ type TestSupabaseClient = SupabaseClient<Database>
 type TaskInsert = Database['public']['Tables']['tasks']['Insert']
 
 /**
- * A pre-Board client payload, intentionally missing the now-required `board_id`.
+ * A pre-cutover client payload, intentionally missing the now-required `board_id`.
  *
- * Generated types correctly model the current NOT NULL schema and therefore reject this shape.
- * Tests that exercise the temporary `tasks_infer_board_id` compatibility trigger cross that
- * version boundary explicitly through this adapter instead of weakening the checked-in DB types.
+ * Its purpose inverted when `tasks_infer_board_id` was dropped. It used to be how tests reached the
+ * compatibility trigger that *rescued* this shape; it is now how they prove the same shape **fails
+ * closed**. Nothing else in the suite can construct it, because the generated types model the NOT
+ * NULL schema correctly and reject it — which is exactly why this adapter crosses the version
+ * boundary explicitly rather than the checked-in types being weakened to allow it.
+ *
+ * The refusal arrives as an RLS policy violation, not a null-violation: Postgres evaluates
+ * `tasks_insert_editor`'s `with check` before the NOT NULL constraint, and `NULL in (select ...)`
+ * is NULL rather than true. Assert on failure, not on a particular message.
  */
 export function legacyTaskInsert(
   values: Omit<TaskInsert, 'board_id' | 'label_id' | 'label_assignment_explicit'>,
 ): TaskInsert {
   return values as TaskInsert
+}
+
+/**
+ * A task payload for the many tests that need *a* valid task rather than a particular one.
+ *
+ * Before the cutover these could pass `legacyTaskInsert` and let the inference trigger fill in the
+ * Board. That trigger is gone, so containment is now the caller's job — which is the whole point of
+ * the release, and the reason this helper exists rather than each test re-deriving it.
+ */
+export function boardTaskInsert(
+  boardId: string,
+  values: Omit<TaskInsert, 'board_id' | 'label_id' | 'label_assignment_explicit'>,
+): TaskInsert {
+  return { ...values, board_id: boardId }
+}
+
+/** The Board of an Account's single current Membership. */
+export async function currentBoardId(accountId: string): Promise<string> {
+  return withPg(async (pg) => {
+    const result = await pg.query<{ board_id: string }>(
+      `select board_id from public.board_memberships
+        where account_id = $1 and ended_at is null
+        order by joined_at limit 1`,
+      [accountId],
+    )
+    return result.rows[0].board_id
+  })
 }
 
 export interface Stack {

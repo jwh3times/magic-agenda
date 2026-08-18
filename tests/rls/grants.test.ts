@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, expect, test } from 'vitest'
-import { createTestUser, deleteTestUser, legacyTaskInsert, type TestUser } from './helpers'
+import {
+  boardTaskInsert,
+  createTestUser,
+  currentBoardId,
+  deleteTestUser,
+  type TestUser,
+} from './helpers'
 
 let user: TestUser
 
@@ -16,9 +22,10 @@ afterAll(async () => {
 // see supabase/migrations/20260729100000_explicit_data_api_grants.sql. That failure would
 // otherwise masquerade as a broken policy in every other test in this suite.
 test('an authenticated user can insert and read back their own task', async () => {
+  const boardId = await currentBoardId(user.id)
   const { error: insertError } = await user.client
     .from('tasks')
-    .insert(legacyTaskInsert({ user_id: user.id, title: 'canary' }))
+    .insert(boardTaskInsert(boardId, { user_id: user.id, title: 'canary' }))
   expect(insertError).toBeNull()
 
   const { data, error } = await user.client.from('tasks').select('id, title')

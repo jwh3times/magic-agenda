@@ -187,18 +187,33 @@ Four things here are load-bearing and none is obvious from the schema alone:
   every account. This `before delete` trigger ends Memberships and drops Private Boards first. It
   reads `old.id`, never `auth.uid()`, because `auth.admin.deleteUser` runs administratively. If a
   future deletion failure points here, fix the ordering, not the constraint.
-- **`tasks_infer_board_id` is temporary, and dropping it is a security event.** It routes a
-  board-less insert (what the currently-deployed client sends) to the account's single Board. That
-  is only correct while there _is_ a single Board: the moment a second can exist, it silently files
-  a stale client's task into the wrong one. It must be dropped in the same release that enables
-  Board creation, so stale clients hit the NOT NULL and fail closed. A client-version prompt cannot
-  substitute — navigations are network-first, so the worker updates on navigation and a long-open
-  board tab never navigates. It is a `before insert` trigger, and that ordering is why it still
-  works after the authorization cutover: Postgres fires `before` triggers before it evaluates a
-  policy's `with check`, so this fills in `board_id` in time for `tasks_insert_editor` to see a
-  populated column rather than the `NULL` the client actually sent — a board-less insert would
-  otherwise fail that check outright (`NULL in (select …)` is not `true`), not just the `NOT NULL`
-  constraint below it.
+- **`tasks_infer_board_id` is gone, and its removal was the security event.** It routed a
+  board-less insert to the account's single Board, which was correct only while there _was_ one.
+  It was dropped in the same migration that shipped `create_board`, so a pre-cutover client now
+  fails closed instead of filing a task into an arbitrary Board. Be precise about which guard
+  catches it, because it is not the obvious one: Postgres evaluates a policy's `with check` before
+  the NOT NULL constraint, and `tasks_insert_editor` asks whether `board_id in (select …)` — which
+  for a NULL board is NULL, not `true`. The refusal is therefore
+  `new row violates row-level security policy`, never a null-violation, and a test asserting the
+  latter would never pass. `tests/rls/boards.test.ts` pins both halves: the board-less insert is
+  refused _and_ writes nothing, and the same client succeeds the moment it names a Board — without
+  that second half, a policy that denied everything would pass the first.
+- **`create_board` is the only way a Board comes into existence, and it is an RPC for a reason.** A
+  Board and its Owner Membership must appear together — a Board with no Membership is unreachable
+  by every policy here — and there is no non-escalating way to let a client write the Membership.
+  A self-serve INSERT policy on `board_memberships` would let any account claim Ownership of any
+  `board_id`; narrowing it to "a Board with no Memberships yet" subqueries its own table and
+  recurses. So `board_memberships` still has no INSERT policy at all, and the function takes **no
+  account parameter** — any parameter that could name another account would reintroduce exactly the
+  escalation the design avoids. It is `security definer` in `public`, hardened like
+  `handle_new_user`: empty `search_path`, `revoke all from public`, `grant execute to
+authenticated`. It carries an abuse ceiling of 100 current Memberships per account — not a
+  product limit, just a bound on the one call that writes three tables at once.
+- **`create_board` and `handle_new_user` each carry their own copy of the seeded Label list.** A
+  shared helper would have to take the account as a parameter to serve the signup trigger, which is
+  the escalation surface above, so the duplication is deliberate. What keeps them from drifting is
+  a test, not a comment: `board_creation.test.ts` asserts a created Board and a signup Board have
+  identical vocabularies.
 - **No `app_private` schema yet, deliberately.** Only the _co-member_ clause on `board_memberships`
   needs a `security definer` helper, because it subqueries its own table and raises `infinite
 recursion detected in policy for relation`. That clause is a sharing feature with nothing to do
@@ -238,9 +253,11 @@ Two columns and one trigger are **temporary deploy-window machinery**:
   not make that Label permanent; deletion removes the alias with the row.
 - `tasks.label_assignment_explicit` distinguishes a stale client that omitted `label_id` (false)
   from the new client intentionally choosing Unlabeled (true).
-- `tasks_sync_legacy_category_label` maps a stale INSERT or Category change through the alias. Its
-  name sorts after `tasks_infer_board_id_before_insert`, so Board inference runs first and the Label
-  lookup is Board-scoped.
+- `tasks_sync_legacy_category_label` maps a stale INSERT or Category change through the alias. It
+  used to depend on sorting after `tasks_infer_board_id_before_insert` so Board inference ran first;
+  with that trigger dropped, its **INSERT path is unreachable from a real stale client**, which
+  cannot insert at all any more. Its UPDATE path is still live: a pre-#177 client can still change
+  `category` on a row whose Board is already set. #180 removes it either way.
 
 The app domain now uses `Task.labelId: string | null`; Category is confined to raw DB rows and the
 v1 file parser in `src/data/exportImport.ts`. Every normal `taskToRow` write sends `label_id` plus
@@ -795,8 +812,13 @@ definer` with `search_path=public` rather than the empty path a definer should h
 EXECUTE-able by `PUBLIC` — that was the
 "specific point in the board work" the surrounding prose said it would stop being tolerable at:
 `handle_new_user` is hardened now (empty `search_path`, EXECUTE revoked from `PUBLIC`), and the two
-lifecycle functions the board work added beside it (`handle_account_deletion`, also `security
-definer`; `tasks_infer_board_id`, deliberately an invoker) are hardened the same way from birth.
+lifecycle functions the board work added beside it (`handle_account_deletion` and `create_board`,
+both `security definer`) are hardened the same way from birth. `create_board` is `security definer`
+in `public` rather than `app_private`, which the baseline's own docstring now spells out as a second
+case rather than an exception: a **policy helper** belongs in `app_private`, but a **client-invoked
+RPC** cannot live there at all, because `[api] schemas` lists only `public` and `graphql_public` and
+PostgREST refuses an unlisted schema with `PGRST106` even for `service_role`. `app_private` is
+therefore still unbuilt, and the first co-member predicate remains what introduces it.
 Each remaining weakness is tolerable for a specific reason stated in the file; recording them is
 what turns "someday" into a line someone has to delete. A baseline that _shrinks_ is a failure too:
 that means it is stale and the smaller set must be committed.
@@ -1045,7 +1067,9 @@ keys. The verify step asserts `data.sql` contains both `public.tasks` and `auth.
 would catch that CLI behaviour changing.
 
 It also asserts the three Board tables are in `data.sql` and that `schema.sql` defines
-`handle_new_user`, `handle_account_deletion`, and `tasks_infer_board_id`. Both additions guard the
+`handle_new_user`, `handle_account_deletion`, and `create_board` — the last of which replaced
+`tasks_infer_board_id` in that list when Board creation dropped it, since a dump assertion naming a
+function that no longer exists fails every night. Both additions guard the
 same failure: a bundle that verifies clean and restores into a broken database. Without the Board
 tables, every restored task carries a `board_id` pointing at nothing — and because `data.sql` sets
 `session_replication_role = replica` on its own first line, the foreign key does not stop it, so the

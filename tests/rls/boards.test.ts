@@ -3,6 +3,7 @@ import {
   anonClient,
   createTestUser,
   deleteTestUser,
+  boardTaskInsert,
   legacyTaskInsert,
   withPg,
   type TestUser,
@@ -190,13 +191,37 @@ test('anonymous reads return zero rows rather than an error', async () => {
   }
 })
 
-test('a task inserted without board_id is routed to the account’s board', async () => {
-  // The compatibility shim for the currently-deployed client, which has never heard of a Board.
-  // This trigger is TEMPORARY: it is only correct while an account has exactly one board, and
-  // dropping it is what makes a stale client fail closed once a second board can exist.
-  const { data, error } = await alice.client
+test('a pre-cutover client that sends no board_id fails closed', async () => {
+  // This test asserted the OPPOSITE until Board creation shipped, and the inversion is the entire
+  // security content of that release. `tasks_infer_board_id` used to rescue this payload by routing
+  // it to the account's only Board. That was correct only while there was exactly one; with a
+  // second reachable it would file the task into whichever Board it picked, silently and wrongly.
+  //
+  // The refusal is an RLS violation rather than a null-violation, and the ordering is the reason:
+  // Postgres evaluates `tasks_insert_editor`'s `with check` before the NOT NULL constraint, and
+  // `NULL in (select ...)` is NULL, not true. Assert the refusal, not the wording.
+  const { error } = await alice.client
     .from('tasks')
     .insert(legacyTaskInsert({ user_id: alice.id, title: 'legacy-shaped insert' }))
+  expect(error).not.toBeNull()
+
+  // Nothing was written. A fail-closed test that only checks the error would still pass if the row
+  // landed and the response merely errored.
+  const leaked = await withPg(async (pg) => {
+    const result = await pg.query<{ n: string }>(
+      `select count(*) as n from public.tasks where title = 'legacy-shaped insert'`,
+    )
+    return Number(result.rows[0].n)
+  })
+  expect(leaked).toBe(0)
+})
+
+test('the same client succeeds the moment it names a Board', async () => {
+  // The other half: the refusal above is about the missing Board, not about this client being
+  // rejected generally. Without this, a policy that denied every insert would pass the test above.
+  const { data, error } = await alice.client
+    .from('tasks')
+    .insert(boardTaskInsert(aliceBoardId, { user_id: alice.id, title: 'board-scoped insert' }))
     .select('board_id, revision, author_kind')
     .single()
   expect(error).toBeNull()

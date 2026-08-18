@@ -163,7 +163,7 @@ psql "$PGURI" -v ON_ERROR_STOP=1 -f schema.sql
 
 On this path you **must** recreate both, or the restore looks perfect and two different things break
 quietly. `schema.sql` does carry the functions behind them (`handle_new_user()`,
-`handle_account_deletion()`, `tasks_infer_board_id()` — all `public`-schema objects, so only the
+`handle_account_deletion()`, `create_board()` — all `public`-schema objects, so only the
 `auth.users` triggers are missing), so it is just the two `create trigger` statements:
 
 ```bash
