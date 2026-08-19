@@ -78,8 +78,8 @@ is public by design.
 This paragraph said `tasks` scoped to `user_id` until #180, which was left behind by the v1.2.78
 authorization cutover and contradicted by this file's own Board-ownership section. Worth noticing
 how it survived: it is the summary, so it is what a reader trusts before they know enough to doubt
-it, and nothing executable depends on it. `tasks.user_id` is not an authorization input anywhere and
-is being dropped.
+it, and nothing executable depends on it. `tasks.user_id` was never an authorization input under the
+Board model, and the column itself is gone (#197).
 
 Dated security reviews live in `private/` — **git-ignored, local to the maintainer's checkout**, so
 they are not in a clone. They are where accepted risks and open findings are recorded, with the
@@ -158,8 +158,8 @@ lived in `src/lib/` with no module behind it; `redeemToken` is now its owner, wh
 
 `account_profiles`, `boards`, and `board_memberships` exist in production, every Account has exactly
 one Board, and every task carries a `board_id` — which is now **NOT NULL and authoritative**. The
-four `tasks` policies compare `board_id` against the caller's current Memberships; `user_id` is no
-longer an authorization input anywhere and survives only until cleanup drops it.
+four `tasks` policies compare `board_id` against the caller's current Memberships; `user_id` was no
+longer an authorization input anywhere even before it was dropped from the table entirely (#197).
 
 The policy shape is `board_id in (select ...)` rather than a helper function of `board_id`, and that
 is deliberate on two counts. A function taking the row's Board id cannot be hoisted to an InitPlan,
@@ -483,8 +483,8 @@ default, so it only covers the window before that row is in hand.
 wrote _both_ on every change so the then-deployed client kept reading a value it understood. That
 dual write is gone: `Settings` no longer has a `defaultView` field, `saveView()` no longer exists,
 and `SettingsPage.test.tsx` asserts the `user_settings` upsert is **not** called when the view
-changes — the absence is what stops the two sources silently diverging again. The column itself goes
-in Release B (see the Labels section).
+changes — the absence is what stops the two sources silently diverging again. The column itself is
+gone too, dropped with the rest of the retired columns (see the Labels section).
 
 `BoardActionContext` is the internal UI seam below `Board`. It publishes editor/add/card actions and
 the done-pop id at their use sites, so the view modules pass tasks and layout parameters rather than

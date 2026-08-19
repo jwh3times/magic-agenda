@@ -227,13 +227,13 @@ select count(*) from public.user_settings;
 select count(*) from public.boards;
 select count(*) from public.board_memberships;
 select count(*) from public.account_profiles;
--- No task may reference a user that did not come back. `user_id` went nullable in #180
--- (20260819100000), and the client stopped sending it in #199, so a bare `left join ... where
--- u.id is null` would flag every legitimately-unrouted post-#180 task as a defect; only a
--- *populated* user_id pointing at a missing user is one:
-select count(*) from public.tasks t
-  left join auth.users u on u.id = t.user_id
- where t.user_id is not null and u.id is null;   -- must be 0
+-- `tasks.user_id` is gone as of #197 (20260819190000) -- dropped along with `tasks.category` and
+-- `tasks.label_assignment_explicit`, so there is no longer a user-orphan check to run here. A
+-- bundle taken before that migration still has `user_id` values in its `data.sql` INSERTs; restoring
+-- one against a schema built from current `supabase/migrations/` (the preferred path in 3.1) fails
+-- outright on `column "user_id" of relation "tasks" does not exist` rather than restoring silently
+-- wrong. If that happens, load `schema.sql` from the *same* bundle instead (3.1's alternative path),
+-- which still has the column, and skip this section's newer checks that assume the Board tables.
 
 -- Nor a board that did not come back — the v1.2.76 companion to the check above. board_id is still
 -- nullable pre-cutover, so a legitimately-unrouted task is not itself a defect; a task pointing at a
