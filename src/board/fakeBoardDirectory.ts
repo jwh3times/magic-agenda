@@ -48,6 +48,7 @@ export function fakeBoardDirectory(overrides: Partial<UseBoardDirectory> = {}): 
     setDefaultView: async () => {},
     createBoard: () => Promise.resolve(null),
     deleteBoard: () => Promise.resolve(null),
+    renameBoard: () => Promise.resolve(null),
     ...overrides,
   }
 }

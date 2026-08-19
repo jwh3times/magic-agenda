@@ -228,19 +228,24 @@ The Board tables grant **nothing to `service_role`**, and almost nothing to anyo
 departure from `tasks`/`user_settings`, which grant full DML to all three Data API roles. Membership
 administration carries invariants a direct table write cannot enforce, so `board_memberships` has no
 INSERT grant or policy at all and never will have a self-serve one. What has since been added to
-`boards` is exactly two things, and the asymmetry between them is the point:
+`boards` is three things, and the asymmetry between them is the point:
 
 - **`grant delete`, with an Owner-only DELETE policy.** Deletion writes one row and the contents
   follow through `on delete cascade`, so there is nothing to make atomic that Postgres is not
-  already making atomic and a definer function would add privilege for nothing.
+  already making atomic and a definer function would add privilege for nothing. DELETE takes no
+  column list — PostgreSQL does not column-scope it — so the policy is the whole boundary there.
+- **`grant update (name)`, with an Owner-only UPDATE policy.** Column-scoped for the same reason as
+  `board_memberships.default_view` and `account_profiles.display_name`: RLS cannot express "only
+  this column changed", because a policy cannot see the old row. The grant is what keeps `id`,
+  `created_at`, and `updated_at` out of reach; the policy only decides whose rows are in scope, and
+  neither half substitutes for the other. `boards_update_owner` carries a `with check` that is
+  **redundant today** and says so in the migration — `name` appears in neither predicate, so no
+  update exists that `using` admits and it rejects. It is there because that is a property of the
+  grant rather than the policy, and a later `grant update (id)` would make it the only thing
+  stopping a Board being renumbered out of its Owner's reach.
 - **Creation is still not a grant.** `create_board` is an RPC because a Board and its Owner
   Membership must appear together and no client-writable Membership INSERT can be made
   non-escalating.
-
-The other exceptions are column-level: `grant update (default_view)` and `grant update
-(display_name)`, because RLS cannot express "only this column changed" — a policy cannot see the old
-row. Note DELETE takes no column list; PostgreSQL does not column-scope it, so the policy is the
-whole boundary there.
 
 **Deleting a Board destroys everything in it, and no policy says so.** `tasks.board_id`,
 `labels.board_id`, and `board_memberships.board_id` are each `on delete cascade`, and referential
@@ -833,8 +838,8 @@ ACL, every schema reachable by the Data API roles, and every policy that applies
 because it names no role. The remaining known weakness: `set_updated_at` is still EXECUTE-able by
 `PUBLIC` via PostgreSQL's default, tolerable only because it is an invoker trigger function
 unreachable outside a trigger context, and the three legacy policies on `user_settings` still
-target `PUBLIC` (the four `tasks` policies and the six Board policies — five from the authorization
-cutover plus `boards_delete_owner` — all name `authenticated` explicitly instead; the `tasks` ones
+target `PUBLIC` (the four `tasks` policies and the seven Board policies — five from the authorization
+cutover plus `boards_delete_owner` and `boards_update_owner` — all name `authenticated` explicitly instead; the `tasks` ones
 only since that cutover, which is when this list shrank from seven to three). This paragraph used
 to also record `handle_new_user` as `security
 definer` with `search_path=public` rather than the empty path a definer should have, and as

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { expect, test, vi } from 'vitest'
 import { BoardDirectoryContext } from '../board/boardDirectoryContext'
+import { checkBoardName, normalizeBoardName } from '../board/boardName'
 import { fakeBoardDirectory, fakeBoardSummary } from '../board/fakeBoardDirectory'
 import type { BoardSummary } from '../board/selection'
 import type { UseBoardDirectory } from '../board/useBoardDirectory'
@@ -28,6 +29,14 @@ function Harness({
     selectedBoardId: boards[0]?.id ?? null,
     deleteBoard: (id) => {
       setBoards((current) => current.filter((b) => b.id !== id))
+      return Promise.resolve(null)
+    },
+    renameBoard: (id, name) => {
+      const problem = checkBoardName(name)
+      if (problem) return Promise.resolve(problem)
+      setBoards((current) =>
+        current.map((b) => (b.id === id ? { ...b, name: normalizeBoardName(name) } : b)),
+      )
       return Promise.resolve(null)
     },
     ...overrides,
@@ -156,4 +165,99 @@ test('the delete control is per Board, following that Board’s role', () => {
 test('an Account with no Boards is told where to make one', () => {
   render(<Harness initial={[]} />)
   expect(screen.getByText(/You have no boards/i)).toBeInTheDocument()
+})
+
+test('an Owner can rename a Board, committing on blur', async () => {
+  const user = userEvent.setup()
+  render(<Harness />)
+
+  await user.click(screen.getAllByRole('button', { name: 'Rename' })[0])
+  const field = screen.getByLabelText('Name for Personal')
+  await user.clear(field)
+  await user.type(field, 'Home')
+  await user.tab()
+
+  await waitFor(() => expect(boardNames()).toEqual(['Home', 'Work']))
+})
+
+test('Enter commits a rename without reaching for the mouse', async () => {
+  const user = userEvent.setup()
+  render(<Harness />)
+
+  await user.click(screen.getAllByRole('button', { name: 'Rename' })[0])
+  const field = screen.getByLabelText('Name for Personal')
+  await user.clear(field)
+  await user.type(field, 'Home{Enter}')
+
+  await waitFor(() => expect(boardNames()).toEqual(['Home', 'Work']))
+})
+
+test('Escape abandons a rename', async () => {
+  const user = userEvent.setup()
+  render(<Harness />)
+
+  await user.click(screen.getAllByRole('button', { name: 'Rename' })[0])
+  const field = screen.getByLabelText('Name for Personal')
+  await user.clear(field)
+  await user.type(field, 'Discarded{Escape}')
+
+  await waitFor(() => expect(boardNames()).toEqual(['Personal', 'Work']))
+})
+
+test('an empty name is refused and explained rather than silently kept', async () => {
+  const user = userEvent.setup()
+  render(<Harness />)
+
+  await user.click(screen.getAllByRole('button', { name: 'Rename' })[0])
+  await user.clear(screen.getByLabelText('Name for Personal'))
+  await user.tab()
+
+  expect(await screen.findByRole('alert')).toHaveTextContent(/Enter a board name/i)
+  // The field stays open holding the rejected draft, so the mistake can be corrected in place
+  // rather than retyped from scratch.
+  expect(screen.getByLabelText('Name for Personal')).toHaveValue('')
+  await user.type(screen.getByLabelText('Name for Personal'), '{Escape}')
+  expect(boardNames()).toEqual(['Personal', 'Work'])
+})
+
+test('a name is trimmed on the way in', async () => {
+  const user = userEvent.setup()
+  render(<Harness />)
+
+  await user.click(screen.getAllByRole('button', { name: 'Rename' })[0])
+  const field = screen.getByLabelText('Name for Personal')
+  await user.clear(field)
+  await user.type(field, '   Spaced   ')
+  await user.tab()
+
+  await waitFor(() => expect(boardNames()).toEqual(['Spaced', 'Work']))
+})
+
+test('a rename the server refuses rolls back and explains', async () => {
+  const user = userEvent.setup()
+  render(<Harness overrides={{ renameBoard: () => Promise.resolve('permission denied') }} />)
+
+  await user.click(screen.getAllByRole('button', { name: 'Rename' })[0])
+  const field = screen.getByLabelText('Name for Personal')
+  await user.clear(field)
+  await user.type(field, 'Nope')
+  await user.tab()
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('permission denied')
+  expect(screen.getByLabelText('Name for Personal')).toHaveValue('Nope')
+  // Escaping restores the committed name: the optimistic update was rolled back, not kept.
+  await user.type(screen.getByLabelText('Name for Personal'), '{Escape}')
+  expect(boardNames()).toEqual(['Personal', 'Work'])
+})
+
+test('Editors and Viewers get no rename control either', () => {
+  render(
+    <Harness
+      initial={[
+        fakeBoardSummary({ id: 'b1', name: 'Shared', role: 'editor' }),
+        fakeBoardSummary({ id: 'b2', name: 'Readonly', role: 'viewer' }),
+      ]}
+    />,
+  )
+  expect(screen.queryByRole('button', { name: 'Rename' })).not.toBeInTheDocument()
 })

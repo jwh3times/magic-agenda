@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { checkBoardName, normalizeBoardName } from './boardName'
 import {
   cachedBoardIds,
   purgeBoardSnapshots,
@@ -47,6 +48,8 @@ export interface UseBoardDirectory {
    * Destructive and irreversible — see `deleteBoard`'s own docstring for what "everything" covers.
    */
   deleteBoard: (boardId: string) => Promise<string | null>
+  /** Rename a Board. Resolves to an error message, or null on success. */
+  renameBoard: (boardId: string, name: string) => Promise<string | null>
 }
 
 const REMEMBERED_KEY = 'ma-selected-board'
@@ -246,6 +249,37 @@ export function useBoardDirectory(userId: string, hasSession: boolean): UseBoard
   )
 
   /**
+   * Rename a Board.
+   *
+   * Optimistic, unlike creation and deletion. Those change *which* Boards exist, so showing a
+   * result the server has not agreed to means rendering an entry no query can find; a name is one
+   * field of a row that is already there, and snapping it back on failure is honest rather than
+   * confusing. The rollback restores the previous list rather than the previous name, so a
+   * concurrent change to another Board is not clobbered by this one failing.
+   */
+  const renameBoard = useCallback(
+    async (boardId: string, rawName: string): Promise<string | null> => {
+      if (!hasSession) return 'You need to be signed in to rename a board.'
+
+      const name = normalizeBoardName(rawName)
+      const problem = checkBoardName(name)
+      if (problem) return problem
+
+      const previous = boards
+      if (!previous.some((b) => b.id === boardId)) return null
+      setBoards(previous.map((b) => (b.id === boardId ? { ...b, name } : b)))
+
+      const { error: writeError } = await supabase.from('boards').update({ name }).eq('id', boardId)
+      if (writeError) {
+        setBoards(previous)
+        return writeError.message
+      }
+      return null
+    },
+    [boards, hasSession],
+  )
+
+  /**
    * Delete a Board, then reload.
    *
    * A plain DELETE rather than an RPC: only one row is written here, and the Board's contents
@@ -309,6 +343,7 @@ export function useBoardDirectory(userId: string, hasSession: boolean): UseBoard
     selectBoard,
     createBoard,
     deleteBoard,
+    renameBoard,
     setDefaultView,
     loading,
     error,
