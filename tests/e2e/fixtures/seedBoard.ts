@@ -20,17 +20,21 @@ import { testBoardId, testClient, testUserId } from './supabase'
  * and `day` is a real NULL for the inbox rather than the app's `'inbox'` sentinel. That mapping
  * lives in src/data/mappers.ts and does not apply here -- see AGENTS.md.
  *
- * **Every insert must carry `board_id`, and nothing retired.** This fixture is a Supabase client
- * like any other, so when `tasks_infer_board_id` was dropped it became a pre-cutover client and
- * started failing closed -- as an RLS refusal, since `tasks_insert_editor` evaluates before the NOT
- * NULL constraint and `NULL in (select ...)` is not true. It has since stopped sending `user_id`
- * and `category` for the mirror-image reason: those columns are being dropped, and a client still
- * sending a dropped column gets `400 PGRST204`.
+ * **This fixture must match PRODUCTION's schema, which is one release behind its own branch.** E2E
+ * runs against the production database while migrations apply only on merge, so the payload here has
+ * to satisfy the schema as it exists *before* this PR's migration -- and still work after it.
  *
- * Both directions bite one release late. E2E runs against production while migrations apply only on
- * merge, so a schema change is first exercised by the NEXT pull request -- update this file in the
- * same PR as the migration and expect no CI signal confirming you got it right. Nothing else in the
- * suite writes tasks.
+ * Both mistakes have now been made once each, in opposite directions:
+ *
+ *   - Dropping `tasks_infer_board_id` made this fixture a pre-cutover client (it sent no
+ *     `board_id`) and it began failing closed on the release *after* the migration.
+ *   - Removing `user_id` here in the same PR that relaxed it to nullable failed *immediately*,
+ *     because production still had `NOT NULL` when E2E ran: `null value in column "user_id" ...
+ *     violates not-null constraint`.
+ *
+ * So a column being retired stays in this payload for the release that makes it optional, and comes
+ * out in the release that drops it -- one step later than feels natural. `category` needs no such
+ * care, having a default on both sides. Nothing else in the suite writes tasks.
  */
 export const SEEDED_TITLES = ['Draft the launch note', 'Book the venue', 'Unscheduled idea']
 
@@ -83,6 +87,7 @@ export async function seedBoard(options: SeedOptions = {}): Promise<void> {
 
   const { error: insertError } = await client.from('tasks').insert([
     {
+      user_id: userId,
       board_id: boardId,
       title: SEEDED_TITLES[0],
       day: anchor,
@@ -91,6 +96,7 @@ export async function seedBoard(options: SeedOptions = {}): Promise<void> {
       color: 'yellow',
     },
     {
+      user_id: userId,
       board_id: boardId,
       title: SEEDED_TITLES[1],
       // +2 days always stays inside the rendered grid: the 42 cells pad the anchor month to whole
@@ -101,6 +107,7 @@ export async function seedBoard(options: SeedOptions = {}): Promise<void> {
       color: 'blue',
     },
     {
+      user_id: userId,
       board_id: boardId,
       title: SEEDED_TITLES[2],
       day: null,

@@ -941,15 +941,25 @@ evict a queued PR. Seeding uses the anon key and that account's own credentials 
 key must never enter CI.** All three skip conditions (non-PR events, fork PRs, runs without secrets)
 report success from inside a step, never a job-level `if:`.
 
-**A migration's effect on E2E is invisible until the PR after the one that introduced it.** E2E runs
-against the _production_ database, but `Deploy Migrations` only applies migrations on merge to
-`main` — so the PR carrying a schema change tests the new client against the OLD schema, and the
-next PR is the first to run against the new one. That is not hypothetical: dropping
-`tasks_infer_board_id` broke `seedBoard`, which inserted tasks without a `board_id` and so was
-itself a pre-cutover client. `v1.6.0`'s own E2E passed green; the failure landed on the following
-PR, which had not touched a line of it. **When a migration changes what a write must include, update
-`tests/e2e/fixtures/` in the same PR and expect no CI signal confirming you got it right.** The
-fixtures are the one Supabase client in this repo that no unit or RLS test covers.
+**`tests/e2e/fixtures/` must match PRODUCTION's schema, which is one release behind its own
+branch.** E2E runs against the _production_ database, but `Deploy Migrations` only applies
+migrations on merge to `main` — so a PR carrying a schema change exercises its new client against
+the **old** schema, and the next PR is the first to meet the new one. The fixtures are also the one
+Supabase client in this repo that no unit or RLS test covers.
+
+Both halves of that have now bitten once each, in opposite directions, and the pair is the useful
+lesson:
+
+- **Too late.** Dropping `tasks_infer_board_id` made `seedBoard` a pre-cutover client — it sent no
+  `board_id` — but `v1.6.0`'s own E2E passed green, because production still had the trigger while
+  it ran. The failure landed on the _following_ PR, which had not touched a line of it.
+- **Too early.** Removing `user_id` from that same fixture in the very PR that relaxed it to
+  nullable failed _immediately_: production still had `NOT NULL` when E2E ran, so the seed died on
+  `null value in column "user_id" ... violates not-null constraint`.
+
+The rule that follows: **a column being retired stays in the fixture for the release that makes it
+optional, and comes out in the release that drops it** — one step later than feels natural. A column
+with a default needs no such care, since omitting it is valid on both sides.
 
 Five non-obvious constraints on the specs themselves. Four cost a real debugging pass; the fifth
 is a deliberate tradeoff worth understanding before it costs one:
