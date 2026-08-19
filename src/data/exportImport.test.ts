@@ -136,7 +136,7 @@ test('prepareImport requires an explicit mapping even when a destination has the
   const parsed = parseExport(serializeExport([task({ labelId: 'source-work' })], [], labels, 'x'))
   if (!parsed.ok) throw new Error(parsed.error)
 
-  expect(prepareImport(parsed.data, new Map(), new Set(['destination-work']), 'u1', 'b1')).toEqual({
+  expect(prepareImport(parsed.data, new Map(), new Set(['destination-work']), 'b1')).toEqual({
     ok: false,
     error: 'Choose a destination for every source Label.',
   })
@@ -151,7 +151,6 @@ test('prepareImport rejects a destination Label outside the selected Board', () 
       parsed.data,
       new Map([['source-work', 'another-board-label']]),
       new Set(['destination-work']),
-      'u1',
       'b1',
     ),
   ).toEqual({ ok: false, error: 'A chosen destination Label is no longer available.' })
@@ -168,7 +167,6 @@ test('mapping applies to plain Tasks, templates, and instances before fresh row 
       ['source-custom', null],
     ]),
     new Set(['destination-work']),
-    'u1',
     'b1',
   )
   if (!planned.ok) throw new Error(planned.error)
@@ -188,7 +186,6 @@ test('v1 Categories use the same explicit mapping path and no longer opt into th
     parsed.data,
     new Map([[source.id, 'destination-ideas']]),
     new Set(['destination-ideas']),
-    'u1',
     'b1',
   )
   if (!planned.ok) throw new Error(planned.error)
