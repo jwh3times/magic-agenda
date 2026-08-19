@@ -138,8 +138,11 @@ were added as their own effort rather than a roadmap feature — see
      Unlabeled correctly while its editor went on offering the deleted definition.
   2. [#180](https://github.com/jwh3times/magic-agenda/issues/180) — **shipped.** The window was
      declared closed on 2026-08-19; the Category bridge trigger and `labels.legacy_category` are
-     gone, and the client stopped sending `tasks.user_id`, `tasks.category`, and
-     `tasks.label_assignment_explicit`. Dropping the columns themselves is a **second** release
+     gone, and the client stopped sending `tasks.category` and `tasks.label_assignment_explicit`.
+     `tasks.user_id` only went nullable here — it was `NOT NULL` with no default, so it needed a
+     schema change before a quieter client, unlike the other two.
+     [#199](https://github.com/jwh3times/magic-agenda/issues/199) — **shipped** (v1.8.3) — is that
+     quieter client. Dropping the columns themselves is the final release
      ([#197](https://github.com/jwh3times/magic-agenda/issues/197)), because a client still sending a
      dropped column gets `400 PGRST204` and migrations land at a different moment from the Pages
      build.

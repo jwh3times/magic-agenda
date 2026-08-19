@@ -414,9 +414,9 @@ above `<Routes>` beside `SettingsProvider`, see below) loads the signed-in Accou
 Memberships joined to their Boards, resolves which one is open (`resolveSelection()` in
 `src/board/selection.ts`), and exposes it as `useBoardSession()`'s `board` + `can` — the first real
 caller of `src/board/role.ts`'s capabilities. `useTasks` takes a `boardId` and loads/writes
-`.eq('board_id', boardId)`; `taskToRow` sends `board_id` (not `user_id` — dropped with the
-compatibility layer in #180); offline board snapshots are keyed per Board; realtime filters on
-`board_id`; and `DataSection`'s v2 import/export is scoped the same way.
+`.eq('board_id', boardId)`; `taskToRow(task, boardId)` sends only `board_id` (`user_id` stopped
+being written in #199 — see the Labels section above); offline board snapshots are keyed per
+Board; realtime filters on `board_id`; and `DataSection`'s v2 import/export is scoped the same way.
 
 **Client-side scoping is still not the boundary — it just no longer disagrees with it.** Everything
 above narrows what the client _asks_ for; RLS narrows what the server _allows_, and since the
