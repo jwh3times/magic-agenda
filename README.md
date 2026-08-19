@@ -51,9 +51,9 @@ of three hand‑built themes.
   Row‑Level Security; optimistic updates with rollback.
 - **Multiple Boards** — every account starts with one private Board; create more and switch between
   them from the Board switcher in the Toolbar. Each Board has its own Tasks, Series, and Labels.
-  Delete a Board you own from Settings → Boards, behind a type‑the‑Board's‑name confirmation — this
-  destroys everything in it. Deleting your last Board is allowed; you land on a screen offering to
-  create a new one.
+  Rename a Board you own from Settings → Boards, or delete it there behind a
+  type‑the‑Board's‑name confirmation — deletion destroys everything in it. Deleting your last Board
+  is allowed; you land on a screen offering to create a new one.
 - **Works on your phone** — responsive layouts for every view (stacked week, swipeable kanban,
   collapsible inbox, bottom‑sheet editor) and long‑press touch drag‑and‑drop.
 - **Installable, and readable offline** — add it to your Home Screen for a standalone app; with no
@@ -158,7 +158,8 @@ npm run dev      # start the dev server at http://localhost:5173
 ```
 src/
 ├─ auth/         AuthProvider + ProtectedRoute + the auth gateway (only module calling supabase.auth)
-├─ board/        Board directory/selection/creation/deletion, role capabilities, BoardDirectoryProvider
+├─ board/        Board directory/selection/creation/rename/deletion, role capabilities,
+│                BoardDirectoryProvider
 ├─ components/   Board, views (Calendar/Week/Agenda/Kanban), TaskEditor, Toolbar, …
 ├─ data/         useTasks / useSettings hooks, mappers, selectors, filters, recurrence
 ├─ dnd/          pure drag logic (unit‑tested) + dnd‑kit wiring

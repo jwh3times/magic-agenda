@@ -12,6 +12,41 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.0] - 2026-08-18
+
+### Added
+
+- Board Owners can rename a Board from **Settings → Boards**. The name becomes an editable field in
+  place, commits when you leave it or press Enter, and Escape abandons the edit. Names are trimmed,
+  and an empty one is refused with an explanation rather than silently kept. Editors and Viewers see
+  the name with no rename control, and the database enforces Owner-only regardless (#190).
+- This completes the Board lifecycle — create, switch, rename, delete.
+
+### Internal
+
+- Rename is a column-scoped `grant update (name)` plus an Owner-only UPDATE policy. Both halves are
+  load-bearing: RLS cannot express "only this column changed" because a policy cannot see the old
+  row, so the grant is what keeps `id`, `created_at`, and `updated_at` out of reach while the policy
+  decides whose rows are in scope. `tests/rls/board_rename.test.ts` asserts a PATCH carrying any
+  other column is refused with `403`, including one that also carries a legitimate name.
+- `boards_update_owner`'s `with check` is **redundant today** and the migration says so rather than
+  implying otherwise — `name` appears in neither predicate. It exists because that is a property of
+  the grant, not the policy: a later `grant update (id)` would make it the only thing stopping a
+  Board being renumbered out of its Owner's reach.
+- Adds a `boards_name_trimmed` constraint matching the Labels precedent, so `"Work"` and `"Work "`
+  cannot be two names that render identically. No backfill needed — every existing name is
+  `'My Board'` or came through `create_board`, which already trims.
+- Rename is optimistic, unlike creation and deletion. Those change _which_ Boards exist, so an
+  unconfirmed result would render an entry no query can find; a name is one field of a row already
+  there. The rollback restores the previous list rather than the previous name, so a concurrent
+  change to another Board is not clobbered by this one failing.
+
+### Docs
+
+- Corrected two policy counts this release moves to 18, including the Step 4 verification in
+  `docs/runbooks/restore-from-backup.md` — a living runbook read during an actual restore, where a
+  stale count makes a correct restore look broken.
+
 ## [1.7.0] - 2026-08-18
 
 ### Added
@@ -1809,7 +1844,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/jwh3times/magic-agenda/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/jwh3times/magic-agenda/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/jwh3times/magic-agenda/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/jwh3times/magic-agenda/compare/v1.4.3...v1.5.0
