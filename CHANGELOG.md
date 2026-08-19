@@ -22,8 +22,8 @@ Internal only — nothing about the app looks or behaves differently.
   migration. Its deploy window was declared closed on 2026-08-19: `v1.6.0` had already narrowed what
   it protected, because dropping the Board-inference trigger left such a client unable to create a
   task at all. The `tasks_sync_legacy_category_label` trigger and `labels.legacy_category` are gone,
-  and the app no longer writes `tasks.user_id`, `tasks.category`, or
-  `tasks.label_assignment_explicit` (#180).
+  and the app no longer writes `tasks.category` or `tasks.label_assignment_explicit` (#180).
+  `tasks.user_id` becomes nullable here but is still written for one release longer — see below.
 - `user_settings.default_view` is no longer read or written. Default View is a Membership
   Preference and now has exactly one home, `board_memberships.default_view`; the second copy existed
   so the client deployed during the Board cutover kept reading a value it understood, and both were
@@ -44,6 +44,13 @@ Internal only — nothing about the app looks or behaves differently.
 - `tasks.user_id` is relaxed to nullable, the only one of the four needing a schema change — it was
   `NOT NULL` with no default, so no client could simply stop sending it. It has not been an
   authorization input since the v1.2.78 cutover; attribution lives in `author_id`/`last_editor_id`.
+- **The client keeps sending `user_id` for one more release** (#199), because of a second race distinct
+  from the one above: `Deploy Migrations` and the Cloudflare Pages build race on every merge, so a
+  client that stopped sending a `NOT NULL` column could reach users before the migration relaxed it.
+  E2E demonstrated this rather than predicting it — the preview build ran against production, where
+  the constraint was still in force, and could not create a task at all. `category` and
+  `label_assignment_explicit` were exempt: both have column defaults, so omitting them is valid on
+  either side of the migration.
 - Dropping the bridge trigger and dropping `label_assignment_explicit` from the client payload had
   to be **atomic**. Omitting that flag makes it default to `false`, which is exactly the signal the
   bridge read as "a stale client omitted `label_id`" — with the trigger still in place, every new

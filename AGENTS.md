@@ -288,7 +288,8 @@ definition's dot/accent and is independent from the Task's visual Note Color.
 
 **The Category compatibility layer is retired** (#180, window declared closed 2026-08-19).
 `tasks_sync_legacy_category_label` and `labels.legacy_category` are gone, and the client no longer
-sends `tasks.user_id`, `tasks.category`, or `tasks.label_assignment_explicit`. The app domain uses
+sends `tasks.category` or `tasks.label_assignment_explicit`. `tasks.user_id` is relaxed to nullable
+but **still written**, for one release longer — see below. The app domain uses
 `Task.labelId: string | null`; Category survives only in the **v1 file parser** in
 `src/data/exportImport.ts`, where legacy Categories normalize into synthetic source Labels and go
 through the same explicit destination mapping as v2.

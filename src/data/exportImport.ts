@@ -315,6 +315,7 @@ export function prepareImport(
   data: ImportBundle,
   mapping: ReadonlyMap<string, string | null>,
   destinationLabelIds: ReadonlySet<string>,
+  userId: string,
   boardId: string,
 ): PrepareImportResult {
   const required = referencedSourceLabels(data)
@@ -341,8 +342,8 @@ export function prepareImport(
   return {
     ok: true,
     data: {
-      taskRows: remapped.tasks.map((task) => taskToRow(task, boardId)),
-      templateRows: remapped.templates.map((task) => taskToRow(task, boardId)),
+      taskRows: remapped.tasks.map((task) => taskToRow(task, userId, boardId)),
+      templateRows: remapped.templates.map((task) => taskToRow(task, userId, boardId)),
     },
   }
 }

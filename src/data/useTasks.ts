@@ -129,13 +129,13 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       try {
         const { error: err } = await supabase
           .from('tasks')
-          .insert(instances.map((t) => taskToRow(t, boardId)))
+          .insert(instances.map((t) => taskToRow(t, userId, boardId)))
         if (err) throw new Error(err.message)
       } catch (e) {
         setError(errorMessage(e))
       }
     },
-    [setTasks, boardId, markWrites],
+    [setTasks, userId, boardId, markWrites],
   )
 
   /**
@@ -280,7 +280,9 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         templatesRef.current = [...templatesRef.current, task]
         markWrites([task.id])
         try {
-          const { error: err } = await supabase.from('tasks').insert(taskToRow(task, boardId))
+          const { error: err } = await supabase
+            .from('tasks')
+            .insert(taskToRow(task, userId, boardId))
           if (err) throw new Error(err.message)
         } catch (e) {
           setError(errorMessage(e))
@@ -299,14 +301,14 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       setTasks((p) => [...p, full])
       markWrites([full.id])
       try {
-        const { error: err } = await supabase.from('tasks').insert(taskToRow(full, boardId))
+        const { error: err } = await supabase.from('tasks').insert(taskToRow(full, userId, boardId))
         if (err) throw new Error(err.message)
       } catch (e) {
         setTasks(prev)
         setError(errorMessage(e))
       }
     },
-    [setTasks, materialize, boardId, markWrites],
+    [setTasks, materialize, userId, boardId, markWrites],
   )
 
   const updateTask = useCallback(
@@ -319,7 +321,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         try {
           const { error: err } = await supabase
             .from('tasks')
-            .update(taskToRow(task, boardId))
+            .update(taskToRow(task, userId, boardId))
             .eq('id', task.id)
           if (err) throw new Error(err.message)
         } catch (e) {
@@ -341,7 +343,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       try {
         const { error: err } = await supabase
           .from('tasks')
-          .update(taskToRow(task, boardId))
+          .update(taskToRow(task, userId, boardId))
           .eq('id', task.id)
         if (err) throw new Error(err.message)
       } catch (e) {
@@ -349,7 +351,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         setError(errorMessage(e))
       }
     },
-    [setTasks, materialize, reload, boardId, markWrites],
+    [setTasks, materialize, reload, userId, boardId, markWrites],
   )
 
   const removeTask = useCallback(
@@ -379,7 +381,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       try {
         const { error: err } = await supabase
           .from('tasks')
-          .update(taskToRow(toggled, boardId))
+          .update(taskToRow(toggled, userId, boardId))
           .eq('id', id)
         if (err) throw new Error(err.message)
       } catch (e) {
@@ -387,7 +389,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         setError(errorMessage(e))
       }
     },
-    [setTasks, boardId, markWrites],
+    [setTasks, userId, boardId, markWrites],
   )
 
   const persistReorder = useCallback(
@@ -395,7 +397,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       setTasks(next)
       const rows = next
         .filter((t) => containers.includes(mode === 'day' ? t.day : t.status))
-        .map((t) => taskToRow(t, boardId))
+        .map((t) => taskToRow(t, userId, boardId))
       if (rows.length === 0) return
       markWrites(rows.map((r) => r.id))
       try {
@@ -406,7 +408,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         void reload()
       }
     },
-    [setTasks, boardId, reload, markWrites],
+    [setTasks, userId, boardId, reload, markWrites],
   )
 
   const rollForward = useCallback(
@@ -418,7 +420,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       markWrites(changed.map((t) => t.id))
       try {
         const { error: err } = await supabase.from('tasks').upsert(
-          changed.map((t) => taskToRow(t, boardId)),
+          changed.map((t) => taskToRow(t, userId, boardId)),
           { onConflict: 'id' },
         )
         if (err) throw new Error(err.message)
@@ -427,7 +429,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         setError(errorMessage(e))
       }
     },
-    [setTasks, markWrites, boardId],
+    [setTasks, markWrites, userId, boardId],
   )
 
   const clearError = useCallback(() => setError(null), [])
@@ -469,7 +471,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       if (plan.upserts.length > 0) {
         try {
           const { error: err } = await supabase.from('tasks').upsert(
-            plan.upserts.map((t) => taskToRow(t, boardId)),
+            plan.upserts.map((t) => taskToRow(t, userId, boardId)),
             { onConflict: 'id' },
           )
           if (err) throw new Error(err.message)
@@ -499,7 +501,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         await materialize(plan.materialize, [...plan.state.tasks])
       }
     },
-    [setTasks, markWrites, boardId, reload, materialize],
+    [setTasks, markWrites, userId, boardId, reload, materialize],
   )
 
   const seriesState = useCallback(
