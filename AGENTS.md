@@ -287,27 +287,33 @@ Label is deleted. `Unlabeled` is therefore `label_id = NULL`, never a Label row.
 definition's dot/accent and is independent from the Task's visual Note Color.
 
 **The Category compatibility layer is retired** (#180, window declared closed 2026-08-19).
-`tasks_sync_legacy_category_label` and `labels.legacy_category` are gone, and the client no longer
-sends `tasks.category` or `tasks.label_assignment_explicit`. `tasks.user_id` is relaxed to nullable
-but **still written**, for one release longer — see below. The app domain uses
+`tasks_sync_legacy_category_label` and `labels.legacy_category` are gone, and the client writes none
+of `tasks.user_id`, `tasks.category`, or `tasks.label_assignment_explicit`. The app domain uses
 `Task.labelId: string | null`; Category survives only in the **v1 file parser** in
 `src/data/exportImport.ts`, where legacy Categories normalize into synthetic source Labels and go
 through the same explicit destination mapping as v2.
 
-**That retirement is deliberately two releases, and the reason is measured, not argued.** Dropping a
-column any live client still _sends_ is a hard failure: PostgREST answers
-`400 PGRST204 — Could not find the 'x' column of 'tasks' in the schema cache`. Migrations and the
-Cloudflare Pages build land at different moments and a long-open tab runs the old client
-indefinitely, so a single release that both stopped writing a column and dropped it would break task
-creation for anyone who had not reloaded. Reads are unaffected — `select('*')` simply returns fewer
-columns, and `rowToTask` never read `category`. **The hazard is writes only.**
+**Retiring it took three releases, and each boundary is forced by a different race.** Both are about
+writes only — reads were never affected, since `select('*')` simply returns fewer columns and
+`rowToTask` never read `category`.
 
-- **Release A** (shipped) made the columns unnecessary: bridge and alias dropped, `tasks.user_id`
-  relaxed to nullable, client payloads slimmed. `tests/rls/compatibility_window.test.ts` asserts the
-  premise directly — _both_ the old and new client shapes write successfully against this schema.
-- **Release B** drops `tasks.user_id`, `tasks.category`, `tasks.label_assignment_explicit`, and
-  `user_settings.default_view`, after a window for tabs still on the pre-A client. Delete that test
-  file with it; at that point the old shape is _supposed_ to fail.
+1. **Migration first** (#180, v1.8.2). Dropped the bridge and the alias, and relaxed
+   `tasks.user_id` to nullable. The client kept sending `user_id` here.
+2. **Client next** ([#199](https://github.com/jwh3times/magic-agenda/issues/199)). Stopped sending
+   `user_id`. It could not be folded into step 1, because **`Deploy Migrations` and the Cloudflare
+   Pages build race on every merge** — a client that stopped sending a `NOT NULL` column could reach
+   users before the migration relaxed it. E2E proved this rather than predicting it: the preview
+   build ran against production, where the constraint was still in force, and could not create a
+   task at all.
+3. **Drop the columns** ([#197](https://github.com/jwh3times/magic-agenda/issues/197)). Cannot be
+   folded into step 2 either, because the mirror race applies: a drop landing before the new client
+   deploys leaves the still-deployed client sending a column that no longer exists, which PostgREST
+   answers with `400 PGRST204`. Delete `tests/rls/compatibility_window.test.ts` with it — that file
+   asserts the _old_ client shape still writes, which is exactly what stops being true.
+
+**Only `user_id` needed all three steps.** `category` and `label_assignment_explicit` have column
+defaults, so omitting them is valid on both sides of a migration and they came out in step 1.
+`user_id` was `NOT NULL` with no default, which is the whole reason it is the awkward one.
 
 Two traps this uncovered, both of which would have shipped silently:
 
@@ -408,9 +414,9 @@ above `<Routes>` beside `SettingsProvider`, see below) loads the signed-in Accou
 Memberships joined to their Boards, resolves which one is open (`resolveSelection()` in
 `src/board/selection.ts`), and exposes it as `useBoardSession()`'s `board` + `can` — the first real
 caller of `src/board/role.ts`'s capabilities. `useTasks` takes a `boardId` and loads/writes
-`.eq('board_id', boardId)`; `taskToRow` sends `board_id` (not `user_id` — dropped with the
-compatibility layer in #180); offline board snapshots are keyed per Board; realtime filters on
-`board_id`; and `DataSection`'s v2 import/export is scoped the same way.
+`.eq('board_id', boardId)`; `taskToRow(task, boardId)` sends only `board_id` (`user_id` stopped
+being written in #199 — see the Labels section above); offline board snapshots are keyed per
+Board; realtime filters on `board_id`; and `DataSection`'s v2 import/export is scoped the same way.
 
 **Client-side scoping is still not the boundary — it just no longer disagrees with it.** Everything
 above narrows what the client _asks_ for; RLS narrows what the server _allows_, and since the

@@ -12,6 +12,44 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.3] - 2026-08-19
+
+Internal only — nothing about the app looks or behaves differently.
+
+### Changed
+
+- The app no longer writes `tasks.user_id`. `board_id` is the only ownership column it sends, which
+  it has effectively been since the v1.2.78 authorization cutover; attribution lives in `author_id`
+  and `last_editor_id`. `taskToRow` and `prepareImport` lose their user-id parameter (#199).
+
+### Internal
+
+- This is **step 2 of 3** in retiring the compatibility layer, and each boundary is forced by a
+  different race — both about writes only, since reads were never affected.
+  1. `v1.8.2` relaxed `tasks.user_id` to nullable.
+  2. This release stops the client sending it. It could not be folded into the previous one:
+     `Deploy Migrations` and the Cloudflare Pages build race on every merge, so a client that
+     stopped sending a `NOT NULL` column could reach users before the migration relaxed it. E2E
+     demonstrated exactly that on `v1.8.2`'s own pull request — the preview build ran against
+     production, where the constraint was still in force, and could not create a task at all.
+  3. #197 drops the column. It cannot be folded into this one either: the mirror race applies, and
+     a drop landing before the new client deploys leaves the still-deployed client sending a column
+     that no longer exists, which PostgREST answers with `400 PGRST204`.
+- Only `user_id` needed all three steps. `category` and `label_assignment_explicit` have column
+  defaults, so omitting them is valid on both sides of a migration and they came out in `v1.8.2`.
+- `tests/e2e/fixtures/seedBoard.ts` deliberately still sends `user_id`: it runs against production,
+  where the column exists until #197 drops it.
+
+### Docs
+
+- Corrected the `AGENTS.md` passage describing this work, which still set out a two-release split.
+  The edit adding the middle step had silently failed to apply on the previous branch — a plain
+  string replace against text prettier had since reflowed, with no assertion that it matched.
+- Corrected three places (`AGENTS.md`, `ROADMAP.md`, `restore-from-backup.md`) that credited `v1.8.2`
+  with stopping the client writing `user_id`. It only made the column nullable; the write stopped
+  here. The distinction is easy to lose and load-bearing — it is the whole reason this is a separate
+  release.
+
 ## [1.8.2] - 2026-08-19
 
 Internal only — nothing about the app looks or behaves differently.
@@ -1938,7 +1976,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.2...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.3...HEAD
+[1.8.3]: https://github.com/jwh3times/magic-agenda/compare/v1.8.2...v1.8.3
 [1.8.2]: https://github.com/jwh3times/magic-agenda/compare/v1.8.1...v1.8.2
 [1.8.1]: https://github.com/jwh3times/magic-agenda/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/jwh3times/magic-agenda/compare/v1.7.0...v1.8.0
