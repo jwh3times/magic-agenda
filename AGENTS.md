@@ -475,16 +475,16 @@ one — the same shape of guard as its `!userId` check.
 
 `src/data/useSyncedTable.ts` owns the `postgres_changes` channel, echo suppression for this client's
 own writes (`useOwnWrites`, a 5s per-id TTL), reconnect with capped exponential backoff, and
-catch-up on `visibilitychange`/`online`. `useTasks` and `useSettings` are its two adapters and keep
-only their own load, state shape, and snapshot envelope.
+catch-up on `visibilitychange`/`online`. `useTasks`, `useSettings`, and `useLabels` are its three
+adapters and keep only their own load, state shape, and snapshot envelope.
 
 **The filter is part of the adapter's spec, not hardcoded.** It was `user_id=eq.<userId>` for both
-tables until the authorization cutover; `tasks` now filters on `board_id` (a user-scoped
-subscription would deliver changes for every Board the Account belongs to, including rows this
-client is not loading), while `user_settings` stays on `user_id` because that genuinely is what
-scopes it. The channel topic is scoped by the filter value for the same reason — two Boards sharing
-one topic would reuse a subscription bound to the wrong filter. An empty filter value opens no
-channel, exactly as an empty `userId` does: the Board Directory resolves asynchronously, and an
+tables until the authorization cutover; `tasks` and, since #188, `labels` filter on `board_id` (a
+user-scoped subscription would deliver changes for every Board the Account belongs to, including
+rows this client is not loading), while `user_settings` stays on `user_id` because that genuinely is
+what scopes it. The channel topic is scoped by the filter value for the same reason — two Boards
+sharing one topic would reuse a subscription bound to the wrong filter. An empty filter value opens
+no channel, exactly as an empty `userId` does: the Board Directory resolves asynchronously, and an
 unfiltered subscription in that window is the realtime twin of an unfiltered load.
 
 `useBoardDirectory` registers its **own** `visibilitychange`/`online` catch-up, deliberately not
@@ -503,8 +503,8 @@ describe both hooks as reloading and resubscribing with backoff; only one of the
 Two details worth keeping: `rowIdOf` reads `payload.old` for DELETE and `payload.new` otherwise,
 because a DELETE payload carries **only** the primary key (replica identity is DEFAULT, and
 Supabase forces that for RLS-enabled tables) — reading `new` would make every delete look like
-another client's write. And the primary key differs per table (`tasks.id` vs
-`user_settings.user_id`), which is why the id extraction could not stay inline in either hook.
+another client's write. And the primary key differs per table (`tasks.id` and `labels.id` vs
+`user_settings.user_id`), which is why the id extraction could not stay inline in any of the hooks.
 
 Remote task changes still flow through the pure reducer in `src/data/realtime.ts` (instance dedupe
 by `(recurParentId, recurOriginDay)`, templates routed to `templatesRef`).
