@@ -71,9 +71,15 @@ skill automates the whole flow, backfill included.
 ## Architecture (the parts that span multiple files)
 
 Pure SPA -> Supabase, no server of our own. Postgres **Row-Level Security is the only authorization
-boundary** (every table default-denies; `tasks`/`user_settings` scope to `auth.uid() = user_id`,
-and the Board tables scope through Membership — see below); the anon key is public
-by design.
+boundary** (every table default-denies; `user_settings` scopes to `auth.uid() = user_id`, while
+`tasks`, `labels`, and the Board tables all scope through **Membership** — see below); the anon key
+is public by design.
+
+This paragraph said `tasks` scoped to `user_id` until #180, which was left behind by the v1.2.78
+authorization cutover and contradicted by this file's own Board-ownership section. Worth noticing
+how it survived: it is the summary, so it is what a reader trusts before they know enough to doubt
+it, and nothing executable depends on it. `tasks.user_id` is not an authorization input anywhere and
+is being dropped.
 
 Dated security reviews live in `private/` — **git-ignored, local to the maintainer's checkout**, so
 they are not in a clone. They are where accepted risks and open findings are recorded, with the
@@ -266,13 +272,13 @@ content is not its call, whereas here the caller is the Owner and that is what O
 Practical consequence for fixtures: a test that reaches for the service client to create a Board
 gets a permission error; seed through direct SQL or `create_board`, never by widening the grant.
 
-### Labels: optional classification with a temporary legacy bridge
+### Labels: optional classification, legacy bridge retired
 
 `labels` is Board-owned vocabulary. Every current member may SELECT definitions; only an Owner may
 create, rename, recolor, reorder, or delete them. The grants carry part of that boundary: INSERT is
 limited to `(board_id, name, dot_color, position)` and UPDATE to `(name, dot_color, position)`, so a
-client cannot move a Label across Boards or forge the compatibility alias even if its RLS predicate
-would otherwise accept the row. There is deliberately no `service_role` grant.
+client cannot move a Label across Boards even if its RLS predicate would otherwise accept the row.
+There is deliberately no `service_role` grant.
 
 A Task has zero or one Label. The composite foreign key
 `(board_id, label_id) -> labels(board_id, id)` makes cross-Board assignment impossible, and its
@@ -401,9 +407,9 @@ above `<Routes>` beside `SettingsProvider`, see below) loads the signed-in Accou
 Memberships joined to their Boards, resolves which one is open (`resolveSelection()` in
 `src/board/selection.ts`), and exposes it as `useBoardSession()`'s `board` + `can` — the first real
 caller of `src/board/role.ts`'s capabilities. `useTasks` takes a `boardId` and loads/writes
-`.eq('board_id', boardId)`; `taskToRow` sends both `user_id` and `board_id`; offline board snapshots
-are keyed per Board; realtime filters on `board_id`; and `DataSection`'s v2 import/export is scoped
-the same way.
+`.eq('board_id', boardId)`; `taskToRow` sends `board_id` (not `user_id` — dropped with the
+compatibility layer in #180); offline board snapshots are keyed per Board; realtime filters on
+`board_id`; and `DataSection`'s v2 import/export is scoped the same way.
 
 **Client-side scoping is still not the boundary — it just no longer disagrees with it.** Everything
 above narrows what the client _asks_ for; RLS narrows what the server _allows_, and since the

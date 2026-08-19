@@ -227,10 +227,13 @@ select count(*) from public.user_settings;
 select count(*) from public.boards;
 select count(*) from public.board_memberships;
 select count(*) from public.account_profiles;
--- No task may reference a user that did not come back:
+-- No task may reference a user that did not come back. `user_id` went nullable in #180
+-- (20260819100000) and the client stopped sending it, so a bare `left join ... where u.id is null`
+-- would flag every legitimately-unrouted post-#180 task as a defect; only a *populated* user_id
+-- pointing at a missing user is one:
 select count(*) from public.tasks t
   left join auth.users u on u.id = t.user_id
- where u.id is null;   -- must be 0
+ where t.user_id is not null and u.id is null;   -- must be 0
 
 -- Nor a board that did not come back — the v1.2.76 companion to the check above. board_id is still
 -- nullable pre-cutover, so a legitimately-unrouted task is not itself a defect; a task pointing at a
