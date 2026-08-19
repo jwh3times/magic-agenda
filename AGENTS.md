@@ -318,30 +318,39 @@ Owner-only management writes. Cards and drag overlays resolve names/colors throu
 null or missing definition renders the neutral Unlabeled presentation. Label Color supplies the
 accent only; Note Color still chooses the paper.
 
-**Labels have no realtime channel, and since #179 that is a deferral with a known cost, not a
-settled decision — see [#188](https://github.com/jwh3times/magic-agenda/issues/188).** The original
-reason was a conjunction: no shipped UI mutated definitions, **and** publishing another RLS table
-would widen the DELETE fan-out surface for no freshness benefit. #179 expired both halves at once.
-It kept catch-up anyway, on the narrower argument that one Owner needs no push — which conflates one
-_person_ with one _surface_, and is the part to distrust.
+**Labels are published to realtime, and the route there is worth knowing.** #177 deferred it on a
+conjunction — no shipped UI mutated definitions, **and** publishing another RLS table would widen
+the DELETE fan-out for no freshness benefit. #179 shipped Owner-only management and expired both
+halves at once, but kept catch-up anyway on the narrower argument that one Owner needs no push. That
+argument confuses one _person_ with one _surface_: `visibilitychange` and `online` are catch-up's
+only triggers, so it never fires for a tab that stays open and focused, and a laptop beside an awake
+phone is one person with two of them. #188 published the table.
 
-What catch-up does not cover is **a tab that stays open and focused**: `visibilitychange` and
-`online` are the only triggers, exactly the hole recorded below for the Board Directory's membership
-revalidation. The concrete edge is deletion, and its order matters. `tasks` _is_ published, so
-another surface's cards correctly re-render as Unlabeled the moment the Label foreign key's
-column-list `on delete set null` fires — while its Label directory stays stale, so `TaskEditor` goes
-on offering a chip for the deleted definition and the save is then rejected by
-`tasks_label_same_board`. Partial freshness is worse than uniform staleness here: the board looks
-trustworthy while the vocabulary under it is not.
+The edge that closed was not cosmetic staleness, and its ordering is the instructive part. `tasks`
+was published and `labels` was not, so another focused surface re-rendered its cards as Unlabeled
+correctly the moment the Label foreign key's column-list `on delete set null` fired — while its
+Label directory stayed stale, so `TaskEditor` went on offering a chip for the deleted definition and
+the save was then rejected by `tasks_label_same_board`. **Partial freshness is worse than uniform
+staleness**: the board looked trustworthy while the vocabulary under it was not.
 
-Bounded, though, and worth keeping in proportion. It takes a _delete_ — the rarest of the five
-operations — since a rename leaves the id intact and costs only a wrong chip name; the result is a
-confusing failed save, not data loss, and a reload clears it. Publishing is three lines of migration
-(`labels.id` is a uuid, so the structural uuid-key assertion covers it and the marginal fan-out is
-"some opaque uuid was deleted"), but the adapter is not a drop-in: `useLabels` is bespoke and does
-not go through `useSyncedTable`, which is shaped around its two existing adapters. Revisit at
-sharing at the latest — when a second person can delete a Label under you, the frequency argument
-stops holding — alongside the membership heartbeat deferred for the same reason.
+`useLabels` is now a third `useSyncedTable` adapter beside `useTasks` and `useSettings`, filtered on
+`board_id` for the same reason `tasks` is — an account-scoped subscription would deliver definitions
+for every Board the account belongs to. Two consequences of joining it are easy to get wrong:
+
+- **Every mutation must `markWrites`, including a reorder's whole batch.** A reorder rewrites
+  several rows, so marking only the dragged id lets the untouched-looking siblings echo back and
+  undo the local order.
+- **The hand-rolled catch-up listener had to go.** `useSyncedTable` registers its own, and keeping
+  both meant every wake and reconnect issued two identical loads — caught by a test asserting a
+  reload count, which is the only reason it was noticed at all.
+
+`src/labels/labelRealtime.ts` holds the payload normalizer and the pure reducer, mirroring
+`src/data/realtime.ts`. INSERT and UPDATE collapse into one `UPSERT` case deliberately: the reducer
+has to be idempotent anyway, since a reconnect replays a reload over whatever arrived during the
+outage, so branching on which one it was would add a path with no consequence. The result is always
+re-sorted by `(position, id)` — a remote reorder arrives as several independent UPDATEs, and nothing
+constrains `(board_id, position)` to be unique, so ties must break deterministically or the list
+flickers as the rest of the batch lands.
 
 **`src/labels/labelIntent.ts` is the decision half of Label management** — `checkName`, `checkColor`,
 `moveLabel`, `changedPositions`, `labelProblemFromError`, `explainProblem` — with `useLabels` left
@@ -466,16 +475,16 @@ one — the same shape of guard as its `!userId` check.
 
 `src/data/useSyncedTable.ts` owns the `postgres_changes` channel, echo suppression for this client's
 own writes (`useOwnWrites`, a 5s per-id TTL), reconnect with capped exponential backoff, and
-catch-up on `visibilitychange`/`online`. `useTasks` and `useSettings` are its two adapters and keep
-only their own load, state shape, and snapshot envelope.
+catch-up on `visibilitychange`/`online`. `useTasks`, `useSettings`, and `useLabels` are its three
+adapters and keep only their own load, state shape, and snapshot envelope.
 
 **The filter is part of the adapter's spec, not hardcoded.** It was `user_id=eq.<userId>` for both
-tables until the authorization cutover; `tasks` now filters on `board_id` (a user-scoped
-subscription would deliver changes for every Board the Account belongs to, including rows this
-client is not loading), while `user_settings` stays on `user_id` because that genuinely is what
-scopes it. The channel topic is scoped by the filter value for the same reason — two Boards sharing
-one topic would reuse a subscription bound to the wrong filter. An empty filter value opens no
-channel, exactly as an empty `userId` does: the Board Directory resolves asynchronously, and an
+tables until the authorization cutover; `tasks` and, since #188, `labels` filter on `board_id` (a
+user-scoped subscription would deliver changes for every Board the Account belongs to, including
+rows this client is not loading), while `user_settings` stays on `user_id` because that genuinely is
+what scopes it. The channel topic is scoped by the filter value for the same reason — two Boards
+sharing one topic would reuse a subscription bound to the wrong filter. An empty filter value opens
+no channel, exactly as an empty `userId` does: the Board Directory resolves asynchronously, and an
 unfiltered subscription in that window is the realtime twin of an unfiltered load.
 
 `useBoardDirectory` registers its **own** `visibilitychange`/`online` catch-up, deliberately not
@@ -494,8 +503,8 @@ describe both hooks as reloading and resubscribing with backoff; only one of the
 Two details worth keeping: `rowIdOf` reads `payload.old` for DELETE and `payload.new` otherwise,
 because a DELETE payload carries **only** the primary key (replica identity is DEFAULT, and
 Supabase forces that for RLS-enabled tables) — reading `new` would make every delete look like
-another client's write. And the primary key differs per table (`tasks.id` vs
-`user_settings.user_id`), which is why the id extraction could not stay inline in either hook.
+another client's write. And the primary key differs per table (`tasks.id` and `labels.id` vs
+`user_settings.user_id`), which is why the id extraction could not stay inline in any of the hooks.
 
 Remote task changes still flow through the pure reducer in `src/data/realtime.ts` (instance dedupe
 by `(recurParentId, recurOriginDay)`, templates routed to `templatesRef`).
@@ -798,8 +807,8 @@ get the schema in place before regenerating types. Regenerate `src/types/databas
 `mappers.ts` conventions above intact.
 Prefer test-first for pure logic in `src/data` and `src/dnd` (these have thorough unit tests).
 
-Two standing rules for any table in the `supabase_realtime` publication (today `tasks` and
-`user_settings`): **never put a secret or semantically meaningful value in the primary key**, because
+Two standing rules for any table in the `supabase_realtime` publication (today `tasks`,
+`user_settings`, and `labels`): **never put a secret or semantically meaningful value in the primary key**, because
 DELETE events are fanned out to every subscriber without an owner check (Postgres cannot check access
 to an already-deleted row), and **never `disable row level security`** on one — that is the single
 change that would escalate the leak from primary keys to full deleted rows. See the header comment on

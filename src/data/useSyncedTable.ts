@@ -97,7 +97,7 @@ export function useOwnWrites(): OwnWrites {
 export interface SyncedTableSpec {
   /** Empty means signed out: no channel is opened and no catch-up listener is registered. */
   userId: string
-  table: 'tasks' | 'user_settings'
+  table: 'tasks' | 'user_settings' | 'labels'
   /** Column holding the row id used for echo suppression. */
   primaryKey: string
   /**
@@ -106,8 +106,8 @@ export interface SyncedTableSpec {
    * Used to be hardcoded to `user_id=eq.<userId>`, which stopped being right when task access
    * became board-scoped: a client subscribed by `user_id` would keep receiving changes for every
    * board the account belongs to, and would still be subscribed to rows it is no longer showing.
-   * `tasks` now filters on `board_id`; `user_settings` still filters on `user_id`, because that is
-   * genuinely what scopes it.
+   * `tasks` and `labels` filter on `board_id`; `user_settings` still filters on `user_id`, because
+   * that is genuinely what scopes it.
    *
    * An empty `filterValue` means "not resolvable yet" — the Board Directory has not settled — and
    * opens no channel, the same way an empty `userId` does.

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { readLabelSnapshot, writeLabelSnapshot } from '../data/snapshot'
+import { useOwnWrites, useSyncedTable, type ChangePayload } from '../data/useSyncedTable'
 import { supabase } from '../lib/supabase'
+import { applyLabelChange, payloadToLabelChange } from './labelRealtime'
 import type { Label } from '../types/label'
 import {
   changedPositions,
@@ -65,15 +67,18 @@ export interface UseLabels {
 }
 
 /**
- * The selected Board's Label vocabulary: read with an offline snapshot and focus/online catch-up,
- * plus the Owner-only management writes added in #179.
+ * The selected Board's Label vocabulary: a realtime channel, an offline snapshot, focus/online
+ * catch-up, and the Owner-only management writes.
  *
- * Labels still have no realtime channel. Catch-up already refreshes on navigation and reconnect,
- * definitions change rarely, and publishing another RLS table widens the DELETE fan-out surface —
- * so the freshness the issue asks for is bought here by catch-up rather than by publication.
+ * Realtime arrived in #188, later than the rest. #177 deferred it because nothing could mutate a
+ * definition; #179 shipped management and expired that, and the fallback argument — one Owner needs
+ * no push — confused one *person* with one *surface*. Catch-up never fires for a tab that stays
+ * open and focused, and the edge that left open was not cosmetic: `tasks` was published and
+ * `labels` was not, so another surface re-rendered its cards as Unlabeled correctly while its
+ * editor went on offering the deleted definition.
  *
- * Every decision this hook makes lives in `labelIntent.ts`; what remains here is state, Supabase,
- * and rollback.
+ * Every decision this hook makes lives in `labelIntent.ts` and `labelRealtime.ts`; what remains
+ * here is state, Supabase, and rollback.
  */
 export function useLabels(userId: string, boardId: string, hasSession: boolean): UseLabels {
   const [labels, setLabels] = useState<Label[]>([])
@@ -82,6 +87,7 @@ export function useLabels(userId: string, boardId: string, hasSession: boolean):
   const [offline, setOffline] = useState(false)
   const [savedAt, setSavedAt] = useState<number | null>(null)
   const requestSequence = useRef(0)
+  const { markWrites, isOwnWrite } = useOwnWrites()
 
   const commit = useCallback(
     (next: Label[]) => {
@@ -151,19 +157,34 @@ export function useLabels(userId: string, boardId: string, hasSession: boolean):
     void reload()
   }, [reload])
 
-  useEffect(() => {
-    if (!userId || !boardId) return
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') void reload()
-    }
-    const onOnline = () => void reload()
-    document.addEventListener('visibilitychange', onVisible)
-    window.addEventListener('online', onOnline)
-    return () => {
-      document.removeEventListener('visibilitychange', onVisible)
-      window.removeEventListener('online', onOnline)
-    }
-  }, [userId, boardId, reload])
+  // No hand-rolled `visibilitychange`/`online` listener here any more: `useSyncedTable` registers
+  // one, and keeping both meant every wake and reconnect issued two identical loads. That is the
+  // duplication this hook existed to avoid before it had a channel to justify it.
+
+  const onRemoteChange = useCallback((payload: ChangePayload) => {
+    const change = payloadToLabelChange(payload as never)
+    if (!change) return
+    setLabels((current) => {
+      const next = applyLabelChange(current, change)
+      // Deliberately no snapshot write here. The snapshot records what this device last saw from a
+      // load it made; folding remote deltas into it would let a missed event leave a snapshot that
+      // no reload ever produced. The next load rewrites it from the server.
+      return next
+    })
+  }, [])
+
+  useSyncedTable({
+    userId,
+    table: 'labels',
+    primaryKey: 'id',
+    // Board-scoped, exactly as `tasks` is: an account-scoped subscription would deliver definitions
+    // for every Board it belongs to, including the ones this client is not showing.
+    filterColumn: 'board_id',
+    filterValue: boardId,
+    reload,
+    onChange: onRemoteChange,
+    isOwnWrite,
+  })
 
   const createLabel = useCallback(
     async (rawName: string, dotColor: string): Promise<LabelWriteResult> => {
@@ -189,10 +210,11 @@ export function useLabels(userId: string, boardId: string, hasSession: boolean):
         .single()
 
       if (writeError || !data) return labelProblemFromError(writeError)
+      markWrites([data.id])
       commit([...labels, toLabel(data)])
       return null
     },
-    [boardId, hasSession, commit, labels],
+    [boardId, hasSession, commit, labels, markWrites],
   )
 
   const renameLabel = useCallback(
@@ -206,6 +228,7 @@ export function useLabels(userId: string, boardId: string, hasSession: boolean):
 
       const previous = labels
       if (!previous.some((l) => l.id === id)) return null
+      markWrites([id])
       commit(previous.map((l) => (l.id === id ? { ...l, name } : l)))
 
       const { error: writeError } = await supabase.from('labels').update({ name }).eq('id', id)
@@ -215,7 +238,7 @@ export function useLabels(userId: string, boardId: string, hasSession: boolean):
       }
       return null
     },
-    [boardId, hasSession, commit, labels],
+    [boardId, hasSession, commit, labels, markWrites],
   )
 
   const recolorLabel = useCallback(
@@ -228,6 +251,7 @@ export function useLabels(userId: string, boardId: string, hasSession: boolean):
 
       const previous = labels
       if (!previous.some((l) => l.id === id)) return null
+      markWrites([id])
       commit(previous.map((l) => (l.id === id ? { ...l, dotColor } : l)))
 
       const { error: writeError } = await supabase
@@ -240,7 +264,7 @@ export function useLabels(userId: string, boardId: string, hasSession: boolean):
       }
       return null
     },
-    [boardId, hasSession, commit, labels],
+    [boardId, hasSession, commit, labels, markWrites],
   )
 
   const reorderLabel = useCallback(
@@ -252,6 +276,9 @@ export function useLabels(userId: string, boardId: string, hasSession: boolean):
       const next = moveLabel(previous, id, delta)
       if (!next) return null
 
+      // A reorder rewrites several rows, so every moved id has to be marked — not just the one the
+      // user dragged — or the untouched-looking siblings echo back and undo the local order.
+      markWrites(changedPositions(previous, next).map((l) => l.id))
       commit(next)
 
       // One UPDATE per moved row: `id` is not in the INSERT grant, so PostgREST upsert — which is
@@ -271,7 +298,7 @@ export function useLabels(userId: string, boardId: string, hasSession: boolean):
       }
       return null
     },
-    [boardId, hasSession, commit, labels],
+    [boardId, hasSession, commit, labels, markWrites],
   )
 
   const deleteLabel = useCallback(
@@ -284,6 +311,7 @@ export function useLabels(userId: string, boardId: string, hasSession: boolean):
 
       // Assigned Tasks become Unlabeled by `on delete set null (label_id)`, not by anything here.
       // A Task loaded in another tab is corrected by that tab's own realtime channel.
+      markWrites([id])
       commit(previous.filter((l) => l.id !== id).map((l, index) => ({ ...l, position: index })))
 
       const { error: writeError } = await supabase.from('labels').delete().eq('id', id)
@@ -293,7 +321,7 @@ export function useLabels(userId: string, boardId: string, hasSession: boolean):
       }
       return null
     },
-    [boardId, hasSession, commit, labels],
+    [boardId, hasSession, commit, labels, markWrites],
   )
 
   return {

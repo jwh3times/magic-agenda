@@ -12,6 +12,41 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.1] - 2026-08-18
+
+### Fixed
+
+- Label changes now reach your other open tabs and devices immediately. Previously a second surface
+  that stayed open and focused kept its own copy of the Label list until it was backgrounded or the
+  network blipped — and the failure that caused was worse than a stale name. Tasks _are_ live, so
+  deleting a Label correctly re-rendered that surface's cards as Unlabeled while its task editor
+  went on offering the deleted Label; picking it then failed the save. The board looked trustworthy
+  while the vocabulary under it was not (#188).
+
+### Internal
+
+- `labels` joins `tasks` and `user_settings` in the `supabase_realtime` publication. Both standing
+  rules on that publication still hold and the migration argues each rather than asserting it:
+  `labels.id` is an opaque uuid, so the entire content of a cross-tenant DELETE broadcast is "some
+  label somewhere was deleted, and when" — the same activity metadata `tasks` already emits, and the
+  structural uuid-key test covers the new table automatically. RLS stays enabled and no policy is
+  touched.
+- `useLabels` is now a third `useSyncedTable` adapter beside `useTasks` and `useSettings`, filtered
+  on `board_id` for the same reason `tasks` is. `src/labels/labelRealtime.ts` holds the payload
+  normalizer and a pure reducer mirroring `src/data/realtime.ts`; INSERT and UPDATE collapse into
+  one idempotent upsert, and the result is re-sorted by `(position, id)` because a remote reorder
+  arrives as several independent updates and nothing makes `(board_id, position)` unique.
+- Removed `useLabels`' own `visibilitychange`/`online` catch-up listener. `useSyncedTable` registers
+  one, so keeping both meant every wake and reconnect issued two identical loads — visible only as a
+  reload count in a test.
+
+### Docs
+
+- The post-restore RLS spot-check in `docs/runbooks/restore-from-backup.md` omitted `labels`.
+  Publishing the table is what makes that worth fixing now: losing RLS on a published table
+  escalates its DELETE fan-out from primary keys to full deleted rows sent to every subscriber, so
+  it is exactly the row a restore must not quietly get wrong.
+
 ## [1.8.0] - 2026-08-18
 
 ### Added
@@ -1844,7 +1879,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.1...HEAD
+[1.8.1]: https://github.com/jwh3times/magic-agenda/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/jwh3times/magic-agenda/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/jwh3times/magic-agenda/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/jwh3times/magic-agenda/compare/v1.5.0...v1.6.0

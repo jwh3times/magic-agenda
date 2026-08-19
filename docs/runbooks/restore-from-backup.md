@@ -255,9 +255,12 @@ select count(*) from public.tasks t
  where t.recur_parent_id is not null and p.id is null;   -- must be 0
 
 -- Authorization came back. RLS is the ONLY authorization boundary in this app, so a restore that
--- silently lost it is a security incident that every count above would still report as clean:
+-- silently lost it is a security incident that every count above would still report as clean.
+-- `labels` matters twice over: it is in the supabase_realtime publication, where losing RLS also
+-- escalates DELETE fan-out from primary keys to FULL deleted rows sent to every subscriber.
 select bool_and(relrowsecurity) from pg_class
- where relname in ('tasks', 'user_settings', 'boards', 'board_memberships', 'account_profiles');
+ where relname in ('tasks', 'user_settings', 'boards', 'board_memberships', 'account_profiles',
+                   'labels');
                                                                  -- must be true
 -- 12 at the authorization cutover (2026-08-14 rehearsal log below), +4 from Labels
 -- (20260816134515_board_labels.sql), +1 from Board deletion (20260818140000_board_deletion.sql),
