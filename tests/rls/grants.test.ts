@@ -25,7 +25,7 @@ test('an authenticated user can insert and read back their own task', async () =
   const boardId = await currentBoardId(user.id)
   const { error: insertError } = await user.client
     .from('tasks')
-    .insert(boardTaskInsert(boardId, { user_id: user.id, title: 'canary' }))
+    .insert(boardTaskInsert(boardId, { title: 'canary' }))
   expect(insertError).toBeNull()
 
   const { data, error } = await user.client.from('tasks').select('id, title')

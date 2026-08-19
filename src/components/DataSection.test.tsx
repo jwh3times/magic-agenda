@@ -88,13 +88,10 @@ type TaskRow = Database['public']['Tables']['tasks']['Row']
 function taskRow(over: Partial<TaskRow> = {}): TaskRow {
   return {
     id: 'r1',
-    user_id: 'u1',
     board_id: 'b1',
     title: 'Exported',
     description: '',
-    category: 'work',
     label_id: 'l-work',
-    label_assignment_explicit: true,
     color: 'yellow',
     checklist: [],
     status: 'todo',

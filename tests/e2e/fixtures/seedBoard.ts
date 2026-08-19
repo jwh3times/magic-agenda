@@ -33,8 +33,9 @@ import { testBoardId, testClient, testUserId } from './supabase'
  *     violates not-null constraint`.
  *
  * So a column being retired stays in this payload for the release that makes it optional, and comes
- * out in the release that drops it -- one step later than feels natural. `category` needs no such
- * care, having a default on both sides. Nothing else in the suite writes tasks.
+ * out in the release that drops it -- one step later than feels natural. `user_id` came out here,
+ * with the drop; `category` needed no such care, having a default on both sides. Nothing else in the
+ * suite writes tasks.
  */
 export const SEEDED_TITLES = ['Draft the launch note', 'Book the venue', 'Unscheduled idea']
 
@@ -87,7 +88,6 @@ export async function seedBoard(options: SeedOptions = {}): Promise<void> {
 
   const { error: insertError } = await client.from('tasks').insert([
     {
-      user_id: userId,
       board_id: boardId,
       title: SEEDED_TITLES[0],
       day: anchor,
@@ -96,7 +96,6 @@ export async function seedBoard(options: SeedOptions = {}): Promise<void> {
       color: 'yellow',
     },
     {
-      user_id: userId,
       board_id: boardId,
       title: SEEDED_TITLES[1],
       // +2 days always stays inside the rendered grid: the 42 cells pad the anchor month to whole
@@ -107,7 +106,6 @@ export async function seedBoard(options: SeedOptions = {}): Promise<void> {
       color: 'blue',
     },
     {
-      user_id: userId,
       board_id: boardId,
       title: SEEDED_TITLES[2],
       day: null,

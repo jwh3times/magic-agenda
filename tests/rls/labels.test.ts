@@ -155,37 +155,32 @@ test('updating a Label refreshes its modification timestamp', async () => {
   expect(updatedAt.getUTCFullYear()).toBeGreaterThan(2000)
 })
 
-test('a new client can explicitly create an Unlabeled Task during the compatibility window', async () => {
+test('an Unlabeled Task round-trips as Unlabeled', async () => {
   const { data } = await owner.client.auth.getSession()
   const session = data.session
   if (!session) throw new Error('test owner has no session')
 
   const local = stack()
-  const response = await fetch(
-    `${local.apiUrl}/rest/v1/tasks?select=id,label_id,label_assignment_explicit`,
-    {
-      method: 'POST',
-      headers: {
-        apikey: local.anonKey,
-        authorization: `Bearer ${session.access_token}`,
-        'content-type': 'application/json',
-        prefer: 'return=representation',
-      },
-      body: JSON.stringify({
-        user_id: owner.id,
-        board_id: await ownerBoardId(),
-        title: 'explicitly unlabeled',
-        category: 'work',
-        label_id: null,
-        label_assignment_explicit: true,
-      }),
+  const response = await fetch(`${local.apiUrl}/rest/v1/tasks?select=id,label_id`, {
+    method: 'POST',
+    headers: {
+      apikey: local.anonKey,
+      authorization: `Bearer ${session.access_token}`,
+      'content-type': 'application/json',
+      prefer: 'return=representation',
     },
-  )
+    body: JSON.stringify({
+      board_id: await ownerBoardId(),
+      title: 'explicitly unlabeled',
+      label_id: null,
+    }),
+  })
 
   expect(response.status).toBe(201)
-  expect(await response.json()).toEqual([
-    expect.objectContaining({ label_id: null, label_assignment_explicit: true }),
-  ])
+  // `label_assignment_explicit` used to be asserted here too: it was how the Category bridge told
+  // "this client chose Unlabeled" from "a stale client omitted the field". With the bridge gone,
+  // NULL means one thing and needs no marker.
+  expect(await response.json()).toEqual([expect.objectContaining({ label_id: null })])
 })
 
 test("a Task cannot reference another Board's Label", async () => {
@@ -209,10 +204,9 @@ test("a Task cannot reference another Board's Label", async () => {
       await pg.query('begin')
       try {
         await pg.query(
-          `insert into public.tasks
-             (user_id, board_id, title, label_id, label_assignment_explicit)
-           values ($1, $2, 'cross-board label', $3, true)`,
-          [owner.id, ownerBoard, otherLabel],
+          `insert into public.tasks (board_id, title, label_id)
+           values ($1, 'cross-board label', $2)`,
+          [ownerBoard, otherLabel],
         )
         return ''
       } catch (error) {
@@ -239,11 +233,10 @@ test('deleting a Label leaves its Task Unlabeled on the same Board', async () =>
         [boardId],
       )
       const task = await pg.query<{ id: string }>(
-        `insert into public.tasks
-           (user_id, board_id, title, label_id, label_assignment_explicit)
-         values ($1, $2, 'survives label deletion', $3, true)
+        `insert into public.tasks (board_id, title, label_id)
+         values ($1, 'survives label deletion', $2)
          returning id`,
-        [owner.id, boardId, label.rows[0].id],
+        [boardId, label.rows[0].id],
       )
 
       await pg.query(`delete from public.labels where id = $1`, [label.rows[0].id])
@@ -600,13 +593,8 @@ test('deleting a Label makes its Tasks Unlabeled instead of deleting them', asyn
   const { data: task, error } = await owner.client
     .from('tasks')
     .insert({
-      ...boardTaskInsert(boardId, {
-        user_id: owner.id,
-        title: 'survives its Label',
-        category: 'work',
-      }),
+      ...boardTaskInsert(boardId, { title: 'survives its Label' }),
       label_id: doomedId,
-      label_assignment_explicit: true,
     })
     .select('id')
     .single()

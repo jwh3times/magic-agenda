@@ -286,34 +286,47 @@ column-list `on delete set null (label_id)` preserves the Task's NOT NULL Board 
 Label is deleted. `Unlabeled` is therefore `label_id = NULL`, never a Label row. Label Color is the
 definition's dot/accent and is independent from the Task's visual Note Color.
 
-**The Category compatibility layer is retired** (#180, window declared closed 2026-08-19).
-`tasks_sync_legacy_category_label` and `labels.legacy_category` are gone, and the client writes none
-of `tasks.user_id`, `tasks.category`, or `tasks.label_assignment_explicit`. The app domain uses
+**The Category compatibility layer is gone entirely** (window declared closed 2026-08-19).
+`tasks_sync_legacy_category_label`, `labels.legacy_category`, `tasks.category`,
+`tasks.label_assignment_explicit`, `tasks.user_id`, and `user_settings.default_view` no longer
+exist. The app domain uses
 `Task.labelId: string | null`; Category survives only in the **v1 file parser** in
 `src/data/exportImport.ts`, where legacy Categories normalize into synthetic source Labels and go
 through the same explicit destination mapping as v2.
 
-**Retiring it took three releases, and each boundary is forced by a different race.** Both are about
-writes only — reads were never affected, since `select('*')` simply returns fewer columns and
+**Retiring it took three releases, and each boundary was forced by a different race.** Both are
+about writes only — reads were never affected, since `select('*')` simply returns fewer columns and
 `rowToTask` never read `category`.
 
 1. **Migration first** (#180, v1.8.2). Dropped the bridge and the alias, and relaxed
    `tasks.user_id` to nullable. The client kept sending `user_id` here.
-2. **Client next** ([#199](https://github.com/jwh3times/magic-agenda/issues/199)). Stopped sending
-   `user_id`. It could not be folded into step 1, because **`Deploy Migrations` and the Cloudflare
-   Pages build race on every merge** — a client that stopped sending a `NOT NULL` column could reach
-   users before the migration relaxed it. E2E proved this rather than predicting it: the preview
-   build ran against production, where the constraint was still in force, and could not create a
-   task at all.
-3. **Drop the columns** ([#197](https://github.com/jwh3times/magic-agenda/issues/197)). Cannot be
-   folded into step 2 either, because the mirror race applies: a drop landing before the new client
-   deploys leaves the still-deployed client sending a column that no longer exists, which PostgREST
-   answers with `400 PGRST204`. Delete `tests/rls/compatibility_window.test.ts` with it — that file
-   asserts the _old_ client shape still writes, which is exactly what stops being true.
+2. **Client next** (#199, v1.8.3). Stopped sending `user_id`. It could not be folded into step 1,
+   because **`Deploy Migrations` and the Cloudflare Pages build race on every merge** — a client
+   that stopped sending a `NOT NULL` column could reach users before the migration relaxed it. E2E
+   proved this rather than predicting it: the preview build ran against production, where the
+   constraint was still in force, and could not create a task at all.
+3. **Drop the columns** (#197). Could not be folded into step 2 either, because the mirror race
+   applies: a drop landing before the new client deploys leaves the still-deployed client sending a
+   column that no longer exists, which PostgREST answers with `400 PGRST204`.
 
 **Only `user_id` needed all three steps.** `category` and `label_assignment_explicit` have column
 defaults, so omitting them is valid on both sides of a migration and they came out in step 1.
-`user_id` was `NOT NULL` with no default, which is the whole reason it is the awkward one.
+`user_id` was `NOT NULL` with no default, which is the whole reason it was the awkward one.
+
+Two things step 3 took with it, worth knowing rather than rediscovering:
+
+- **`tasks_user_day_idx` and `tasks_user_status_idx` went with the column**, and that is fine only
+  because `tasks_board_day_idx` and `tasks_board_status_idx` already cover the same shapes on
+  `board_id`. Checked against a local stack before writing the migration rather than assumed — those
+  two were the board's hot-path indexes back when the board was an account-wide task list.
+- **`tasks_user_id_fkey ... ON DELETE CASCADE` was what deleted an Account's Tasks** when its
+  `auth.users` row went away. That guarantee now rests entirely on `handle_account_deletion`
+  dropping the Account's Private Boards, with `tasks.board_id`'s own cascade doing the rest. Same
+  outcome, different mechanism, and it was untested on both sides of the move — `boards.test.ts`
+  now covers it, mutation-checked by disabling the Board drop. One behavioural difference for when
+  sharing exists: the old foreign key deleted a departing Account's Tasks even from a Board it did
+  not own, and the new path does not. That is the better answer, and it is moot while every Board
+  has exactly one Membership.
 
 Two traps this uncovered, both of which would have shipped silently:
 

@@ -19,9 +19,7 @@ type TaskInsert = Database['public']['Tables']['tasks']['Insert']
  * `tasks_insert_editor`'s `with check` before the NOT NULL constraint, and `NULL in (select ...)`
  * is NULL rather than true. Assert on failure, not on a particular message.
  */
-export function legacyTaskInsert(
-  values: Omit<TaskInsert, 'board_id' | 'label_id' | 'label_assignment_explicit'>,
-): TaskInsert {
+export function legacyTaskInsert(values: Omit<TaskInsert, 'board_id' | 'label_id'>): TaskInsert {
   return values as TaskInsert
 }
 
@@ -34,7 +32,7 @@ export function legacyTaskInsert(
  */
 export function boardTaskInsert(
   boardId: string,
-  values: Omit<TaskInsert, 'board_id' | 'label_id' | 'label_assignment_explicit'>,
+  values: Omit<TaskInsert, 'board_id' | 'label_id'>,
 ): TaskInsert {
   return { ...values, board_id: boardId }
 }
