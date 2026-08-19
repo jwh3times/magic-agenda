@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { testClient, testUserId } from './supabase'
+import { testBoardId, testClient, testUserId } from './supabase'
 
 /**
  * Resets the E2E account to a known board.
@@ -19,6 +19,12 @@ import { testClient, testUserId } from './supabase'
  * Column names are ROW shape, not app shape: `order_index` (not `order`, which is reserved SQL),
  * and `day` is a real NULL for the inbox rather than the app's `'inbox'` sentinel. That mapping
  * lives in src/data/mappers.ts and does not apply here -- see AGENTS.md.
+ *
+ * **Every insert must carry `board_id`.** This fixture is a Supabase client like any other, so when
+ * `tasks_infer_board_id` was dropped it became a pre-cutover client and started failing closed --
+ * as an RLS refusal, since `tasks_insert_editor` evaluates before the NOT NULL constraint and
+ * `NULL in (select ...)` is not true. Any new column that containment depends on has to be added
+ * here at the same time as the migration that requires it; nothing else in the suite writes tasks.
  */
 export const SEEDED_TITLES = ['Draft the launch note', 'Book the venue', 'Unscheduled idea']
 
@@ -51,26 +57,28 @@ function plusDays(day: string, n: number): string {
  * `supabase/config.toml` caps sign-ins at 30 per 5 minutes per IP and CI egress is shared, so a
  * fresh password grant per seed (~10 a run) spends that budget for nothing.
  */
-let cached: { client: SupabaseClient; userId: string } | null = null
+let cached: { client: SupabaseClient; userId: string; boardId: string } | null = null
 
-async function seedSession(): Promise<{ client: SupabaseClient; userId: string }> {
+async function seedSession(): Promise<{ client: SupabaseClient; userId: string; boardId: string }> {
   if (!cached) {
     const client = await testClient()
-    cached = { client, userId: await testUserId(client) }
+    const userId = await testUserId(client)
+    cached = { client, userId, boardId: await testBoardId(client) }
   }
   return cached
 }
 
 export async function seedBoard(options: SeedOptions = {}): Promise<void> {
   const { theme = 'cork', view = 'calendar', anchor = utcToday() } = options
-  const { client, userId } = await seedSession()
+  const { client, userId, boardId } = await seedSession()
 
-  const { error: deleteError } = await client.from('tasks').delete().eq('user_id', userId)
+  const { error: deleteError } = await client.from('tasks').delete().eq('board_id', boardId)
   if (deleteError) throw new Error(`seed: clearing tasks failed: ${deleteError.message}`)
 
   const { error: insertError } = await client.from('tasks').insert([
     {
       user_id: userId,
+      board_id: boardId,
       title: SEEDED_TITLES[0],
       day: anchor,
       order_index: 0,
@@ -80,6 +88,7 @@ export async function seedBoard(options: SeedOptions = {}): Promise<void> {
     },
     {
       user_id: userId,
+      board_id: boardId,
       title: SEEDED_TITLES[1],
       // +2 days always stays inside the rendered grid: the 42 cells pad the anchor month to whole
       // weeks, which leaves at least five trailing days past month end in every calendar layout.
@@ -91,6 +100,7 @@ export async function seedBoard(options: SeedOptions = {}): Promise<void> {
     },
     {
       user_id: userId,
+      board_id: boardId,
       title: SEEDED_TITLES[2],
       day: null,
       order_index: 0,

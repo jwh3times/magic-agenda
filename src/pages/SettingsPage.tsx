@@ -5,6 +5,7 @@ import { ThemeProvider, useTheme } from '../theme/ThemeProvider'
 import { ThemeSwitcher } from '../components/ThemeSwitcher'
 import { DangerZone } from '../components/DangerZone'
 import { DataSection } from '../components/DataSection'
+import { BoardsSection } from '../components/BoardsSection'
 import { DatesSection } from '../components/DatesSection'
 import { LabelsSection } from '../components/LabelsSection'
 import { Spinner } from '../components/Spinner'
@@ -28,6 +29,7 @@ export interface SettingsSection {
 const SECTIONS: SettingsSection[] = [
   { id: 'appearance', title: 'Appearance', render: (ctx) => <AppearanceSection {...ctx} /> },
   { id: 'dates', title: 'Dates', render: () => <DatesSection /> },
+  { id: 'boards', title: 'Boards', render: () => <BoardsSection /> },
   { id: 'labels', title: 'Labels', render: () => <LabelsSection /> },
   { id: 'data', title: 'Data', render: () => <DataSection /> },
   { id: 'danger', title: 'Danger zone', render: () => <DangerZone /> },

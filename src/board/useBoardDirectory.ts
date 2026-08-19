@@ -41,6 +41,12 @@ export interface UseBoardDirectory {
    * success — nothing here rejects, for the same reason `AuthGateway` does not.
    */
   createBoard: (name: string) => Promise<string | null>
+  /**
+   * Delete a Board and everything in it. Resolves to an error message, or null on success.
+   *
+   * Destructive and irreversible — see `deleteBoard`'s own docstring for what "everything" covers.
+   */
+  deleteBoard: (boardId: string) => Promise<string | null>
 }
 
 const REMEMBERED_KEY = 'ma-selected-board'
@@ -240,6 +246,36 @@ export function useBoardDirectory(userId: string, hasSession: boolean): UseBoard
   )
 
   /**
+   * Delete a Board, then reload.
+   *
+   * A plain DELETE rather than an RPC: only one row is written here, and the Board's contents
+   * follow through `on delete cascade` on `tasks`, `labels`, and `board_memberships`. That is also
+   * why this is the most destructive call in the app — every Task in the Board (recurrence
+   * templates and instances included) and its whole Label vocabulary go with it, and referential
+   * actions are not subject to RLS, so nothing downstream gets a say. The Owner-only DELETE policy
+   * is the entire boundary; `can.deleteBoard` only hides the control.
+   *
+   * Not optimistic. Removing the Board from local state before the server agrees would, on
+   * failure, have to restore a Board the user just watched disappear — and if that Board was the
+   * selected one, the app would swing through the zero-Board state and back. The reload afterwards
+   * also does the snapshot cleanup for free: it purges any Board the server no longer returns.
+   */
+  const deleteBoard = useCallback(
+    async (boardId: string): Promise<string | null> => {
+      if (!hasSession) return 'You need to be signed in to delete a board.'
+
+      const { error: deleteError } = await supabase.from('boards').delete().eq('id', boardId)
+      if (deleteError) return deleteError.message
+
+      // A refused DELETE is not an error — RLS makes it match zero rows and return success — so
+      // reload and let the server's list be the answer rather than assuming this worked.
+      await reload()
+      return null
+    },
+    [hasSession, reload],
+  )
+
+  /**
    * Set this Membership's Default View — the one Membership Preference the domain model defines.
    *
    * Written through the column-level `grant update (default_view)` rather than a command, which is
@@ -272,6 +308,7 @@ export function useBoardDirectory(userId: string, hasSession: boolean): UseBoard
     selectedBoardId,
     selectBoard,
     createBoard,
+    deleteBoard,
     setDefaultView,
     loading,
     error,
