@@ -321,8 +321,10 @@ Larger efforts that fit the app's direction but are not near-term.
      DELETE policy, a typed-Board-name confirmation in Settings, and a zero-Board screen — reachable
      only by deleting your last Board, and load-bearing rather than defensive, since `useTasks`
      given no Board loads nothing and reports no error, which otherwise renders as an empty board.
-     Remaining Board lifecycle work is rename
-     ([#190](https://github.com/jwh3times/magic-agenda/issues/190)).
+     Rename shipped in [#190](https://github.com/jwh3times/magic-agenda/issues/190) — a
+     column-scoped `grant update (name)` plus an Owner-only policy, and a `boards_name_trimmed`
+     constraint matching the Labels precedent. **Board lifecycle is complete**: create, switch,
+     rename, delete.
   4. **Landed 2026-08-14, together with step 2** (see there for the mechanism): recurrence carries
      over cleanly — nothing keyed on `user_id` except RLS — but its uniqueness and parent
      constraints are now board-qualified, so a series cannot span boards.

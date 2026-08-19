@@ -1,5 +1,6 @@
 import { useState, type CSSProperties } from 'react'
 import { useBoardDirectoryContext } from '../board/BoardDirectoryProvider'
+import { BOARD_NAME_MAX_LENGTH } from '../board/boardName'
 import { capabilitiesFor } from '../board/role'
 import type { BoardSummary } from '../board/selection'
 
@@ -19,8 +20,9 @@ const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flex
  * would read identically for the Board you meant and the one above it in the list.
  */
 export function BoardsSection() {
-  const { boards, selectedBoardId, deleteBoard } = useBoardDirectoryContext()
+  const { boards, selectedBoardId, deleteBoard, renameBoard } = useBoardDirectoryContext()
   const [pending, setPending] = useState<string | null>(null)
+  const [renaming, setRenaming] = useState<string | null>(null)
   const [confirm, setConfirm] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -33,6 +35,14 @@ export function BoardsSection() {
     setPending(null)
     setConfirm('')
     setError(null)
+  }
+
+  const rename = async (board: BoardSummary, next: string) => {
+    setBusy(true)
+    const failure = await renameBoard(board.id, next)
+    setBusy(false)
+    setError(failure)
+    if (!failure) setRenaming(null)
   }
 
   const remove = async (board: BoardSummary) => {
@@ -63,9 +73,33 @@ export function BoardsSection() {
           return (
             <li key={board.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={row}>
-                <span style={{ fontWeight: 600 }}>{board.name}</span>
+                {renaming === board.id ? (
+                  <BoardNameField
+                    board={board}
+                    busy={busy}
+                    onCommit={(next) => void rename(board, next)}
+                    onCancel={() => {
+                      setRenaming(null)
+                      setError(null)
+                    }}
+                  />
+                ) : (
+                  <span style={{ fontWeight: 600 }}>{board.name}</span>
+                )}
                 {board.id === selectedBoardId && <span style={hint}>current</span>}
                 <div style={{ flex: 1 }} />
+                {can.configureBoard && !confirming && renaming !== board.id && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setError(null)
+                      setRenaming(board.id)
+                    }}
+                    disabled={busy}
+                  >
+                    Rename
+                  </button>
+                )}
                 {can.deleteBoard && !confirming && (
                   <button
                     type="button"
@@ -80,6 +114,12 @@ export function BoardsSection() {
                   </button>
                 )}
               </div>
+
+              {error && renaming === board.id && (
+                <div role="alert" style={{ color: '#b42318', fontSize: 13 }}>
+                  {error}
+                </div>
+              )}
 
               {confirming && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -127,5 +167,47 @@ export function BoardsSection() {
         })}
       </ul>
     </div>
+  )
+}
+
+/**
+ * One Board's name as an editable field, committing on blur or Enter and abandoning on Escape.
+ *
+ * The draft is local so a rename is one write rather than one per keystroke, and the field is keyed
+ * to the committed name so a change arriving from elsewhere replaces an untouched draft rather than
+ * being overwritten by it.
+ */
+function BoardNameField({
+  board,
+  busy,
+  onCommit,
+  onCancel,
+}: {
+  board: BoardSummary
+  busy: boolean
+  onCommit: (next: string) => void
+  onCancel: () => void
+}) {
+  const [draft, setDraft] = useState(board.name)
+
+  return (
+    <input
+      aria-label={`Name for ${board.name}`}
+      value={draft}
+      maxLength={BOARD_NAME_MAX_LENGTH}
+      autoFocus
+      disabled={busy}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => (draft === board.name ? onCancel() : onCommit(draft))}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur()
+        if (e.key === 'Escape') {
+          setDraft(board.name)
+          onCancel()
+        }
+      }}
+      // ≥16px so iOS Safari does not zoom the page on focus.
+      style={{ fontSize: 16, padding: '6px 8px', minWidth: 0, flex: '1 1 160px' }}
+    />
   )
 }
