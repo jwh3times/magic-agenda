@@ -88,7 +88,7 @@ test('the creator can immediately use the new Board, and it is separate from the
 
   const { error: writeError } = await owner.client
     .from('tasks')
-    .insert(boardTaskInsert(second!, { user_id: owner.id, title: 'in the second board' }))
+    .insert(boardTaskInsert(second!, { title: 'in the second board' }))
   expect(writeError).toBeNull()
 
   // Containment, not merely filtering: the task must not be reachable through the other Board.
@@ -120,7 +120,7 @@ test('a Board created by one Account is invisible and unwritable to another', as
 
     const { error: writeError } = await stranger.client
       .from('tasks')
-      .insert(boardTaskInsert(boardId!, { user_id: stranger.id, title: 'trespass' }))
+      .insert(boardTaskInsert(boardId!, { title: 'trespass' }))
     expect(writeError).not.toBeNull()
   } finally {
     await deleteTestUser(stranger)

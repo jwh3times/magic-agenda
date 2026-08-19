@@ -1,9 +1,10 @@
 import { afterAll, beforeAll, expect, test } from 'vitest'
 import {
   anonClient,
-  createTestUser,
-  deleteTestUser,
   boardTaskInsert,
+  createTestUser,
+  currentBoardId,
+  deleteTestUser,
   legacyTaskInsert,
   withPg,
   type TestUser,
@@ -202,7 +203,7 @@ test('a pre-cutover client that sends no board_id fails closed', async () => {
   // `NULL in (select ...)` is NULL, not true. Assert the refusal, not the wording.
   const { error } = await alice.client
     .from('tasks')
-    .insert(legacyTaskInsert({ user_id: alice.id, title: 'legacy-shaped insert' }))
+    .insert(legacyTaskInsert({ title: 'legacy-shaped insert' }))
   expect(error).not.toBeNull()
 
   // Nothing was written. A fail-closed test that only checks the error would still pass if the row
@@ -221,7 +222,7 @@ test('the same client succeeds the moment it names a Board', async () => {
   // rejected generally. Without this, a policy that denied every insert would pass the test above.
   const { data, error } = await alice.client
     .from('tasks')
-    .insert(boardTaskInsert(aliceBoardId, { user_id: alice.id, title: 'board-scoped insert' }))
+    .insert(boardTaskInsert(aliceBoardId, { title: 'board-scoped insert' }))
     .select('board_id, revision, author_kind')
     .single()
   expect(error).toBeNull()
@@ -242,7 +243,7 @@ test('board containment IS the authorization boundary', async () => {
   // edit, so the row is refused outright.
   const { error } = await bob.client
     .from('tasks')
-    .insert({ user_id: bob.id, title: 'cross-board', board_id: aliceBoardId })
+    .insert({ title: 'cross-board', board_id: aliceBoardId })
   expect(error).not.toBeNull()
   expect(error?.code).toBe('42501')
 
@@ -258,7 +259,7 @@ test('a non-member cannot read, update, or delete another board’s tasks', asyn
   // trusting an empty result.
   const { data: seeded, error: seedError } = await alice.client
     .from('tasks')
-    .insert({ user_id: alice.id, title: 'alice private', board_id: aliceBoardId })
+    .insert({ title: 'alice private', board_id: aliceBoardId })
     .select('id')
     .single()
   expect(seedError).toBeNull()
@@ -295,7 +296,7 @@ test('an ended membership grants no task access at all', async () => {
   // policies would let every former member keep full access, which no test above would catch.
   const { data: seeded } = await alice.client
     .from('tasks')
-    .insert({ user_id: alice.id, title: 'still alice', board_id: aliceBoardId })
+    .insert({ title: 'still alice', board_id: aliceBoardId })
     .select('id')
     .single()
 
@@ -327,7 +328,7 @@ test('an ended membership grants no task access at all', async () => {
 
   const { error: writeError } = await bob.client
     .from('tasks')
-    .insert({ user_id: bob.id, title: 'after removal', board_id: aliceBoardId })
+    .insert({ title: 'after removal', board_id: aliceBoardId })
   expect(writeError).not.toBeNull()
 
   await alice.client.from('tasks').delete().eq('id', seeded!.id)
@@ -345,7 +346,7 @@ test('a viewer may read a board but not write to it', async () => {
   // old client, a crafted request — must still be refused here.
   const { data: seeded } = await alice.client
     .from('tasks')
-    .insert({ user_id: alice.id, title: 'viewable', board_id: aliceBoardId })
+    .insert({ title: 'viewable', board_id: aliceBoardId })
     .select('id')
     .single()
 
@@ -362,7 +363,7 @@ test('a viewer may read a board but not write to it', async () => {
 
   const { error: insertError } = await bob.client
     .from('tasks')
-    .insert({ user_id: bob.id, title: 'viewer write', board_id: aliceBoardId })
+    .insert({ title: 'viewer write', board_id: aliceBoardId })
   expect(insertError).not.toBeNull()
   expect(insertError?.code).toBe('42501')
 
@@ -397,7 +398,6 @@ test('a recurring series cannot span boards', async () => {
   const { data: template } = await alice.client
     .from('tasks')
     .insert({
-      user_id: alice.id,
       title: 'template',
       board_id: aliceBoardId,
       recur_freq: 'daily',
@@ -408,13 +408,45 @@ test('a recurring series cannot span boards', async () => {
   const { data: bobBoard } = await bob.client.from('board_memberships').select('board_id').single()
 
   const message = await rawInsertError(
-    `insert into public.tasks (user_id, title, board_id, recur_parent_id, recur_origin_day)
-     values ($1, 'orphan instance', $2, $3, current_date)`,
-    [bob.id, bobBoard!.board_id, template!.id],
+    `insert into public.tasks (title, board_id, recur_parent_id, recur_origin_day)
+     values ('orphan instance', $1, $2, current_date)`,
+    [bobBoard!.board_id, template!.id],
   )
   // A foreign-key violation, not a permission error: this is issued as `postgres`, which bypasses
   // RLS entirely, so the only thing that can refuse it is the constraint itself.
   expect(message).toMatch(/tasks_recur_parent_same_board|foreign key/i)
 
   await alice.client.from('tasks').delete().eq('id', template!.id)
+})
+
+test('deleting an Account still destroys its Tasks, now through the Board rather than a foreign key', async () => {
+  // This guarantee changed hands in #197 and was untested on both sides of the move. It used to be
+  // `tasks_user_id_fkey ... ON DELETE CASCADE` — the Account's `auth.users` row went away and took
+  // its Tasks with it. That column is gone, so it now rests on `handle_account_deletion` dropping
+  // the Account's Private Boards and `tasks.board_id`'s own cascade doing the rest.
+  //
+  // Same outcome, entirely different mechanism, and nothing else would notice if the trigger
+  // regressed: the Tasks would simply outlive the Account, invisible to every policy.
+  const departing = await createTestUser()
+  const boardId = await currentBoardId(departing.id)
+
+  const { error: writeError } = await departing.client
+    .from('tasks')
+    .insert(boardTaskInsert(boardId, { title: 'should not outlive its account' }))
+  expect(writeError).toBeNull()
+
+  await deleteTestUser(departing)
+
+  const remains = await withPg(async (pg) => {
+    const result = await pg.query<{ tasks: string; boards: string; labels: string }>(
+      `select
+         (select count(*) from public.tasks where board_id = $1) as tasks,
+         (select count(*) from public.boards where id = $1) as boards,
+         (select count(*) from public.labels where board_id = $1) as labels`,
+      [boardId],
+    )
+    const r = result.rows[0]
+    return { tasks: Number(r.tasks), boards: Number(r.boards), labels: Number(r.labels) }
+  })
+  expect(remains).toEqual({ tasks: 0, boards: 0, labels: 0 })
 })

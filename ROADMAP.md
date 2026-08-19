@@ -136,16 +136,16 @@ were added as their own effort rather than a roadmap feature — see
      realtime at that point; [#188](https://github.com/jwh3times/magic-agenda/issues/188) has
      since **published them**, closing the edge where another focused surface re-rendered cards as
      Unlabeled correctly while its editor went on offering the deleted definition.
-  2. [#180](https://github.com/jwh3times/magic-agenda/issues/180) — **shipped.** The window was
-     declared closed on 2026-08-19; the Category bridge trigger and `labels.legacy_category` are
-     gone, and the client stopped sending `tasks.category` and `tasks.label_assignment_explicit`.
-     `tasks.user_id` only went nullable here — it was `NOT NULL` with no default, so it needed a
-     schema change before a quieter client, unlike the other two.
-     [#199](https://github.com/jwh3times/magic-agenda/issues/199) — **shipped** (v1.8.3) — is that
-     quieter client. Dropping the columns themselves is the final release
-     ([#197](https://github.com/jwh3times/magic-agenda/issues/197)), because a client still sending a
-     dropped column gets `400 PGRST204` and migrations land at a different moment from the Pages
-     build.
+  2. [#180](https://github.com/jwh3times/magic-agenda/issues/180) — **shipped, and the cleanup is
+     complete.** The window was declared closed on 2026-08-19. Retiring the layer took three
+     releases, each boundary forced by a different race: `v1.8.2` dropped the Category bridge and
+     relaxed `tasks.user_id` to nullable,
+     [#199](https://github.com/jwh3times/magic-agenda/issues/199) (`v1.8.3`) stopped the client
+     writing it, and [#197](https://github.com/jwh3times/magic-agenda/issues/197) dropped
+     `tasks.user_id`, `tasks.category`, `tasks.label_assignment_explicit`, and
+     `user_settings.default_view`. Only `user_id` needed all three — it was `NOT NULL` with no
+     default, while the other two have defaults and could be dropped from the client payload in one
+     step. See AGENTS.md for why neither boundary could be collapsed.
 
   **Labels are board-scoped from their first migration — `board_id`, never `user_id`.** An earlier
   version of this entry specified account-owned labels, which reads as the cheaper start and is not:

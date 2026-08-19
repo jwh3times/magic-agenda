@@ -12,6 +12,51 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.4] - 2026-08-19
+
+Internal only — nothing about the app looks or behaves differently. This completes the retirement
+of the Category compatibility layer.
+
+### Removed
+
+- Dropped four columns nothing has read or written for a release: `tasks.user_id`, `tasks.category`,
+  `tasks.label_assignment_explicit`, and `user_settings.default_view` (#197). **This is
+  irreversible** — the columns and their contents are gone. Nothing user-facing was in them: tasks,
+  labels, and settings are untouched, and every value still displayed lives elsewhere.
+- A browser tab open since before `v1.8.3` deployed will get `400 PGRST204` on its next write until
+  reloaded. That is the same class of break as the window closure in `v1.8.2`, and the reason this
+  waited a release rather than landing with the client change that made it possible.
+
+### Internal
+
+- Retiring the layer took three releases and each boundary was forced by a different race, both
+  about writes only: `v1.8.2` dropped the Category bridge and relaxed `tasks.user_id` to nullable,
+  `v1.8.3` stopped the client writing it, and this drops the columns. Only `user_id` needed all
+  three — it was `NOT NULL` with no default, while the other two have defaults and could leave the
+  client payload in one step.
+- Two things the drop took with it, checked against a local stack rather than assumed:
+  - `tasks_user_day_idx` and `tasks_user_status_idx` went with the column. That is safe **only**
+    because `tasks_board_day_idx` and `tasks_board_status_idx` already cover the same shapes on
+    `board_id`. Those two were the board's hot-path indexes when the board was an account-wide task
+    list, so dropping them without checking would have turned every board load into a sequential
+    scan.
+  - `tasks_user_id_fkey ... ON DELETE CASCADE` was what deleted an Account's Tasks when its
+    `auth.users` row went away. That guarantee now rests entirely on `handle_account_deletion`
+    dropping Private Boards, with `tasks.board_id`'s own cascade doing the rest — the same outcome
+    through a different mechanism, and untested on **both** sides of the move. `boards.test.ts` now
+    covers it, mutation-checked by disabling the Board drop.
+- `tests/rls/compatibility_window.test.ts` is deleted, as its own docstring instructed: it asserted
+  that the _old_ client payload shape still writes, which is exactly what stops being true here.
+
+### Docs
+
+- `restore-from-backup.md`'s post-restore orphan check queried `tasks.user_id`, which now names a
+  dropped column — during a real restore it would have failed with
+  `column "user_id" does not exist` rather than merely reporting the wrong thing. Replaced with a
+  note covering the case it leaves behind: a bundle taken before this migration still carries
+  `user_id` in its `data.sql`, so restoring it against a schema built from the current migrations
+  fails loudly, and the fix is to load that bundle's own `schema.sql` instead.
+
 ## [1.8.3] - 2026-08-19
 
 Internal only — nothing about the app looks or behaves differently.
@@ -1976,7 +2021,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.3...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.4...HEAD
+[1.8.4]: https://github.com/jwh3times/magic-agenda/compare/v1.8.3...v1.8.4
 [1.8.3]: https://github.com/jwh3times/magic-agenda/compare/v1.8.2...v1.8.3
 [1.8.2]: https://github.com/jwh3times/magic-agenda/compare/v1.8.1...v1.8.2
 [1.8.1]: https://github.com/jwh3times/magic-agenda/compare/v1.8.0...v1.8.1

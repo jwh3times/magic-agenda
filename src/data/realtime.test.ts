@@ -26,10 +26,8 @@ const mk = (over: Partial<Task>): Task => ({ ...base, ...over })
 
 const row = (over: Partial<TaskRow> = {}): TaskRow => ({
   id: 't1',
-  user_id: 'u1',
   title: 'A',
   description: '',
-  category: 'work',
   color: 'yellow',
   checklist: [],
   status: 'todo',
@@ -48,7 +46,6 @@ const row = (over: Partial<TaskRow> = {}): TaskRow => ({
   // Board foundation migration; the realtime reducer does not read them yet.
   board_id: 'b1',
   label_id: null,
-  label_assignment_explicit: false,
   author_id: null,
   last_editor_id: null,
   author_kind: 'author',

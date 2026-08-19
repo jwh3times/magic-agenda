@@ -161,7 +161,6 @@ export type Database = {
           author_id: string | null
           author_kind: string
           board_id: string
-          category: string
           checklist: Json
           color: string
           created_at: string
@@ -169,7 +168,6 @@ export type Database = {
           description: string
           id: string
           korder: number
-          label_assignment_explicit: boolean
           label_id: string | null
           last_editor_id: string | null
           order_index: number
@@ -184,14 +182,12 @@ export type Database = {
           status: string
           title: string
           updated_at: string
-          user_id: string | null
         }
         Insert: {
           at_time?: string | null
           author_id?: string | null
           author_kind?: string
           board_id: string
-          category?: string
           checklist?: Json
           color?: string
           created_at?: string
@@ -199,7 +195,6 @@ export type Database = {
           description?: string
           id?: string
           korder?: number
-          label_assignment_explicit?: boolean
           label_id?: string | null
           last_editor_id?: string | null
           order_index?: number
@@ -214,14 +209,12 @@ export type Database = {
           status?: string
           title?: string
           updated_at?: string
-          user_id?: string | null
         }
         Update: {
           at_time?: string | null
           author_id?: string | null
           author_kind?: string
           board_id?: string
-          category?: string
           checklist?: Json
           color?: string
           created_at?: string
@@ -229,7 +222,6 @@ export type Database = {
           description?: string
           id?: string
           korder?: number
-          label_assignment_explicit?: boolean
           label_id?: string | null
           last_editor_id?: string | null
           order_index?: number
@@ -244,7 +236,6 @@ export type Database = {
           status?: string
           title?: string
           updated_at?: string
-          user_id?: string | null
         }
         Relationships: [
           {
@@ -272,7 +263,6 @@ export type Database = {
       }
       user_settings: {
         Row: {
-          default_view: string
           theme: string
           timezone: string | null
           updated_at: string
@@ -280,7 +270,6 @@ export type Database = {
           week_start: number
         }
         Insert: {
-          default_view?: string
           theme?: string
           timezone?: string | null
           updated_at?: string
@@ -288,7 +277,6 @@ export type Database = {
           week_start?: number
         }
         Update: {
-          default_view?: string
           theme?: string
           timezone?: string | null
           updated_at?: string

@@ -10,9 +10,6 @@ function row(over: Partial<TaskRow> = {}): TaskRow {
     id: 'r1',
     title: 'T',
     description: 'D',
-    category: 'work',
-    label_assignment_explicit: false,
-    user_id: 'u1',
     color: 'yellow',
     checklist: [],
     status: 'todo',
@@ -94,9 +91,11 @@ describe('rowToTask', () => {
     expect(rowToTask(row({ recur_origin_day: '2026-07-01' })).recurOriginDay).toBe('2026-07-01')
     expect(rowToTask(row({ recur_origin_day: null })).recurOriginDay).toBeNull()
   })
-  it('maps the optional label relationship without exposing legacy Category', () => {
-    const labeled = rowToTask(row({ label_id: 'label-1', category: 'personal' }))
+  it('maps the optional label relationship', () => {
+    const labeled = rowToTask(row({ label_id: 'label-1' }))
     expect(labeled.labelId).toBe('label-1')
+    // Category is gone from the schema entirely now, so there is no longer a legacy field for this
+    // to avoid exposing — `Task` simply has no such concept.
     expect('category' in labeled).toBe(false)
 
     expect(rowToTask(row({ label_id: null })).labelId).toBeNull()

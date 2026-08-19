@@ -39,9 +39,7 @@ async function contentsOf(boardId: string) {
 async function seedBoard(user: TestUser, name: string): Promise<string> {
   const { data, error } = await user.client.rpc('create_board', { board_name: name })
   if (error || !data) throw new Error(`create_board failed: ${error?.message}`)
-  await user.client
-    .from('tasks')
-    .insert(boardTaskInsert(data, { user_id: user.id, title: `task in ${name}` }))
+  await user.client.from('tasks').insert(boardTaskInsert(data, { title: `task in ${name}` }))
   return data
 }
 
@@ -175,9 +173,7 @@ test('deleting a Board cannot reach another Account content', async () => {
   try {
     const mine = await seedBoard(owner, 'Mine')
     const theirs = await currentBoardId(other.id)
-    await other.client
-      .from('tasks')
-      .insert(boardTaskInsert(theirs, { user_id: other.id, title: 'theirs' }))
+    await other.client.from('tasks').insert(boardTaskInsert(theirs, { title: 'theirs' }))
 
     await owner.client.from('boards').delete().eq('id', mine)
 
