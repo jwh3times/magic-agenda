@@ -15,13 +15,12 @@ interface LabelRow {
   name: string
   dot_color: string
   position: number
-  legacy_category: string | null
 }
 
 async function vocabularyOf(boardId: string): Promise<LabelRow[]> {
   return withPg(async (pg) => {
     const result = await pg.query<LabelRow>(
-      `select name, dot_color, position, legacy_category
+      `select name, dot_color, position
          from public.labels where board_id = $1 order by position`,
       [boardId],
     )

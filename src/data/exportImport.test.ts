@@ -174,11 +174,8 @@ test('mapping applies to plain Tasks, templates, and instances before fresh row 
   if (!planned.ok) throw new Error(planned.error)
 
   expect(planned.data.templateRows[0].label_id).toBeNull()
-  expect(planned.data.templateRows[0].label_assignment_explicit).toBe(true)
   expect(planned.data.taskRows.map((row) => row.label_id)).toEqual([null, 'destination-work'])
-  expect(planned.data.taskRows.every((row) => row.board_id === 'b1' && row.user_id === 'u1')).toBe(
-    true,
-  )
+  expect(planned.data.taskRows.every((row) => row.board_id === 'b1')).toBe(true)
   expect(planned.data.templateRows[0].id).not.toBe('tpl-1')
   expect(planned.data.taskRows[1].recur_parent_id).toBe(planned.data.templateRows[0].id)
 })
@@ -197,7 +194,6 @@ test('v1 Categories use the same explicit mapping path and no longer opt into th
   if (!planned.ok) throw new Error(planned.error)
 
   expect(planned.data.taskRows[0].label_id).toBe('destination-ideas')
-  expect(planned.data.taskRows[0].label_assignment_explicit).toBe(true)
 })
 
 test('remapIds freshens every id but preserves series links, skips, and content', () => {

@@ -12,6 +12,65 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.2] - 2026-08-19
+
+Internal only — nothing about the app looks or behaves differently.
+
+### Removed
+
+- The Category compatibility layer that let pre-Label clients keep working through the Label
+  migration. Its deploy window was declared closed on 2026-08-19: `v1.6.0` had already narrowed what
+  it protected, because dropping the Board-inference trigger left such a client unable to create a
+  task at all. The `tasks_sync_legacy_category_label` trigger and `labels.legacy_category` are gone,
+  and the app no longer writes `tasks.category` or `tasks.label_assignment_explicit` (#180).
+  `tasks.user_id` becomes nullable here but is still written for one release longer — see below.
+- `user_settings.default_view` is no longer read or written. Default View is a Membership
+  Preference and now has exactly one home, `board_memberships.default_view`; the second copy existed
+  so the client deployed during the Board cutover kept reading a value it understood, and both were
+  written on every change. Behaviour is unchanged — every Membership carries the column NOT NULL, so
+  the account-level fallback never actually fired.
+
+### Internal
+
+- **This is Release A of two, and the split is measured rather than argued.** Dropping a column any
+  live client still _sends_ is a hard failure: PostgREST answers
+  `400 PGRST204 — Could not find the 'x' column of 'tasks' in the schema cache`. Migrations and the
+  Cloudflare Pages build land at different moments, and a long-open tab runs the old client
+  indefinitely, so one release that both stopped writing a column and dropped it would break task
+  creation for anyone who had not reloaded. Reads were never affected — `select('*')` simply returns
+  fewer columns. Release B drops the four columns themselves (#197).
+- `tests/rls/compatibility_window.test.ts` asserts the premise directly: both the old and the new
+  client payload shapes write successfully against this schema. Without it the split buys nothing.
+- `tasks.user_id` is relaxed to nullable, the only one of the four needing a schema change — it was
+  `NOT NULL` with no default, so no client could simply stop sending it. It has not been an
+  authorization input since the v1.2.78 cutover; attribution lives in `author_id`/`last_editor_id`.
+- **The client keeps sending `user_id` for one more release** (#199), because of a second race distinct
+  from the one above: `Deploy Migrations` and the Cloudflare Pages build race on every merge, so a
+  client that stopped sending a `NOT NULL` column could reach users before the migration relaxed it.
+  E2E demonstrated this rather than predicting it — the preview build ran against production, where
+  the constraint was still in force, and could not create a task at all. `category` and
+  `label_assignment_explicit` were exempt: both have column defaults, so omitting them is valid on
+  either side of the migration.
+- Dropping the bridge trigger and dropping `label_assignment_explicit` from the client payload had
+  to be **atomic**. Omitting that flag makes it default to `false`, which is exactly the signal the
+  bridge read as "a stale client omitted `label_id`" — with the trigger still in place, every new
+  Unlabeled Task would have been assigned the Work Label from `category`'s `'work'` default.
+- `handle_new_user` and `create_board` both seeded the five starter Labels _with_ the alias, so
+  dropping that column without rewriting them fails **every signup** — the function runs inside the
+  signup transaction. Caught by the local RLS suite as `Database error creating new user`.
+
+### Docs
+
+- `restore-from-backup.md`'s orphaned-task check would have reported a **false failure** on every
+  correct restore from here: `tasks.user_id` is nullable now and new rows leave it NULL, so its
+  `left join … where u.id is null` flagged all of them. It now ignores NULL, matching the `board_id`
+  check beside it. A living runbook that cries wolf during an incident is worse than one that is
+  merely out of date.
+- Corrected `AGENTS.md`'s architecture summary, which still described `tasks` as scoping to
+  `auth.uid() = user_id`. That was left behind by the v1.2.78 authorization cutover and contradicted
+  by the same file's own Board-ownership section — `tasks` scopes through Membership, and `user_id`
+  is not an authorization input anywhere.
+
 ## [1.8.1] - 2026-08-18
 
 ### Fixed
@@ -1879,7 +1938,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.1...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.2...HEAD
+[1.8.2]: https://github.com/jwh3times/magic-agenda/compare/v1.8.1...v1.8.2
 [1.8.1]: https://github.com/jwh3times/magic-agenda/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/jwh3times/magic-agenda/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/jwh3times/magic-agenda/compare/v1.6.0...v1.7.0

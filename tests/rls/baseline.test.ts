@@ -69,11 +69,6 @@ const PUBLIC_FUNCTIONS: Record<string, { secdef: boolean; config: string; explic
     'handle_account_deletion()': { secdef: true, config: 'search_path=""', explicitAcl: true },
     'handle_new_user()': { secdef: true, config: 'search_path=""', explicitAcl: true },
     'set_updated_at()': { secdef: false, config: '(none)', explicitAcl: false },
-    'tasks_sync_legacy_category_label()': {
-      secdef: false,
-      config: 'search_path=""',
-      explicitAcl: true,
-    },
   }
 
 test('the security posture of every function in public is the reviewed one', async () => {

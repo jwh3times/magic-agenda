@@ -81,7 +81,6 @@ test('saveTheme fires the upsert request so the theme persists across reloads', 
     {
       user_id: 'user-1',
       theme: 'brutal',
-      default_view: 'calendar',
       week_start: 0,
       timezone: null,
     },
@@ -102,7 +101,6 @@ test('a settings change from another device is applied', async () => {
   })
   expect(result.current.settings).toEqual({
     theme: 'glass',
-    defaultView: 'week',
     weekStart: 0,
     timezone: null,
   })
@@ -124,7 +122,6 @@ test('a remote settings event arriving right after a local save is suppressed', 
   })
   expect(result.current.settings).toEqual({
     theme: 'brutal',
-    defaultView: 'calendar',
     weekStart: 0,
     timezone: null,
   })
@@ -136,7 +133,7 @@ test('a failed load falls back to the snapshot, not to DEFAULTS', async () => {
     JSON.stringify({
       v: 4,
       userId: 'u1',
-      settings: { theme: 'glass', defaultView: 'kanban', weekStart: 1, timezone: 'Europe/London' },
+      settings: { theme: 'glass', weekStart: 1, timezone: 'Europe/London' },
     }),
   )
   h.capture.result = { data: null, error: { message: 'FetchError: Failed to fetch' } }
@@ -144,7 +141,6 @@ test('a failed load falls back to the snapshot, not to DEFAULTS', async () => {
   await waitFor(() => expect(result.current.loading).toBe(false))
   expect(result.current.settings).toEqual({
     theme: 'glass',
-    defaultView: 'kanban',
     weekStart: 1,
     timezone: 'Europe/London',
   })
@@ -156,7 +152,6 @@ test('a failed load with no snapshot falls back to DEFAULTS', async () => {
   await waitFor(() => expect(result.current.loading).toBe(false))
   expect(result.current.settings).toEqual({
     theme: 'cork',
-    defaultView: 'calendar',
     weekStart: 0,
     timezone: null,
   })
@@ -168,7 +163,6 @@ test('a genuinely empty row still means DEFAULTS, and is snapshotted', async () 
   await waitFor(() => expect(result.current.loading).toBe(false))
   expect(result.current.settings).toEqual({
     theme: 'cork',
-    defaultView: 'calendar',
     weekStart: 0,
     timezone: null,
   })
@@ -192,7 +186,7 @@ test('an empty row with no session does not overwrite the existing snapshot', as
     JSON.stringify({
       v: 4,
       userId: 'u1',
-      settings: { theme: 'brutal', defaultView: 'kanban', weekStart: 1, timezone: 'Europe/London' },
+      settings: { theme: 'brutal', weekStart: 1, timezone: 'Europe/London' },
     }),
   )
   h.capture.result = { data: null, error: null }
@@ -201,14 +195,12 @@ test('an empty row with no session does not overwrite the existing snapshot', as
   // The hook still renders something sane locally (DEFAULTS) rather than hanging...
   expect(result.current.settings).toEqual({
     theme: 'cork',
-    defaultView: 'calendar',
     weekStart: 0,
     timezone: null,
   })
   // ...but the on-disk snapshot, which the next offline boot reads, must be untouched.
   expect(readSettingsSnapshot('u1')?.settings).toEqual({
     theme: 'brutal',
-    defaultView: 'kanban',
     weekStart: 1,
     timezone: 'Europe/London',
   })
@@ -244,7 +236,6 @@ test('a row missing the new columns loads as the defaults', async () => {
   await waitFor(() => expect(result.current.loading).toBe(false))
   expect(result.current.settings).toEqual({
     theme: 'brutal',
-    defaultView: 'week',
     weekStart: 0,
     timezone: null,
   })
@@ -258,7 +249,6 @@ test('a realtime change carries week start and timezone to other devices', async
     h.capture.handler?.({
       new: {
         theme: 'cork',
-        default_view: 'calendar',
         week_start: 6,
         timezone: 'Asia/Tokyo',
       },

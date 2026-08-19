@@ -185,7 +185,6 @@ test('v2 import requires an explicit same-name mapping and inserts templates bef
   expect(templateBatch[0].id).not.toBe('tpl-1')
   expect(templateBatch[0].label_id).toBe('l-work')
   expect(taskBatch[0].label_id).toBe('l-work')
-  expect(taskBatch[0].label_assignment_explicit).toBe(true)
 })
 
 test('v1 Categories use the same mapping UI and may map to Unlabeled without writing Category', async () => {
@@ -201,7 +200,8 @@ test('v1 Categories use the same mapping UI and may map to Unlabeled without wri
 
   const row = h.inserted[0][0] as Record<string, unknown>
   expect(row.label_id).toBeNull()
-  expect(row.label_assignment_explicit).toBe(true)
+  // The compatibility columns left the payload entirely with the Category bridge that read them.
+  expect(row).not.toHaveProperty('label_assignment_explicit')
   expect(row).not.toHaveProperty('category')
 })
 

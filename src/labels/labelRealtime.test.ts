@@ -12,7 +12,6 @@ const row = (over: Partial<LabelRow> = {}): LabelRow => ({
   name: 'Work',
   dot_color: '#2563eb',
   position: 0,
-  legacy_category: null,
   created_at: '2026-08-18T00:00:00Z',
   updated_at: '2026-08-18T00:00:00Z',
   ...over,

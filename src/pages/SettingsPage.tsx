@@ -13,6 +13,7 @@ import { useSettingsContext } from '../data/SettingsProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { readLastUserId } from '../lib/lastUser'
 import { useBoardDirectoryContext, useBoardSession } from '../board/BoardDirectoryProvider'
+import { DEFAULT_VIEW } from '../board/selection'
 import type { ViewName } from '../types/task'
 
 export interface SectionContext {
@@ -38,7 +39,7 @@ const SECTIONS: SettingsSection[] = [
 /** The protected /settings route: reads the session-wide settings, seeds the theme. */
 export function SettingsPage() {
   const { user } = useAuth()
-  const { settings, loading, saveTheme, saveView } = useSettingsContext()
+  const { settings, loading, saveTheme } = useSettingsContext()
   const { setDefaultView } = useBoardDirectoryContext()
   const { board } = useBoardSession()
   // Same reasoning as BoardPage: ProtectedRoute has already made the auth decision, and on the
@@ -49,14 +50,11 @@ export function SettingsPage() {
 
   if (!userId || loading || !settings) return <Spinner />
 
-  // Default View is a Membership Preference, not an Account Preference: it describes how one
-  // account experiences ONE board, so it is read from the selected Membership. `user_settings`
-  // still carries a copy that the currently-deployed client reads, so the write below goes to
-  // both — writing only one is how the two silently diverge. The `user_settings` column is
-  // dropped in the cleanup phase, once nothing reads it.
-  const membershipView = board?.defaultView ?? settings.defaultView
+  // Default View is a Membership Preference, and now only that. It used to be written to
+  // `user_settings.default_view` as well, so the then-deployed client kept reading a value it
+  // understood; that dual write is gone with the column, leaving one source of truth.
+  const membershipView = board?.defaultView ?? DEFAULT_VIEW
   const changeView = (view: ViewName) => {
-    saveView(view)
     if (board) void setDefaultView(board.id, view)
   }
 

@@ -8,10 +8,11 @@ type TaskRow = Database['public']['Tables']['tasks']['Row']
 function row(over: Partial<TaskRow> = {}): TaskRow {
   return {
     id: 'r1',
-    user_id: 'u1',
     title: 'T',
     description: 'D',
     category: 'work',
+    label_assignment_explicit: false,
+    user_id: 'u1',
     color: 'yellow',
     checklist: [],
     status: 'todo',
@@ -29,7 +30,6 @@ function row(over: Partial<TaskRow> = {}): TaskRow {
     // Board containment, Label compatibility, attribution, and the compare-and-swap token.
     board_id: 'b1',
     label_id: null,
-    label_assignment_explicit: false,
     author_id: null,
     last_editor_id: null,
     author_kind: 'author',
@@ -107,10 +107,12 @@ describe('taskToRow', () => {
   it('maps the inbox sentinel to a NULL day', () => {
     expect(taskToRow(task({ day: 'inbox' }), 'u1', 'b1').day).toBeNull()
   })
-  it('maps a real date through and stamps user_id', () => {
-    const r = taskToRow(task({ day: '2026-07-01' }), 'u9', 'b1')
+  it('maps a real date through and still stamps user_id for one more release', () => {
+    const r = taskToRow(task({ day: '2026-07-01' }), 'u1', 'b1')
     expect(r.day).toBe('2026-07-01')
-    expect(r.user_id).toBe('u9')
+    // Still sent, and deliberately: the column is NOT NULL in production until this release's
+    // migration lands, and Deploy Migrations races the Pages build. See `taskToRow`.
+    expect(r.user_id).toBe('u1')
   })
   it('maps order -> order_index and never stores the derived done flag', () => {
     const r = taskToRow(task({ order: 7, korder: 2, status: 'done', done: true }), 'u1', 'b1')
@@ -128,12 +130,15 @@ describe('taskToRow', () => {
   it('writes an explicit nullable label assignment without writing legacy Category', () => {
     const labeled = taskToRow(task({ labelId: 'label-1' }), 'u1', 'b1')
     expect(labeled.label_id).toBe('label-1')
-    expect(labeled.label_assignment_explicit).toBe(true)
+    // The explicit-assignment marker went with the Category bridge that read it — see the
+    // migration: leaving it while dropping the trigger, or vice versa, silently labels every
+    // Unlabeled Task 'Work'.
+    expect('label_assignment_explicit' in labeled).toBe(false)
     expect('category' in labeled).toBe(false)
 
     const unlabeled = taskToRow(task({ labelId: null }), 'u1', 'b1')
     expect(unlabeled.label_id).toBeNull()
-    expect(unlabeled.label_assignment_explicit).toBe(true)
+    expect('label_assignment_explicit' in unlabeled).toBe(false)
   })
 })
 

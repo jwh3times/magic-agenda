@@ -3,6 +3,7 @@ import { useAuth } from '../auth/AuthProvider'
 import { ThemeProvider } from '../theme/ThemeProvider'
 import { Board } from '../components/Board'
 import { NoBoards } from '../components/NoBoards'
+import { DEFAULT_VIEW } from '../board/selection'
 import { Spinner } from '../components/Spinner'
 import { ErrorScreen } from '../components/ErrorScreen'
 import { Toast } from '../components/Toast'
@@ -26,7 +27,9 @@ export function BoardPage() {
   // fetch every task this account owns across every Board.
   const { selectedBoardId, loading: boardsLoading } = useBoardDirectoryContext()
   // Default View is a Membership Preference: it describes how this account experiences THIS board.
-  // `settings.defaultView` remains as the fallback until that column is dropped in cleanup.
+  // There is no Account-level fallback any more — `user_settings.default_view` was a compatibility
+  // copy and is gone. `DEFAULT_VIEW` covers the only remaining gap: a render before the Membership
+  // is known.
   const { board, can } = useBoardSession()
   const t = useTasks(userId, selectedBoardId ?? '', Boolean(user))
   const labelDirectory = useLabelDirectoryContext()
@@ -75,7 +78,7 @@ export function BoardPage() {
           <OfflineContext.Provider value={{ readOnly, savedAt }}>
             <TaskBoardContext.Provider value={t}>
               <Board
-                initialView={board?.defaultView ?? settings.defaultView}
+                initialView={board?.defaultView ?? DEFAULT_VIEW}
                 weekStart={settings.weekStart}
                 onSignOut={() => void signOut()}
                 onOpenSettings={() => void navigate('/settings')}
