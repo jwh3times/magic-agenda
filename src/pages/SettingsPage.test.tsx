@@ -22,7 +22,8 @@ const h = vi.hoisted(() => {
     loading: false,
     signOut: vi.fn(),
   }
-  return { upsert, maybeSingle, channel, auth }
+  const setDefaultView = vi.fn(() => Promise.resolve())
+  return { upsert, maybeSingle, channel, auth, setDefaultView }
 })
 
 vi.mock('../lib/supabase', () => ({
@@ -37,7 +38,7 @@ vi.mock('../lib/supabase', () => ({
 }))
 
 vi.mock('../board/BoardDirectoryProvider', () => ({
-  useBoardDirectoryContext: () => fakeBoardDirectory(),
+  useBoardDirectoryContext: () => fakeBoardDirectory({ setDefaultView: h.setDefaultView }),
   useBoardSession: () => fakeBoardSession(),
 }))
 vi.mock('../labels/LabelDirectoryProvider', () => ({
@@ -72,20 +73,16 @@ test('renders the Appearance section with theme and default-view controls', asyn
   expect(screen.getByRole('link', { name: '← Board' })).toHaveAttribute('href', '/')
 })
 
-test('changing the default view persists it', async () => {
+test('changing the default view writes the Membership, and only the Membership', async () => {
   renderPage()
   const select = await screen.findByLabelText('Default view')
   await userEvent.selectOptions(select, 'kanban')
-  expect(h.upsert).toHaveBeenCalledWith(
-    {
-      user_id: 'user-1',
-      theme: 'cork',
-      default_view: 'kanban',
-      week_start: 0,
-      timezone: null,
-    },
-    { onConflict: 'user_id' },
-  )
+
+  // Default View is a Membership Preference. It used to be written to `user_settings` as well so
+  // the then-deployed client kept reading a value it understood; that dual write is gone, and this
+  // asserts the absence rather than trusting it — two writers is how the two silently diverge.
+  expect(h.setDefaultView).toHaveBeenCalledWith('b1', 'kanban')
+  expect(h.upsert).not.toHaveBeenCalled()
 })
 
 test('links to the legal pages from the footer', async () => {

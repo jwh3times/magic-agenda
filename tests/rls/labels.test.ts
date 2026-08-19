@@ -155,40 +155,6 @@ test('updating a Label refreshes its modification timestamp', async () => {
   expect(updatedAt.getUTCFullYear()).toBeGreaterThan(2000)
 })
 
-test('a stale Category-shaped insert receives its matching seeded Label', async () => {
-  // NOTE: since Board creation shipped and `tasks_infer_board_id` was dropped, a genuinely stale
-  // client can no longer reach this trigger by INSERT at all — it fails closed on containment
-  // first. This payload is therefore synthetic: `board_id` present, `label_assignment_explicit`
-  // absent. The trigger's live path is now UPDATE (the next test), which a stale client can still
-  // take against a row whose Board is already set. #180 removes the trigger and both tests.
-  const boardId = await ownerBoardId()
-  const { data: task, error } = await owner.client
-    .from('tasks')
-    .insert(
-      boardTaskInsert(boardId, {
-        user_id: owner.id,
-        title: 'legacy personal task',
-        category: 'personal',
-      }),
-    )
-    .select('id')
-    .single()
-  expect(error).toBeNull()
-
-  const assigned = await withPg(async (pg) => {
-    const result = await pg.query<{ name: string }>(
-      `select l.name
-         from public.tasks t
-         join public.labels l on l.id = t.label_id
-        where t.id = $1`,
-      [task!.id],
-    )
-    return result.rows[0]?.name
-  })
-
-  expect(assigned).toBe('Personal')
-})
-
 test('a new client can explicitly create an Unlabeled Task during the compatibility window', async () => {
   const { data } = await owner.client.auth.getSession()
   const session = data.session
@@ -220,42 +186,6 @@ test('a new client can explicitly create an Unlabeled Task during the compatibil
   expect(await response.json()).toEqual([
     expect.objectContaining({ label_id: null, label_assignment_explicit: true }),
   ])
-})
-
-test('a stale Category change remaps the Task to the matching seeded Label', async () => {
-  // The bridge's still-reachable path: a pre-#177 client updating a task it can already see.
-  const boardId = await ownerBoardId()
-  const { data: task, error: insertError } = await owner.client
-    .from('tasks')
-    .insert(
-      boardTaskInsert(boardId, {
-        user_id: owner.id,
-        title: 'legacy recategorization',
-        category: 'work',
-      }),
-    )
-    .select('id')
-    .single()
-  expect(insertError).toBeNull()
-
-  const { error: updateError } = await owner.client
-    .from('tasks')
-    .update({ category: 'health' })
-    .eq('id', task!.id)
-  expect(updateError).toBeNull()
-
-  const assigned = await withPg(async (pg) => {
-    const result = await pg.query<{ name: string }>(
-      `select l.name
-         from public.tasks t
-         join public.labels l on l.id = t.label_id
-        where t.id = $1`,
-      [task!.id],
-    )
-    return result.rows[0]?.name
-  })
-
-  expect(assigned).toBe('Health')
 })
 
 test("a Task cannot reference another Board's Label", async () => {
@@ -472,57 +402,6 @@ test('an Editor may read Labels but cannot create Label definitions', async () =
   }
 })
 
-test('renaming a seeded Label does not break stale Category mapping', async () => {
-  const boardId = await ownerBoardId()
-  const workLabel = await withPg(async (pg) => {
-    const result = await pg.query<{ id: string }>(
-      `select id from public.labels where board_id = $1 and name = 'Work'`,
-      [boardId],
-    )
-    return result.rows[0].id
-  })
-  const { data } = await owner.client.auth.getSession()
-  const session = data.session
-  if (!session) throw new Error('test owner has no session')
-
-  const local = stack()
-  const rename = await fetch(`${local.apiUrl}/rest/v1/labels?id=eq.${workLabel}`, {
-    method: 'PATCH',
-    headers: {
-      apikey: local.anonKey,
-      authorization: `Bearer ${session.access_token}`,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({ name: 'Professional' }),
-  })
-  expect(rename.status).toBe(204)
-
-  const { data: task, error } = await owner.client
-    .from('tasks')
-    .insert(
-      boardTaskInsert(boardId, {
-        user_id: owner.id,
-        title: 'stale after rename',
-        category: 'work',
-      }),
-    )
-    .select('id')
-    .single()
-  expect(error).toBeNull()
-
-  const assigned = await withPg(async (pg) => {
-    const result = await pg.query<{ name: string }>(
-      `select l.name
-         from public.tasks t
-         join public.labels l on l.id = t.label_id
-        where t.id = $1`,
-      [task!.id],
-    )
-    return result.rows[0]?.name
-  })
-  expect(assigned).toBe('Professional')
-})
-
 // ---------------------------------------------------------------------------
 // #179: Owner-only Label management. The UI hides these controls for non-Owners; the tests below
 // are what make the hiding cosmetic rather than load-bearing.
@@ -680,7 +559,7 @@ test('an ended Membership grants no management, even to a former Owner', async (
   }
 })
 
-test('the column grants stop an Owner moving a Label to another Board or forging the alias', async () => {
+test('the column grants stop an Owner moving a Label to another Board', async () => {
   const boardId = await ownerBoardId()
   const id = await labelIdNamed(boardId, 'Health')
   const local = stack()
@@ -700,11 +579,10 @@ test('the column grants stop an Owner moving a Label to another Board or forging
       body: JSON.stringify(body),
     })
 
-  // `grant update (name, dot_color, position)` omits both columns, so PostgREST is refused by the
-  // grant before any policy is consulted. This is what keeps Board containment and the temporary
-  // compatibility alias out of client reach.
+  // `grant update (name, dot_color, position)` omits `board_id`, so PostgREST is refused by the
+  // grant before any policy is consulted. This is what keeps Board containment out of client reach.
+  // It used to also cover `legacy_category`; that column went with the Category bridge.
   expect((await patch({ board_id: boardId })).status).toBe(403)
-  expect((await patch({ legacy_category: 'work' })).status).toBe(403)
 })
 
 test('deleting a Label makes its Tasks Unlabeled instead of deleting them', async () => {

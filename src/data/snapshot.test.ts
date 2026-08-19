@@ -193,12 +193,7 @@ test('clearing sweeps every board, including ones this session never opened', ()
 
 test('settings round-trip and clear together with the board', () => {
   writeBoardSnapshot('u1', 'b1', [task('a')], [])
-  writeSettingsSnapshot('u1', {
-    theme: 'glass',
-    defaultView: 'kanban',
-    weekStart: 0,
-    timezone: null,
-  })
+  writeSettingsSnapshot('u1', { theme: 'glass', weekStart: 0, timezone: null })
   expect(readSettingsSnapshot('u1')?.settings.theme).toBe('glass')
   clearSnapshots()
   expect(readBoardSnapshot('u1', 'b1')).toBeNull()

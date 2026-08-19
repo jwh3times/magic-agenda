@@ -123,7 +123,6 @@ export type Database = {
           created_at: string
           dot_color: string
           id: string
-          legacy_category: string | null
           name: string
           position: number
           updated_at: string
@@ -133,7 +132,6 @@ export type Database = {
           created_at?: string
           dot_color: string
           id?: string
-          legacy_category?: string | null
           name: string
           position: number
           updated_at?: string
@@ -143,7 +141,6 @@ export type Database = {
           created_at?: string
           dot_color?: string
           id?: string
-          legacy_category?: string | null
           name?: string
           position?: number
           updated_at?: string
@@ -187,7 +184,7 @@ export type Database = {
           status: string
           title: string
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           at_time?: string | null
@@ -217,7 +214,7 @@ export type Database = {
           status?: string
           title?: string
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           at_time?: string | null
@@ -247,7 +244,7 @@ export type Database = {
           status?: string
           title?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {

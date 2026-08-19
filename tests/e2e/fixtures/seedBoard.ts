@@ -20,11 +20,17 @@ import { testBoardId, testClient, testUserId } from './supabase'
  * and `day` is a real NULL for the inbox rather than the app's `'inbox'` sentinel. That mapping
  * lives in src/data/mappers.ts and does not apply here -- see AGENTS.md.
  *
- * **Every insert must carry `board_id`.** This fixture is a Supabase client like any other, so when
- * `tasks_infer_board_id` was dropped it became a pre-cutover client and started failing closed --
- * as an RLS refusal, since `tasks_insert_editor` evaluates before the NOT NULL constraint and
- * `NULL in (select ...)` is not true. Any new column that containment depends on has to be added
- * here at the same time as the migration that requires it; nothing else in the suite writes tasks.
+ * **Every insert must carry `board_id`, and nothing retired.** This fixture is a Supabase client
+ * like any other, so when `tasks_infer_board_id` was dropped it became a pre-cutover client and
+ * started failing closed -- as an RLS refusal, since `tasks_insert_editor` evaluates before the NOT
+ * NULL constraint and `NULL in (select ...)` is not true. It has since stopped sending `user_id`
+ * and `category` for the mirror-image reason: those columns are being dropped, and a client still
+ * sending a dropped column gets `400 PGRST204`.
+ *
+ * Both directions bite one release late. E2E runs against production while migrations apply only on
+ * merge, so a schema change is first exercised by the NEXT pull request -- update this file in the
+ * same PR as the migration and expect no CI signal confirming you got it right. Nothing else in the
+ * suite writes tasks.
  */
 export const SEEDED_TITLES = ['Draft the launch note', 'Book the venue', 'Unscheduled idea']
 
@@ -77,17 +83,14 @@ export async function seedBoard(options: SeedOptions = {}): Promise<void> {
 
   const { error: insertError } = await client.from('tasks').insert([
     {
-      user_id: userId,
       board_id: boardId,
       title: SEEDED_TITLES[0],
       day: anchor,
       order_index: 0,
       status: 'todo',
-      category: 'work',
       color: 'yellow',
     },
     {
-      user_id: userId,
       board_id: boardId,
       title: SEEDED_TITLES[1],
       // +2 days always stays inside the rendered grid: the 42 cells pad the anchor month to whole
@@ -95,17 +98,14 @@ export async function seedBoard(options: SeedOptions = {}): Promise<void> {
       day: plusDays(anchor, 2),
       order_index: 0,
       status: 'doing',
-      category: 'personal',
       color: 'blue',
     },
     {
-      user_id: userId,
       board_id: boardId,
       title: SEEDED_TITLES[2],
       day: null,
       order_index: 0,
       status: 'todo',
-      category: 'ideas',
       color: 'mint',
     },
   ])
@@ -114,9 +114,19 @@ export async function seedBoard(options: SeedOptions = {}): Promise<void> {
   // The signup trigger already created this row, so update rather than insert.
   const { error: settingsError } = await client
     .from('user_settings')
-    .update({ theme, default_view: view, week_start: 0, timezone: 'UTC' })
+    .update({ theme, week_start: 0, timezone: 'UTC' })
     .eq('user_id', userId)
   if (settingsError) throw new Error(`seed: writing settings failed: ${settingsError.message}`)
+
+  // Default View is a Membership Preference, not an Account one. It used to be seeded onto
+  // `user_settings.default_view`; the app stopped reading that copy when the compatibility layer
+  // was retired, so seeding it there would silently stop steering which view the board opens in --
+  // a fixture that still "worked" while testing the wrong thing.
+  const { error: viewError } = await client
+    .from('board_memberships')
+    .update({ default_view: view })
+    .eq('board_id', boardId)
+  if (viewError) throw new Error(`seed: writing the default view failed: ${viewError.message}`)
 
   // NO signOut() here. supabase-js defaults to scope 'global', which revokes every refresh token
   // for the user -- including the one baked into the storageState that globalSetup saved for the

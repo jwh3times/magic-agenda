@@ -52,19 +52,22 @@ export function rowToTask(row: TaskRow): Task {
 
 /** app Task -> DB insert/update: inbox sentinel becomes NULL, order -> order_index, done is not stored. */
 /**
- * `board_id` is the authorization boundary. `user_id` remains a temporary attribution/compatibility
- * column until its cleanup migration. Label assignments are always explicit, including Unlabeled,
- * so the deploy-window Category trigger cannot reinterpret a new client's intent.
+ * `board_id` is the authorization boundary, and now the only ownership column written.
+ *
+ * `user_id` and `label_assignment_explicit` were both dropped from this payload when the
+ * compatibility layer was retired. The second one mattered more than it looks: it existed so the
+ * Category bridge could tell "a stale client omitted `label_id`" from "this client chose
+ * Unlabeled", and the bridge trigger was dropped in the same migration precisely because omitting
+ * the flag makes it default to `false` — which that trigger would have read as the stale case and
+ * used to assign the Work Label to every Unlabeled Task.
  */
-export function taskToRow(task: Task, userId: string, boardId: string): TaskInsert {
+export function taskToRow(task: Task, boardId: string): TaskInsert {
   return {
     id: task.id,
-    user_id: userId,
     board_id: boardId,
     title: task.title,
     description: task.description,
     label_id: task.labelId,
-    label_assignment_explicit: true,
     color: task.color,
     checklist: task.checklist as unknown as Json,
     status: task.status,

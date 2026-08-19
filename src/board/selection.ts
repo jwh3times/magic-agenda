@@ -16,6 +16,15 @@ import type { BoardRole } from './role'
  * with it. Flattened across `boards` and `board_memberships` on purpose — every consumer needs both
  * halves, and nothing in the UI has a use for a Board it has no Membership in.
  */
+/**
+ * The view a Board opens in when its Membership has not been read yet.
+ *
+ * Not a user preference and not a fallback for a *missing* one: every Membership row carries
+ * `default_view` NOT NULL with its own `'calendar'` default, so this only covers the window before
+ * that row is in hand.
+ */
+export const DEFAULT_VIEW: ViewName = 'calendar'
+
 export interface BoardSummary {
   id: string
   name: string

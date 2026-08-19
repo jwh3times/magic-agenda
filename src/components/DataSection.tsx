@@ -155,7 +155,6 @@ export function DataSection() {
         pending,
         labelMapping,
         new Set(destinationLabels.map((label) => label.id)),
-        userId,
         boardId,
       )
       if (!planned.ok) {

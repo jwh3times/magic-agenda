@@ -2,11 +2,19 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { canPersistSnapshot, readSettingsSnapshot, writeSettingsSnapshot } from './snapshot'
 import { useOwnWrites, useSyncedTable, type ChangePayload } from './useSyncedTable'
-import type { ThemeName, ViewName } from '../types/task'
+import type { ThemeName } from '../types/task'
 
+/**
+ * Account Preferences — the ones that genuinely describe the Account rather than one Board.
+ *
+ * Default View is deliberately absent. It is a **Membership** Preference: it describes how this
+ * Account experiences ONE Board, and lives on `board_memberships.default_view`. `user_settings`
+ * carried a second copy through the Board cutover so the then-deployed client kept working, and
+ * both were written on every change — which is exactly the two-sources-of-truth arrangement that
+ * only stays honest while someone remembers to write both.
+ */
 export interface Settings {
   theme: ThemeName
-  defaultView: ViewName
   /** 0=Sunday … 6=Saturday. */
   weekStart: number
   /** IANA id; null means "follow the browser". */
@@ -15,7 +23,6 @@ export interface Settings {
 
 const DEFAULTS: Settings = {
   theme: 'cork',
-  defaultView: 'calendar',
   weekStart: 0,
   timezone: null,
 }
@@ -24,7 +31,6 @@ export interface UseSettings {
   settings: Settings | null
   loading: boolean
   saveTheme: (theme: ThemeName) => void
-  saveView: (view: ViewName) => void
   saveWeekStart: (weekStart: number) => void
   saveTimezone: (timezone: string | null) => void
 }
@@ -105,7 +111,6 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
           data
             ? {
                 theme: data.theme as ThemeName,
-                defaultView: data.default_view as ViewName,
                 // `??` rather than a plain read: during the deploy window between the migration
                 // and the Pages build, a row can come back without these columns at all.
                 weekStart: data.week_start ?? 0,
@@ -144,14 +149,15 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
     (payload: ChangePayload) => {
       const row = payload.new as {
         theme?: string
-        default_view?: string
         week_start?: number
         timezone?: string | null
       } | null
-      if (!row?.theme || !row.default_view) return
+      // `theme` alone gates this now. It used to also require `default_view`, which stopped being
+      // a signal of a well-formed row when Default View moved to the Membership — a payload
+      // without it is normal, not partial.
+      if (!row?.theme) return
       const next: Settings = {
         theme: row.theme as ThemeName,
-        defaultView: row.default_view as ViewName,
         weekStart: row.week_start ?? 0,
         timezone: row.timezone ?? null,
       }
@@ -159,7 +165,6 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
       // or re-snapshot. (useTasks' equivalent is `sameTask` inside the realtime reducer.)
       if (
         next.theme === ref.current.theme &&
-        next.defaultView === ref.current.defaultView &&
         next.weekStart === ref.current.weekStart &&
         next.timezone === ref.current.timezone
       )
@@ -194,7 +199,6 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
           {
             user_id: userId,
             theme: next.theme,
-            default_view: next.defaultView,
             week_start: next.weekStart,
             timezone: next.timezone,
           },
@@ -211,10 +215,6 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
   )
 
   const saveTheme = useCallback((theme: ThemeName) => persist({ ...ref.current, theme }), [persist])
-  const saveView = useCallback(
-    (view: ViewName) => persist({ ...ref.current, defaultView: view }),
-    [persist],
-  )
   const saveWeekStart = useCallback(
     (weekStart: number) => persist({ ...ref.current, weekStart }),
     [persist],
@@ -224,5 +224,5 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
     [persist],
   )
 
-  return { settings, loading, saveTheme, saveView, saveWeekStart, saveTimezone }
+  return { settings, loading, saveTheme, saveWeekStart, saveTimezone }
 }

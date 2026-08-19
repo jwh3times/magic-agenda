@@ -8,10 +8,11 @@ type TaskRow = Database['public']['Tables']['tasks']['Row']
 function row(over: Partial<TaskRow> = {}): TaskRow {
   return {
     id: 'r1',
-    user_id: 'u1',
     title: 'T',
     description: 'D',
     category: 'work',
+    label_assignment_explicit: false,
+    user_id: 'u1',
     color: 'yellow',
     checklist: [],
     status: 'todo',
@@ -29,7 +30,6 @@ function row(over: Partial<TaskRow> = {}): TaskRow {
     // Board containment, Label compatibility, attribution, and the compare-and-swap token.
     board_id: 'b1',
     label_id: null,
-    label_assignment_explicit: false,
     author_id: null,
     last_editor_id: null,
     author_kind: 'author',
@@ -105,35 +105,40 @@ describe('rowToTask', () => {
 
 describe('taskToRow', () => {
   it('maps the inbox sentinel to a NULL day', () => {
-    expect(taskToRow(task({ day: 'inbox' }), 'u1', 'b1').day).toBeNull()
+    expect(taskToRow(task({ day: 'inbox' }), 'b1').day).toBeNull()
   })
-  it('maps a real date through and stamps user_id', () => {
-    const r = taskToRow(task({ day: '2026-07-01' }), 'u9', 'b1')
+  it('maps a real date through and no longer stamps an owner column', () => {
+    const r = taskToRow(task({ day: '2026-07-01' }), 'b1')
     expect(r.day).toBe('2026-07-01')
-    expect(r.user_id).toBe('u9')
+    // `user_id` left the payload with the compatibility layer: `board_id` is the ownership column,
+    // and attribution lives in `author_id`/`last_editor_id`.
+    expect('user_id' in r).toBe(false)
   })
   it('maps order -> order_index and never stores the derived done flag', () => {
-    const r = taskToRow(task({ order: 7, korder: 2, status: 'done', done: true }), 'u1', 'b1')
+    const r = taskToRow(task({ order: 7, korder: 2, status: 'done', done: true }), 'b1')
     expect(r.order_index).toBe(7)
     expect(r.korder).toBe(2)
     expect(r.status).toBe('done')
     expect('done' in r).toBe(false)
   })
   it('maps recurOriginDay -> recur_origin_day', () => {
-    expect(taskToRow(task({ recurOriginDay: '2026-07-01' }), 'u1', 'b1').recur_origin_day).toBe(
+    expect(taskToRow(task({ recurOriginDay: '2026-07-01' }), 'b1').recur_origin_day).toBe(
       '2026-07-01',
     )
-    expect(taskToRow(task({ recurOriginDay: null }), 'u1', 'b1').recur_origin_day).toBeNull()
+    expect(taskToRow(task({ recurOriginDay: null }), 'b1').recur_origin_day).toBeNull()
   })
   it('writes an explicit nullable label assignment without writing legacy Category', () => {
-    const labeled = taskToRow(task({ labelId: 'label-1' }), 'u1', 'b1')
+    const labeled = taskToRow(task({ labelId: 'label-1' }), 'b1')
     expect(labeled.label_id).toBe('label-1')
-    expect(labeled.label_assignment_explicit).toBe(true)
+    // The explicit-assignment marker went with the Category bridge that read it — see the
+    // migration: leaving it while dropping the trigger, or vice versa, silently labels every
+    // Unlabeled Task 'Work'.
+    expect('label_assignment_explicit' in labeled).toBe(false)
     expect('category' in labeled).toBe(false)
 
-    const unlabeled = taskToRow(task({ labelId: null }), 'u1', 'b1')
+    const unlabeled = taskToRow(task({ labelId: null }), 'b1')
     expect(unlabeled.label_id).toBeNull()
-    expect(unlabeled.label_assignment_explicit).toBe(true)
+    expect('label_assignment_explicit' in unlabeled).toBe(false)
   })
 })
 
@@ -142,11 +147,11 @@ describe('at_time', () => {
     // Postgres `time` comes back as 'HH:MM:SS'; the app keeps 'HH:MM'.
     const withSeconds = rowToTask(row({ at_time: '14:30:00' }))
     expect(withSeconds.atTime).toBe('14:30')
-    expect(taskToRow(withSeconds, 'u1', 'b1').at_time).toBe('14:30')
+    expect(taskToRow(withSeconds, 'b1').at_time).toBe('14:30')
 
     const allDay = rowToTask(row({ at_time: null }))
     expect(allDay.atTime).toBeNull()
-    expect(taskToRow(allDay, 'u1', 'b1').at_time).toBeNull()
+    expect(taskToRow(allDay, 'b1').at_time).toBeNull()
   })
   it('treats a missing at_time column (pre-migration deploy window) as all-day', () => {
     const predeploy = rowToTask(row({ at_time: undefined as unknown as string }))
@@ -159,7 +164,7 @@ describe('pinned', () => {
     const baseRow = row()
     const pinnedRow = rowToTask({ ...baseRow, pinned: true })
     expect(pinnedRow.pinned).toBe(true)
-    expect(taskToRow(pinnedRow, 'u1', 'b1').pinned).toBe(true)
+    expect(taskToRow(pinnedRow, 'b1').pinned).toBe(true)
     // Deploy-window tolerance: a row read before the migration applied has no field.
     const legacy = rowToTask({ ...baseRow, pinned: undefined as unknown as boolean })
     expect(legacy.pinned).toBe(false)
@@ -176,7 +181,7 @@ describe('round trip', () => {
       title: 'Hi',
       checklist: [{ id: 'c1', text: 'x', done: true }],
     })
-    const r = taskToRow(original, 'u1', 'b1')
+    const r = taskToRow(original, 'b1')
     const back = rowToTask(row({ ...r, day: r.day ?? null }))
     expect(back.day).toBe('2026-07-02')
     expect(back.order).toBe(3)

@@ -136,9 +136,13 @@ were added as their own effort rather than a roadmap feature — see
      realtime at that point; [#188](https://github.com/jwh3times/magic-agenda/issues/188) has
      since **published them**, closing the edge where another focused surface re-rendered cards as
      Unlabeled correctly while its editor went on offering the deleted definition.
-  2. [#180](https://github.com/jwh3times/magic-agenda/issues/180) — remove the legacy Category
-     column and compatibility rule only after the deploy window has elapsed. **Now unblocked by
-     #179**, but still gated on current clients having had a release window.
+  2. [#180](https://github.com/jwh3times/magic-agenda/issues/180) — **shipped.** The window was
+     declared closed on 2026-08-19; the Category bridge trigger and `labels.legacy_category` are
+     gone, and the client stopped sending `tasks.user_id`, `tasks.category`, and
+     `tasks.label_assignment_explicit`. Dropping the columns themselves is a **second** release
+     ([#197](https://github.com/jwh3times/magic-agenda/issues/197)), because a client still sending a
+     dropped column gets `400 PGRST204` and migrations land at a different moment from the Pages
+     build.
 
   **Labels are board-scoped from their first migration — `board_id`, never `user_id`.** An earlier
   version of this entry specified account-owned labels, which reads as the cheaper start and is not:

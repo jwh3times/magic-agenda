@@ -136,7 +136,7 @@ test('prepareImport requires an explicit mapping even when a destination has the
   const parsed = parseExport(serializeExport([task({ labelId: 'source-work' })], [], labels, 'x'))
   if (!parsed.ok) throw new Error(parsed.error)
 
-  expect(prepareImport(parsed.data, new Map(), new Set(['destination-work']), 'u1', 'b1')).toEqual({
+  expect(prepareImport(parsed.data, new Map(), new Set(['destination-work']), 'b1')).toEqual({
     ok: false,
     error: 'Choose a destination for every source Label.',
   })
@@ -151,7 +151,6 @@ test('prepareImport rejects a destination Label outside the selected Board', () 
       parsed.data,
       new Map([['source-work', 'another-board-label']]),
       new Set(['destination-work']),
-      'u1',
       'b1',
     ),
   ).toEqual({ ok: false, error: 'A chosen destination Label is no longer available.' })
@@ -168,17 +167,13 @@ test('mapping applies to plain Tasks, templates, and instances before fresh row 
       ['source-custom', null],
     ]),
     new Set(['destination-work']),
-    'u1',
     'b1',
   )
   if (!planned.ok) throw new Error(planned.error)
 
   expect(planned.data.templateRows[0].label_id).toBeNull()
-  expect(planned.data.templateRows[0].label_assignment_explicit).toBe(true)
   expect(planned.data.taskRows.map((row) => row.label_id)).toEqual([null, 'destination-work'])
-  expect(planned.data.taskRows.every((row) => row.board_id === 'b1' && row.user_id === 'u1')).toBe(
-    true,
-  )
+  expect(planned.data.taskRows.every((row) => row.board_id === 'b1')).toBe(true)
   expect(planned.data.templateRows[0].id).not.toBe('tpl-1')
   expect(planned.data.taskRows[1].recur_parent_id).toBe(planned.data.templateRows[0].id)
 })
@@ -191,13 +186,11 @@ test('v1 Categories use the same explicit mapping path and no longer opt into th
     parsed.data,
     new Map([[source.id, 'destination-ideas']]),
     new Set(['destination-ideas']),
-    'u1',
     'b1',
   )
   if (!planned.ok) throw new Error(planned.error)
 
   expect(planned.data.taskRows[0].label_id).toBe('destination-ideas')
-  expect(planned.data.taskRows[0].label_assignment_explicit).toBe(true)
 })
 
 test('remapIds freshens every id but preserves series links, skips, and content', () => {

@@ -280,25 +280,44 @@ column-list `on delete set null (label_id)` preserves the Task's NOT NULL Board 
 Label is deleted. `Unlabeled` is therefore `label_id = NULL`, never a Label row. Label Color is the
 definition's dot/accent and is independent from the Task's visual Note Color.
 
-Two columns and one trigger are **temporary deploy-window machinery**:
+**The Category compatibility layer is retired** (#180, window declared closed 2026-08-19).
+`tasks_sync_legacy_category_label` and `labels.legacy_category` are gone, and the client no longer
+sends `tasks.user_id`, `tasks.category`, or `tasks.label_assignment_explicit`. The app domain uses
+`Task.labelId: string | null`; Category survives only in the **v1 file parser** in
+`src/data/exportImport.ts`, where legacy Categories normalize into synthetic source Labels and go
+through the same explicit destination mapping as v2.
 
-- `labels.legacy_category` retains the seeded Label's old Category key through a rename. It does
-  not make that Label permanent; deletion removes the alias with the row.
-- `tasks.label_assignment_explicit` distinguishes a stale client that omitted `label_id` (false)
-  from the new client intentionally choosing Unlabeled (true).
-- `tasks_sync_legacy_category_label` maps a stale INSERT or Category change through the alias. It
-  used to depend on sorting after `tasks_infer_board_id_before_insert` so Board inference ran first;
-  with that trigger dropped, its **INSERT path is unreachable from a real stale client**, which
-  cannot insert at all any more. Its UPDATE path is still live: a pre-#177 client can still change
-  `category` on a row whose Board is already set. #180 removes it either way.
+**That retirement is deliberately two releases, and the reason is measured, not argued.** Dropping a
+column any live client still _sends_ is a hard failure: PostgREST answers
+`400 PGRST204 — Could not find the 'x' column of 'tasks' in the schema cache`. Migrations and the
+Cloudflare Pages build land at different moments and a long-open tab runs the old client
+indefinitely, so a single release that both stopped writing a column and dropped it would break task
+creation for anyone who had not reloaded. Reads are unaffected — `select('*')` simply returns fewer
+columns, and `rowToTask` never read `category`. **The hazard is writes only.**
 
-The app domain now uses `Task.labelId: string | null`; Category is confined to raw DB rows and the
-v1 file parser in `src/data/exportImport.ts`. Every normal `taskToRow` write sends `label_id` plus
-`label_assignment_explicit = true`, including null for Unlabeled, so the bridge cannot reinterpret
-new-client intent. V1 Categories are normalized into synthetic source Labels and go through the
-same explicit destination mapping as v2; imports no longer opt into the database bridge. Issue #180
-removes `tasks.category`, both compatibility columns, and the trigger after the deploy window while
-retaining v1 parsing at the file-format seam.
+- **Release A** (shipped) made the columns unnecessary: bridge and alias dropped, `tasks.user_id`
+  relaxed to nullable, client payloads slimmed. `tests/rls/compatibility_window.test.ts` asserts the
+  premise directly — _both_ the old and new client shapes write successfully against this schema.
+- **Release B** drops `tasks.user_id`, `tasks.category`, `tasks.label_assignment_explicit`, and
+  `user_settings.default_view`, after a window for tabs still on the pre-A client. Delete that test
+  file with it; at that point the old shape is _supposed_ to fail.
+
+Two traps this uncovered, both of which would have shipped silently:
+
+- **Dropping the bridge trigger and dropping `label_assignment_explicit` from the payload must be
+  atomic.** Once the client omits that flag it defaults to `false`, which is exactly the signal the
+  bridge read as "a stale client omitted `label_id`" — so with the trigger still in place, every new
+  Unlabeled Task would have been assigned the Work Label from `category`'s `'work'` default. Safe
+  together, destructive apart, in either order.
+- **`handle_new_user` and `create_board` both seeded the five Labels _with_ the alias**, so dropping
+  the column without rewriting them fails every signup — the function runs inside the signup
+  transaction. The local RLS suite surfaced it as `Database error creating new user`; nothing in the
+  app would have.
+
+`tasks.user_id` is the one column that needed a schema change rather than just a quieter client:
+it was `NOT NULL` with **no default**, unlike the others, so there was no state in which a client
+could simply stop sending it. It has not been an authorization input since the v1.2.78 cutover —
+attribution lives in `author_id` / `last_editor_id`.
 
 **`src/data/exportImport.ts` is the complete file-format and import-planning module.** V2 is a
 one-Board format containing Label definitions plus nullable Task/Series Label references; Account
@@ -373,7 +392,7 @@ why the UI can promise "tasks become Unlabeled" without touching `tasks` itself.
 `tests/rls/labels.test.ts` is what makes that hiding cosmetic rather than load-bearing: an Editor
 and a Viewer are each refused create/rename/delete while still reading, a non-member sees nothing,
 an ended Membership grants nothing even to a former Owner, and the column grants return `403` for a
-client trying to move a Label across Boards or forge `legacy_category`. The role-refusal tests carry
+client trying to move a Label across Boards. The role-refusal tests carry
 positive controls on purpose — without one, a membership seed that quietly failed would make every
 refusal pass for the wrong reason.
 
@@ -426,13 +445,20 @@ and `fakeAuthGateway`, so interface additions cannot leave partial, untyped retu
 `persistReorder` (upserts only the changed lanes). Its raw React setter is private; drag-over uses
 the narrower `previewReorder(next)` command.
 
-Default View is a **Membership Preference, not an Account Preference**:
-`board_memberships.default_view` describes how this Account experiences _this_ Board, so
-`BoardPage` reads `board?.defaultView ?? settings.defaultView` and `SettingsPage` writes both copies
-on change — `useBoardDirectory`'s `setDefaultView()` (through the column-level `grant update
-(default_view)` above) and the existing `user_settings` write via `saveView()`. Writing only one is
-how the two would silently diverge: the `user_settings` column is still what the currently-deployed
-client reads, and it is only dropped once nothing reads it, in a later cleanup step.
+Default View is a **Membership Preference, not an Account Preference**, and since #180 it is only
+that. `board_memberships.default_view` describes how this Account experiences _this_ Board, so
+`BoardPage` and `SettingsPage` read `board?.defaultView ?? DEFAULT_VIEW` and write it through
+`useBoardDirectory`'s `setDefaultView()` (via the column-level `grant update (default_view)` above).
+`DEFAULT_VIEW` lives in `src/board/selection.ts` and is **not** a user preference or a fallback for
+a missing one — every Membership row carries `default_view` NOT NULL with its own `'calendar'`
+default, so it only covers the window before that row is in hand.
+
+`user_settings.default_view` carried a second copy through the Board cutover, and `SettingsPage`
+wrote _both_ on every change so the then-deployed client kept reading a value it understood. That
+dual write is gone: `Settings` no longer has a `defaultView` field, `saveView()` no longer exists,
+and `SettingsPage.test.tsx` asserts the `user_settings` upsert is **not** called when the view
+changes — the absence is what stops the two sources silently diverging again. The column itself goes
+in Release B (see the Labels section).
 
 `BoardActionContext` is the internal UI seam below `Board`. It publishes editor/add/card actions and
 the done-pop id at their use sites, so the view modules pass tasks and layout parameters rather than
