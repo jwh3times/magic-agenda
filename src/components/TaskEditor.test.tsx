@@ -164,7 +164,11 @@ test('saving an atTime-only change to a recurring instance still shows the scope
   expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ atTime: '09:30' }), 'future')
 })
 
-test('saving a day-only change to a recurring instance still shows the scope prompt', async () => {
+// Until #213 this prompted, and this test asserted that it did — including clicking "This and all
+// future", which the data layer then silently discarded, so the test pinned the bug's surface
+// without catching the bug. The Scheduled Day is Occurrence Placement (ADR-0002): it means nothing
+// beyond one Occurrence, so there is no scope to choose.
+test('saving a day-only change to a recurring instance skips the scope prompt', async () => {
   const user = userEvent.setup()
   const { onSave, container } = renderEditor(mkInstance({ day: '2026-07-10' }))
 
@@ -172,11 +176,9 @@ test('saving a day-only change to a recurring instance still shows the scope pro
   fireEvent.change(dayInput, { target: { value: '2026-07-17' } })
   await user.click(screen.getByRole('button', { name: 'Save' }))
 
-  expect(screen.getByText('Save repeating task')).toBeInTheDocument()
-  expect(onSave).not.toHaveBeenCalled()
-
-  await user.click(screen.getByRole('button', { name: 'This and all future' }))
-  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ day: '2026-07-17' }), 'future')
+  expect(screen.queryByText('Save repeating task')).not.toBeInTheDocument()
+  expect(onSave).toHaveBeenCalledTimes(1)
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ day: '2026-07-17' }), 'this')
 })
 
 test('toggling the pin on a non-recurring task saves via the normal (no-prompt) path', async () => {

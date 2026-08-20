@@ -289,6 +289,71 @@ describe('planEditSeriesFrom', () => {
   })
 })
 
+describe('planEditSeriesFrom — field ownership (#213)', () => {
+  it('keeps the edited Occurrence\u2019s own state when it changes alongside series content', () => {
+    // Before #213 affected Occurrences were rebuilt from the *stored* row, so a pin toggled in the
+    // same save as a rename was dropped on the very card being edited.
+    const state = series()
+    const i2 = state.tasks[1]
+    const plan = planEditSeriesFrom(state, i2, { ...i2, title: 'Renamed', pinned: true })!
+    const edited = plan.state.tasks.find((x) => x.id === 'i2')!
+    expect(edited.pinned).toBe(true)
+    expect(edited.title).toBe('Renamed')
+  })
+
+  it('moves only the edited Occurrence when its day changes alongside series content', () => {
+    const state = series()
+    const i2 = state.tasks[1]
+    const plan = planEditSeriesFrom(state, i2, { ...i2, title: 'Renamed', day: '2026-07-10' })!
+    expect(plan.state.tasks.find((x) => x.id === 'i2')!.day).toBe('2026-07-10')
+    // Its Occurrence Date is identity and does not move with it.
+    expect(plan.state.tasks.find((x) => x.id === 'i2')!.occurrenceDate).toBe('2026-07-08')
+    // A later Occurrence takes the rename and keeps its own placement.
+    const i3 = plan.state.tasks.find((x) => x.id === 'i3')!
+    expect(i3.title).toBe('Renamed')
+    expect(i3.day).toBe('2026-07-15')
+  })
+
+  it('does not carry the edited Occurrence\u2019s state onto any other Occurrence', () => {
+    const state = series()
+    const i2 = state.tasks[1]
+    const plan = planEditSeriesFrom(state, i2, {
+      ...i2,
+      title: 'Renamed',
+      pinned: true,
+      status: 'doing',
+    })!
+    const i3 = plan.state.tasks.find((x) => x.id === 'i3')!
+    expect(i3.pinned).toBe(false)
+    expect(i3.status).toBe('todo')
+  })
+
+  it('never takes excludedDates from the draft', () => {
+    // The trap: a draft is an Occurrence, whose excludedDates is always empty. Copying it onto the
+    // Series would erase every Excluded Date and resurrect every deleted Occurrence.
+    const base = series()
+    const state = {
+      ...base,
+      templates: [{ ...base.templates[0], excludedDates: ['2026-07-22'] }],
+    }
+    const i2 = state.tasks[1]
+    const plan = planEditSeriesFrom(state, i2, { ...i2, title: 'Renamed' })!
+    expect(plan.state.templates[0].excludedDates).toEqual(['2026-07-22'])
+  })
+
+  it('still writes the checklist to the Series only, pending #214', () => {
+    // Pins today's known-incomplete behaviour so #214 has something explicit to flip. Propagating
+    // it needs Step-identity reconciliation; copying it wholesale would reset every tick.
+    const state = series()
+    const i2 = state.tasks[1]
+    const next = [{ id: 'c1', text: 'new step', done: false }]
+    const plan = planEditSeriesFrom(state, i2, { ...i2, checklist: next })!
+    expect(plan.state.templates[0].checklist).toEqual(next)
+    expect(plan.state.tasks.find((x) => x.id === 'i2')!.checklist).toEqual([])
+    expect(plan.state.tasks.find((x) => x.id === 'i3')!.checklist).toEqual([])
+  })
+})
+
 describe('planDeleteOccurrence', () => {
   it('removes the instance and records the skip against its origin', () => {
     const s = series()

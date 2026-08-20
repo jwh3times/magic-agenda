@@ -685,26 +685,35 @@ editable, and it is reached only via `occurrenceDateOf`'s `occurrenceDate ?? day
 rows left are inbox instances from before that migration, for which `occurrenceDateOf` already
 returns the meaningless `'inbox'`.)
 
-`PER_OCCURRENCE_FIELDS` (which fields skip the prompt) and `seriesContent()` in `series.ts` (which
-fields an all-future edit propagates) are two halves of one classification. This file used to call
-them "deliberately kept separate ... not exact complements", and that is no longer the intent:
-[ADR-0002](docs/adr/0002-series-occurrence-field-ownership.md) decides that every `Task` field is
-owned by exactly one of the Recurrence Rule, Series Content, Occurrence State, or Occurrence
-Placement, which makes the two lists complements of one partition. **The code still lags that
-decision** — `day`, `order`, `korder` and `checklist` are in neither list — and each gap is a
-silent write loss rather than an error, measured rather than reasoned about (#168):
+`PER_OCCURRENCE_FIELDS` and `seriesContent()` are **derived from one table**, not maintained
+separately. `src/data/fieldOwnership.ts` maps every `Task` field to its owner — Recurrence Rule,
+Series Content, Occurrence State, Occurrence Placement, or identity — per
+[ADR-0002](docs/adr/0002-series-occurrence-field-ownership.md), and the two lists fall out as
+complements of that partition. `FIELD_OWNER` is a mapped type over `keyof Task`, so **a field added
+to `Task` without an owner is a compile error** (TS2741), not a fifth silent gap.
 
-- Editing a Checklist and choosing all-future writes it to the Series and to **no** Occurrence,
-  not even the card being edited. Only Occurrences materialized past the horizon later ever show
-  it, so the edit appears to do nothing for up to 90 days.
-- Changing an Occurrence's day and choosing all-future discards the change entirely — the
-  Occurrence stays put and the Rule's anchor does not move.
-- `makeInstance` copies `tmpl.pinned`, and nothing after `planPromoteToSeries` ever writes it, so a
-  Series' pin is fixed at promotion and silently seeds every future Occurrence forever.
-- All-future rebuilds affected Occurrences from the **stored** row (`{...t, ...seriesContent(draft)}`),
-  so a per-occurrence field changed in the same save — pinning while renaming — is dropped.
+This file used to call the two lists "deliberately kept separate ... not exact complements", and
+that was the bug rather than the design: `day`, `order`, `korder` and `checklist` were in neither,
+and each gap was a silent write loss. #168 measured them with the real planner; #213 closed three:
 
-Closing these is tracked separately; do not treat the current lists as the intended model.
+- **Occurrence Placement no longer raises the scope question.** Changing an Occurrence's day or
+  manual order says nothing about the Series, so it saves straight through. It used to prompt, and
+  choosing all-future then discarded the change — a `TaskEditor` test asserted that prompt _and_
+  clicked through it, pinning the bug's surface without catching the bug.
+- **All-future keeps the edited Occurrence's own state.** Affected Occurrences are rebuilt from the
+  stored row, which is right for every Occurrence except the one being edited; without the
+  exception, a pin toggled in the same save as a rename was dropped on that very card.
+- **`excludedDates` is Rule-owned but never copied from a draft.** `RULE_EDITABLE_FIELDS` exists for
+  this one trap: a draft is an _Occurrence_, whose own `excludedDates` is always empty, so spreading
+  every Rule field from it would erase the Series' Excluded Dates and resurrect every Occurrence the
+  user has deleted.
+
+**One gap remains, deliberately.** `checklist` is Series Content but is excluded from the wholesale
+copy via `SERIES_CONTENT_DEFERRED`, because copying it would overwrite each Occurrence's Step
+Completion — the "reset every tick" option ADR-0002 rejects. Propagating it needs Step-identity
+reconciliation (#214). A test asserts that set is exactly `{checklist}`, so the exception cannot
+quietly grow, and another pins today's Series-definition-only behaviour so #214 has something
+explicit to flip.
 
 ### Drag-and-drop: every decision is pure; dnd-kit is an adapter
 
