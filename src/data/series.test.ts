@@ -91,7 +91,8 @@ describe('makeInstance', () => {
     // Content copies across; per-occurrence progress resets.
     expect(inst.title).toBe('Standup')
     expect(inst.labelId).toBe('label-1')
-    expect(inst.pinned).toBe(true)
+    // Pinning is Occurrence State and is never inherited (#215) — see the dedicated test below.
+    expect(inst.pinned).toBe(false)
     expect(inst.atTime).toBe('09:00')
     expect(inst.checklist).toHaveLength(1)
     expect(inst.checklist[0]).toMatchObject({ text: 'agenda', done: false })
@@ -286,6 +287,36 @@ describe('planEditSeriesFrom', () => {
   it('returns null when the series no longer has a template', () => {
     const s = series()
     expect(planEditSeriesFrom({ ...s, templates: [] }, s.tasks[0], t('i1'))).toBeNull()
+  })
+})
+
+describe('pinning is never inherited (#215)', () => {
+  it('builds an unpinned Occurrence from a pinned definition', () => {
+    const tmpl = t('tmpl', { day: '2026-07-01', recurFreq: 'weekly', pinned: true })
+    expect(makeInstance(tmpl, '2026-07-15', nextId).pinned).toBe(false)
+  })
+
+  it('promotion keeps the card\u2019s own pin but leaves the definition unpinned', () => {
+    // The whole bug in one assertion pair: the user's card stays pinned because it is their card,
+    // and the Series carries no pin, so nothing seeds future Occurrences with one.
+    const draft = t('a', { day: '2026-07-01', recurFreq: 'weekly', pinned: true })
+    const plan = planPromoteToSeries({ tasks: [draft], templates: [] }, draft, nextId)
+    const definition = plan.state.templates[0]
+    const first = plan.state.tasks.find((x) => x.id === 'a')!
+
+    expect(first.pinned).toBe(true)
+    expect(definition.pinned).toBe(false)
+    // And an Occurrence materialized later from that definition is unpinned too.
+    expect(makeInstance(definition, '2026-07-08', nextId).pinned).toBe(false)
+  })
+
+  it('pinning one Occurrence leaves every other Occurrence alone', () => {
+    const state = series()
+    const i2 = state.tasks[1]
+    const plan = planEditSeriesFrom(state, i2, { ...i2, title: 'Renamed', pinned: true })!
+    expect(plan.state.tasks.find((x) => x.id === 'i1')!.pinned).toBe(false)
+    expect(plan.state.tasks.find((x) => x.id === 'i3')!.pinned).toBe(false)
+    expect(plan.state.templates[0].pinned).toBe(false)
   })
 })
 

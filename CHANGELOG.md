@@ -12,6 +12,22 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.12] - 2026-08-20
+
+### Fixed
+
+- **Making a pinned task repeat no longer pins every occurrence of it forever** (#215). Pinning a
+  task and then setting it to repeat made every future occurrence arrive pinned — permanently, with
+  no way to turn it off: unpinning a card only ever affected that one card. New occurrences are now
+  created unpinned. The card you pinned keeps its pin, as it keeps the rest of your work on it.
+
+### Internal
+
+- `20260820120000_clear_series_definition_pins.sql` clears the now-meaningless pin stored on
+  existing repeating-task definitions. The behaviour fix does not depend on it — the new code never
+  reads that value — but leaving a field set that nothing reads is how the original confusion
+  started. Occurrences are untouched.
+
 ## [1.8.11] - 2026-08-20
 
 ### Fixed
@@ -2212,7 +2228,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.11...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.12...HEAD
+[1.8.12]: https://github.com/jwh3times/magic-agenda/compare/v1.8.11...v1.8.12
 [1.8.11]: https://github.com/jwh3times/magic-agenda/compare/v1.8.10...v1.8.11
 [1.8.10]: https://github.com/jwh3times/magic-agenda/compare/v1.8.9...v1.8.10
 [1.8.9]: https://github.com/jwh3times/magic-agenda/compare/v1.8.8...v1.8.9

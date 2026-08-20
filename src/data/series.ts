@@ -58,7 +58,12 @@ export function makeInstance(tmpl: Task, day: string, nextId: () => string): Tas
     done: false,
     day,
     atTime: tmpl.atTime,
-    pinned: tmpl.pinned,
+    // Never `tmpl.pinned`. Pinning is Occurrence State (ADR-0002), so a Series has no pin to pass
+    // on — and it could not have passed on a meaningful one anyway: nothing after
+    // `planPromoteToSeries` ever wrote that field, so it was frozen at whatever the Task's pin
+    // happened to be when it was promoted, and every future Occurrence was born pinned with no way
+    // to change it (#215).
+    pinned: false,
     order: 5000,
     korder: 5000,
     recurFreq: 'none',
@@ -437,12 +442,16 @@ export function planPromoteToSeries(
   const template: Task = {
     ...draft,
     id: nextId(),
-    // The template is a definition, not a card. Per-occurrence state is meaningless on it and
-    // would be misleading anywhere templates are read directly — the export file, for one.
+    // The template is a definition, not a card. Occurrence State is meaningless on it and would
+    // be misleading anywhere templates are read directly — the export file, for one.
     // `makeInstance` resets these again when it builds each Occurrence; belt and braces is the
-    // right trade for a row no screen ever shows.
+    // right trade for a row no screen ever shows. `pinned` joined this list in #215: it is
+    // Occurrence State like the rest, and leaving it set was what made a Series' pin look like a
+    // value worth copying. The first Occurrence below keeps the user's own pin, as it keeps the
+    // rest of their work.
     status: 'todo',
     done: false,
+    pinned: false,
     checklist: draft.checklist.map((item) => ({ ...item, done: false })),
     recurParentId: null,
     excludedDates: [],
