@@ -1,4 +1,5 @@
 import { isScheduled } from '../lib/dates'
+import { PER_OCCURRENCE_FIELDS } from './fieldOwnership'
 import type { Task } from '../types/task'
 import type { RecurScope } from './series'
 
@@ -13,22 +14,6 @@ import type { RecurScope } from './series'
  * `series.ts` decides *which occurrences* an operation touches. This decides *whether the editor
  * can proceed at all*, and whether it has to ask first.
  */
-
-/**
- * Fields a recurring instance can change without touching series content, so a save can go
- * straight through without the this-occurrence-vs-all-future prompt.
- *
- * The counterpart is `seriesContent()` in `series.ts`, which lists the fields an all-future edit
- * *does* propagate. The two are deliberately separate: this set is about whether to ask, that one
- * is about what to copy, and they are not exact complements (`day`, `order`, `checklist` and the
- * recurrence fields are in neither).
- *
- * `done` is absent because it is fully derived from `status` — see `changedTaskKeys`.
- */
-export const PER_OCCURRENCE_FIELDS: ReadonlySet<keyof Task> = new Set<keyof Task>([
-  'pinned',
-  'status',
-])
 
 /**
  * Keys whose value differs between `a` and `b`.
@@ -52,7 +37,12 @@ export function changedTaskKeys(a: Task, b: Task): (keyof Task)[] {
   })
 }
 
-/** True when every changed field is per-occurrence — i.e. no series content changed. */
+/**
+ * True when every changed field is owned by this Occurrence alone — its state or its placement —
+ * so there is no series content to route and no scope to ask about.
+ *
+ * The set comes from `FIELD_OWNER` rather than a list kept here; see `fieldOwnership.ts`.
+ */
 export function onlyPerOccurrenceChanged(original: Task, next: Task): boolean {
   return changedTaskKeys(original, next).every((key) => PER_OCCURRENCE_FIELDS.has(key))
 }
@@ -90,7 +80,8 @@ export function intendSave(initial: Task, draft: Task, isNew: boolean): SaveInte
   if (task.title.length === 0) return { kind: 'blocked' }
   // `draft.recurParentId` rather than `initial`'s: the draft is what is about to be saved.
   if (isNew || !draft.recurParentId) return { kind: 'save', task }
-  // Pin/status-only edits have no series content to route, so there is nothing to ask about.
+  // Edits confined to this Occurrence — its state or its placement — have no series content to
+  // route, so there is nothing to ask about.
   if (onlyPerOccurrenceChanged(initial, task)) return { kind: 'save', task, scope: 'this' }
   return { kind: 'ask' }
 }

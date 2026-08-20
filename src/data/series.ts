@@ -1,6 +1,12 @@
 import { addDays, parseDay, ymd } from '../lib/dates'
 import { isTemplate, type Task } from '../types/task'
 import { occurrenceDateOf, isFromOccurrenceOnward, missingInstances } from './recurrence'
+import {
+  PER_OCCURRENCE_FIELDS,
+  RULE_EDITABLE_FIELDS,
+  SERIES_CONTENT_FIELDS,
+  pick,
+} from './fieldOwnership'
 
 /**
  * Everything the app knows about recurring series, as pure functions over plain data.
@@ -207,18 +213,20 @@ export interface SeriesPlan {
 }
 
 /**
- * Series-wide content. Deliberately excludes `pinned`, `status`, and `done`: those are
- * per-occurrence, and a "this and all future" edit that carried them would clobber each
- * occurrence's own progress.
+ * Series-wide content an all-future edit copies onto affected Occurrences.
+ *
+ * Derived from `FIELD_OWNER` rather than listed here, so it cannot drift from the set of fields
+ * whose change raises the scope question — the two are complements of one partition (ADR-0002).
+ * Occurrence State and Occurrence Placement are excluded by construction: carrying them would
+ * clobber each Occurrence's own progress and position.
  */
-function seriesContent(draft: Task) {
-  return {
-    title: draft.title,
-    description: draft.description,
-    labelId: draft.labelId,
-    color: draft.color,
-    atTime: draft.atTime,
-  }
+function seriesContent(draft: Task): Partial<Task> {
+  return pick(draft, SERIES_CONTENT_FIELDS)
+}
+
+/** What the edited Occurrence keeps of its own: its state and its placement. */
+function occurrenceOwned(draft: Task): Partial<Task> {
+  return pick(draft, PER_OCCURRENCE_FIELDS)
 }
 
 /**
@@ -238,17 +246,29 @@ export function planEditSeriesFrom(
   // Scoped by the Occurrence Date, not the movable Scheduled Day, so a dragged card still edits
   // the right Occurrences (and matches how materialization identifies them).
   const cut = occurrenceDateOf(instance)
+  // `RULE_EDITABLE_FIELDS` rather than every Rule field: `excludedDates` is Rule-owned but must
+  // never come from a draft. A draft is an Occurrence, whose own `excludedDates` is always empty,
+  // so copying it here would erase the Series' Excluded Dates and resurrect every Occurrence the
+  // user has deleted.
   const nextTemplate: Task = {
     ...template,
     ...seriesContent(draft),
+    // Series Content, but copied only to the definition for now: propagating it to existing
+    // Occurrences has to reconcile Step Completion by Step identity first (#214).
     checklist: draft.checklist,
-    recurFreq: draft.recurFreq,
-    recurInterval: draft.recurInterval,
-    recurUntil: draft.recurUntil,
+    ...pick(draft, RULE_EDITABLE_FIELDS),
   }
 
   const affected = (t: Task) => t.recurParentId === template.id && isFromOccurrenceOnward(t, cut)
-  const editedTasks = state.tasks.map((t) => (affected(t) ? { ...t, ...seriesContent(draft) } : t))
+  // Every affected Occurrence takes the new Series Content and keeps its own state and placement —
+  // built from the *stored* row for exactly that reason. The one being edited is the exception: its
+  // own state and placement come from the draft, or a pin toggled in the same save as a rename
+  // would be silently dropped on the very card the user was editing.
+  const editedTasks = state.tasks.map((t) => {
+    if (!affected(t)) return t
+    const withSeries = { ...t, ...seriesContent(draft) }
+    return t.id === draft.id ? { ...withSeries, ...occurrenceOwned(draft) } : withSeries
+  })
 
   // If the rule shortened, occurrences past the new end no longer exist.
   const until = nextTemplate.recurUntil

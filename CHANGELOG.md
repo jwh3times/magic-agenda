@@ -12,6 +12,31 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.11] - 2026-08-20
+
+### Fixed
+
+- **Rescheduling a single repeat no longer asks a question it then ignored** (#213). Changing a
+  repeating task's date or dragging it into a different position asked whether you meant this one or
+  all future ones — and choosing "This and all future" silently threw the change away, leaving the
+  card where it was. Placement belongs to one occurrence, so it now just saves.
+- **Changes to one occurrence are no longer lost when saved alongside a change to the whole
+  series** (#213). Pinning a card and renaming it in the same save, then choosing "This and all
+  future", applied the rename and dropped the pin.
+
+### Changed
+
+- The two lists deciding which fields belong to a repeating series and which to a single occurrence
+  are now derived from one table (`src/data/fieldOwnership.ts`), per
+  `docs/adr/0002-series-occurrence-field-ownership.md`. A field added to a task without an owner is
+  a compile error rather than a silent gap — which is what the three bugs above had in common.
+
+### Internal
+
+- `excludedDates` is recorded as a recurrence-rule field that an edit may never carry, guarding a
+  latent trap: an occurrence's own excluded-date list is always empty, so copying it onto the series
+  would have erased every deleted occurrence's exclusion and brought them all back.
+
 ## [1.8.10] - 2026-08-20
 
 Documentation only — no behavior changes.
@@ -2187,7 +2212,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.10...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.11...HEAD
+[1.8.11]: https://github.com/jwh3times/magic-agenda/compare/v1.8.10...v1.8.11
 [1.8.10]: https://github.com/jwh3times/magic-agenda/compare/v1.8.9...v1.8.10
 [1.8.9]: https://github.com/jwh3times/magic-agenda/compare/v1.8.8...v1.8.9
 [1.8.8]: https://github.com/jwh3times/magic-agenda/compare/v1.8.7...v1.8.8

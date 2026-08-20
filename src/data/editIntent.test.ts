@@ -165,6 +165,33 @@ describe('intendSave', () => {
   })
 })
 
+describe('intendSave — Occurrence Placement (#213)', () => {
+  it('does not ask when only the Scheduled Day changed', () => {
+    // Placement means nothing beyond one Occurrence, so there is no scope to choose. Before #213
+    // `day` was in neither list: this prompted, and choosing all-future then discarded the change.
+    const original = instance()
+    const intent = intendSave(original, { ...original, day: '2026-07-10' }, false)
+    expect(intent).toEqual({
+      kind: 'save',
+      task: { ...original, day: '2026-07-10' },
+      scope: 'this',
+    })
+  })
+
+  it('does not ask when only the manual order changed', () => {
+    const original = instance()
+    expect(intendSave(original, { ...original, order: 42 }, false).kind).toBe('save')
+    expect(intendSave(original, { ...original, korder: 42 }, false).kind).toBe('save')
+  })
+
+  it('still asks when placement changes alongside series content', () => {
+    const original = instance()
+    expect(intendSave(original, { ...original, day: '2026-07-10', title: 'New' }, false)).toEqual({
+      kind: 'ask',
+    })
+  })
+})
+
 describe('intendDelete', () => {
   it('asks for a recurring instance', () => {
     expect(intendDelete(instance(), false)).toEqual({ kind: 'ask' })
