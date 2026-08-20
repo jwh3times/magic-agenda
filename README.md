@@ -182,8 +182,12 @@ design/                the original prototype (reference only — not built)
   see [AGENTS.md](./AGENTS.md).
 - **`'inbox'` ↔ `NULL`** — unscheduled tasks use the `'inbox'` sentinel in app/DnD logic and map to a
   `NULL` `day` only at the database boundary.
-- **Recurrence** uses a hidden "template" row plus materialized instance rows; deleted occurrences are
-  remembered in a skip‑list so they're never regenerated.
+- **Recurrence** stores a Recurring Series as a hidden definition row plus one materialized row per
+  occurrence; a deleted occurrence's date is remembered so it's never regenerated. Why the
+  occurrences are rows rather than computed on read:
+  [ADR‑0001](./docs/adr/0001-materialized-occurrences.md).
+- **[CONTEXT.md](./CONTEXT.md)** is the domain glossary — the words to use for Boards, Tasks, Labels,
+  and recurrence in issues, comments, and product copy.
 
 ## Deployment
 

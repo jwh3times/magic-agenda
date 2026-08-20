@@ -18,8 +18,13 @@ was built. Do not update them to match current code.
   These are undated and **must** track the current system: a stale runbook is worse than none,
   because it is trusted under pressure. If you change what a runbook describes, change the runbook
   in the same PR.
+- `adr/` — architecture decision records: numbered, permanent notes on decisions that are hard to
+  reverse and surprising without their rationale. Unlike a plan, an ADR is not superseded by the
+  code moving on; it is superseded only by another ADR that says so.
 
 Living documentation lives at the repository root: [README.md](../README.md) (humans, setup,
 deployment), [AGENTS.md](../AGENTS.md) (coding agents — canonical; `CLAUDE.md` imports it),
-[ROADMAP.md](../ROADMAP.md) (planned work), [CHANGELOG.md](../CHANGELOG.md) (shipped work), and
-[CONTRIBUTING.md](../CONTRIBUTING.md) (workflow and standards).
+[CONTEXT.md](../CONTEXT.md) (the domain glossary — the words to use for domain concepts in issues,
+comments, and product copy), [ROADMAP.md](../ROADMAP.md) (planned work),
+[CHANGELOG.md](../CHANGELOG.md) (shipped work), and [CONTRIBUTING.md](../CONTRIBUTING.md) (workflow
+and standards).
