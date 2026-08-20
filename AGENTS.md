@@ -607,7 +607,7 @@ That split is what made this subsystem testable. Before it, the three scope oper
 207-line block inside `useTasks` that **no test reached** — `deleteSeriesFuture`, the branchiest
 function in the data layer, had zero — while the cheap date maths in `recurrence.ts` had 22 tests.
 
-Four details worth keeping:
+Six details worth keeping:
 
 - **Promotion keeps the row and creates the template, not the other way round.** Adding a
   Recurrence Rule to a standalone Task routes through `resolveSave` -> `planPromoteToSeries`: a
