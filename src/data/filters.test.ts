@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { applyFilters, isFilterActive, EMPTY_FILTER } from './filters'
-import { NO_RECUR, type Task } from '../types/task'
+import { asTask, NO_RECUR, type Task, type TaskDraft } from '../types/task'
 
-function t(id: string, over: Partial<Task> = {}): Task {
-  return {
+function t(id: string, over: Partial<TaskDraft> = {}): Task {
+  return asTask({
     id,
     title: id,
     description: '',
@@ -19,7 +19,7 @@ function t(id: string, over: Partial<Task> = {}): Task {
     korder: 0,
     ...NO_RECUR,
     ...over,
-  }
+  })
 }
 
 const tasks = [

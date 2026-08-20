@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { serializeExport, type LegacyTask } from '../data/exportImport'
-import { NO_RECUR, type Task } from '../types/task'
+import { asTask, NO_RECUR, type Task, type TaskDraft } from '../types/task'
 import { fakeBoardDirectory, fakeBoardSession, fakeBoardSummary } from '../board/fakeBoardDirectory'
 import { fakeLabel, fakeLabelDirectory } from '../labels/fakeLabelDirectory'
 import type { Database } from '../types/database.types'
@@ -48,8 +48,8 @@ vi.mock('../auth/AuthProvider', () => ({
 
 import { DataSection } from './DataSection'
 
-function task(over: Partial<Task> = {}): Task {
-  return {
+function task(over: Partial<TaskDraft> = {}): Task {
+  return asTask({
     id: 'id-1',
     title: 'T',
     description: '',
@@ -65,7 +65,7 @@ function task(over: Partial<Task> = {}): Task {
     pinned: false,
     ...NO_RECUR,
     ...over,
-  }
+  })
 }
 
 function legacyTask(over: Partial<LegacyTask> = {}): LegacyTask {

@@ -8,7 +8,7 @@ import { newId } from '../lib/id'
 import { isScheduled } from '../lib/dates'
 import { editorChrome } from './editorChrome'
 import { ScopePrompt } from './ScopePrompt'
-import type { RecurFreq, Task } from '../types/task'
+import type { RecurFreq, TaskDraft } from '../types/task'
 import { useLabelDirectoryContext } from '../labels/LabelDirectoryProvider'
 import { UNLABELED_DOT_COLOR } from '../labels/presentation'
 
@@ -18,10 +18,10 @@ export interface TaskEditorProps {
    * changing `initial` without remounting shows stale fields. `Board` keys the editor on
    * `task.id` for exactly this reason.
    */
-  initial: Task
+  initial: TaskDraft
   isNew: boolean
   /** `scope` is definite for a recurring instance, and `undefined` only where it is meaningless. */
-  onSave: (task: Task, scope?: RecurScope) => void
+  onSave: (task: TaskDraft, scope?: RecurScope) => void
   /**
    * Receives only the task's id: the data layer resolves the row from its own state. See
    * `intendDelete` for why nothing more crosses this seam (#132).
@@ -48,7 +48,7 @@ export function TaskEditor({
   const { theme, conf } = useTheme()
   const isMobile = useIsMobile()
   const { labels } = useLabelDirectoryContext()
-  const [draft, setDraft] = useState<Task>(initial)
+  const [draft, setDraft] = useState<TaskDraft>(initial)
   const [newItem, setNewItem] = useState('')
   const [scopePrompt, setScopePrompt] = useState<null | 'save' | 'delete'>(null)
   const isRecurringInstance = !isNew && !!draft.recurParentId
@@ -61,7 +61,7 @@ export function TaskEditor({
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const patch = (p: Partial<Task>) => setDraft((d) => ({ ...d, ...p }))
+  const patch = (p: Partial<TaskDraft>) => setDraft((d) => ({ ...d, ...p }))
   const titleOk = draft.title.trim().length > 0
   /**
    * A Recurrence Rule with no Scheduled Day produces no Occurrence Dates at all, so saving one

@@ -10,10 +10,10 @@ import {
   resolveDelete,
   resolveSave,
 } from './series'
-import { NO_RECUR, type Task } from '../types/task'
+import { asTask, NO_RECUR, type Task, type TaskDraft } from '../types/task'
 
-function t(id: string, over: Partial<Task> = {}): Task {
-  return {
+function t(id: string, over: Partial<TaskDraft> = {}): Task {
+  return asTask({
     id,
     title: id,
     description: '',
@@ -29,7 +29,7 @@ function t(id: string, over: Partial<Task> = {}): Task {
     korder: 0,
     ...NO_RECUR,
     ...over,
-  }
+  })
 }
 
 /** A weekly template anchored on 2026-07-01, and instances for the first three occurrences. */
@@ -62,8 +62,13 @@ describe('instanceKey', () => {
     expect(instanceKey(moved)).toBe('p|2026-07-01')
   })
 
-  it('falls back to the day for legacy instances with no recorded origin', () => {
-    expect(instanceKey(t('i1', { day: '2026-07-01', recurParentId: 'p' }))).toBe('p|2026-07-01')
+  it('still falls back to the day, though nothing loaded from the database reaches that branch', () => {
+    // Built structurally rather than through `t()`, because `asTask` no longer produces this shape:
+    // a parent with no Occurrence Date is read as a standalone Task (#205). The fallback stays
+    // because `instanceKey` is total over the structural type, not because the state is reachable.
+    expect(instanceKey({ day: '2026-07-01', recurParentId: 'p', occurrenceDate: null })).toBe(
+      'p|2026-07-01',
+    )
   })
 })
 
@@ -198,7 +203,7 @@ describe('resolveSave', () => {
 })
 
 describe('resolveDelete', () => {
-  const instance = t('i1', { recurParentId: 'tmpl' })
+  const instance = t('i1', { recurParentId: 'tmpl', occurrenceDate: '2026-07-08' })
   it('routes by whether the task belongs to a series, then by scope', () => {
     expect(resolveDelete(t('plain'))).toEqual({ kind: 'delete-plain', id: 'plain' })
     expect(resolveDelete(instance, 'future').kind).toBe('delete-series-from')

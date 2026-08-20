@@ -10,7 +10,7 @@ import { makeMockTasks } from '../data/mockTasks'
 import { OfflineContext } from '../data/offlineContext'
 import { TodayContext } from '../data/todayContext'
 import { TaskBoardContext, type TaskBoard } from '../data/taskBoardContext'
-import type { Task, ViewName } from '../types/task'
+import { asTask, type Task, type ViewName } from '../types/task'
 import { LabelDirectoryContext } from '../labels/labelDirectoryContext'
 import { MOCK_LABEL_DIRECTORY } from '../data/mockLabels'
 
@@ -33,10 +33,13 @@ function Harness({
     persistReorder: setTasks,
     // This in-memory adapter applies the scope-free cases only; recurrence dispatch is tested
     // directly through resolveSave/resolveDelete in src/data/series.test.ts.
-    saveTask: (_orig, draft, isNew) =>
+    saveTask: (_orig, draft, isNew) => {
+      // The editor hands back a flat draft; the board holds real Tasks.
+      const saved = asTask(draft)
       setTasks((prev) =>
-        isNew ? [...prev, draft] : prev.map((task) => (task.id === draft.id ? draft : task)),
-      ),
+        isNew ? [...prev, saved] : prev.map((task) => (task.id === saved.id ? saved : task)),
+      )
+    },
     updateTask: (task) =>
       setTasks((prev) => prev.map((current) => (current.id === task.id ? task : current))),
     deleteTask: (id) => setTasks((prev) => prev.filter((task) => task.id !== id)),
