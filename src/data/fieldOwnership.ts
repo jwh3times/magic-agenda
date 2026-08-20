@@ -74,19 +74,18 @@ export const PER_OCCURRENCE_FIELDS: ReadonlySet<keyof Task> = ownedBy(
 )
 
 /**
- * Series Content an all-future edit copies onto affected Occurrences wholesale.
+ * Series Content an all-future edit copies onto affected Occurrences **by value**.
  *
- * `checklist` is Series Content and is deliberately **not** here. Copying it wholesale would
- * overwrite each Occurrence's Step Completion, which is precisely the "reset every tick" option
- * ADR-0002 rejects; propagating it correctly needs Step-identity reconciliation, which is #214.
- * Until that lands the checklist keeps its existing behaviour — written to the Series definition
- * and to no Occurrence. This is the one place the code knowingly lags the model, and
- * `SERIES_CONTENT_DEFERRED` names it so it cannot quietly grow a second member.
+ * `checklist` is Series Content and is deliberately not copied this way: an Occurrence's Step
+ * Completion is its own (ADR-0002), so replacing the array wholesale would reset every tick — the
+ * option the ADR rejects. It is propagated instead by `reconcileSteps` in `checklistSteps.ts`,
+ * which carries each Step's completion across by identity. `SERIES_CONTENT_RECONCILED` names the
+ * exception so it cannot quietly grow a second member; a test asserts it is exactly `{checklist}`.
  */
-export const SERIES_CONTENT_DEFERRED: ReadonlySet<keyof Task> = new Set<keyof Task>(['checklist'])
+export const SERIES_CONTENT_RECONCILED: ReadonlySet<keyof Task> = new Set<keyof Task>(['checklist'])
 
 export const SERIES_CONTENT_FIELDS: ReadonlySet<keyof Task> = new Set(
-  [...ownedBy('series-content')].filter((k) => !SERIES_CONTENT_DEFERRED.has(k)),
+  [...ownedBy('series-content')].filter((k) => !SERIES_CONTENT_RECONCILED.has(k)),
 )
 
 /**

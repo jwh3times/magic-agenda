@@ -12,6 +12,31 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.13] - 2026-08-20
+
+### Fixed
+
+- **Editing a repeating task's checklist and choosing "This and all future" now actually changes
+  something** (#214). It used to update the repeat's hidden definition and no visible card at all —
+  not the later ones, and not even the card being edited. The new steps only appeared on occurrences
+  created weeks later, so the edit looked like it had done nothing. Every occurrence from the edited
+  one onward now gets the new steps.
+- Ticked-off steps survive that edit. A step that is renamed or moved keeps its tick, a step that is
+  removed takes its tick with it, and a new step arrives unticked — worked out per occurrence, so
+  two cards with different progress each keep their own.
+
+### Changed
+
+- Occurrences of a repeating task now share step identity with their definition, which is what makes
+  the above possible. Restoring a backup preserves that too.
+
+### Internal
+
+- `src/data/checklistSteps.ts` holds the reconciliation, per
+  `docs/adr/0002-series-occurrence-field-ownership.md`. It matches on step identity first and falls
+  back to exact step text for occurrences created before identity was stable, so their progress is
+  recovered rather than reset — which is what avoids a jsonb migration over user checklists.
+
 ## [1.8.12] - 2026-08-20
 
 ### Fixed
@@ -2228,7 +2253,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.12...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.13...HEAD
+[1.8.13]: https://github.com/jwh3times/magic-agenda/compare/v1.8.12...v1.8.13
 [1.8.12]: https://github.com/jwh3times/magic-agenda/compare/v1.8.11...v1.8.12
 [1.8.11]: https://github.com/jwh3times/magic-agenda/compare/v1.8.10...v1.8.11
 [1.8.10]: https://github.com/jwh3times/magic-agenda/compare/v1.8.9...v1.8.10

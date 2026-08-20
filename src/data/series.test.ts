@@ -96,8 +96,10 @@ describe('makeInstance', () => {
     expect(inst.atTime).toBe('09:00')
     expect(inst.checklist).toHaveLength(1)
     expect(inst.checklist[0]).toMatchObject({ text: 'agenda', done: false })
-    expect(typeof inst.checklist[0].id).toBe('string')
-    expect(inst.checklist[0].id).not.toBe('c1') // fresh ids, not shared with the template
+    // Step ids are **shared** with the definition, not minted (#214). That shared identity is what
+    // lets an all-future Checklist edit carry each Occurrence's ticks across instead of resetting
+    // them. Only `done` resets here — a future Occurrence starts with nothing ticked.
+    expect(inst.checklist[0].id).toBe('c1')
     expect(inst.done).toBe(false)
     expect(inst.status).toBe('todo')
   })
@@ -372,16 +374,47 @@ describe('planEditSeriesFrom — field ownership (#213)', () => {
     expect(plan.state.templates[0].excludedDates).toEqual(['2026-07-22'])
   })
 
-  it('still writes the checklist to the Series only, pending #214', () => {
-    // Pins today's known-incomplete behaviour so #214 has something explicit to flip. Propagating
-    // it needs Step-identity reconciliation; copying it wholesale would reset every tick.
+  it('propagates the Checklist to every affected Occurrence, keeping each one\u2019s ticks', () => {
     const state = series()
+    // i3 has ticked the first Step; i2 has not.
+    state.tasks[1] = { ...state.tasks[1], checklist: [{ id: 'c1', text: 'agenda', done: false }] }
+    state.tasks[2] = { ...state.tasks[2], checklist: [{ id: 'c1', text: 'agenda', done: true }] }
     const i2 = state.tasks[1]
-    const next = [{ id: 'c1', text: 'new step', done: false }]
-    const plan = planEditSeriesFrom(state, i2, { ...i2, checklist: next })!
-    expect(plan.state.templates[0].checklist).toEqual(next)
-    expect(plan.state.tasks.find((x) => x.id === 'i2')!.checklist).toEqual([])
-    expect(plan.state.tasks.find((x) => x.id === 'i3')!.checklist).toEqual([])
+
+    const draft = {
+      ...i2,
+      checklist: [
+        { id: 'c1', text: 'agenda (revised)', done: false },
+        { id: 'c2', text: 'new step', done: false },
+      ],
+    }
+    const plan = planEditSeriesFrom(state, i2, draft)!
+
+    // The definition holds the Steps and never their progress.
+    expect(plan.state.templates[0].checklist).toEqual([
+      { id: 'c1', text: 'agenda (revised)', done: false },
+      { id: 'c2', text: 'new step', done: false },
+    ])
+    // The edited card takes the draft outright.
+    expect(plan.state.tasks.find((x) => x.id === 'i2')!.checklist).toEqual(draft.checklist)
+    // A later Occurrence takes the new Steps and keeps the tick it had.
+    expect(plan.state.tasks.find((x) => x.id === 'i3')!.checklist).toEqual([
+      { id: 'c1', text: 'agenda (revised)', done: true },
+      { id: 'c2', text: 'new step', done: false },
+    ])
+  })
+
+  it('leaves Occurrences before the cut untouched', () => {
+    const state = series()
+    state.tasks[0] = { ...state.tasks[0], checklist: [{ id: 'c1', text: 'agenda', done: true }] }
+    const i2 = state.tasks[1]
+    const plan = planEditSeriesFrom(state, i2, {
+      ...i2,
+      checklist: [{ id: 'c1', text: 'changed', done: false }],
+    })!
+    expect(plan.state.tasks.find((x) => x.id === 'i1')!.checklist).toEqual([
+      { id: 'c1', text: 'agenda', done: true },
+    ])
   })
 })
 

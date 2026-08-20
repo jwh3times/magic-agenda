@@ -718,12 +718,33 @@ and each gap was a silent write loss. #168 measured them with the real planner; 
   every Rule field from it would erase the Series' Excluded Dates and resurrect every Occurrence the
   user has deleted.
 
-**One gap remains, deliberately.** `checklist` is Series Content but is excluded from the wholesale
-copy via `SERIES_CONTENT_DEFERRED`, because copying it would overwrite each Occurrence's Step
-Completion — the "reset every tick" option ADR-0002 rejects. Propagating it needs Step-identity
-reconciliation (#214). A test asserts that set is exactly `{checklist}`, so the exception cannot
-quietly grow, and another pins today's Series-definition-only behaviour so #214 has something
-explicit to flip.
+**The fourth gap is closed too, and it needed a new invariant rather than a bigger copy.**
+`checklist` is Series Content, but copying it by value would reset every Occurrence's Step
+Completion — the option ADR-0002 rejects. `src/data/checklistSteps.ts` reconciles instead:
+`reconcileSteps` takes the Series' Steps and carries each Occurrence's `done` across **by Step
+identity**, so a renamed Step keeps its tick, a removed one takes its tick with it, a new one
+arrives unticked, and reordering changes nothing. `SERIES_CONTENT_RECONCILED` names it as the one
+Series Content field `pick()` must not copy verbatim, and a test asserts that set is exactly
+`{checklist}`.
+
+Three consequences, none of them obvious from the reconciler alone:
+
+- **`makeInstance` preserves the definition's Step ids instead of minting fresh ones.** That shared
+  identity is the whole mechanism; without it there is nothing to match on. Only `done` resets,
+  because a future Occurrence starts with nothing ticked.
+- **`remapIds` remaps Step ids through one map for the whole bundle**, not per task. Freshening per
+  task would sever every _imported_ Series' Steps from its Occurrences' — the feature would work
+  everywhere except on a restored backup, which is exactly the kind of hole that goes unnoticed.
+- **A text fallback exists for Occurrences materialized before ids were stable.** Those carry the
+  definition's Step _text_ under unrelated ids, so identity alone would reset their ticks. Leftovers
+  unclaimed by identity are matched on exact text, as a strictly second pass — an id match always
+  wins, so a Step renamed in the same edit keeps its own tick rather than stealing the tick of
+  whichever Step still carries its old words. It becomes dead weight once every Occurrence has been
+  rebuilt with stable ids, which is cheaper than a jsonb migration over user checklists.
+
+The edited Occurrence is the exception to reconciliation: it takes `draft.checklist` outright,
+ticks included, because reconciling it against its own stored row would hand back the completion
+the user just changed in the editor.
 
 ### Drag-and-drop: every decision is pure; dnd-kit is an adapter
 

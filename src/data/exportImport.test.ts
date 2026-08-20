@@ -215,6 +215,33 @@ test('remapIds freshens every id but preserves series links, skips, and content'
   expect(kept.pinned).toBe(true)
 })
 
+test('remapIds keeps a Series and its Occurrence sharing one Checklist Step id', () => {
+  // Freshening per task would sever every imported Series' Steps from its Occurrences', silently
+  // demoting all-future Checklist edits to the text fallback (#214).
+  const step = { id: 'c1', text: 'agenda', done: false }
+  const seriesTemplate = task({
+    id: 'tpl-2',
+    recurFreq: 'weekly',
+    recurInterval: 1,
+    checklist: [step],
+  })
+  const occurrence = task({
+    id: 'occ-2',
+    recurParentId: 'tpl-2',
+    occurrenceDate: '2026-07-10',
+    checklist: [{ ...step, done: true }],
+  })
+
+  const { tasks, templates } = remapIds({ tasks: [occurrence], templates: [seriesTemplate] })
+  const seriesStepId = templates[0].checklist[0].id
+
+  expect(tasks[0].checklist[0].id).toBe(seriesStepId)
+  // Still freshened, so it cannot collide with a Step already in the destination Board.
+  expect(seriesStepId).not.toBe('c1')
+  // Remapping identity never touches completion.
+  expect(tasks[0].checklist[0].done).toBe(true)
+})
+
 test('an instance whose template is missing becomes a plain task', () => {
   const { tasks } = remapIds({ tasks: [instance], templates: [] })
   expect(tasks[0].recurParentId).toBeNull()
