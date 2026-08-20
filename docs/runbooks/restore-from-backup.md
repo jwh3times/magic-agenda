@@ -227,6 +227,7 @@ select count(*) from public.user_settings;
 select count(*) from public.boards;
 select count(*) from public.board_memberships;
 select count(*) from public.account_profiles;
+select count(*) from public.labels;
 -- `tasks.user_id` is gone as of #197 (20260819190000) -- dropped along with `tasks.category` and
 -- `tasks.label_assignment_explicit`, so there is no longer a user-orphan check to run here. A
 -- bundle taken before that migration still has `user_id` values in its `data.sql` INSERTs; restoring
@@ -241,6 +242,24 @@ select count(*) from public.account_profiles;
 select count(*) from public.tasks t
   left join public.boards b on b.id = t.board_id
  where t.board_id is not null and b.id is null;   -- must be 0
+
+-- Nor a task pointing at a Label that did not come back. Added after the 2026-08-19 rehearsal, which
+-- deleted every `labels` row from a healthy restore and found that EVERY check in this section still
+-- reported clean -- the tasks kept their `label_id` values and nothing here looked at them. Labels
+-- shipped after the previous rehearsal, and this section was never extended to cover them:
+select count(*) from public.tasks t
+  left join public.labels l on l.id = t.label_id
+ where t.label_id is not null and l.id is null;   -- must be 0
+
+-- The same shape one level up: a Label, or a Membership, pointing at a Board that is absent. The
+-- board_id check above only covers tasks, so a restore missing `boards` alone would leave these two
+-- dangling unreported:
+select count(*) from public.labels l
+  left join public.boards b on b.id = l.board_id
+ where b.id is null;                              -- must be 0
+select count(*) from public.board_memberships m
+  left join public.boards b on b.id = m.board_id
+ where b.id is null;                              -- must be 0
 
 -- Nor a board without a current owner — the backfill's own gate (20260813210200), re-checked here
 -- because a partial restore of board_memberships would violate it silently, not loudly:
@@ -265,10 +284,21 @@ select bool_and(relrowsecurity) from pg_class
  where relname in ('tasks', 'user_settings', 'boards', 'board_memberships', 'account_profiles',
                    'labels');
                                                                  -- must be true
--- 12 at the authorization cutover (2026-08-14 rehearsal log below), +4 from Labels
--- (20260816134515_board_labels.sql), +1 from Board deletion (20260818140000_board_deletion.sql),
--- +1 from Board rename (20260818160000_board_rename.sql) -- both Owner-only policies on `boards`:
-select count(*) from pg_policies where schemaname = 'public';  -- must be 18
+-- Policies came back, per table. This deliberately does NOT assert a single total: that number was
+-- hard-coded three times (12, 17, 18) and went stale on the next schema change every time, and CI
+-- cannot catch it because backup.yml only asserts a floor. What matters during a restore is not the
+-- exact total but that no table came back with NONE, which is the shape a partial restore takes:
+select c.relname,
+       count(p.polname) as policies
+  from pg_class c
+  join pg_namespace n on n.oid = c.relnamespace
+  left join pg_policy p on p.polrelid = c.oid
+ where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity
+ group by c.relname
+ order by 1;
+-- Every row must show a non-zero count, and the table list must match the RLS check above. As of
+-- 2026-08-19: account_profiles 2, board_memberships 2, boards 3, labels 4, tasks 4,
+-- user_settings 3 -- 18 in total, but read the shape, not the sum.
 
 -- The two auth-schema triggers exist. schema.sql cannot carry either (see 3.1), and their absence
 -- is invisible until, respectively, a new user signs up and silently gets no settings/board row, or
@@ -332,6 +362,37 @@ foreign keys into `auth.users` and therefore cannot be restored into a bare data
 needs a project that provisions `auth` itself, which is exactly why step 1 says to create one.
 
 ### Rehearsal log
+
+- **2026-08-19** — **dump-and-restore, local, against the current schema** (#202). The first
+  rehearsal since Boards, Labels, the Board lifecycle, realtime Labels, and the compatibility
+  retirement all shipped: the last full pass predates every one of them. Seeded three accounts with
+  four Boards, twenty Labels, and twelve Tasks **including three real recurring series** — chosen
+  deliberately, because this file records that its own recurrence check "cannot fail" on production's
+  data, so a rehearsal without recurrence leaves it exactly as untested as before. Dumped with the
+  workflow's own two `supabase db dump` commands, restored via 3.1's preferred path (schema from
+  migrations) and 3.2 verbatim, through the documented `docker run … postgres:17 psql` route because
+  `psql` is not on this machine's `PATH` — as this file predicts. Restore clean, exit 0. Every step 4
+  check passed, which confirms the three corrections made in v1.8.0/v1.8.2/v1.8.4 hold up under an
+  actual run rather than only under review.
+
+  **Found one defect, and it is the reason a passing rehearsal is not the same as a useless one.**
+  Step 4 had **no Label checks at all** — Labels shipped after the previous rehearsal and this
+  section was never extended. Demonstrated rather than reasoned: deleting every `labels` row from an
+  otherwise healthy restore left three Tasks holding dangling `label_id` values, and **every single
+  check in step 4 still reported clean**, byte-identical to the healthy run. That is precisely the
+  failure this section exists to catch, and precisely what "disabled FK triggers mean the database
+  will not tell you again" describes. Added a `labels` count, a Task→Label orphan check, and the two
+  containment checks one level up (Label→Board, Membership→Board), then re-ran against the corrupted
+  database to confirm they fire before restoring it and confirming no false positives.
+
+  Also replaced the exact policy total with a **per-table breakdown**. That number had been
+  hard-coded three times (12, 17, 18) and went stale on the very next schema change each time, with
+  no CI able to catch it because `backup.yml` asserts only a floor. What a restore actually needs to
+  know is that no table came back with zero policies, which is the shape a partial restore takes.
+
+  Not exercised, and still unverified outside CI since 2026-07-27: GPG decryption of a real bundle
+  and the artifact download path. `BACKUP_GPG_PASSPHRASE` is write-only in GitHub and was not
+  available to this pass.
 
 - **2026-08-14** — **dump-side only**, at the authorization cutover. Dumped a real local database
   with the same `supabase db dump` the workflow runs, then ran the workflow's own assertions against
