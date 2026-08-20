@@ -3,7 +3,7 @@ import {
   occurrenceDates,
   missingInstanceDates,
   missingInstances,
-  instanceOrigin,
+  occurrenceDateOf,
   isFromOccurrenceOnward,
   type RecurRule,
 } from './recurrence'
@@ -63,7 +63,7 @@ function rule(over: Partial<RecurRule> = {}): RecurRule {
     recurFreq: 'weekly',
     recurInterval: 1,
     recurUntil: null,
-    recurSkip: [],
+    excludedDates: [],
     ...over,
   }
 }
@@ -76,7 +76,12 @@ describe('missingInstanceDates', () => {
   })
 
   it('does not regenerate skipped (deleted) occurrences', () => {
-    const missing = missingInstanceDates(rule({ recurSkip: ['2026-07-08'] }), [], '2026-07-01', 14)
+    const missing = missingInstanceDates(
+      rule({ excludedDates: ['2026-07-08'] }),
+      [],
+      '2026-07-01',
+      14,
+    )
     expect(missing).toEqual(['2026-07-01', '2026-07-15'])
   })
 
@@ -86,13 +91,13 @@ describe('missingInstanceDates', () => {
   })
 })
 
-describe('instanceOrigin', () => {
+describe('occurrenceDateOf', () => {
   it('is the recorded origin day when present', () => {
-    expect(instanceOrigin({ recurOriginDay: '2026-07-08', day: '2026-07-10' })).toBe('2026-07-08')
+    expect(occurrenceDateOf({ occurrenceDate: '2026-07-08', day: '2026-07-10' })).toBe('2026-07-08')
   })
 
   it('falls back to the current day for legacy instances without an origin', () => {
-    expect(instanceOrigin({ recurOriginDay: null, day: '2026-07-08' })).toBe('2026-07-08')
+    expect(occurrenceDateOf({ occurrenceDate: null, day: '2026-07-08' })).toBe('2026-07-08')
   })
 })
 
@@ -100,7 +105,7 @@ describe('missingInstances', () => {
   // today 2026-07-01, horizon 14 days -> end 2026-07-15: occurrences 07-01, 07-08, 07-15
   it('does not regenerate an occurrence whose instance was dragged to another day', () => {
     // The 07-08 instance was moved to 07-10; its origin still covers occurrence 07-08.
-    const existing = [{ recurOriginDay: '2026-07-08', day: '2026-07-10' }]
+    const existing = [{ occurrenceDate: '2026-07-08', day: '2026-07-10' }]
     expect(missingInstances(rule(), existing, '2026-07-01', 14)).toEqual([
       '2026-07-01',
       '2026-07-15',
@@ -108,7 +113,7 @@ describe('missingInstances', () => {
   })
 
   it('covers occurrences by origin for legacy instances that predate origin tracking', () => {
-    const existing = [{ recurOriginDay: null, day: '2026-07-08' }]
+    const existing = [{ occurrenceDate: null, day: '2026-07-08' }]
     expect(missingInstances(rule(), existing, '2026-07-01', 14)).toEqual([
       '2026-07-01',
       '2026-07-15',
@@ -127,28 +132,28 @@ describe('missingInstances', () => {
 describe('isFromOccurrenceOnward', () => {
   it('includes an instance whose origin is at or after the cut', () => {
     expect(
-      isFromOccurrenceOnward({ recurOriginDay: '2026-07-15', day: '2026-07-02' }, '2026-07-08'),
+      isFromOccurrenceOnward({ occurrenceDate: '2026-07-15', day: '2026-07-02' }, '2026-07-08'),
     ).toBe(true)
   })
 
   it('excludes an instance whose origin precedes the cut even when dragged to a later day', () => {
     // The crux: day 07-20 is >= cut, but origin 07-01 is not — scope by origin, not day.
     expect(
-      isFromOccurrenceOnward({ recurOriginDay: '2026-07-01', day: '2026-07-20' }, '2026-07-08'),
+      isFromOccurrenceOnward({ occurrenceDate: '2026-07-01', day: '2026-07-20' }, '2026-07-08'),
     ).toBe(false)
   })
 
   it('includes the cut occurrence itself (inclusive boundary)', () => {
     expect(
-      isFromOccurrenceOnward({ recurOriginDay: '2026-07-08', day: '2026-07-08' }, '2026-07-08'),
+      isFromOccurrenceOnward({ occurrenceDate: '2026-07-08', day: '2026-07-08' }, '2026-07-08'),
     ).toBe(true)
   })
 
   it('falls back to day for legacy instances without an origin', () => {
-    expect(isFromOccurrenceOnward({ recurOriginDay: null, day: '2026-07-15' }, '2026-07-08')).toBe(
+    expect(isFromOccurrenceOnward({ occurrenceDate: null, day: '2026-07-15' }, '2026-07-08')).toBe(
       true,
     )
-    expect(isFromOccurrenceOnward({ recurOriginDay: null, day: '2026-07-01' }, '2026-07-08')).toBe(
+    expect(isFromOccurrenceOnward({ occurrenceDate: null, day: '2026-07-01' }, '2026-07-08')).toBe(
       false,
     )
   })

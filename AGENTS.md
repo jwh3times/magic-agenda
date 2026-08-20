@@ -356,6 +356,16 @@ template-first batch cursor for retry, freezes mapping after a partial write, an
 `transferContent` for import versus Owner-only `exportBoard` for export. Separate Task/Label export
 reads fail closed if a concurrent vocabulary change would create a dangling reference.
 
+**`ExportTask` is the on-disk Task, and it is deliberately not `Task`.** Until #204 they were the
+same type, so `serializeExport` stringified `Task[]` straight to disk and the file format tracked
+every field rename in `src/types/task.ts` silently. Renaming `recurOriginDay`/`recurSkip` to the
+domain vocabulary would therefore have invalidated every previously exported v2 file — files this
+app does not control and cannot migrate. The format is now frozen at the v1/v2 names and
+translated at the seam, exactly as `mappers.ts` translates at the database boundary. Two tests pin
+it: one asserts the serializer still writes `recurSkip`/`recurOriginDay`, the other imports a
+hand-written pre-#204 file. **Any future rename of a `Task` field is a file-format decision**, and
+the answer is almost always to extend `ExportTask` rather than let the format follow.
+
 `LabelDirectoryProvider` is mounted inside `BoardDirectoryProvider` above `<Routes>`. Its
 `useLabels(userId, boardId, hasSession)` adapter loads the selected Board's definitions, keeps a
 per-Board v4 snapshot, reloads on visibility/online catch-up, and since #179 also owns the
@@ -559,7 +569,7 @@ another client's write. And the primary key differs per table (`tasks.id` and `l
 `user_settings.user_id`), which is why the id extraction could not stay inline in any of the hooks.
 
 Remote task changes still flow through the pure reducer in `src/data/realtime.ts` (instance dedupe
-by `(recurParentId, recurOriginDay)`, templates routed to `templatesRef`).
+by `(recurParentId, occurrenceDate)`, templates routed to `templatesRef`).
 
 ### Recurrence is a hidden-template model (the most complex subsystem)
 
@@ -568,7 +578,11 @@ names are in [`CONTEXT.md`](CONTEXT.md): a **Recurring Series** (the hidden row 
 **Recurrence Rule**) produces **Occurrences**, each identified within its Series by an immutable
 **Occurrence Date** — never by its movable **Scheduled Day** — and a deleted Occurrence leaves an
 **Excluded Date** behind. Use those words in issues, commit messages, product copy, and any new
-public API; `template`/`instance`/`recurSkip` are fine in the code that already speaks them. Why
+public API; `template` and `instance` are fine in the code that already speaks them, and #204
+renamed the two fields that were not implementation words at all — `Task.recurOriginDay` is
+`occurrenceDate` and `Task.recurSkip` is `excludedDates`. The old names survive in exactly two
+places, both deliberately: the database columns (`recur_origin_day`, `recur_skip`), translated in
+`mappers.ts`, and the **export file format**, translated by `ExportTask` in `exportImport.ts`. Why
 Occurrences are real rows rather than computed from the Rule on read is
 [ADR-0001](docs/adr/0001-materialized-occurrences.md).
 
@@ -577,7 +591,7 @@ A recurring series is a **hidden template row** (`recurFreq != 'none'`, `recurPa
 `useTasks`) plus **materialized instance rows** (`recurFreq 'none'`, `recurParentId = template id`).
 Keeping templates out of the board list is what keeps reorder/DnD math clean. On load, `useTasks`
 materializes any missing instances over a rolling 90-day horizon; deleted occurrences are remembered
-in a per-template `recurSkip` array so they are never regenerated. `reload()` has an in-flight guard
+in a per-template `excludedDates` array so they are never regenerated. `reload()` has an in-flight guard
 because React StrictMode double-invokes the load effect, which otherwise double-inserts instances and
 trips the `(recur_parent_id, day)` unique index (Postgres 23505).
 
@@ -594,12 +608,12 @@ function in the data layer, had zero — while the cheap date maths in `recurren
 
 Three details worth keeping:
 
-- **Scope is always by occurrence origin, never by the card's day.** `instanceOrigin` is what stops a
+- **Scope is always by Occurrence Date, never by the card's day.** `occurrenceDateOf` is what stops a
   dragged instance from being scoped wrongly, from resurrecting as a duplicate, or from
   false-triggering the whole-series branch of a delete.
 - **`FailureHandling` is two independent questions** (`abort` and `recover`) because the original
   behaviour answered them independently: a failed content upsert aborts the trim that follows it,
-  while a failed `recurSkip` write must _not_ stop the occurrence being deleted.
+  while a failed `excludedDates` write must _not_ stop the occurrence being deleted.
 - **`pendingInstances` takes the board as a required argument.** It used to default to a ref whose
   own docstring called the default unsafe — `setTasks` writes that ref inside a deferred React
   updater, so passing it right after a load makes every occurrence look missing and re-inserts rows
@@ -629,7 +643,7 @@ The delete seam is worth understanding, because the obvious framing of it is the
 [#132](https://github.com/jwh3times/magic-agenda/issues/132) asked whether deleting should act on
 the edited draft or on the stored task, since the editor passed a whole `Task` and the two differ.
 Both answers left the same hazard: `onDelete(task: Task)` promised far more than the delete path
-used — it reads only `id`, `recurParentId`, `recurOriginDay` and `day` — so any field read from it
+used — it reads only `id`, `recurParentId`, `occurrenceDate` and `day` — so any field read from it
 later would silently start depending on unsaved edits, with no test failing. Passing an id removes
 the question instead of answering it, and is strictly more correct than either option was, because
 `initial` is **not** the stored row: `Board.openTask` merges the template's
@@ -638,9 +652,9 @@ the question instead of answering it, and is strictly more correct than either o
 An unknown id is a **no-op**, which is what an already-deleted-elsewhere row looks like.
 
 (For the record, the original bug was inert: of the four fields the path reads, only `day` is
-editable, and it is reached only via `instanceOrigin`'s `recurOriginDay ?? day` fallback — which
+editable, and it is reached only via `occurrenceDateOf`'s `occurrenceDate ?? day` fallback — which
 `20260630130000_recur_origin_day.sql` backfilled for every instance that had a day. The null-origin
-rows left are inbox instances from before that migration, for which `instanceOrigin` already
+rows left are inbox instances from before that migration, for which `occurrenceDateOf` already
 returns the meaningless `'inbox'`.)
 
 `PER_OCCURRENCE_FIELDS` (which fields skip the prompt) and `seriesContent()` in `series.ts` (which

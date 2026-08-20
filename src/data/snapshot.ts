@@ -22,7 +22,13 @@ const DIRECTORY_KEY = 'ma-snapshot-directory'
 // and by the first successful load, which rewrites everything anyway.
 // v4: Task classification is nullable `labelId`, so category-shaped task snapshots are dropped;
 // per-Board Label snapshots are introduced alongside the task envelope.
-const V = 4
+// v5: the two recurrence fields were renamed to the domain vocabulary (#204) — `recurOriginDay` ->
+// `occurrenceDate`, `recurSkip` -> `excludedDates`. A v4 envelope hydrates with both undefined,
+// which is not a cosmetic gap: `excludedDates` is spread when an Occurrence is deleted, so an
+// un-dropped v4 snapshot throws there. Unlike the export format, which is frozen at the old names
+// because other people hold those files, a snapshot is this device's own cache and the next
+// successful load rewrites it.
+const V = 5
 
 const boardKey = (boardId: string) => `${BOARD_KEY_PREFIX}${boardId}`
 const labelKey = (boardId: string) => `${LABEL_KEY_PREFIX}${boardId}`

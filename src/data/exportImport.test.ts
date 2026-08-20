@@ -33,8 +33,16 @@ function task(over: Partial<Task> = {}): Task {
 }
 
 function legacyTask(over: Partial<LegacyTask> = {}): LegacyTask {
-  const { labelId: _labelId, ...base } = task(over)
-  return { ...base, category: 'work', ...over }
+  // The on-disk shape keeps the pre-#204 recurrence names; the app-domain `Task` no longer has
+  // them, so this helper translates rather than spreading one into the other.
+  const { labelId: _labelId, occurrenceDate, excludedDates, ...base } = task()
+  return {
+    ...base,
+    recurOriginDay: occurrenceDate,
+    recurSkip: excludedDates,
+    category: 'work',
+    ...over,
+  }
 }
 
 function legacyExport(tasks: LegacyTask[], templates: LegacyTask[] = []): string {
@@ -56,14 +64,14 @@ const template = task({
   id: 'tpl-1',
   labelId: 'source-custom',
   recurFreq: 'daily',
-  recurSkip: ['2026-07-11'],
+  excludedDates: ['2026-07-11'],
   checklist: [{ id: 'c1', text: 'sub', done: false }],
 })
 const instance = task({
   id: 'inst-1',
   labelId: 'source-work',
   recurParentId: 'tpl-1',
-  recurOriginDay: '2026-07-10',
+  occurrenceDate: '2026-07-10',
   checklist: [{ id: 'c2', text: 'sub', done: true }],
 })
 const plain = task({ id: 'plain-1', labelId: null, atTime: '09:30', pinned: true })
@@ -197,11 +205,11 @@ test('remapIds freshens every id but preserves series links, skips, and content'
   const { tasks, templates } = remapIds({ tasks: [plain, instance], templates: [template] })
   const [remappedTemplate] = templates
   expect(remappedTemplate.id).not.toBe('tpl-1')
-  expect(remappedTemplate.recurSkip).toEqual(['2026-07-11'])
+  expect(remappedTemplate.excludedDates).toEqual(['2026-07-11'])
   expect(remappedTemplate.checklist[0].id).not.toBe('c1')
   const remappedInstance = tasks.find((item) => item.recurParentId)!
   expect(remappedInstance.recurParentId).toBe(remappedTemplate.id)
-  expect(remappedInstance.recurOriginDay).toBe('2026-07-10')
+  expect(remappedInstance.occurrenceDate).toBe('2026-07-10')
   const kept = tasks.find((item) => !item.recurParentId)!
   expect(kept.atTime).toBe('09:30')
   expect(kept.pinned).toBe(true)
@@ -210,7 +218,7 @@ test('remapIds freshens every id but preserves series links, skips, and content'
 test('an instance whose template is missing becomes a plain task', () => {
   const { tasks } = remapIds({ tasks: [instance], templates: [] })
   expect(tasks[0].recurParentId).toBeNull()
-  expect(tasks[0].recurOriginDay).toBeNull()
+  expect(tasks[0].occurrenceDate).toBeNull()
 })
 
 test('parseExport rejects garbage, unsupported versions, malformed tasks, and mixed arrays', () => {
@@ -224,11 +232,17 @@ test('parseExport rejects garbage, unsupported versions, malformed tasks, and mi
   malformed.tasks[0].done = 'yes'
   expect(parseExport(JSON.stringify(malformed)).ok).toBe(false)
 
+  // Routed through the real serializer rather than dropping an app-domain Task into the file: the
+  // on-disk shape keeps the pre-#204 recurrence names, so a hand-built fixture would be rejected as
+  // malformed and never reach the separation check this asserts.
+  const onDisk = JSON.parse(serializeExport([], [template], labels, 'x')) as {
+    templates: unknown[]
+  }
   const templateInTasks = JSON.stringify({
     version: 2,
     exportedAt: 'x',
     labels,
-    tasks: [template],
+    tasks: onDisk.templates,
     templates: [],
   })
   expect(parseExport(templateInTasks)).toEqual({
@@ -247,4 +261,79 @@ test('a remapped template + instance is not re-materialized on the next reload',
 test('chunk splits preserving order', () => {
   expect(chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]])
   expect(chunk([], 2)).toEqual([])
+})
+
+test('the v2 file format keeps the pre-#204 recurrence field names', () => {
+  // The app renamed these two fields to the domain vocabulary; the file format did not follow.
+  // Other people hold exported files, and `serializeExport` used to stringify `Task[]` directly —
+  // so without the translation in `exportImport.ts` this rename would have invalidated every one
+  // of them.
+  const written = JSON.parse(serializeExport([instance], [template], labels, 'x')) as {
+    tasks: Record<string, unknown>[]
+    templates: Record<string, unknown>[]
+  }
+  expect(written.templates[0]).toMatchObject({ recurSkip: ['2026-07-11'], recurOriginDay: null })
+  expect(written.tasks[0]).toMatchObject({ recurOriginDay: '2026-07-10', recurSkip: [] })
+  expect(written.tasks[0]).not.toHaveProperty('occurrenceDate')
+  expect(written.templates[0]).not.toHaveProperty('excludedDates')
+})
+
+test('a v2 file written before #204 still imports', () => {
+  // Byte-shaped like a file exported by the previous release: on-disk names, no app-domain ones.
+  const legacyV2 = JSON.stringify({
+    version: 2,
+    exportedAt: '2026-08-01T00:00:00Z',
+    labels,
+    tasks: [
+      {
+        id: 'inst-1',
+        title: 'T',
+        description: '',
+        labelId: 'source-work',
+        color: 'yellow',
+        checklist: [],
+        status: 'todo',
+        done: false,
+        day: '2026-07-10',
+        order: 0,
+        korder: 0,
+        atTime: null,
+        pinned: false,
+        recurFreq: 'none',
+        recurInterval: 1,
+        recurUntil: null,
+        recurParentId: 'tpl-1',
+        recurSkip: [],
+        recurOriginDay: '2026-07-10',
+      },
+    ],
+    templates: [
+      {
+        id: 'tpl-1',
+        title: 'T',
+        description: '',
+        labelId: 'source-custom',
+        color: 'yellow',
+        checklist: [],
+        status: 'todo',
+        done: false,
+        day: '2026-07-10',
+        order: 0,
+        korder: 0,
+        atTime: null,
+        pinned: false,
+        recurFreq: 'daily',
+        recurInterval: 1,
+        recurUntil: null,
+        recurParentId: null,
+        recurSkip: ['2026-07-11'],
+        recurOriginDay: null,
+      },
+    ],
+  })
+  const parsed = parseExport(legacyV2)
+  expect(parsed.ok).toBe(true)
+  if (!parsed.ok) return
+  expect(parsed.data.tasks[0].occurrenceDate).toBe('2026-07-10')
+  expect(parsed.data.templates[0].excludedDates).toEqual(['2026-07-11'])
 })

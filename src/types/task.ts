@@ -35,21 +35,22 @@ export interface Task {
   /** Order within a status column (kanban view). */
   korder: number
 
-  // Recurrence. A template carries recurFreq != 'none' and recurParentId === null and is hidden
-  // from the board; its materialized instances carry recurFreq 'none' and recurParentId = template id.
+  // Recurrence. The hidden template row of a Recurring Series carries recurFreq != 'none' and
+  // recurParentId === null and is kept off the board; the Occurrences it materializes carry
+  // recurFreq 'none' and recurParentId = template id.
   recurFreq: RecurFreq
   recurInterval: number
   recurUntil: string | null
   recurParentId: string | null
-  /** Dates (YYYY-MM-DD) of deleted occurrences — never regenerated (templates only). */
-  recurSkip: string[]
+  /** Excluded Dates (YYYY-MM-DD): Occurrence Dates this Series no longer produces (templates only). */
+  excludedDates: string[]
   /**
-   * The occurrence date (YYYY-MM-DD) this instance was materialized for. Immutable across drags —
-   * unlike `day`, which the user can move — so materialization identifies covered occurrences by
-   * origin and never resurrects a duplicate on the origin day. NULL for templates and
-   * non-recurring tasks (and legacy instances that predate this field).
+   * The Occurrence Date (YYYY-MM-DD) this Occurrence represents. Immutable — unlike `day`, the
+   * Scheduled Day, which the user can move — so materialization identifies covered Occurrence
+   * Dates by this and never resurrects a duplicate on the original date. NULL for templates and
+   * standalone tasks (and legacy Occurrences that predate this field).
    */
-  recurOriginDay: string | null
+  occurrenceDate: string | null
 }
 
 /** The sentinel used throughout app + dnd logic for an unscheduled task. */
@@ -61,8 +62,8 @@ export const NO_RECUR = {
   recurInterval: 1,
   recurUntil: null as string | null,
   recurParentId: null as string | null,
-  recurSkip: [] as string[],
-  recurOriginDay: null as string | null,
+  excludedDates: [] as string[],
+  occurrenceDate: null as string | null,
 }
 
 /** A task is a hidden recurrence template when it bears a rule and has no parent. */

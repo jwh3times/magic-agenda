@@ -40,7 +40,7 @@ function series() {
     title: 'Standup',
   })
   const inst = (id: string, day: string) =>
-    t(id, { day, recurParentId: 'tmpl', recurOriginDay: day, title: 'Standup' })
+    t(id, { day, recurParentId: 'tmpl', occurrenceDate: day, title: 'Standup' })
   return {
     templates: [tmpl],
     tasks: [inst('i1', '2026-07-01'), inst('i2', '2026-07-08'), inst('i3', '2026-07-15')],
@@ -57,7 +57,7 @@ describe('instanceKey', () => {
   it('identifies the occurrence covered, not the day the card sits on', () => {
     // Mirrors the (recur_parent_id, recur_origin_day) unique index. Dragging an instance must not
     // make its original occurrence look unfilled — that regenerates a duplicate and hits 23505.
-    const moved = t('i1', { day: '2026-07-04', recurParentId: 'p', recurOriginDay: '2026-07-01' })
+    const moved = t('i1', { day: '2026-07-04', recurParentId: 'p', occurrenceDate: '2026-07-01' })
     expect(instanceKey(moved)).toBe('p|2026-07-01')
   })
 
@@ -82,7 +82,7 @@ describe('makeInstance', () => {
     const inst = makeInstance(tmpl, '2026-07-15', nextId)
 
     expect(inst.recurParentId).toBe('tmpl')
-    expect(inst.recurOriginDay).toBe('2026-07-15')
+    expect(inst.occurrenceDate).toBe('2026-07-15')
     expect(inst.day).toBe('2026-07-15')
     // An instance must never carry a rule of its own, or it would materialize its own instances.
     expect(inst.recurFreq).toBe('none')
@@ -131,7 +131,7 @@ describe('pendingInstances', () => {
 
   it('skips deleted occurrences so they never come back', () => {
     const s = series()
-    const templates = [{ ...s.templates[0], recurSkip: ['2026-07-22'] }]
+    const templates = [{ ...s.templates[0], excludedDates: ['2026-07-22'] }]
     const missing = pendingInstances(templates, s.tasks, '2026-07-01', nextId)
     expect(missing.map((m) => m.day)).not.toContain('2026-07-22')
   })
@@ -147,7 +147,7 @@ describe('pendingInstances', () => {
 // ——— scope resolution ———
 
 describe('resolveSave', () => {
-  const instance = t('i1', { recurParentId: 'tmpl', recurOriginDay: '2026-07-08' })
+  const instance = t('i1', { recurParentId: 'tmpl', occurrenceDate: '2026-07-08' })
 
   it('creates when the editor was opened for a new task', () => {
     expect(resolveSave(null, t('new'), true).kind).toBe('create')
@@ -250,7 +250,7 @@ describe('planEditSeriesFrom', () => {
     expect(ids(plan.state.tasks)).toEqual(['i1', 'i2']) // i3 is past the new end
     expect(plan.deletions).toEqual([
       {
-        target: { by: 'origin-after', parentId: 'tmpl', day: '2026-07-10' },
+        target: { by: 'occurrence-after', parentId: 'tmpl', day: '2026-07-10' },
         onFailure: { abort: false, recover: 'none' },
       },
     ])
@@ -282,7 +282,7 @@ describe('planDeleteOccurrence', () => {
     const plan = planDeleteOccurrence(s, s.tasks[1])
 
     expect(ids(plan.state.tasks)).toEqual(['i1', 'i3'])
-    expect(plan.state.templates[0].recurSkip).toEqual(['2026-07-08'])
+    expect(plan.state.templates[0].excludedDates).toEqual(['2026-07-08'])
     expect(plan.upserts).toEqual([plan.state.templates[0]])
     expect(plan.deletions).toEqual([
       { target: { by: 'id', id: 'i2' }, onFailure: { abort: false, recover: 'rollback' } },
@@ -295,7 +295,7 @@ describe('planDeleteOccurrence', () => {
     const s = series()
     s.tasks[1] = { ...s.tasks[1], day: '2026-07-11' }
     const plan = planDeleteOccurrence(s, s.tasks[1])
-    expect(plan.state.templates[0].recurSkip).toEqual(['2026-07-08'])
+    expect(plan.state.templates[0].excludedDates).toEqual(['2026-07-08'])
   })
 
   it('still deletes the occurrence when recording the skip fails', () => {
@@ -325,7 +325,7 @@ describe('planDeleteSeriesFrom', () => {
     expect(plan.upserts).toEqual([plan.state.templates[0]])
     expect(plan.deletions).toEqual([
       {
-        target: { by: 'origin-from', parentId: 'tmpl', day: '2026-07-08' },
+        target: { by: 'occurrence-from', parentId: 'tmpl', day: '2026-07-08' },
         onFailure: { abort: false, recover: 'reload' },
       },
     ])

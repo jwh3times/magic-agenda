@@ -12,6 +12,45 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.7] - 2026-08-19
+
+Internal rename with no user-visible behaviour change. The export file format is deliberately
+unchanged — files exported by any previous release still import, and files exported by this one are
+readable by the previous release.
+
+### Changed
+
+- Renamed the two recurrence fields on the app-domain `Task` to the vocabulary settled in `v1.8.6`
+  (#204): `recurOriginDay` is now `occurrenceDate` and `recurSkip` is now `excludedDates`, with
+  `recurrence.ts`'s `instanceOrigin()` becoming `occurrenceDateOf()`. The database columns
+  (`recur_origin_day`, `recur_skip`) are untouched — `mappers.ts` already exists to absorb exactly
+  this kind of app/DB naming difference, and renaming columns would have pulled in the
+  two-release client/migration deploy race for no correctness benefit.
+- `template` and `instance` stay as implementation words, as `v1.8.6` recorded. Only the two fields
+  that were never implementation words moved.
+
+### Fixed
+
+- **The export file format was silently coupled to the app's type names.** `serializeExport`
+  stringified `Task[]` straight to disk and the validator checked those same field names, so any
+  rename of a `Task` field would have invalidated every previously exported file — files this app
+  hands to users and cannot migrate. `exportImport.ts` now has an explicit on-disk `ExportTask`
+  type, frozen at the v1/v2 names and translated at the seam the same way `mappers.ts` translates
+  at the database boundary. Two tests pin it: one asserts the serializer still writes
+  `recurSkip`/`recurOriginDay`, the other imports a hand-written pre-rename v2 file. This was a
+  latent hazard independent of the rename — it just had to be paid before the first rename landed.
+
+### Internal
+
+- Bumped the `localStorage` snapshot envelope to v5. A v4 board snapshot hydrates tasks with both
+  renamed fields `undefined`, and `excludedDates` is spread when an Occurrence is deleted, so an
+  un-dropped v4 envelope would throw there rather than merely look stale. Unlike the export format,
+  a snapshot is the device's own cache and the next successful load rewrites it — so the offline
+  cache is dropped once, on the first load after this deploys.
+- The deletion-plan discriminants `origin-after` / `origin-from` became `occurrence-after` /
+  `occurrence-from`, and the surrounding prose in `series.ts`, `recurrence.ts`, `AGENTS.md`, and
+  `ROADMAP.md` now uses Occurrence Date and Scheduled Day where it said origin and day.
+
 ## [1.8.6] - 2026-08-19
 
 Documentation only — no code, schema, or behaviour changes.
@@ -2083,7 +2122,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.6...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.7...HEAD
+[1.8.7]: https://github.com/jwh3times/magic-agenda/compare/v1.8.6...v1.8.7
 [1.8.6]: https://github.com/jwh3times/magic-agenda/compare/v1.8.5...v1.8.6
 [1.8.5]: https://github.com/jwh3times/magic-agenda/compare/v1.8.4...v1.8.5
 [1.8.4]: https://github.com/jwh3times/magic-agenda/compare/v1.8.3...v1.8.4

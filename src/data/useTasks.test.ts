@@ -318,7 +318,7 @@ test('a thrown/rejected write rolls back the optimistic change and sets error, s
   expect(result.current.error).toBe('network down')
 })
 
-test('a failing recurSkip write on deleteOccurrence still removes the occurrence locally and surfaces the error', async () => {
+test('a failing excludedDates write on deleteOccurrence still removes the occurrence locally and surfaces the error', async () => {
   const today = ymd(new Date())
   h.capture.rows = [
     serverRow({ id: 'tpl1', recur_freq: 'daily', day: today, recur_until: today }),
@@ -327,7 +327,7 @@ test('a failing recurSkip write on deleteOccurrence still removes the occurrence
   const { result } = renderHook(() => useTasks('u1', 'b1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
 
-  // The template's recurSkip update rejects (e.g. a network fault) — this was previously
+  // The template's excludedDates update rejects (e.g. a network fault) — this was previously
   // swallowed by a bare console.error with no user-visible signal.
   h.upsert.mockRejectedValueOnce(new Error('skip write failed'))
 
@@ -337,7 +337,7 @@ test('a failing recurSkip write on deleteOccurrence still removes the occurrence
   })
 
   // The occurrence removal (the following step, removeTask) still ran locally despite the
-  // failed recurSkip write...
+  // failed excludedDates write...
   expect(result.current.tasks.find((t) => t.id === 'i1')).toBeUndefined()
   // ...and the failure is now surfaced instead of failing silently.
   expect(result.current.error).toBe('skip write failed')
@@ -388,7 +388,7 @@ test('a failed load hydrates from the snapshot and materializes nothing', async 
   localStorage.setItem(
     'ma-snapshot-board.b1',
     JSON.stringify({
-      v: 4,
+      v: 5,
       userId: 'u1',
       boardId: 'b1',
       savedAt: 1_770_000_000_000,
@@ -449,7 +449,7 @@ test('a successful load writes a snapshot', async () => {
 test('reconnecting clears offline mode', async () => {
   localStorage.setItem(
     'ma-snapshot-board.b1',
-    JSON.stringify({ v: 4, userId: 'u1', boardId: 'b1', savedAt: 1, tasks: [], templates: [] }),
+    JSON.stringify({ v: 5, userId: 'u1', boardId: 'b1', savedAt: 1, tasks: [], templates: [] }),
   )
   h.capture.selectError = { message: 'FetchError: Failed to fetch' }
   const { result } = renderHook(() => useTasks('u1', 'b1', true))
@@ -472,7 +472,7 @@ test('reconnecting clears offline mode', async () => {
 // nothing under an "Offline" banner instead of the last-known tasks.
 test('reconnecting while sessionless does not poison the board snapshot with an empty board', async () => {
   const existing = {
-    v: 4,
+    v: 5,
     userId: 'u1',
     boardId: 'b1',
     savedAt: 1,

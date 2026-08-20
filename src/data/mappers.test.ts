@@ -87,9 +87,9 @@ describe('rowToTask', () => {
     expect(t.order).toBe(5)
     expect(t.korder).toBe(3)
   })
-  it('maps recur_origin_day -> recurOriginDay (null for non-instances)', () => {
-    expect(rowToTask(row({ recur_origin_day: '2026-07-01' })).recurOriginDay).toBe('2026-07-01')
-    expect(rowToTask(row({ recur_origin_day: null })).recurOriginDay).toBeNull()
+  it('maps recur_origin_day -> occurrenceDate (null for non-instances)', () => {
+    expect(rowToTask(row({ recur_origin_day: '2026-07-01' })).occurrenceDate).toBe('2026-07-01')
+    expect(rowToTask(row({ recur_origin_day: null })).occurrenceDate).toBeNull()
   })
   it('maps the optional label relationship', () => {
     const labeled = rowToTask(row({ label_id: 'label-1' }))
@@ -121,11 +121,11 @@ describe('taskToRow', () => {
     expect(r.status).toBe('done')
     expect('done' in r).toBe(false)
   })
-  it('maps recurOriginDay -> recur_origin_day', () => {
-    expect(taskToRow(task({ recurOriginDay: '2026-07-01' }), 'b1').recur_origin_day).toBe(
+  it('maps occurrenceDate -> recur_origin_day', () => {
+    expect(taskToRow(task({ occurrenceDate: '2026-07-01' }), 'b1').recur_origin_day).toBe(
       '2026-07-01',
     )
-    expect(taskToRow(task({ recurOriginDay: null }), 'b1').recur_origin_day).toBeNull()
+    expect(taskToRow(task({ occurrenceDate: null }), 'b1').recur_origin_day).toBeNull()
   })
   it('writes an explicit nullable label assignment without writing legacy Category', () => {
     const labeled = taskToRow(task({ labelId: 'label-1' }), 'b1')

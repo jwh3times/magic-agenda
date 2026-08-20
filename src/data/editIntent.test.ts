@@ -29,7 +29,7 @@ function t(id: string, over: Partial<Task> = {}): Task {
 }
 
 const instance = (over: Partial<Task> = {}) =>
-  t('i1', { recurParentId: 'tmpl', recurOriginDay: '2026-07-08', day: '2026-07-08', ...over })
+  t('i1', { recurParentId: 'tmpl', occurrenceDate: '2026-07-08', day: '2026-07-08', ...over })
 
 describe('changedTaskKeys', () => {
   it('reports only the fields that actually differ', () => {

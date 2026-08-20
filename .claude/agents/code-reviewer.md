@@ -15,7 +15,7 @@ any of these (each is a correctness bug, not a preference):
    only authorization boundary (the anon key is public by design). A migration adding a table
    without a policy is a security bug.
 3. **Recurrence.** Template rows (`recurFreq != 'none'`, `recurParentId === null`) stay out of
-   the board `tasks` list; deleted occurrences are recorded in `recurSkip` so they are never
+   the board `tasks` list; deleted occurrences are recorded in `excludedDates` so they are never
    regenerated; `reload()` keeps its in-flight guard (StrictMode double-invoke trips the
    `(recur_parent_id, day)` unique index otherwise). Occurrence identity (`instanceKey`), scope
    resolution (`resolveSave`/`resolveDelete`), and the per-operation plans

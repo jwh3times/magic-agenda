@@ -203,7 +203,7 @@ test('applyRollForward appends overdue tasks after today existing order', () => 
   const today = '2026-07-10'
   const tasks = [
     t('today-1', { day: today, order: 3 }),
-    t('old-late', { day: '2026-07-09', order: 1, recurOriginDay: '2026-07-09' }),
+    t('old-late', { day: '2026-07-09', order: 1, occurrenceDate: '2026-07-09' }),
     t('old-early', { day: '2026-07-01', order: 0 }),
     t('done-old', { day: '2026-07-01', order: 1, status: 'done' }),
   ]
@@ -215,7 +215,7 @@ test('applyRollForward appends overdue tasks after today existing order', () => 
   expect(early.order).toBe(4)
   expect(late.order).toBe(5)
   // Occurrence identity never moves with the card.
-  expect(late.recurOriginDay).toBe('2026-07-09')
+  expect(late.occurrenceDate).toBe('2026-07-09')
   expect(next.find((x) => x.id === 'done-old')!.day).toBe('2026-07-01')
 })
 
@@ -255,7 +255,7 @@ test('applyRollForward with onlyIds is a referential no-op when no overdue task 
 
 describe('applyRollForward + missingInstances (regression)', () => {
   // Regression for: rolling an overdue recurring instance forward (its `day` moves to today,
-  // but `recurOriginDay` stays put) must not make the materializer regenerate a duplicate on
+  // but `occurrenceDate` stays put) must not make the materializer regenerate a duplicate on
   // the instance's original occurrence day.
   it('still covers its origin occurrence after being rolled forward, so the old day is not regenerated', () => {
     const today = '2026-07-10'
@@ -266,11 +266,11 @@ describe('applyRollForward + missingInstances (regression)', () => {
       recurFreq: 'weekly',
       recurInterval: 2,
       recurUntil: null,
-      recurSkip: [],
+      excludedDates: [],
     }
     const instance = t('inst', {
       day: '2026-07-03',
-      recurOriginDay: '2026-07-03',
+      occurrenceDate: '2026-07-03',
       recurParentId: 'template-1',
       status: 'todo',
     })
@@ -285,7 +285,7 @@ describe('applyRollForward + missingInstances (regression)', () => {
     const moved = rolled.find((x) => x.id === 'inst')!
     expect(changed.map((x) => x.id)).toEqual(['inst'])
     expect(moved.day).toBe(today)
-    expect(moved.recurOriginDay).toBe('2026-07-03')
+    expect(moved.occurrenceDate).toBe('2026-07-03')
 
     // After the move, occurrence 07-03 must still read as covered — not regenerated.
     const after = missingInstances(template, [moved], today, 30)

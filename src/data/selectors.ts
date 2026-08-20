@@ -140,7 +140,7 @@ export function overdueTasks(tasks: Task[], todayStr: string): Task[] {
 
 /**
  * Move every overdue task to today, appended after today's existing max order in
- * overdue-sort sequence. Pure; identity (recurOriginDay) never moves with the card.
+ * overdue-sort sequence. Pure; identity (occurrenceDate) never moves with the card.
  * Returns the same array reference when nothing is overdue.
  *
  * When `onlyIds` is given, only overdue tasks whose id is in the set are moved — other

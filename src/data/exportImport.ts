@@ -23,8 +23,34 @@ export interface ExportSettings {
 export const LEGACY_CATEGORIES = ['work', 'personal', 'errands', 'ideas', 'health'] as const
 export type LegacyCategory = (typeof LEGACY_CATEGORIES)[number]
 
+/**
+ * The on-disk Task, deliberately **not** the app's `Task`.
+ *
+ * Until #204 they were the same type, so `serializeExport` stringified `Task[]` straight to disk
+ * and the file format silently tracked every field rename in `src/types/task.ts`. #204 renamed two
+ * recurrence fields to the domain vocabulary (`recurOriginDay` -> `occurrenceDate`, `recurSkip` ->
+ * `excludedDates`) and would have invalidated every previously exported v2 file on the way past.
+ *
+ * The file format is frozen at the names v1 and v2 were written with. This is the same bargain
+ * `mappers.ts` makes at the database boundary, for the same reason: an on-disk name is a
+ * compatibility contract with files this app no longer controls, and the app domain has to be free
+ * to rename without breaking them.
+ */
+export type ExportTask = Omit<Task, 'occurrenceDate' | 'excludedDates'> & {
+  recurOriginDay: string | null
+  recurSkip: string[]
+}
+
 /** The on-disk v1 Task. Category exists only at this file-format compatibility seam. */
-export type LegacyTask = Omit<Task, 'labelId'> & { category: LegacyCategory }
+export type LegacyTask = Omit<ExportTask, 'labelId'> & { category: LegacyCategory }
+
+function toExportTask({ occurrenceDate, excludedDates, ...rest }: Task): ExportTask {
+  return { ...rest, recurOriginDay: occurrenceDate, recurSkip: excludedDates }
+}
+
+function fromExportTask({ recurOriginDay, recurSkip, ...rest }: ExportTask): Task {
+  return { ...rest, occurrenceDate: recurOriginDay, excludedDates: recurSkip }
+}
 
 interface BoardExportV1 {
   version: typeof LEGACY_EXPORT_VERSION
@@ -38,8 +64,8 @@ export interface BoardExportV2 {
   version: typeof EXPORT_VERSION
   exportedAt: string
   labels: ExportLabel[]
-  tasks: Task[]
-  templates: Task[]
+  tasks: ExportTask[]
+  templates: ExportTask[]
 }
 
 /**
@@ -76,7 +102,13 @@ export function serializeExport(
     throw new Error('A task references a Label that is missing from this export.')
   }
   return JSON.stringify(
-    { version: EXPORT_VERSION, exportedAt, labels: exportLabels, tasks, templates },
+    {
+      version: EXPORT_VERSION,
+      exportedAt,
+      labels: exportLabels,
+      tasks: tasks.map(toExportTask),
+      templates: templates.map(toExportTask),
+    },
     null,
     2,
   )
@@ -113,9 +145,9 @@ function isChecklist(value: unknown): value is ChecklistItem[] {
   )
 }
 
-function hasTaskFields(value: unknown): value is Omit<Task, 'labelId'> {
+function hasTaskFields(value: unknown): value is Omit<ExportTask, 'labelId'> {
   if (!value || typeof value !== 'object') return false
-  const task = value as Task
+  const task = value as ExportTask
   return (
     typeof task.id === 'string' &&
     typeof task.title === 'string' &&
@@ -149,9 +181,9 @@ function isLegacyTask(value: unknown): value is LegacyTask {
   )
 }
 
-function isV2Task(value: unknown): value is Task {
+function isV2Task(value: unknown): value is ExportTask {
   if (!hasTaskFields(value)) return false
-  const labelId = (value as Task).labelId
+  const labelId = (value as ExportTask).labelId
   return labelId === null || (typeof labelId === 'string' && labelId.length > 0)
 }
 
@@ -172,13 +204,13 @@ function isExportLabel(value: unknown): value is ExportLabel {
   )
 }
 
-function arraysAreSeparated(tasks: Task[], templates: Task[]): boolean {
+function arraysAreSeparated(tasks: ExportTask[], templates: ExportTask[]): boolean {
   return templates.every(isTemplate) && tasks.every((task) => !isTemplate(task))
 }
 
 function legacyTaskToCanonical(task: LegacyTask): Task {
   const { category, ...content } = task
-  return { ...content, labelId: LEGACY_LABEL_BY_CATEGORY.get(category)!.id }
+  return fromExportTask({ ...content, labelId: LEGACY_LABEL_BY_CATEGORY.get(category)!.id })
 }
 
 function parseV1(raw: BoardExportV1): ParseResult {
@@ -189,7 +221,12 @@ function parseV1(raw: BoardExportV1): ParseResult {
   if ([...raw.tasks, ...raw.templates].some((task) => !isLegacyTask(task))) {
     return { ok: false, error: 'The file contains a malformed task.' }
   }
-  if (!arraysAreSeparated(raw.tasks as unknown as Task[], raw.templates as unknown as Task[])) {
+  if (
+    !arraysAreSeparated(
+      raw.tasks as unknown as ExportTask[],
+      raw.templates as unknown as ExportTask[],
+    )
+  ) {
     return { ok: false, error: 'The file mixes up repeating series and tasks.' }
   }
   return {
@@ -235,8 +272,8 @@ function parseV2(raw: BoardExportV2): ParseResult {
       sourceVersion: EXPORT_VERSION,
       exportedAt: raw.exportedAt,
       labels: raw.labels.map((label) => ({ ...label })),
-      tasks: raw.tasks,
-      templates: raw.templates,
+      tasks: raw.tasks.map(fromExportTask),
+      templates: raw.templates.map(fromExportTask),
     },
   }
 }
@@ -282,7 +319,7 @@ export function remapIds(data: Pick<ImportBundle, 'tasks' | 'templates'>): {
     ...task,
     id: templateIdMap.get(task.id)!,
     checklist: freshChecklist(task.checklist),
-    recurSkip: [...task.recurSkip],
+    excludedDates: [...task.excludedDates],
   }))
   const tasks = data.tasks.map((task) => {
     const parent = task.recurParentId ? (templateIdMap.get(task.recurParentId) ?? null) : null
@@ -291,8 +328,8 @@ export function remapIds(data: Pick<ImportBundle, 'tasks' | 'templates'>): {
       id: newId(),
       checklist: freshChecklist(task.checklist),
       recurParentId: parent,
-      recurOriginDay: parent ? task.recurOriginDay : null,
-      recurSkip: [...task.recurSkip],
+      occurrenceDate: parent ? task.occurrenceDate : null,
+      excludedDates: [...task.excludedDates],
     }
   })
   return { tasks, templates }
