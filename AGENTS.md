@@ -618,6 +618,16 @@ Six details worth keeping:
   because `makeInstance` resets all of them: it builds _future_ Occurrences, where resetting is
   exactly right. The first Occurrence is not a future one. Keeping the row also keeps its id, so
   nothing still referencing that card is left pointing at a row that has left the board.
+- **A Series definition carries no pin, and that is a fix rather than an omission.** `makeInstance`
+  used to copy `tmpl.pinned`, while nothing after `planPromoteToSeries` ever wrote that column — so
+  a Series' pin was frozen at whatever the Task's pin happened to be when it was promoted, and every
+  future Occurrence was born carrying it with no way to change it (#215). Pinning is Occurrence
+  State (ADR-0002), so the channel was removed rather than made editable: `makeInstance` builds
+  unpinned Occurrences, `planPromoteToSeries` resets `pinned` on the definition alongside `status`
+  and the checklist done-state, and `20260820120000_clear_series_definition_pins.sql` clears the
+  column on existing definitions. That migration is tidiness, not correctness — the client fix alone
+  ends the bug, because the new `makeInstance` never reads the column. Note the first Occurrence
+  **keeps** the user's pin: it is their card, exactly as #206 established for the rest of its state.
 - **A Recurrence Rule without a Scheduled Day is refused in the editor, not the data layer.** An
   unscheduled anchor yields no Occurrence Dates at all (`missingInstanceDates` returns `[]` when
   `!isScheduled(template.day)`), so saving one used to file the Task away as a template that
