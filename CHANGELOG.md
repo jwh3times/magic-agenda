@@ -12,6 +12,33 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.5] - 2026-08-19
+
+Documentation only — no code, schema, or behaviour changes.
+
+### Docs
+
+- Rehearsed a database restore against the current schema and fixed what it exposed (#202). This was
+  the first rehearsal since Boards, Labels, the Board lifecycle, realtime Labels, and the
+  compatibility retirement shipped; the previous full pass predates all of them.
+- **The restore verification had no Label checks at all.** Labels shipped after the last rehearsal
+  and `docs/runbooks/restore-from-backup.md` was never extended. Demonstrated rather than reasoned:
+  deleting every `labels` row from an otherwise healthy restore left three tasks holding dangling
+  `label_id` values, and **every check in the verification section still reported clean** —
+  byte-identical to the healthy run. That is exactly the failure the section exists to catch, and
+  what its own warning about disabled foreign-key triggers describes. Added a `labels` count, a
+  Task→Label orphan check, and the two containment checks one level up (Label→Board,
+  Membership→Board), each confirmed against the corrupted database before restoring it.
+- Replaced the exact policy total with a **per-table breakdown**. That number was hard-coded three
+  times (12, 17, 18) and went stale on the next schema change every time, and CI cannot catch it
+  because the backup workflow asserts only a floor. What a restore needs to know is that no table
+  came back with zero policies, which is the shape a partial restore takes.
+- Everything else in the verification passed, which confirms the corrections made in `v1.8.0`,
+  `v1.8.2`, and `v1.8.4` hold up under an actual run rather than only under review.
+- Still unexercised, and unverified outside CI since 2026-07-27: GPG decryption of a real bundle and
+  the artifact download path. `BACKUP_GPG_PASSPHRASE` is write-only in GitHub and was not available
+  to this pass — recorded in the rehearsal log rather than glossed over.
+
 ## [1.8.4] - 2026-08-19
 
 Internal only — nothing about the app looks or behaves differently. This completes the retirement
@@ -2021,7 +2048,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.4...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.5...HEAD
+[1.8.5]: https://github.com/jwh3times/magic-agenda/compare/v1.8.4...v1.8.5
 [1.8.4]: https://github.com/jwh3times/magic-agenda/compare/v1.8.3...v1.8.4
 [1.8.3]: https://github.com/jwh3times/magic-agenda/compare/v1.8.2...v1.8.3
 [1.8.2]: https://github.com/jwh3times/magic-agenda/compare/v1.8.1...v1.8.2
