@@ -1206,6 +1206,17 @@ with "ship it" when a branch is ready. Whether or not you use it, keep `AGENTS.m
 `ROADMAP.md`, and `CHANGELOG.md` aligned when a change affects project behavior, commands,
 architecture, or release notes.
 
+The `end-session` skill (authored at `.agents/skills/end-session/`) is the other bookend: it closes
+a work session by moving knowledge out of the conversation and junk out of the checkout — GitHub
+issues brought up to date per `docs/agents/`, `private/` reconciled, memory updated, and the local
+workspace audited. It is deliberately **not** a shipping skill: it never pushes, merges, or edits
+`AGENTS.md` / `README.md` / `ROADMAP.md` / `CHANGELOG.md`, because those belong to the PR that
+changed the code. Run `/ship` first if a branch is still in flight, then `end-session`. Two of its
+rules are load-bearing rather than stylistic: a dated document under `private/` is **amended, never
+rewritten** (it is evidence from the state it reviewed), and the workspace pass carries an explicit
+never-delete list — `.env.local`, `private/`, and `tests/e2e/.auth/` are all git-ignored and all the
+only copy of what they hold, so a blanket sweep of ignored paths destroys them.
+
 ### Two authored trees, two generated trees — opposite directions on purpose
 
 Both Claude Code and Codex are used on this repo, and they read different files. Rather than keep
