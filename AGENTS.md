@@ -686,9 +686,25 @@ rows left are inbox instances from before that migration, for which `occurrenceD
 returns the meaningless `'inbox'`.)
 
 `PER_OCCURRENCE_FIELDS` (which fields skip the prompt) and `seriesContent()` in `series.ts` (which
-fields an all-future edit propagates) are two halves of one classification, deliberately kept
-separate: they answer different questions and are not exact complements — `day`, `order`,
-`checklist` and the recurrence fields are in neither.
+fields an all-future edit propagates) are two halves of one classification. This file used to call
+them "deliberately kept separate ... not exact complements", and that is no longer the intent:
+[ADR-0002](docs/adr/0002-series-occurrence-field-ownership.md) decides that every `Task` field is
+owned by exactly one of the Recurrence Rule, Series Content, Occurrence State, or Occurrence
+Placement, which makes the two lists complements of one partition. **The code still lags that
+decision** — `day`, `order`, `korder` and `checklist` are in neither list — and each gap is a
+silent write loss rather than an error, measured rather than reasoned about (#168):
+
+- Editing a Checklist and choosing all-future writes it to the Series and to **no** Occurrence,
+  not even the card being edited. Only Occurrences materialized past the horizon later ever show
+  it, so the edit appears to do nothing for up to 90 days.
+- Changing an Occurrence's day and choosing all-future discards the change entirely — the
+  Occurrence stays put and the Rule's anchor does not move.
+- `makeInstance` copies `tmpl.pinned`, and nothing after `planPromoteToSeries` ever writes it, so a
+  Series' pin is fixed at promotion and silently seeds every future Occurrence forever.
+- All-future rebuilds affected Occurrences from the **stored** row (`{...t, ...seriesContent(draft)}`),
+  so a per-occurrence field changed in the same save — pinning while renaming — is dropped.
+
+Closing these is tracked separately; do not treat the current lists as the intended model.
 
 ### Drag-and-drop: every decision is pure; dnd-kit is an adapter
 
