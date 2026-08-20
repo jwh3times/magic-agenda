@@ -12,6 +12,24 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.10] - 2026-08-20
+
+Documentation only — no behavior changes.
+
+### Docs
+
+- **Resolved how a Recurring Series and its Occurrences divide ownership of a Task's fields**
+  (#168). `CONTEXT.md` gains Series Content, Occurrence State, Occurrence Placement, Checklist,
+  Step Completion, and precise definitions of the two editing scopes, **This Occurrence** and
+  **This and All Future**. `docs/adr/0002-series-occurrence-field-ownership.md` records the
+  decision: every field is owned by exactly one of the Recurrence Rule, Series Content, Occurrence
+  State, or Occurrence Placement, so the two scope lists in the code become complements of one
+  partition rather than two independently maintained sets.
+- Documented four places where the shipped code does not yet match that model, each measured
+  rather than reasoned about — an all-future checklist edit reaching no visible Occurrence, a
+  discarded date change, a Series pin frozen at promotion, and a per-occurrence edit dropped when
+  saved alongside a series edit. Tracked as #213, #214, and #215.
+
 ## [1.8.9] - 2026-08-20
 
 ### Fixed
@@ -2169,7 +2187,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.9...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.10...HEAD
+[1.8.10]: https://github.com/jwh3times/magic-agenda/compare/v1.8.9...v1.8.10
 [1.8.9]: https://github.com/jwh3times/magic-agenda/compare/v1.8.8...v1.8.9
 [1.8.8]: https://github.com/jwh3times/magic-agenda/compare/v1.8.7...v1.8.8
 [1.8.7]: https://github.com/jwh3times/magic-agenda/compare/v1.8.6...v1.8.7

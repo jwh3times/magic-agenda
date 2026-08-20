@@ -52,6 +52,45 @@ An Occurrence Date a Recurring Series no longer produces, because its Occurrence
 Series never regenerates an Occurrence on an Excluded Date.
 _Avoid_: skipped date, cancelled occurrence, exception date
 
+**Series Content**:
+The shared substance of a Recurring Series — what the work is — carried by every Occurrence it
+produces. A Recurring Series owns one copy of it, and changing it can be applied to the whole
+Series ahead.
+_Avoid_: template fields, shared fields, parent content
+
+**Occurrence State**:
+What a person has done to one Occurrence: its workflow status, which of its Checklist Steps are
+complete, and whether it is pinned. It belongs to that Occurrence alone and is never shared with
+the Recurring Series or with any other Occurrence.
+_Avoid_: instance state, per-occurrence fields, progress
+
+**Occurrence Placement**:
+Where one Occurrence sits: its Scheduled Day and its manual position within that day or Kanban
+column. It belongs to that Occurrence alone, so moving one Occurrence never moves another.
+_Avoid_: position, ordering, layout
+
+**This Occurrence**:
+The editing scope that changes one Occurrence and nothing else. It is available for any change, and
+it is the only scope that can change Occurrence State or Occurrence Placement.
+_Avoid_: single, this one only, just this
+
+**This and All Future**:
+The editing scope that changes Series Content or the Recurrence Rule for the edited Occurrence, every
+later Occurrence, and every Occurrence the Series has yet to produce. It overwrites Occurrences that
+were customized individually, and it never changes Occurrence State or Occurrence Placement.
+_Avoid_: all following, the rest of the series, future only
+
+**Checklist**:
+The ordered list of Steps describing how a Task is carried out. On a Recurring Series it is Series
+Content, so every Occurrence carries the same Steps.
+_Avoid_: subtasks, todo list, sub-items
+
+**Step Completion**:
+Which of an Occurrence's Checklist Steps are done. It is Occurrence State, so completing a Step on
+one Occurrence never affects another, and editing a Series' Checklist preserves the completion of
+every Step that survives the edit.
+_Avoid_: checklist progress, subtask status
+
 ## Classification and appearance
 
 **Label**:
