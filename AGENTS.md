@@ -563,6 +563,15 @@ by `(recurParentId, recurOriginDay)`, templates routed to `templatesRef`).
 
 ### Recurrence is a hidden-template model (the most complex subsystem)
 
+**`template` and `instance` are implementation words and stay inside this subsystem.** The domain
+names are in [`CONTEXT.md`](CONTEXT.md): a **Recurring Series** (the hidden row plus its
+**Recurrence Rule**) produces **Occurrences**, each identified within its Series by an immutable
+**Occurrence Date** — never by its movable **Scheduled Day** — and a deleted Occurrence leaves an
+**Excluded Date** behind. Use those words in issues, commit messages, product copy, and any new
+public API; `template`/`instance`/`recurSkip` are fine in the code that already speaks them. Why
+Occurrences are real rows rather than computed from the Rule on read is
+[ADR-0001](docs/adr/0001-materialized-occurrences.md).
+
 A recurring series is a **hidden template row** (`recurFreq != 'none'`, `recurParentId === null`, see
 `isTemplate()`) that is **kept out of the board `tasks` list** (held in a separate ref inside
 `useTasks`) plus **materialized instance rows** (`recurFreq 'none'`, `recurParentId = template id`).

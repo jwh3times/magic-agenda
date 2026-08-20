@@ -12,6 +12,41 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.6] - 2026-08-19
+
+Documentation only — no code, schema, or behaviour changes.
+
+### Docs
+
+- Settled the recurrence vocabulary in `CONTEXT.md` (#165). `Task` had been carrying three
+  different concepts — a standalone task, a hidden recurring definition, and a materialized
+  occurrence — distinguished only by combinations of `recurFreq` / `recurParentId` /
+  `recurOriginDay`, while prose alternated between **template**, **instance**, **occurrence**,
+  **series**, and **repeating task** for them.
+- The glossary now names **Recurring Series**, **Recurrence Rule**, **Occurrence**, **Occurrence
+  Date**, and **Excluded Date**, plus the **Scheduled Day** / **Inbox** pair the recurrence terms
+  need in order to state the distinction that matters: an Occurrence is identified within its
+  Series by its immutable Occurrence Date, never by the day its card currently sits on.
+- **`template` and `instance` are recorded as implementation-only words**, not terms to eliminate.
+  `AGENTS.md`'s recurrence section says so and points at the glossary, so the code that already
+  speaks them keeps doing so while issues, commit messages, and product copy do not.
+- Three questions the issue raised were already answered by the code rather than open, and the
+  glossary records the answers rather than re-deciding them: identity survives a drag because
+  `instanceKey` mirrors `tasks_recur_instance_uniq`; deleting a moved occurrence excludes its
+  origin date, not where it was dragged to; and an occurrence whose series is gone is a standalone
+  task — which is what migration `20260813210200` already did to the legacy rows, deliberately
+  detaching rather than deleting them.
+- Added `docs/adr/0001-materialized-occurrences.md`, the first ADR in this repo, recording why
+  occurrences are real rows instead of computed from the rule on read: every occurrence is
+  independently completable, pinnable, reschedulable, and reorderable, and a computed view has
+  nowhere to put that state. Its consequences section is the part worth keeping — the finite
+  90-day horizon, the need to remember deletions, and rule changes having to rewrite rows all
+  follow from that one choice.
+- Filed the follow-ups the session surfaced rather than acting on them here, since the issue's
+  non-goal was refactoring recurrence: field renames to match the glossary (#204), the
+  `Task`-conflates-three-shapes type question (#205), and a behaviour finding — adding recurrence
+  to an existing task silently discards its status and checklist progress (#206).
+
 ## [1.8.5] - 2026-08-19
 
 Documentation only — no code, schema, or behaviour changes.
@@ -2048,7 +2083,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.5...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.6...HEAD
+[1.8.6]: https://github.com/jwh3times/magic-agenda/compare/v1.8.5...v1.8.6
 [1.8.5]: https://github.com/jwh3times/magic-agenda/compare/v1.8.4...v1.8.5
 [1.8.4]: https://github.com/jwh3times/magic-agenda/compare/v1.8.3...v1.8.4
 [1.8.3]: https://github.com/jwh3times/magic-agenda/compare/v1.8.2...v1.8.3
