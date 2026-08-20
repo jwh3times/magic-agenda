@@ -12,6 +12,7 @@ import {
   planDeleteOccurrence,
   planDeleteSeriesFrom,
   planEditSeriesFrom,
+  planPromoteToSeries,
   resolveDelete,
   resolveSave,
   type DeletionTarget,
@@ -309,32 +310,16 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     [setTasks, materialize, boardId, markWrites],
   )
 
+  /**
+   * Update one board Task in place.
+   *
+   * Adding a Recurrence Rule is deliberately NOT handled here. It used to be — the row was turned
+   * into the hidden template and materialization produced a fresh first Occurrence — and that lost
+   * the user's status, checklist progress, and position (#206). `resolveSave` now routes it to
+   * `planPromoteToSeries`, so the decision lives with every other series decision.
+   */
   const updateTask = useCallback(
     async (task: Task) => {
-      // Turning a normal task into a series: it becomes a hidden template.
-      if (isTemplate(task)) {
-        setTasks((prev) => prev.filter((t) => t.id !== task.id))
-        templatesRef.current = [...templatesRef.current.filter((t) => t.id !== task.id), task]
-        markWrites([task.id])
-        try {
-          const { error: err } = await supabase
-            .from('tasks')
-            .update(taskToRow(task, boardId))
-            .eq('id', task.id)
-          if (err) throw new Error(err.message)
-        } catch (e) {
-          setError(errorMessage(e))
-          void reload()
-          return
-        }
-        // The promoted task just left the board; pass the board without it rather than a ref
-        // that React has not flushed yet.
-        await materialize(
-          [task],
-          tasksRef.current.filter((t) => t.id !== task.id),
-        )
-        return
-      }
       const prev = tasksRef.current
       setTasks((p) => p.map((t) => (t.id === task.id ? task : t)))
       markWrites([task.id])
@@ -349,7 +334,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         setError(errorMessage(e))
       }
     },
-    [setTasks, materialize, reload, boardId, markWrites],
+    [setTasks, boardId, markWrites],
   )
 
   const removeTask = useCallback(
@@ -511,6 +496,9 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     async (orig: Task | null, draft: Task, isNew: boolean, scope?: RecurScope) => {
       const op = resolveSave(orig, draft, isNew, scope)
       if (op.kind === 'create') return createTask(op.task)
+      if (op.kind === 'promote-to-series') {
+        return runPlan(planPromoteToSeries(seriesState(), op.task, newId))
+      }
       if (op.kind === 'update-series-from') {
         const plan = planEditSeriesFrom(seriesState(), op.instance, op.draft)
         // No template means the series is gone; there is nothing coherent to edit "from here on".

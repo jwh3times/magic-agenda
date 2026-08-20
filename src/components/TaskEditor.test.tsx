@@ -264,3 +264,44 @@ test('a scope prompt dismissed by read-only does not come back when the board re
   expect(screen.queryByText('Save repeating task')).not.toBeInTheDocument()
   expect(onSave).not.toHaveBeenCalled()
 })
+
+// #209: a Recurrence Rule with no Scheduled Day produces no Occurrence Dates, so saving one filed
+// the task away as a template that materialized nothing and the card left the board with no error.
+// The warning copy already existed; only the gate was missing.
+//
+// The Repeat select and the Day input carry no accessible name, so these reach them the way the
+// day-scope tests above already do.
+const repeatSelect = (c: HTMLElement) => c.querySelector('select') as HTMLSelectElement
+const dayInput = (c: HTMLElement) => c.querySelector('input[type="date"]') as HTMLInputElement
+
+test('refuses to save a recurrence rule on an unscheduled task', async () => {
+  const user = userEvent.setup()
+  const { onSave, container } = renderEditor(mkInstance({ recurParentId: null, day: 'inbox' }))
+
+  fireEvent.change(repeatSelect(container), { target: { value: 'weekly' } })
+
+  const save = screen.getByRole('button', { name: 'Save' })
+  expect(save).toBeDisabled()
+  await user.click(save)
+  expect(onSave).not.toHaveBeenCalled()
+  expect(screen.getByText(/repeats need a scheduled day/)).toBeInTheDocument()
+})
+
+test('re-enables save once the unscheduled repeating task is given a day', async () => {
+  const user = userEvent.setup()
+  const { onSave, container } = renderEditor(mkInstance({ recurParentId: null, day: 'inbox' }))
+
+  fireEvent.change(repeatSelect(container), { target: { value: 'weekly' } })
+  fireEvent.change(dayInput(container), { target: { value: '2026-07-10' } })
+
+  const save = screen.getByRole('button', { name: 'Save' })
+  expect(save).toBeEnabled()
+  await user.click(save)
+  expect(onSave).toHaveBeenCalledTimes(1)
+})
+
+test('an unscheduled task with no rule still saves', () => {
+  // The gate is about the pair, not about the Inbox: an Inbox task on its own is perfectly savable.
+  renderEditor(mkInstance({ recurParentId: null, day: 'inbox' }))
+  expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
+})

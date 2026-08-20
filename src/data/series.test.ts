@@ -6,6 +6,7 @@ import {
   planDeleteOccurrence,
   planDeleteSeriesFrom,
   planEditSeriesFrom,
+  planPromoteToSeries,
   resolveDelete,
   resolveSave,
 } from './series'
@@ -155,6 +156,18 @@ describe('resolveSave', () => {
 
   it('updates a plain task directly', () => {
     expect(resolveSave(t('a'), t('a'), false).kind).toBe('update-plain')
+  })
+
+  it('promotes a standalone task that gained a recurrence rule', () => {
+    const draft = t('a', { day: '2026-07-01', recurFreq: 'weekly', recurInterval: 1 })
+    expect(resolveSave(t('a', { day: '2026-07-01' }), draft, false).kind).toBe('promote-to-series')
+  })
+
+  it('does not promote an occurrence that carries a rule in the draft', () => {
+    // An instance's draft arrives with its series' rule merged on by `Board.openTask`, so
+    // `isTemplate` alone would misread it. Having a parent is what settles it.
+    const draft = t('i1', { recurParentId: 'tmpl', recurFreq: 'weekly' })
+    expect(resolveSave(instance, draft, false, 'this').kind).toBe('update-occurrence')
   })
 
   it('edits the series from this occurrence when the scope is "future"', () => {
@@ -371,5 +384,107 @@ describe('plans do not mutate their input', () => {
     planDeleteOccurrence(s, s.tasks[1])
     planDeleteSeriesFrom(s, s.tasks[1])
     expect(JSON.stringify(s)).toBe(before)
+  })
+})
+
+describe('planPromoteToSeries', () => {
+  /** A Task the user has already made progress on, scheduled and positioned on the board. */
+  function inProgress() {
+    return t('t1', {
+      day: '2026-07-01',
+      status: 'doing',
+      order: 3,
+      korder: 7,
+      pinned: true,
+      title: 'Water the plants',
+      checklist: [
+        { id: 'c1', text: 'step one', done: true },
+        { id: 'c2', text: 'step two', done: false },
+      ],
+      recurFreq: 'weekly',
+      recurInterval: 1,
+    })
+  }
+
+  const ids = () => {
+    let n = 0
+    return () => `gen-${++n}`
+  }
+
+  it('keeps the original row as the first Occurrence, with its progress intact', () => {
+    const draft = inProgress()
+    const plan = planPromoteToSeries({ tasks: [draft], templates: [] }, draft, ids())
+
+    // The whole point of #206: this is the same row the user was working on, not a fresh one.
+    const first = plan.state.tasks.find((task) => task.id === 't1')!
+    expect(first.status).toBe('doing')
+    expect(first.checklist.map((c) => c.done)).toEqual([true, false])
+    expect(first.order).toBe(3)
+    expect(first.korder).toBe(7)
+    expect(first.pinned).toBe(true)
+    expect(plan.state.tasks).toHaveLength(1)
+  })
+
+  it('points the first Occurrence at a new template and stamps its Occurrence Date', () => {
+    const draft = inProgress()
+    const plan = planPromoteToSeries({ tasks: [draft], templates: [] }, draft, ids())
+
+    const template = plan.state.templates[0]
+    expect(template.id).toBe('gen-1')
+    expect(template.id).not.toBe(draft.id)
+
+    const first = plan.state.tasks[0]
+    expect(first.recurParentId).toBe(template.id)
+    expect(first.occurrenceDate).toBe('2026-07-01')
+    // The rule lives on the template only; an Occurrence carrying one would itself look like a
+    // template to `isTemplate` the moment its parent went away.
+    expect(first.recurFreq).toBe('none')
+    expect(first.recurUntil).toBeNull()
+  })
+
+  it('strips per-occurrence state from the template, which seeds every later Occurrence', () => {
+    const draft = inProgress()
+    const plan = planPromoteToSeries({ tasks: [draft], templates: [] }, draft, ids())
+
+    const template = plan.state.templates[0]
+    expect(template.status).toBe('todo')
+    expect(template.done).toBe(false)
+    expect(template.checklist.map((c) => c.done)).toEqual([false, false])
+    // Shared content still travels: these are what each Occurrence is made of.
+    expect(template.title).toBe('Water the plants')
+    expect(template.day).toBe('2026-07-01')
+    expect(template.recurFreq).toBe('weekly')
+  })
+
+  it('writes the template and its first Occurrence in one batch', () => {
+    const draft = inProgress()
+    const plan = planPromoteToSeries({ tasks: [draft], templates: [] }, draft, ids())
+
+    // A template with no Occurrence is invisible and an Occurrence with no template is orphaned,
+    // so a partial write of these two is worse than neither.
+    expect(plan.upserts.map((task) => task.id)).toEqual(['gen-1', 't1'])
+    expect(plan.deletions).toEqual([])
+    expect(plan.markIds).toEqual(['gen-1', 't1'])
+    expect(plan.materialize.map((task) => task.id)).toEqual(['gen-1'])
+  })
+
+  it('leaves the rest of the board alone', () => {
+    const draft = inProgress()
+    const other = t('other', { day: '2026-07-01', order: 1 })
+    const plan = planPromoteToSeries({ tasks: [other, draft], templates: [] }, draft, ids())
+
+    expect(plan.state.tasks.find((task) => task.id === 'other')).toEqual(other)
+  })
+
+  it('produces a first Occurrence that materialization treats as already covered', () => {
+    const draft = inProgress()
+    const plan = planPromoteToSeries({ tasks: [draft], templates: [] }, draft, ids())
+
+    // The regression this guards: if the first Occurrence were not counted, materialization would
+    // insert a second row for the same Occurrence Date and hit tasks_recur_instance_uniq.
+    const pending = pendingInstances(plan.state.templates, plan.state.tasks, '2026-07-01', ids())
+    expect(pending.some((task) => task.occurrenceDate === '2026-07-01')).toBe(false)
+    // Everything after it is still pending — the anchor is skipped, not the whole rule.
+    expect(pending[0].occurrenceDate).toBe('2026-07-08')
   })
 })

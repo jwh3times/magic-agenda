@@ -63,6 +63,13 @@ export function TaskEditor({
 
   const patch = (p: Partial<Task>) => setDraft((d) => ({ ...d, ...p }))
   const titleOk = draft.title.trim().length > 0
+  /**
+   * A Recurrence Rule with no Scheduled Day produces no Occurrence Dates at all, so saving one
+   * files the Task away as a template that materializes nothing and the card leaves the board with
+   * no error (#209). The warning below the Repeat field has always said so; only now does it bind.
+   */
+  const recurNeedsDay = draft.recurFreq !== 'none' && !isScheduled(draft.day)
+  const canSave = titleOk && !recurNeedsDay
 
   const chrome = editorChrome(theme, conf, isMobile)
   const { dark, panelBg, fg, sub, fieldBg, border, ctlFont, inputBase, fieldLabel, btn } = chrome
@@ -615,8 +622,8 @@ export function TaskEditor({
               <button
                 type="button"
                 onClick={attemptSave}
-                disabled={!titleOk}
-                style={btn(conf.accent, conf.accentFg, { opacity: titleOk ? 1 : 0.5 })}
+                disabled={!canSave}
+                style={btn(conf.accent, conf.accentFg, { opacity: canSave ? 1 : 0.5 })}
               >
                 {isNew ? 'Add task' : 'Save'}
               </button>

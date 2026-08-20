@@ -61,8 +61,9 @@ export function applyTaskChange(state: BoardState, change: TaskChange): BoardSta
   const task = change.task
 
   if (isTemplate(task)) {
-    // A template row never renders on the board; a task edited into a series
-    // also moves out of the board list (mirrors the useTasks updateTask branch).
+    // A template row never renders on the board. The `wasBoardTask` case is a row that turned
+    // into a template in place — how this client promoted a Task to a Series until #206, and how
+    // a device still running an older build does it today.
     const existing = state.templates.find((t) => t.id === task.id)
     const wasBoardTask = state.tasks.some((t) => t.id === task.id)
     if (existing && !wasBoardTask && sameTask(existing, task)) return state
