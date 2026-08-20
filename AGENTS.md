@@ -590,7 +590,8 @@ A recurring series is a **hidden template row** (`recurFreq != 'none'`, `recurPa
 `isTemplate()`) that is **kept out of the board `tasks` list** (held in a separate ref inside
 `useTasks`) plus **materialized instance rows** (`recurFreq 'none'`, `recurParentId = template id`).
 Keeping templates out of the board list is what keeps reorder/DnD math clean. On load, `useTasks`
-materializes any missing instances over a rolling 90-day horizon; deleted occurrences are remembered
+materializes any missing instances over a rolling window that runs from today to 90 days out —
+**from today, not from the Rule's anchor** (#210); deleted occurrences are remembered
 in a per-template `excludedDates` array so they are never regenerated. `reload()` has an in-flight guard
 because React StrictMode double-invokes the load effect, which otherwise double-inserts instances and
 trips the `(recur_parent_id, day)` unique index (Postgres 23505).
@@ -606,7 +607,7 @@ That split is what made this subsystem testable. Before it, the three scope oper
 207-line block inside `useTasks` that **no test reached** — `deleteSeriesFuture`, the branchiest
 function in the data layer, had zero — while the cheap date maths in `recurrence.ts` had 22 tests.
 
-Four details worth keeping:
+Six details worth keeping:
 
 - **Promotion keeps the row and creates the template, not the other way round.** Adding a
   Recurrence Rule to a standalone Task routes through `resolveSave` -> `planPromoteToSeries`: a
@@ -622,6 +623,19 @@ Four details worth keeping:
   `!isScheduled(template.day)`), so saving one used to file the Task away as a template that
   materialized nothing — the card left the board with no error (#209). `TaskEditor` gates Save on
   it; the warning under the Repeat field had said so since long before it bound.
+- **The materialization window starts at today; the anchor is only the Rule's phase.**
+  `occurrenceDates` takes `from` and `horizonEnd` and both are **required** — a `from` defaulting
+  to the anchor is the unbounded backfill of #210 wearing a default. Until then the walk had no
+  lower bound, so adding a Rule to a Task scheduled a year ago inserted ~455 rows, a three-year-old
+  one hit a 1000-iteration ceiling and was silently truncated, and the same backfill repeated on
+  every horizon refresh rather than only the first. Two things fall out of this that look like
+  micro-optimizations and are not: the daily/weekly **fast-forward** exists because the old walk's
+  cost was proportional to the anchor's _age_, which is exactly how it failed to reach the window
+  at all; and **monthly is deliberately never fast-forwarded**, because `addMonths` overflows
+  rather than clamps (Jan 31 + 1 month is Mar 3), so n single steps do not land where one n-month
+  step does and jumping would silently re-phase the Rule. The fast-forward floors and the loop
+  still filters, so it can only save iterations, never change the result — pinned by a test that
+  compares it against a naive walk.
 - **Scope is always by Occurrence Date, never by the card's day.** `occurrenceDateOf` is what stops a
   dragged instance from being scoped wrongly, from resurrecting as a duplicate, or from
   false-triggering the whole-series branch of a delete.
@@ -760,8 +774,14 @@ component, so it stays a hook-only module (`react-refresh/only-export-components
 browser-local today, which is what lets every component test render unwrapped.
 
 One call site is deliberately **not** converted: `useTasks`'s `materialize()` keeps browser-local
-time, because it only anchors a 90-day rolling horizon and re-running materialization on a settings
-change risks duplicate instance rows (23505). `CellMeta.dow` carries each cell's real weekday so
+time, because re-running materialization on a settings change risks duplicate instance rows (23505).
+This paragraph used to add "it only anchors a 90-day rolling horizon, where a ±1-day shift at the
+far end is immaterial" — true until #210, which made the same clock set the window's **lower** bound
+too. A ±1-day shift there is not immaterial: a board whose zone is behind the browser's would drop
+its current Occurrence below the floor and never create it, permanently, since the floor only moves
+forward. `MATERIALIZE_GRACE_DAYS` in `recurrence.ts` is one day of slack below today that absorbs
+exactly that skew, and it is what keeps this call site on the cheap clock instead of forcing the
+timezone through. `CellMeta.dow` carries each cell's real weekday so
 `WeekView` can label a rotated week without knowing `weekStart`; weekend shading stays absolute
 Sat/Sun and never rotates.
 

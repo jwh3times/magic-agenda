@@ -12,6 +12,19 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.9] - 2026-08-20
+
+### Fixed
+
+- **Making an old task repeat no longer floods the board with past occurrences** (#210). Setting
+  Repeat on a task scheduled in the past materialized every occurrence back to that date — roughly
+  455 cards for a task dated a year ago — and a task older than that hit an internal ceiling of
+  1000 and was silently cut short with no message. Occurrences are now created from today forward
+  only. The anchor still sets the rhythm, so a rule like "every 3 days from July 1st" lands on the
+  same dates it always did; only how far back they are created has changed. The backfill repeated
+  on every refresh of the 90-day horizon, not just the first time, so this affected existing
+  repeating tasks with old start dates too.
+
 ## [1.8.8] - 2026-08-20
 
 Two bug fixes in the same path: making an existing task repeat.
@@ -2156,7 +2169,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.8...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.9...HEAD
+[1.8.9]: https://github.com/jwh3times/magic-agenda/compare/v1.8.8...v1.8.9
 [1.8.8]: https://github.com/jwh3times/magic-agenda/compare/v1.8.7...v1.8.8
 [1.8.7]: https://github.com/jwh3times/magic-agenda/compare/v1.8.6...v1.8.7
 [1.8.6]: https://github.com/jwh3times/magic-agenda/compare/v1.8.5...v1.8.6

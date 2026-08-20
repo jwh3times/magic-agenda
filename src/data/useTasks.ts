@@ -113,10 +113,13 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
    */
   const materialize = useCallback(
     async (templates: Task[], board: Task[]) => {
-      // Browser-local on purpose, not the user's configured zone: this only anchors a 90-day
-      // rolling materialization horizon, where a ±1-day shift at the far end is immaterial.
-      // Threading the timezone in would re-run materialization whenever settings change, for
-      // no behavioral gain — and a spurious re-run risks duplicate instance rows (23505).
+      // Browser-local on purpose, not the user's configured zone. Threading the timezone in would
+      // re-run materialization whenever settings change, and a spurious re-run risks duplicate
+      // instance rows (23505). Since #210 this clock sets the *lower* bound of the window as well
+      // as the horizon end, so a ±1-day shift is no longer immaterial at both ends — a board
+      // whose zone is behind the browser's would drop its current Occurrence below the floor.
+      // `MATERIALIZE_GRACE_DAYS` in recurrence.ts absorbs exactly that, which is what keeps this
+      // call site on the cheap clock.
       const instances = pendingInstances(templates, board, ymd(new Date()), newId)
       if (instances.length === 0) return
       // missingInstances already excludes covered occurrences, so these are all new; a plain insert
