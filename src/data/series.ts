@@ -1,6 +1,6 @@
 import { addDays, parseDay, ymd } from '../lib/dates'
 import type { Task } from '../types/task'
-import { instanceOrigin, isFromOccurrenceOnward, missingInstances } from './recurrence'
+import { occurrenceDateOf, isFromOccurrenceOnward, missingInstances } from './recurrence'
 
 /**
  * Everything the app knows about recurring series, as pure functions over plain data.
@@ -23,7 +23,7 @@ export interface SeriesState {
 }
 
 /**
- * Identity of a materialized instance: the occurrence it covers, never its mutable `day`.
+ * Identity of a materialized instance: its Occurrence Date, never its mutable Scheduled Day.
  *
  * Mirrors the `(recur_parent_id, recur_origin_day)` unique index, so dragging an instance to
  * another day does not make its original occurrence look unfilled and regenerate a duplicate
@@ -33,10 +33,10 @@ export interface SeriesState {
  */
 export function instanceKey(t: {
   recurParentId: string | null
-  recurOriginDay: string | null
+  occurrenceDate: string | null
   day: string
 }): string {
-  return `${t.recurParentId}|${instanceOrigin(t)}`
+  return `${t.recurParentId}|${occurrenceDateOf(t)}`
 }
 
 /** Builds one instance of a template for `day`. `nextId` is injected so tests are deterministic. */
@@ -59,8 +59,8 @@ export function makeInstance(tmpl: Task, day: string, nextId: () => string): Tas
     recurInterval: 1,
     recurUntil: null,
     recurParentId: tmpl.id,
-    recurSkip: [],
-    recurOriginDay: day,
+    excludedDates: [],
+    occurrenceDate: day,
   }
 }
 
@@ -175,10 +175,10 @@ const BEST_EFFORT: FailureHandling = { abort: false, recover: 'none' }
 
 export type DeletionTarget =
   | { by: 'id'; id: string }
-  /** Instances of a template whose origin occurrence is strictly after `day`. */
-  | { by: 'origin-after'; parentId: string; day: string }
-  /** Instances of a template whose origin occurrence is on or after `day`. */
-  | { by: 'origin-from'; parentId: string; day: string }
+  /** Instances of a template whose Occurrence Date is strictly after `day`. */
+  | { by: 'occurrence-after'; parentId: string; day: string }
+  /** Instances of a template whose Occurrence Date is on or after `day`. */
+  | { by: 'occurrence-from'; parentId: string; day: string }
 
 export interface Deletion {
   target: DeletionTarget
@@ -228,9 +228,9 @@ export function planEditSeriesFrom(
   const template = state.templates.find((t) => t.id === instance.recurParentId)
   if (!template) return null
 
-  // Scoped by the occurrence's origin, not its movable day, so a dragged card still edits the
-  // right occurrences (and matches origin-based materialization).
-  const cut = instanceOrigin(instance)
+  // Scoped by the Occurrence Date, not the movable Scheduled Day, so a dragged card still edits
+  // the right Occurrences (and matches how materialization identifies them).
+  const cut = occurrenceDateOf(instance)
   const nextTemplate: Task = {
     ...template,
     ...seriesContent(draft),
@@ -246,13 +246,13 @@ export function planEditSeriesFrom(
   // If the rule shortened, occurrences past the new end no longer exist.
   const until = nextTemplate.recurUntil
   const trimmed = until
-    ? editedTasks.filter((t) => !(t.recurParentId === template.id && instanceOrigin(t) > until))
+    ? editedTasks.filter((t) => !(t.recurParentId === template.id && occurrenceDateOf(t) > until))
     : editedTasks
 
   const deletions: Deletion[] = until
     ? [
         {
-          target: { by: 'origin-after', parentId: template.id, day: until },
+          target: { by: 'occurrence-after', parentId: template.id, day: until },
           // Best-effort: the content edit above has already persisted and materialization still
           // has to run, so a failure here is reported without unwinding the rest.
           onFailure: BEST_EFFORT,
@@ -273,7 +273,7 @@ export function planEditSeriesFrom(
     markIds: [
       ...upserts.map((t) => t.id),
       ...editedTasks
-        .filter((t) => until && t.recurParentId === template.id && instanceOrigin(t) > until)
+        .filter((t) => until && t.recurParentId === template.id && occurrenceDateOf(t) > until)
         .map((t) => t.id),
     ],
     materialize: [nextTemplate],
@@ -283,8 +283,8 @@ export function planEditSeriesFrom(
 /**
  * Delete one occurrence, and remember it so materialization never regenerates it.
  *
- * The skip is recorded against the occurrence's **origin**, not its possibly-moved day. Without a
- * template (a legacy or orphaned instance) this degrades to a plain delete.
+ * The Excluded Date recorded is the **Occurrence Date**, not the possibly-moved Scheduled Day.
+ * Without a template (a legacy or orphaned instance) this degrades to a plain delete.
  */
 export function planDeleteOccurrence(state: SeriesState, instance: Task): SeriesPlan {
   const template = state.templates.find((t) => t.id === instance.recurParentId)
@@ -304,7 +304,7 @@ export function planDeleteOccurrence(state: SeriesState, instance: Task): Series
 
   const nextTemplate: Task = {
     ...template,
-    recurSkip: [...template.recurSkip, instanceOrigin(instance)],
+    excludedDates: [...template.excludedDates, occurrenceDateOf(instance)],
   }
 
   return {
@@ -341,7 +341,7 @@ export function planDeleteSeriesFrom(state: SeriesState, instance: Task): Series
     }
   }
 
-  const cut = instanceOrigin(instance)
+  const cut = occurrenceDateOf(instance)
 
   if (cut <= template.day) {
     return {
@@ -377,7 +377,7 @@ export function planDeleteSeriesFrom(state: SeriesState, instance: Task): Series
     upsertOnFailure: RESYNC,
     deletions: [
       {
-        target: { by: 'origin-from', parentId: template.id, day: cut },
+        target: { by: 'occurrence-from', parentId: template.id, day: cut },
         onFailure: RESYNC,
       },
     ],

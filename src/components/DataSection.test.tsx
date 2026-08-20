@@ -69,8 +69,16 @@ function task(over: Partial<Task> = {}): Task {
 }
 
 function legacyTask(over: Partial<LegacyTask> = {}): LegacyTask {
-  const { labelId: _labelId, ...base } = task(over)
-  return { ...base, category: 'work', ...over }
+  // The on-disk shape keeps the pre-#204 recurrence names; the app-domain `Task` no longer has
+  // them, so this helper translates rather than spreading one into the other.
+  const { labelId: _labelId, occurrenceDate, excludedDates, ...base } = task()
+  return {
+    ...base,
+    recurOriginDay: occurrenceDate,
+    recurSkip: excludedDates,
+    category: 'work',
+    ...over,
+  }
 }
 
 function legacyExport(tasks: LegacyTask[], templates: LegacyTask[] = []): string {
@@ -157,7 +165,7 @@ test('v2 import requires an explicit same-name mapping and inserts templates bef
     id: 'inst-1',
     labelId: 'source-work',
     recurParentId: 'tpl-1',
-    recurOriginDay: '2026-07-10',
+    occurrenceDate: '2026-07-10',
   })
   importFile(serializeExport([instance], [template], sourceLabels, 'x'))
 
@@ -265,7 +273,7 @@ test('a batch failure keeps the prepared rows; retrying resumes without re-inser
     id: 'inst-1',
     labelId: 'source-work',
     recurParentId: 'tpl-1',
-    recurOriginDay: '2026-07-10',
+    occurrenceDate: '2026-07-10',
   })
   importFile(serializeExport([instance], [template], sourceLabels, 'x'))
   await screen.findByText(/1 task.*1 repeating series/i)

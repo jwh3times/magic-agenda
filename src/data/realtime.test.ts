@@ -150,7 +150,7 @@ test('a template demoted to a plain task moves back to the board', () => {
 })
 
 test('deleting a template drops it and all of its local instances', () => {
-  const inst = mk({ id: 'i1', recurParentId: 'tpl1', recurOriginDay: '2026-07-02' })
+  const inst = mk({ id: 'i1', recurParentId: 'tpl1', occurrenceDate: '2026-07-02' })
   const next = applyTaskChange(state([inst, mk({ id: 't1' })], [template]), {
     type: 'DELETE',
     id: 'tpl1',
@@ -174,8 +174,8 @@ test('INSERT/UPDATE payloads with a missing or malformed row map to null', () =>
 // ---- applyTaskChange: instance dedupe ----
 
 test('an instance INSERT for an occurrence we already cover replaces the local twin', () => {
-  const local = mk({ id: 'local', recurParentId: 'tpl1', recurOriginDay: '2026-07-02' })
-  const remote = mk({ id: 'remote', recurParentId: 'tpl1', recurOriginDay: '2026-07-02' })
+  const local = mk({ id: 'local', recurParentId: 'tpl1', occurrenceDate: '2026-07-02' })
+  const remote = mk({ id: 'remote', recurParentId: 'tpl1', occurrenceDate: '2026-07-02' })
   const next = applyTaskChange(state([local]), { type: 'INSERT', task: remote })
   expect(next.tasks.map((t) => t.id)).toEqual(['remote'])
 })

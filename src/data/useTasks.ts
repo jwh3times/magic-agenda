@@ -39,7 +39,7 @@ async function runDeletion(target: DeletionTarget): Promise<void> {
   }
   const scoped = del.eq('recur_parent_id', target.parentId)
   const { error } =
-    target.by === 'origin-after'
+    target.by === 'occurrence-after'
       ? await scoped.gt('recur_origin_day', target.day)
       : await scoped.gte('recur_origin_day', target.day)
   if (error) throw new Error(error.message)

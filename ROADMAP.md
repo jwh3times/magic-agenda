@@ -102,7 +102,7 @@ were added as their own effort rather than a roadmap feature — see
 - **Test-first for pure logic** (`src/data`, `src/dnd`, `src/lib`). UI work gets Testing Library
   coverage; phone-layout branches stub `matchMedia` (see the mobile block in `Board.test.tsx`).
 - **Recurrence invariants**: templates stay hidden (`templatesRef`), instances are keyed by
-  `(recur_parent_id, recur_origin_day)`, deletions go through `recurSkip`. Any feature touching
+  `(recur_parent_id, recur_origin_day)`, deletions go through `excludedDates`. Any feature touching
   tasks must decide explicitly how it treats templates vs. instances.
 - **Optimistic writes with rollback** (the `useTasks` pattern): apply local state first, persist,
   restore `prev` + surface `error` on failure.

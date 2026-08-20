@@ -45,8 +45,8 @@ export function rowToTask(row: TaskRow): Task {
     recurInterval: row.recur_interval,
     recurUntil: row.recur_until,
     recurParentId: row.recur_parent_id,
-    recurSkip: Array.isArray(row.recur_skip) ? (row.recur_skip as string[]) : [],
-    recurOriginDay: row.recur_origin_day,
+    excludedDates: Array.isArray(row.recur_skip) ? (row.recur_skip as string[]) : [],
+    occurrenceDate: row.recur_origin_day,
   }
 }
 
@@ -89,7 +89,7 @@ export function taskToRow(task: Task, boardId: string): TaskInsert {
     recur_interval: task.recurInterval,
     recur_until: task.recurUntil,
     recur_parent_id: task.recurParentId,
-    recur_skip: task.recurSkip,
-    recur_origin_day: task.recurOriginDay,
+    recur_skip: task.excludedDates,
+    recur_origin_day: task.occurrenceDate,
   }
 }

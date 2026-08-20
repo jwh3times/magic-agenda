@@ -84,9 +84,26 @@ test('v4 refuses a category-shaped v3 task snapshot instead of corrupting Label 
 })
 
 test('refuses a payload whose shape is wrong', () => {
+  // Current-version envelope on purpose: with a stale `v` this would pass on the version check
+  // and never reach the shape check it exists to exercise.
   localStorage.setItem(
     'ma-snapshot-board.b1',
-    JSON.stringify({ v: 4, userId: 'u1', boardId: 'b1', tasks: 'nope' }),
+    JSON.stringify({ v: 5, userId: 'u1', boardId: 'b1', tasks: 'nope' }),
+  )
+  expect(readBoardSnapshot('u1', 'b1')).toBeNull()
+})
+
+test('v5 refuses a v4 snapshot rather than hydrating tasks with no excludedDates', () => {
+  localStorage.setItem(
+    'ma-snapshot-board.b1',
+    JSON.stringify({
+      v: 4,
+      userId: 'u1',
+      boardId: 'b1',
+      savedAt: Date.now(),
+      tasks: [{ ...task('old'), recurSkip: [], recurOriginDay: null }],
+      templates: [],
+    }),
   )
   expect(readBoardSnapshot('u1', 'b1')).toBeNull()
 })
