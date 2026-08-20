@@ -12,6 +12,40 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.8] - 2026-08-20
+
+Two bug fixes in the same path: making an existing task repeat.
+
+### Fixed
+
+- **Making a task repeat no longer discards the work already done on it** (#206). Setting Repeat on
+  a task that was in **Doing**, had checklist items ticked, or sat in a particular position came
+  back as an untouched **To do** card at the end of its day, with every checklist item unticked.
+  Only the pin survived, there was no warning, and it could not be undone.
+- **Making an unscheduled task repeat no longer makes it disappear** (#209). Setting Repeat on an
+  Inbox task removed the card from the board and the Inbox and produced no occurrences at all — a
+  task that looked deleted, with no error. Save is now disabled until a day is picked; the warning
+  under the Repeat field has always said one was needed, but nothing enforced it.
+
+### Changed
+
+- Adding a Recurrence Rule now converts the task into the series' **first Occurrence** and creates
+  a separate hidden definition, rather than turning the task itself into the definition and
+  generating a replacement card. The visible difference is that the card in front of you is the
+  same card afterwards — same progress, same position.
+
+### Internal
+
+- The promotion is a `series.ts` plan (`planPromoteToSeries`) reached through `resolveSave`'s new
+  `promote-to-series` op, so it now sits with every other series decision instead of being a branch
+  inside `useTasks.updateTask`. It had no test of any kind before this.
+- The template and its first Occurrence are written in one batch: a definition with no Occurrence
+  is invisible and an Occurrence with no definition is orphaned, so a partial write of the two is
+  worse than neither.
+- The realtime reducer needed no change — it already handles the new shape — but its comment
+  claiming to mirror the old `updateTask` branch did, since that branch is now only what an older
+  build on another device does.
+
 ## [1.8.7] - 2026-08-19
 
 Internal rename with no user-visible behaviour change. The export file format is deliberately
@@ -2122,7 +2156,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.7...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.8...HEAD
+[1.8.8]: https://github.com/jwh3times/magic-agenda/compare/v1.8.7...v1.8.8
 [1.8.7]: https://github.com/jwh3times/magic-agenda/compare/v1.8.6...v1.8.7
 [1.8.6]: https://github.com/jwh3times/magic-agenda/compare/v1.8.5...v1.8.6
 [1.8.5]: https://github.com/jwh3times/magic-agenda/compare/v1.8.4...v1.8.5

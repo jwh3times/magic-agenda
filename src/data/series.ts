@@ -1,5 +1,5 @@
 import { addDays, parseDay, ymd } from '../lib/dates'
-import type { Task } from '../types/task'
+import { isTemplate, type Task } from '../types/task'
 import { occurrenceDateOf, isFromOccurrenceOnward, missingInstances } from './recurrence'
 
 /**
@@ -105,8 +105,10 @@ export type RecurScope = 'this' | 'future'
 
 export type SaveOp =
   | { kind: 'create'; task: Task }
-  /** A plain task (which `updateTask` promotes to a series if a rule was added). */
+  /** A standalone Task that stays standalone. */
   | { kind: 'update-plain'; task: Task }
+  /** A standalone Task that gained a Recurrence Rule and becomes a Recurring Series. */
+  | { kind: 'promote-to-series'; task: Task }
   /** One occurrence of a series: the rule is stripped so it never persists onto the instance. */
   | { kind: 'update-occurrence'; task: Task }
   | { kind: 'update-series-from'; instance: Task; draft: Task }
@@ -130,7 +132,12 @@ export function resolveSave(
   scope?: RecurScope,
 ): SaveOp {
   if (isNew) return { kind: 'create', task: draft }
-  if (!orig?.recurParentId) return { kind: 'update-plain', task: draft }
+  if (!orig?.recurParentId) {
+    // A Recurrence Rule on a Task that had no parent means the user just made it repeat.
+    return isTemplate(draft)
+      ? { kind: 'promote-to-series', task: draft }
+      : { kind: 'update-plain', task: draft }
+  }
   if (scope === 'future') return { kind: 'update-series-from', instance: orig, draft }
   return {
     kind: 'update-occurrence',
@@ -383,5 +390,66 @@ export function planDeleteSeriesFrom(state: SeriesState, instance: Task): Series
     ],
     markIds: [template.id, ...doomed.map((t) => t.id)],
     materialize: [],
+  }
+}
+
+/**
+ * Promote a standalone Task to a Recurring Series.
+ *
+ * The Task **keeps its row** and becomes the Series' first Occurrence; a new row becomes the
+ * hidden template. The obvious shape is the reverse — turn the row into the template in place and
+ * let materialization produce the first Occurrence — and that is what shipped until #206. It cost
+ * the user their work: `makeInstance` resets `status`, `done`, every checklist item's done-state,
+ * and `order`/`korder`, because it builds *future* Occurrences, where resetting is exactly right.
+ * The first Occurrence is not a future one. It is the card the user was already working on, and
+ * the cheapest way to preserve it is not to recreate it — which also keeps its id, so anything
+ * still holding a reference to that card is not left pointing at a row that has left the board.
+ *
+ * Requires a scheduled `day`: an unscheduled anchor produces no Occurrence Dates at all, so this
+ * would file the Task away as a template that materializes nothing (#209). `TaskEditor` will not
+ * let such a draft be saved.
+ */
+export function planPromoteToSeries(
+  state: SeriesState,
+  draft: Task,
+  nextId: () => string,
+): SeriesPlan {
+  const template: Task = {
+    ...draft,
+    id: nextId(),
+    // The template is a definition, not a card. Per-occurrence state is meaningless on it and
+    // would be misleading anywhere templates are read directly — the export file, for one.
+    // `makeInstance` resets these again when it builds each Occurrence; belt and braces is the
+    // right trade for a row no screen ever shows.
+    status: 'todo',
+    done: false,
+    checklist: draft.checklist.map((item) => ({ ...item, done: false })),
+    recurParentId: null,
+    excludedDates: [],
+    occurrenceDate: null,
+  }
+
+  const first: Task = {
+    ...draft,
+    recurFreq: 'none',
+    recurInterval: 1,
+    recurUntil: null,
+    recurParentId: template.id,
+    excludedDates: [],
+    occurrenceDate: draft.day,
+  }
+
+  return {
+    state: {
+      tasks: state.tasks.map((t) => (t.id === draft.id ? first : t)),
+      templates: [...state.templates, template],
+    },
+    // One batch, so the template and its first Occurrence land together or not at all — a template
+    // with no Occurrence is invisible, and an Occurrence with no template is orphaned.
+    upserts: [template, first],
+    upsertOnFailure: FATAL,
+    deletions: [],
+    markIds: [template.id, first.id],
+    materialize: [template],
   }
 }

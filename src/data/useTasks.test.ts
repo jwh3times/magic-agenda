@@ -518,3 +518,78 @@ test('deleting an id that is not on the board is a no-op, not a stray write', as
   expect(h.deleteEq).not.toHaveBeenCalled()
   expect(result.current.error).toBeNull()
 })
+
+test('adding a recurrence rule keeps the task in progress instead of resetting it', async () => {
+  const today = ymd(new Date())
+  h.capture.rows = [
+    serverRow({
+      id: 't1',
+      day: today,
+      status: 'doing',
+      order_index: 3,
+      korder: 7,
+      pinned: true,
+      checklist: [
+        { id: 'c1', text: 'step one', done: true },
+        { id: 'c2', text: 'step two', done: false },
+      ],
+    }),
+  ]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  const original = result.current.tasks.find((t) => t.id === 't1')!
+  await act(async () => {
+    await result.current.saveTask(original, { ...original, recurFreq: 'weekly' }, false)
+  })
+
+  // Until #206 this row became the hidden template and materialization built a replacement in its
+  // place — new id, status back to 'todo', checklist unticked, order 5000. The card the user was
+  // working on is now the series' first Occurrence, so none of that happens.
+  const first = result.current.tasks.find((t) => t.id === 't1')
+  expect(first).toBeDefined()
+  expect(first!.status).toBe('doing')
+  expect(first!.checklist.map((c) => c.done)).toEqual([true, false])
+  expect(first!.order).toBe(3)
+  expect(first!.korder).toBe(7)
+  expect(first!.occurrenceDate).toBe(today)
+  expect(first!.recurParentId).toBeTruthy()
+  expect(first!.recurFreq).toBe('none')
+
+  // Exactly one card on today, not the original plus a materialized duplicate.
+  expect(result.current.tasks.filter((t) => t.day === today)).toHaveLength(1)
+
+  // The template is hidden from the board but reachable, and holds the rule.
+  const template = result.current.getTemplate(first!.recurParentId!)
+  expect(template?.recurFreq).toBe('weekly')
+  expect(result.current.tasks.some((t) => t.id === template!.id)).toBe(false)
+  // Per-occurrence state never lands on a definition.
+  expect(template?.status).toBe('todo')
+  expect(template?.checklist.every((c) => !c.done)).toBe(true)
+})
+
+test('promotion writes the template and the first occurrence in one batch', async () => {
+  const today = ymd(new Date())
+  h.capture.rows = [serverRow({ id: 't1', day: today })]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  h.upsert.mockClear()
+
+  const original = result.current.tasks.find((t) => t.id === 't1')!
+  await act(async () => {
+    await result.current.saveTask(original, { ...original, recurFreq: 'weekly' }, false)
+  })
+
+  const rows = (h.upsert.mock.calls[0] as unknown as unknown[])[0] as {
+    id: string
+    recur_freq: string
+    recur_parent_id: string | null
+    recur_origin_day: string | null
+  }[]
+  expect(rows).toHaveLength(2)
+  const template = rows.find((r) => r.recur_freq === 'weekly')!
+  const first = rows.find((r) => r.id === 't1')!
+  expect(first.recur_parent_id).toBe(template.id)
+  expect(first.recur_origin_day).toBe(today)
+  expect(first.recur_freq).toBe('none')
+})

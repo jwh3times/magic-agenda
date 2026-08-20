@@ -606,8 +606,22 @@ That split is what made this subsystem testable. Before it, the three scope oper
 207-line block inside `useTasks` that **no test reached** — `deleteSeriesFuture`, the branchiest
 function in the data layer, had zero — while the cheap date maths in `recurrence.ts` had 22 tests.
 
-Three details worth keeping:
+Four details worth keeping:
 
+- **Promotion keeps the row and creates the template, not the other way round.** Adding a
+  Recurrence Rule to a standalone Task routes through `resolveSave` -> `planPromoteToSeries`: a
+  **new** row becomes the hidden template, and the existing row becomes the Series' first
+  Occurrence by pointing at it. The obvious shape is the reverse — turn the row into the template
+  in place and let materialization build the first Occurrence — and that is what shipped until
+  #206. It silently discarded the user's `status`, checklist done-state, and `order`/`korder`,
+  because `makeInstance` resets all of them: it builds _future_ Occurrences, where resetting is
+  exactly right. The first Occurrence is not a future one. Keeping the row also keeps its id, so
+  nothing still referencing that card is left pointing at a row that has left the board.
+- **A Recurrence Rule without a Scheduled Day is refused in the editor, not the data layer.** An
+  unscheduled anchor yields no Occurrence Dates at all (`missingInstanceDates` returns `[]` when
+  `!isScheduled(template.day)`), so saving one used to file the Task away as a template that
+  materialized nothing — the card left the board with no error (#209). `TaskEditor` gates Save on
+  it; the warning under the Repeat field had said so since long before it bound.
 - **Scope is always by Occurrence Date, never by the card's day.** `occurrenceDateOf` is what stops a
   dragged instance from being scoped wrongly, from resurrecting as a duplicate, or from
   false-triggering the whole-series branch of a delete.
