@@ -308,13 +308,26 @@ export function referencedSourceLabels(data: ImportBundle): ExportLabel[] {
 /**
  * Fresh ids for everything, preserving template↔instance links and checklist content. An instance
  * whose template is missing from the file becomes a plain Task.
+ *
+ * Checklist Step ids are remapped through **one** map for the whole bundle, not freshened per task.
+ * A Step keeps one identity across its Series (#214) — that shared id is what lets an all-future
+ * Checklist edit carry each Occurrence's Step Completion across — so minting per task would sever
+ * every imported Series' Steps from its Occurrences'. Two unrelated Tasks that shared a Step id in
+ * the file still share one afterwards, which is harmless: Steps are only ever reconciled between a
+ * Series and its own Occurrences.
  */
 export function remapIds(data: Pick<ImportBundle, 'tasks' | 'templates'>): {
   tasks: Task[]
   templates: Task[]
 } {
   const templateIdMap = new Map(data.templates.map((task) => [task.id, newId()]))
-  const freshChecklist = (list: ChecklistItem[]) => list.map((item) => ({ ...item, id: newId() }))
+  const stepIdMap = new Map<string, string>()
+  const freshChecklist = (list: ChecklistItem[]) =>
+    list.map((item) => {
+      const mapped = stepIdMap.get(item.id) ?? newId()
+      stepIdMap.set(item.id, mapped)
+      return { ...item, id: mapped }
+    })
   const templates = data.templates.map((task) => ({
     ...task,
     id: templateIdMap.get(task.id)!,

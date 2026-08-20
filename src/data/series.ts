@@ -1,6 +1,7 @@
 import { addDays, parseDay, ymd } from '../lib/dates'
 import { isTemplate, type Task } from '../types/task'
 import { occurrenceDateOf, isFromOccurrenceOnward, missingInstances } from './recurrence'
+import { reconcileSteps } from './checklistSteps'
 import {
   PER_OCCURRENCE_FIELDS,
   RULE_EDITABLE_FIELDS,
@@ -53,7 +54,11 @@ export function makeInstance(tmpl: Task, day: string, nextId: () => string): Tas
     description: tmpl.description,
     labelId: tmpl.labelId,
     color: tmpl.color,
-    checklist: tmpl.checklist.map((c) => ({ id: nextId(), text: c.text, done: false })),
+    // The Step **id is preserved**, not minted: a Step keeps one identity across its Series, which
+    // is what lets an all-future Checklist edit carry each Occurrence's Step Completion across
+    // instead of resetting it (#214). Only `done` resets — this builds a future Occurrence, which
+    // starts with nothing ticked.
+    checklist: tmpl.checklist.map((c) => ({ ...c, done: false })),
     status: 'todo',
     done: false,
     day,
@@ -258,9 +263,9 @@ export function planEditSeriesFrom(
   const nextTemplate: Task = {
     ...template,
     ...seriesContent(draft),
-    // Series Content, but copied only to the definition for now: propagating it to existing
-    // Occurrences has to reconcile Step Completion by Step identity first (#214).
-    checklist: draft.checklist,
+    // Unticked, like `status` above: Step Completion is Occurrence State, so a definition holds
+    // the Steps and never their progress.
+    checklist: draft.checklist.map((c) => ({ ...c, done: false })),
     ...pick(draft, RULE_EDITABLE_FIELDS),
   }
 
@@ -271,8 +276,23 @@ export function planEditSeriesFrom(
   // would be silently dropped on the very card the user was editing.
   const editedTasks = state.tasks.map((t) => {
     if (!affected(t)) return t
-    const withSeries = { ...t, ...seriesContent(draft) }
-    return t.id === draft.id ? { ...withSeries, ...occurrenceOwned(draft) } : withSeries
+    // The card in front of the user takes the draft outright — its own state, its own placement,
+    // and its own Checklist including whatever it has ticked right now. Reconciling it against the
+    // stored row instead would hand back the ticks the user just changed.
+    if (t.id === draft.id) {
+      return {
+        ...t,
+        ...seriesContent(draft),
+        ...occurrenceOwned(draft),
+        checklist: draft.checklist,
+      }
+    }
+    // Every other affected Occurrence keeps its own state, placement, and Step Completion.
+    return {
+      ...t,
+      ...seriesContent(draft),
+      checklist: reconcileSteps(draft.checklist, t.checklist),
+    }
   })
 
   // If the rule shortened, occurrences past the new end no longer exist.

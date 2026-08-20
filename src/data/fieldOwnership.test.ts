@@ -4,7 +4,7 @@ import {
   PER_OCCURRENCE_FIELDS,
   RULE_EDITABLE_FIELDS,
   RULE_UNEDITABLE,
-  SERIES_CONTENT_DEFERRED,
+  SERIES_CONTENT_RECONCILED,
   SERIES_CONTENT_FIELDS,
   pick,
 } from './fieldOwnership'
@@ -57,7 +57,7 @@ describe('derived scope lists', () => {
     ])
   })
 
-  it('series content excludes the checklist while #214 is open', () => {
+  it('series content excludes the checklist, which is reconciled rather than copied', () => {
     expect(sorted(SERIES_CONTENT_FIELDS)).toEqual([
       'atTime',
       'color',
@@ -67,8 +67,8 @@ describe('derived scope lists', () => {
     ])
   })
 
-  it('names exactly one deferred Series Content field, so the exception cannot grow quietly', () => {
-    expect(sorted(SERIES_CONTENT_DEFERRED)).toEqual(['checklist'])
+  it('names exactly one reconciled Series Content field, so the exception cannot grow quietly', () => {
+    expect(sorted(SERIES_CONTENT_RECONCILED)).toEqual(['checklist'])
   })
 
   it('rule fields an edit may carry exclude excludedDates', () => {
@@ -85,7 +85,7 @@ describe('derived scope lists', () => {
     const union = new Set([
       ...PER_OCCURRENCE_FIELDS,
       ...SERIES_CONTENT_FIELDS,
-      ...SERIES_CONTENT_DEFERRED,
+      ...SERIES_CONTENT_RECONCILED,
       ...RULE_EDITABLE_FIELDS,
       ...RULE_UNEDITABLE,
     ])
