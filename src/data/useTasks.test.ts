@@ -396,8 +396,13 @@ test('a thrown/rejected write rolls back the optimistic change and sets error, s
 
 test('a failing excludedDates write on deleteOccurrence still removes the occurrence locally and surfaces the error', async () => {
   const today = ymd(new Date())
+  // The Rule outlives this delete on purpose. Capped at `today` it would have exactly one
+  // Occurrence Date, so deleting `i1` spends it and `planDeleteOccurrence` drops the definition
+  // instead of writing an Excluded Date to it (#231) — leaving nothing for the rejection below to
+  // land on, and leaking the unconsumed `mockRejectedValueOnce` into the next test.
+  const until = ymd(addDays(parseDay(today), 2))
   h.capture.rows = [
-    serverRow({ id: 'tpl1', recur_freq: 'daily', day: today, recur_until: today }),
+    serverRow({ id: 'tpl1', recur_freq: 'daily', day: today, recur_until: until }),
     serverRow({ id: 'i1', recur_parent_id: 'tpl1', recur_origin_day: today, day: today }),
   ]
   const { result } = renderHook(() => useTasks('u1', 'b1', true))
@@ -417,6 +422,34 @@ test('a failing excludedDates write on deleteOccurrence still removes the occurr
   expect(result.current.tasks.find((t) => t.id === 'i1')).toBeUndefined()
   // ...and the failure is now surfaced instead of failing silently.
   expect(result.current.error).toBe('skip write failed')
+})
+
+// #231 through the real hook. The planner tests cover the decision; this covers the wiring, since
+// it is the first `deleteTask(_, 'this')` plan whose deletion targets the definition row rather
+// than the Occurrence, and lets the database cascade take the Occurrence with it.
+test('deleting the last occurrence of a spent repeat deletes the definition, not the occurrence', async () => {
+  const today = ymd(new Date())
+  h.capture.rows = [
+    serverRow({ id: 'tpl1', recur_freq: 'daily', day: today, recur_until: today }),
+    serverRow({ id: 'i1', recur_parent_id: 'tpl1', recur_origin_day: today, day: today }),
+  ]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  h.deleteEq.mockClear()
+  h.upsert.mockClear()
+
+  const instance = result.current.tasks.find((t) => t.id === 'i1')!
+  await act(async () => {
+    await result.current.deleteTask(instance.id, 'this')
+  })
+
+  expect(result.current.tasks.find((t) => t.id === 'i1')).toBeUndefined()
+  expect(result.current.error).toBeNull()
+  // One delete, aimed at the definition — the cascade removes 'i1'.
+  expect(h.deleteEq).toHaveBeenCalledTimes(1)
+  expect(h.deleteEq).toHaveBeenCalledWith('id', 'tpl1')
+  // No Excluded Date written to a row that is going away.
+  expect(h.upsert).not.toHaveBeenCalled()
 })
 
 test('a failing trim-delete on updateSeries still materializes the widened window and surfaces the error', async () => {

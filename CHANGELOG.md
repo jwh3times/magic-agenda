@@ -12,6 +12,27 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.22] - 2026-08-21
+
+### Fixed
+
+- **Deleting the last occurrence of a repeat that has already been cut short no longer leaves an
+  invisible leftover behind** (#231). Two ordinary steps reached it: cut a repeating task short
+  with "This and all future", then delete the single occurrence that remains. The repeat itself was
+  kept — it is hidden from the board, so nothing looked wrong — even though it now owned nothing
+  and could never produce another occurrence again. It stayed in the account and was written into
+  every backup. The repeat is now removed along with its last occurrence.
+
+  This is the same leftover [1.8.20](#1820---2026-08-21) fixed, reached by a path that fix did not
+  cover, and the test for it has to be a different one. "Owns no occurrences" is not enough on its
+  own: deleting the only occurrence of a repeat that is still running is perfectly normal, and the
+  next one is created as usual. A repeat is only removed when it has an end date and every day it
+  would ever land on has already been deleted — so a repeat with no end date, or with days still to
+  come, is always left alone.
+
+  Repeats already left behind in existing accounts are still left as they are, unchanged from
+  1.8.20. Both fixes stop new ones appearing rather than sweeping up old ones.
+
 ## [1.8.21] - 2026-08-21
 
 ### Changed
@@ -2408,7 +2429,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.21...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.22...HEAD
+[1.8.22]: https://github.com/jwh3times/magic-agenda/compare/v1.8.21...v1.8.22
 [1.8.21]: https://github.com/jwh3times/magic-agenda/compare/v1.8.20...v1.8.21
 [1.8.20]: https://github.com/jwh3times/magic-agenda/compare/v1.8.19...v1.8.20
 [1.8.19]: https://github.com/jwh3times/magic-agenda/compare/v1.8.18...v1.8.19

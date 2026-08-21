@@ -10,7 +10,12 @@ import {
   type Task,
   type TaskDraft,
 } from '../types/task'
-import { occurrenceDateOf, isFromOccurrenceOnward, missingInstances } from './recurrence'
+import {
+  occurrenceDateOf,
+  isFromOccurrenceOnward,
+  missingInstances,
+  occurrenceDates,
+} from './recurrence'
 import { reconcileSteps } from './checklistSteps'
 import {
   PER_OCCURRENCE_FIELDS,
@@ -398,6 +403,14 @@ export function planEditSeriesFrom(
  *
  * The Excluded Date recorded is the **Occurrence Date**, not the possibly-moved Scheduled Day.
  * Without a template (a legacy or orphaned instance) this degrades to a plain delete.
+ *
+ * If that exclusion spends the Rule — leaving a definition that owns nothing and can never produce
+ * anything again — the definition goes too (#231). Recording the exclusion and stopping there is
+ * what left one behind: a bounded Series trimmed by `planDeleteSeriesFrom` down to a single
+ * Occurrence, then deleted here, kept a valid `SeriesDefinition` that `useTasks` correctly hides
+ * from the board, `missingInstanceDates` returns `[]` for, and `exportBoard` writes into every
+ * backup. Nothing rendered wrong and nothing threw; the row simply stopped meaning anything. The
+ * test is `ruleIsSpent`, and it is deliberately not `noOccurrenceSurvives` — see there for why.
  */
 export function planDeleteOccurrence(state: SeriesState, instance: Task): SeriesPlan {
   const template = state.templates.find((t) => t.id === instance.recurParentId)
@@ -418,6 +431,29 @@ export function planDeleteOccurrence(state: SeriesState, instance: Task): Series
   const nextTemplate: SeriesDefinition = {
     ...template,
     excludedDates: [...template.excludedDates, occurrenceDateOf(instance)],
+  }
+
+  // Tested against the state this delete *produces*, not the current one: the exclusion being
+  // recorded here is usually the very one that empties the Rule.
+  //
+  // The second clause is redundant on paper — an exclusion is only ever recorded by this function,
+  // which deletes the row in the same breath, so a spent Rule cannot have a surviving Occurrence.
+  // It stays because the branch it guards deletes the definition, and that cascades to every
+  // Occurrence row **in the database**, including any this client never loaded. Same precondition
+  // as `noOccurrenceSurvives`: `state.tasks` must be the whole board. Redundant-but-defensive is
+  // the right trade when the failure mode is deleting rows the user can still see.
+  if (ruleIsSpent(nextTemplate) && !tasks.some((t) => t.recurParentId === template.id)) {
+    return {
+      state: { tasks, templates: state.templates.filter((t) => t.id !== template.id) },
+      // No point recording an Excluded Date on a row that is about to go.
+      upserts: [],
+      upsertOnFailure: BEST_EFFORT,
+      // Deleting the definition cascades to the Occurrence being deleted, so one deletion covers
+      // both rows — but both ids are still ours, and the echo of either must be suppressed.
+      deletions: [{ target: { by: 'id', id: template.id }, onFailure: RESYNC }],
+      markIds: [template.id, instance.id],
+      materialize: [],
+    }
   }
 
   return {
@@ -479,6 +515,54 @@ function noOccurrenceSurvives(
   cut: string,
 ): boolean {
   return !state.tasks.some((t) => t.recurParentId === template.id && occurrenceDateOf(t) < cut)
+}
+
+/**
+ * True when `template`'s Recurrence Rule can never produce another Occurrence Date — every date it
+ * would ever yield is already an Excluded Date.
+ *
+ * This is **not** `noOccurrenceSurvives`, and reusing that one here is the mistake worth naming
+ * (#231). It answers "does any Occurrence survive this **cut**", and a single-Occurrence delete has
+ * no cut. Nor is "the Series owns no Occurrences" sufficient on its own: deleting the only
+ * materialized Occurrence of a *live* Series is ordinary, and materialization creates the next one.
+ * A definition may only go when the Rule can produce nothing **more**.
+ *
+ * That question has a **clock-free** answer, which is what lets it live in a planner that takes no
+ * `today`: an unbounded Rule always produces more, so the Rule is spent only when it is bounded and
+ * its whole window is excluded. Walking `[day, recurUntil]` is therefore the entire test. The
+ * unbounded early return is load-bearing and cannot be dropped silently: `recurUntil` is
+ * `string | null` and `occurrenceDates`' `horizonEnd` is `string`, so removing it is a type error
+ * rather than a test failure.
+ *
+ * The walk looks proportional to the Rule's window and is not: this can only return `true` when
+ * every date in the window is excluded, so it is bounded by `excludedDates.length + 1` and a Rule
+ * capped years out exits on its first unexcluded date.
+ *
+ * **Deliberately partial.** A Rule dead by *clock* rather than by exclusion — capped in the past,
+ * its Occurrence Dates never materialized because the window starts at today (#210) — is not spent
+ * by this test, since its dates carry no exclusions. Catching that needs a `today`, and giving this
+ * predicate one to catch a case that is narrow in practice (a Series that merely expires keeps its
+ * past Occurrence rows, so it still owns something) is a bad trade for the property above.
+ *
+ * An unscheduled anchor with a bound reports `true`. It terminates at once — `parseDay('inbox')` is
+ * an invalid date whose `ymd` sorts past any end — and deleting such a definition is right anyway:
+ * it yields no Occurrence Dates at all (`missingInstanceDates` returns `[]` for one, and
+ * `TaskEditor` has refused to save one since #209). It is also unreachable from the one caller,
+ * which needs an Occurrence to delete and such a Series has none. Documented rather than guarded.
+ */
+function ruleIsSpent(template: SeriesDefinition): boolean {
+  if (template.recurUntil === null) return false
+  return (
+    occurrenceDates(
+      template.recurFreq,
+      template.recurInterval,
+      template.day,
+      template.recurUntil,
+      template.day,
+      template.recurUntil,
+      template.excludedDates,
+    ).length === 0
+  )
 }
 
 /**

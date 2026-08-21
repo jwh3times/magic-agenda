@@ -79,6 +79,11 @@ function editing(occurrence: Task, over: Partial<TaskDraft> = {}): TaskDraft {
 }
 
 const ids = (tasks: readonly Task[]) => tasks.map((x) => x.id)
+
+/** `series()` with its definition overridden — for the Rule fields the fixture does not take. */
+function withTemplate(s: ReturnType<typeof series>, over: Partial<TaskDraft>) {
+  return { ...s, templates: [def('tmpl', { day: '2026-07-01', title: 'Standup', ...over })] }
+}
 let counter = 0
 const nextId = () => `gen-${++counter}`
 
@@ -554,6 +559,64 @@ describe('planDeleteOccurrence', () => {
     expect(plan.deletions).toEqual([
       { target: { by: 'id', id: 'i2' }, onFailure: { abort: false, recover: 'rollback' } },
     ])
+  })
+
+  // #231. The Series is capped and this is its last Occurrence, so recording an Excluded Date and
+  // stopping there would leave a definition owning nothing that can never produce anything again.
+  it('removes the definition when this delete spends the rule', () => {
+    const s = withTemplate(series(), { recurUntil: '2026-07-07' })
+    const last = { ...s, tasks: [s.tasks[0]] }
+
+    const plan = planDeleteOccurrence(last, last.tasks[0])
+
+    expect(plan.state.tasks).toEqual([])
+    expect(plan.state.templates).toEqual([])
+    // Nothing to write: the row carrying the Excluded Date is the row being deleted.
+    expect(plan.upserts).toEqual([])
+    // One deletion covers both rows — the database cascade takes the Occurrence with its parent.
+    expect(plan.deletions).toEqual([
+      { target: { by: 'id', id: 'tmpl' }, onFailure: { abort: false, recover: 'reload' } },
+    ])
+    // Both ids are still ours, so both echoes must be suppressed.
+    expect(plan.markIds).toEqual(['tmpl', 'i1'])
+  })
+
+  it('leaves an unbounded series alone when its last materialized occurrence goes', () => {
+    // Ordinary: materialization creates the next one. "Owns no Occurrences" is not "is spent".
+    const s = series()
+    const plan = planDeleteOccurrence({ ...s, tasks: [s.tasks[0]] }, s.tasks[0])
+
+    expect(plan.state.templates).toHaveLength(1)
+    expect(plan.state.templates[0].excludedDates).toEqual(['2026-07-01'])
+    expect(plan.upserts).toEqual([plan.state.templates[0]])
+  })
+
+  it('leaves a bounded series alone while its rule still has dates to come', () => {
+    const s = withTemplate(series(), { recurUntil: '2026-07-31' })
+    const plan = planDeleteOccurrence({ ...s, tasks: [s.tasks[0]] }, s.tasks[0])
+
+    expect(plan.state.templates).toHaveLength(1)
+    expect(plan.state.templates[0].excludedDates).toEqual(['2026-07-01'])
+  })
+
+  it('keeps the definition while any occurrence of it survives locally', () => {
+    // The spent-rule test is redundant with this one on paper, but the branch it guards cascades
+    // to rows in the database — including any this client never loaded.
+    const s = withTemplate(series(), { recurUntil: '2026-07-07', excludedDates: ['2026-07-01'] })
+    const plan = planDeleteOccurrence({ ...s, tasks: [s.tasks[0], s.tasks[1]] }, s.tasks[0])
+
+    expect(plan.state.templates).toHaveLength(1)
+  })
+
+  it('trimming to one occurrence and then deleting it leaves nothing behind (#231 end to end)', () => {
+    const s = series()
+    const trimmed = planDeleteSeriesFrom(s, s.tasks[1]).state
+    expect(ids(trimmed.tasks)).toEqual(['i1'])
+    expect(trimmed.templates[0].recurUntil).toEqual('2026-07-07')
+
+    const after = planDeleteOccurrence(trimmed, trimmed.tasks[0]).state
+    expect(after.tasks).toEqual([])
+    expect(after.templates).toEqual([])
   })
 })
 
