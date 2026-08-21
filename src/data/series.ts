@@ -158,6 +158,32 @@ export type DeleteOp =
   | { kind: 'delete-series-from'; instance: Task }
 
 /**
+ * True when an all-future save would **end** the Series rather than edit it — the user cleared the
+ * Repeat control on a draft that was showing a Rule.
+ *
+ * Exported because two callers must agree on it. `resolveSave` routes on it to pick
+ * `planEndSeriesAt`, which deletes every later Occurrence (or the definition itself, at the
+ * anchor); `ScopePrompt` reads it to say so before the user commits, since the card they are
+ * looking at survives either way and the rows that disappear are the ones off-screen (#229). A
+ * second, independently-worded copy of this test is how the warning and the behaviour drift apart.
+ *
+ * **Both halves are required.** A rule-less draft has two readings, and only one of them is a
+ * removal: `Board.openTask` merges the Series' Rule onto the draft *only if it finds the
+ * definition*, so a lookup that missed produces a draft indistinguishable from one the user
+ * cleared. Testing `draft` alone therefore routes a plain rename to a plan that deletes rows — and
+ * the definition can be absent when the editor opens and present when Save fires, since the
+ * realtime reducer adds one on a definition-shaped UPDATE. `orig` is what seeds the Repeat control,
+ * so a Rule the user could have removed is always visible there; requiring it means the
+ * never-merged case falls back to the behaviour it had before this branch existed.
+ *
+ * Shortening a Rule (`recurUntil` moved earlier) also deletes Occurrences and is deliberately
+ * **not** covered: #229 chose to warn about removal only, leaving the trim as it has always been.
+ */
+export function removesRule(orig: TaskDraft, draft: TaskDraft): boolean {
+  return draft.recurFreq === 'none' && orig.recurFreq !== 'none'
+}
+
+/**
  * Turns an editor result into the operation to perform.
  *
  * This was a four-branch ternary in `Board.handleSave`, which meant the UI shell had to know that
@@ -178,19 +204,9 @@ export function resolveSave(
       : { kind: 'update-plain', task: asTask(draft) }
   }
   if (scope === 'future') {
-    // Removing the Rule is not an edit *to* the Rule, and routing it as one was #220: the draft's
-    // `recurFreq: 'none'` was copied onto the definition, leaving a hidden row that materialized
-    // nothing and was no longer reachable as a Series. It ends the Series instead.
-    //
-    // **Both halves are required.** A rule-less draft has two readings, and only one of them is a
-    // removal: `Board.openTask` merges the Series' Rule onto the draft *only if it finds the
-    // definition*, so a lookup that missed produces a draft indistinguishable from one the user
-    // cleared. Testing `draft` alone therefore routes a plain rename to a plan that deletes rows —
-    // and the definition can be absent when the editor opens and present when Save fires, since
-    // the realtime reducer adds one on a definition-shaped UPDATE. `orig` is what seeds the Repeat
-    // control, so a Rule the user could have removed is always visible there; requiring it means
-    // the never-merged case falls back to the behaviour it had before this branch existed.
-    return draft.recurFreq === 'none' && orig.recurFreq !== 'none'
+    // Removing the Rule is not an edit *to* the Rule, and routing it as one was #220. See
+    // `removesRule` for why the question is asked of both drafts rather than of `draft` alone.
+    return removesRule(orig, draft)
       ? { kind: 'end-series-at', instance: orig, draft }
       : { kind: 'update-series-from', instance: orig, draft }
   }

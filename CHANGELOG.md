@@ -12,6 +12,22 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.21] - 2026-08-21
+
+### Changed
+
+- **The repeating-task prompt now says when "This and all future" will remove later occurrences**
+  (#229). Turning off Repeat on a repeating task and choosing that option ends the repeat: every
+  later occurrence is deleted, and at the repeat's first occurrence the whole thing goes. The
+  prompt still described that as applying an edit, and styled the button as the ordinary, safe
+  choice. The card being edited survives either way, so everything that disappeared was off-screen
+  and nothing said so afterwards. Clearing Repeat now gets explicit copy: the task will stop
+  repeating, and later occurrences will be removed.
+
+  Every other repeating save is unchanged — the wording only differs when the repeat is actually
+  being turned off. Shortening a repeat by moving its end date earlier also removes occurrences and
+  is deliberately left as it was, rather than adding a warning to every save.
+
 ## [1.8.20] - 2026-08-21
 
 ### Fixed
@@ -2392,7 +2408,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.20...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.21...HEAD
+[1.8.21]: https://github.com/jwh3times/magic-agenda/compare/v1.8.20...v1.8.21
 [1.8.20]: https://github.com/jwh3times/magic-agenda/compare/v1.8.19...v1.8.20
 [1.8.19]: https://github.com/jwh3times/magic-agenda/compare/v1.8.18...v1.8.19
 [1.8.18]: https://github.com/jwh3times/magic-agenda/compare/v1.8.17...v1.8.18

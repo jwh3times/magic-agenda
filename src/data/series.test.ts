@@ -8,6 +8,7 @@ import {
   planEditSeriesFrom,
   planEndSeriesAt,
   planPromoteToSeries,
+  removesRule,
   resolveDelete,
   resolveSave,
 } from './series'
@@ -248,6 +249,47 @@ describe('resolveSave', () => {
   it('treats a missing scope on an instance as "this occurrence"', () => {
     // The editor emits `undefined` rather than 'this' when no prompt was shown.
     expect(resolveSave(instance, t('i1'), false).kind).toBe('update-occurrence')
+  })
+})
+
+describe('removesRule', () => {
+  const instance = t('i1', { recurParentId: 'tmpl', occurrenceDate: '2026-07-08' })
+  const withRule: TaskDraft = { ...instance, recurFreq: 'weekly', recurInterval: 1 }
+
+  it('is true when the draft cleared a Rule the editor showed', () => {
+    expect(removesRule(withRule, { ...withRule, recurFreq: 'none' })).toBe(true)
+  })
+
+  it('is false when the editor never had a Rule to show', () => {
+    // `Board.openTask` merges the Series' Rule on only if it finds the definition, so a lookup
+    // that missed yields a rule-less draft the user never touched the Repeat control in. Both
+    // halves of the predicate are required for the same reason `resolveSave` needs them (#220).
+    const orig: TaskDraft = { ...instance, recurFreq: 'none' }
+    expect(removesRule(orig, { ...orig, title: 'Renamed' })).toBe(false)
+  })
+
+  it('is false when the draft keeps the Rule', () => {
+    expect(removesRule(withRule, { ...withRule, title: 'Renamed' })).toBe(false)
+  })
+
+  it('is false when the Rule is merely shortened', () => {
+    // Moving `recurUntil` earlier trims Occurrences too, and has since long before #220. #229
+    // deliberately scoped the warning to removal rather than to every deleting save.
+    expect(removesRule(withRule, { ...withRule, recurUntil: '2026-07-08' })).toBe(false)
+  })
+
+  it('agrees with the plan `resolveSave` routes to', () => {
+    // The reason it is exported rather than inlined twice: the prompt promises removal exactly
+    // when `end-series-at` runs, and two readings of one question would drift apart silently.
+    const drafts: TaskDraft[] = [
+      { ...withRule, recurFreq: 'none' },
+      { ...withRule, title: 'Renamed' },
+      { ...withRule, recurUntil: '2026-07-08' },
+    ]
+    for (const draft of drafts) {
+      const ends = resolveSave(withRule, draft, false, 'future').kind === 'end-series-at'
+      expect(removesRule(withRule, draft)).toBe(ends)
+    }
   })
 })
 
