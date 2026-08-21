@@ -12,6 +12,31 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.20] - 2026-08-21
+
+### Fixed
+
+- **Trimming a repeating task no longer leaves an invisible definition behind that can never
+  produce anything** (#228). Both ways of cutting a repeat short — deleting from an occurrence
+  onward, and turning off Repeat with "This and all future" — decided whether any repeat survived
+  the cut by asking whether the cut landed on the repeat's own starting day. That is a different
+  question from whether any occurrence is left before it: occurrences deleted one at a time are
+  remembered so they are never regenerated, so a repeat whose earlier occurrences had each been
+  deleted individually could be trimmed down to a rule that yields nothing, while the old test
+  still reported a survivor. What was left was a hidden row that produced no occurrences, owned
+  none, and could never do either again — invisible on the board, but written into every export
+  and faithfully restored on import. Both paths now count the surviving occurrences instead, and
+  delete the definition when there are none.
+
+  This also fixes a second, less obvious source of the same rows: since occurrences are only
+  created from today forward, a long-running repeat whose earliest occurrences were never created
+  has nothing surviving before a present-day cut either — and the old test counted that as a
+  survivor too.
+
+  Definitions already orphaned this way are left as they are: nothing reads them, and sweeping
+  them was judged not worth the cost. Deleting the _last_ remaining occurrence of an
+  already-shortened repeat is a separate path to the same shape and is not covered here (#231).
+
 ## [1.8.19] - 2026-08-21
 
 ### Internal
@@ -2367,7 +2392,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.19...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.20...HEAD
+[1.8.20]: https://github.com/jwh3times/magic-agenda/compare/v1.8.19...v1.8.20
 [1.8.19]: https://github.com/jwh3times/magic-agenda/compare/v1.8.18...v1.8.19
 [1.8.18]: https://github.com/jwh3times/magic-agenda/compare/v1.8.17...v1.8.18
 [1.8.17]: https://github.com/jwh3times/magic-agenda/compare/v1.8.16...v1.8.17
