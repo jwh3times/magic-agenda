@@ -12,6 +12,18 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.16] - 2026-08-21
+
+### Internal
+
+- The `end-session` skill no longer lists `supabase/.temp/` as safe to delete (#224). That
+  directory is the Supabase CLI's link state, not scratch — deleting it unlinks the project, and
+  every `--linked` command then fails until someone re-runs `npx supabase link`, which needs the
+  database password. Only `supabase/.temp/pgdelta/` (a regenerable schema-diff cache) stays on the
+  safe list; the rest of the directory, with `supabase/.branches/`, moves to the never-delete table
+  with the reason stated. `*.tsbuildinfo` is also demoted from "safe to delete" to "leave alone" —
+  removing it buys ~nothing and makes the next `tsc -b` a full rebuild.
+
 ## [1.8.15] - 2026-08-20
 
 ### Internal
@@ -2293,7 +2305,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.15...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.16...HEAD
+[1.8.16]: https://github.com/jwh3times/magic-agenda/compare/v1.8.15...v1.8.16
 [1.8.15]: https://github.com/jwh3times/magic-agenda/compare/v1.8.14...v1.8.15
 [1.8.14]: https://github.com/jwh3times/magic-agenda/compare/v1.8.13...v1.8.14
 [1.8.13]: https://github.com/jwh3times/magic-agenda/compare/v1.8.12...v1.8.13
