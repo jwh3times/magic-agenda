@@ -1,6 +1,6 @@
 import { isScheduled } from '../lib/dates'
 import { PER_OCCURRENCE_FIELDS } from './fieldOwnership'
-import type { Task } from '../types/task'
+import { type TaskDraft } from '../types/task'
 import type { RecurScope } from './series'
 
 /**
@@ -27,8 +27,8 @@ import type { RecurScope } from './series'
  * is **fail-safe**: it over-reports a change, which over-shows the scope prompt, and never
  * suppresses one that was needed.
  */
-export function changedTaskKeys(a: Task, b: Task): (keyof Task)[] {
-  return (Object.keys(b) as (keyof Task)[]).filter((key) => {
+export function changedTaskKeys(a: TaskDraft, b: TaskDraft): (keyof TaskDraft)[] {
+  return (Object.keys(b) as (keyof TaskDraft)[]).filter((key) => {
     if (key === 'done') return false
     const av = a[key]
     const bv = b[key]
@@ -43,12 +43,20 @@ export function changedTaskKeys(a: Task, b: Task): (keyof Task)[] {
  *
  * The set comes from `FIELD_OWNER` rather than a list kept here; see `fieldOwnership.ts`.
  */
-export function onlyPerOccurrenceChanged(original: Task, next: Task): boolean {
+export function onlyPerOccurrenceChanged(original: TaskDraft, next: TaskDraft): boolean {
   return changedTaskKeys(original, next).every((key) => PER_OCCURRENCE_FIELDS.has(key))
 }
 
-/** Normalizes a draft into the task that would actually be saved. */
-export function cleanDraft(draft: Task): Task {
+/**
+ * Normalizes a draft into what would actually be saved — still a `TaskDraft`, deliberately.
+ *
+ * It must **not** narrow to a `Task` here. An Occurrence's draft legitimately carries its parent
+ * *and* its Series' Rule, because that Rule is what the Repeat controls edit; running it through
+ * `asTask` at this point reads it as an Occurrence and forces `recurFreq` back to `'none'`, which
+ * silently discards every all-future Rule change. Narrowing happens per branch in `resolveSave`,
+ * once the scope says which shape the result is.
+ */
+export function cleanDraft(draft: TaskDraft): TaskDraft {
   return {
     ...draft,
     title: draft.title.trim(),
@@ -62,7 +70,7 @@ export type SaveIntent =
   /** The title is empty; Save does nothing. */
   | { kind: 'blocked' }
   /** Apply immediately. */
-  | { kind: 'save'; task: Task; scope?: RecurScope }
+  | { kind: 'save'; task: TaskDraft; scope?: RecurScope }
   /** A recurring instance with series content changed — ask this-occurrence vs all-future first. */
   | { kind: 'ask' }
 
@@ -75,7 +83,7 @@ export type SaveIntent =
  * defends against `undefined` — that default is tested — but nothing produces it for an instance
  * any more.
  */
-export function intendSave(initial: Task, draft: Task, isNew: boolean): SaveIntent {
+export function intendSave(initial: TaskDraft, draft: TaskDraft, isNew: boolean): SaveIntent {
   const task = cleanDraft(draft)
   if (task.title.length === 0) return { kind: 'blocked' }
   // `draft.recurParentId` rather than `initial`'s: the draft is what is about to be saved.
@@ -104,7 +112,7 @@ export type DeleteIntent = { kind: 'delete'; id: string } | { kind: 'ask' }
  *
  * `recurParentId` is not editable, so reading it off the draft or the original is the same test.
  */
-export function intendDelete(task: Task, isNew: boolean): DeleteIntent {
+export function intendDelete(task: TaskDraft, isNew: boolean): DeleteIntent {
   if (!isNew && task.recurParentId) return { kind: 'ask' }
   return { kind: 'delete', id: task.id }
 }

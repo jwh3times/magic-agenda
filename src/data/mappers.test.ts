@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { rowToTask, taskToRow, parseChecklist } from './mappers'
-import { NO_RECUR, type Task } from '../types/task'
+import { asTask, NO_RECUR, type Task, type TaskDraft } from '../types/task'
 import type { Database } from '../types/database.types'
 
 type TaskRow = Database['public']['Tables']['tasks']['Row']
@@ -37,8 +37,8 @@ function row(over: Partial<TaskRow> = {}): TaskRow {
   }
 }
 
-function task(over: Partial<Task> = {}): Task {
-  return {
+function task(over: Partial<TaskDraft> = {}): Task {
+  return asTask({
     id: 't1',
     title: 'T',
     description: 'D',
@@ -54,7 +54,7 @@ function task(over: Partial<Task> = {}): Task {
     korder: 0,
     ...NO_RECUR,
     ...over,
-  }
+  })
 }
 
 describe('parseChecklist', () => {
@@ -87,9 +87,24 @@ describe('rowToTask', () => {
     expect(t.order).toBe(5)
     expect(t.korder).toBe(3)
   })
-  it('maps recur_origin_day -> occurrenceDate (null for non-instances)', () => {
-    expect(rowToTask(row({ recur_origin_day: '2026-07-01' })).occurrenceDate).toBe('2026-07-01')
+  it('maps recur_origin_day -> occurrenceDate for an Occurrence', () => {
+    const occurrence = rowToTask(row({ recur_parent_id: 'tmpl-1', recur_origin_day: '2026-07-01' }))
+    expect(occurrence.occurrenceDate).toBe('2026-07-01')
+    expect(occurrence.recurParentId).toBe('tmpl-1')
+  })
+
+  it('reads a row with no parent as standalone, whatever recur_origin_day says', () => {
+    // An Occurrence Date only means something inside a Series. A parentless row carrying one is
+    // not an Occurrence, so `asTask` reads it as standalone rather than inventing a Series for it.
+    // `20260813210200` detached exactly these rows in production for the same reason.
+    expect(rowToTask(row({ recur_origin_day: '2026-07-01' })).occurrenceDate).toBeNull()
     expect(rowToTask(row({ recur_origin_day: null })).occurrenceDate).toBeNull()
+  })
+
+  it('reads a parented row with no Occurrence Date as standalone, not a broken Occurrence', () => {
+    const orphan = rowToTask(row({ recur_parent_id: 'tmpl-1', recur_origin_day: null }))
+    expect(orphan.recurParentId).toBeNull()
+    expect(orphan.occurrenceDate).toBeNull()
   })
   it('maps the optional label relationship', () => {
     const labeled = rowToTask(row({ label_id: 'label-1' }))
@@ -122,9 +137,10 @@ describe('taskToRow', () => {
     expect('done' in r).toBe(false)
   })
   it('maps occurrenceDate -> recur_origin_day', () => {
-    expect(taskToRow(task({ occurrenceDate: '2026-07-01' }), 'b1').recur_origin_day).toBe(
-      '2026-07-01',
-    )
+    expect(
+      taskToRow(task({ recurParentId: 'tmpl-1', occurrenceDate: '2026-07-01' }), 'b1')
+        .recur_origin_day,
+    ).toBe('2026-07-01')
     expect(taskToRow(task({ occurrenceDate: null }), 'b1').recur_origin_day).toBeNull()
   })
   it('writes an explicit nullable label assignment without writing legacy Category', () => {

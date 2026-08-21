@@ -662,6 +662,39 @@ Six details worth keeping:
 used to live in the UI shell — including the rule-stripping on the this-occurrence path, enforced by
 nothing but a comment — are `resolveSave` / `resolveDelete`.
 
+**`Task` is a discriminated union of the three shapes, narrowed at the database boundary.** #205
+replaced the flat interface with `StandaloneTask | SeriesDefinition | Occurrence` over a shared
+`TaskBase`, plus `BoardCard` (the two that can appear on a Board). The payoff is
+`Occurrence.occurrenceDate: string` — non-null — so the `?? day` fallback covers a state the type
+no longer admits. `asTask()` is the **one** place a flat row becomes a shape, and `rowToTask`,
+the file parser, and every test factory funnel through it.
+
+Four things about it are load-bearing:
+
+- **A parented row with no Occurrence Date is read as standalone**, not as a broken Occurrence.
+  That is not new policy — `20260813210200` detached exactly those rows in production for the same
+  reason — and `tasks_occurrence_has_date` now stops more being written. The constraint matters
+  more than it looks: `tasks_recur_instance_uniq` is _partial_ on `recur_parent_id`, and NULLs are
+  distinct in a unique index, so such a row was not constrained by it **at all**.
+- **`TaskDraft` is the editor's shape and is deliberately not a `Task`.** `Board.openTask` merges
+  the Series' Rule onto an Occurrence so the Repeat controls have something to edit, producing a
+  row that names a parent _and_ carries a Rule — which no Task does. It was typed as `Task`, which
+  simply asserted something untrue.
+- **`cleanDraft` must not narrow.** Running the draft through `asTask` there reads it as an
+  Occurrence and forces `recurFreq` back to `'none'`, silently discarding every all-future Rule
+  change. Narrowing happens per branch in `resolveSave`, once the scope says which shape results.
+  A `useTasks` test caught this; it is the sharpest edge in the union.
+- **`SeriesState.templates` is still `readonly Task[]`, not `SeriesDefinition[]`.** Narrowing it is
+  a compile error today, and the error is real: removing a Recurrence Rule and choosing all-future
+  writes `recurFreq: 'none'` onto the definition, leaving a hidden row that materializes nothing
+  (#220). Deciding what that should do is a product question, so the type stays wide until it is
+  answered rather than having an answer smuggled in.
+
+Spreading a union member and overriding a recurrence field yields a shape matching no member, so
+construction sites either state the target shape (`asOccurrence`, `asSeriesDefinition`) or funnel
+through `asTask`. That friction is the type doing its job: it is exactly the set of places that
+were previously free to invent a combination the domain does not have.
+
 **`src/data/editIntent.ts` is the editor's half of the same split.** `series.ts` decides _which
 occurrences_ an operation touches; `editIntent.ts` decides _whether the editor may proceed at all_
 and _whether it has to ask first_ — `cleanDraft`, `changedTaskKeys`, `onlyPerOccurrenceChanged`,

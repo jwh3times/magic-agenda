@@ -3,13 +3,13 @@ import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import { ThemeProvider } from '../theme/ThemeProvider'
 import { TaskEditor } from './TaskEditor'
-import { NO_RECUR, type Task } from '../types/task'
+import { asTask, NO_RECUR, type Task, type TaskDraft } from '../types/task'
 import type { ReactNode } from 'react'
 import { LabelDirectoryContext } from '../labels/labelDirectoryContext'
 import { fakeLabelDirectory } from '../labels/fakeLabelDirectory'
 
-function mkInstance(over: Partial<Task> = {}): Task {
-  return {
+function mkInstance(over: Partial<TaskDraft> = {}): Task {
+  return asTask({
     id: 'inst-1',
     title: 'Water the plants',
     description: '',
@@ -24,9 +24,12 @@ function mkInstance(over: Partial<Task> = {}): Task {
     order: 0,
     korder: 0,
     ...NO_RECUR,
-    recurParentId: 'template-1', // a materialized instance of a recurring series
+    // A materialized Occurrence of a Recurring Series. Both fields are required to make one: a
+    // parent without an Occurrence Date is not an Occurrence, and `asTask` reads it as standalone.
+    recurParentId: 'template-1',
+    occurrenceDate: '2026-07-10',
     ...over,
-  }
+  })
 }
 
 function TestProviders({ children }: { children: ReactNode }) {

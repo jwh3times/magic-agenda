@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { NO_RECUR, type Task } from '../types/task'
+import { asTask, NO_RECUR, type Task, type TaskDraft } from '../types/task'
 import {
   chunk,
   parseExport,
@@ -12,8 +12,8 @@ import {
 } from './exportImport'
 import { missingInstances } from './recurrence'
 
-function task(over: Partial<Task> = {}): Task {
-  return {
+function task(over: Partial<TaskDraft> = {}): Task {
+  return asTask({
     id: 'id-1',
     title: 'T',
     description: '',
@@ -29,7 +29,7 @@ function task(over: Partial<Task> = {}): Task {
     pinned: false,
     ...NO_RECUR,
     ...over,
-  }
+  })
 }
 
 function legacyTask(over: Partial<LegacyTask> = {}): LegacyTask {

@@ -11,10 +11,10 @@ import {
   applyRollForward,
 } from './selectors'
 import { missingInstances, type RecurRule } from './recurrence'
-import { NO_RECUR, type Task } from '../types/task'
+import { asTask, NO_RECUR, type Task, type TaskDraft } from '../types/task'
 
-function t(id: string, over: Partial<Task> = {}): Task {
-  return {
+function t(id: string, over: Partial<TaskDraft> = {}): Task {
+  return asTask({
     id,
     title: id,
     description: '',
@@ -30,7 +30,7 @@ function t(id: string, over: Partial<Task> = {}): Task {
     korder: 0,
     ...NO_RECUR,
     ...over,
-  }
+  })
 }
 
 describe('notesForDay', () => {
@@ -203,7 +203,13 @@ test('applyRollForward appends overdue tasks after today existing order', () => 
   const today = '2026-07-10'
   const tasks = [
     t('today-1', { day: today, order: 3 }),
-    t('old-late', { day: '2026-07-09', order: 1, occurrenceDate: '2026-07-09' }),
+    // A real Occurrence needs both halves: an occurrenceDate with no parent is not one.
+    t('old-late', {
+      day: '2026-07-09',
+      order: 1,
+      recurParentId: 'tmpl',
+      occurrenceDate: '2026-07-09',
+    }),
     t('old-early', { day: '2026-07-01', order: 0 }),
     t('done-old', { day: '2026-07-01', order: 1, status: 'done' }),
   ]

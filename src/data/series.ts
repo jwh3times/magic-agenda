@@ -1,5 +1,12 @@
 import { addDays, parseDay, ymd } from '../lib/dates'
-import { isTemplate, type Task } from '../types/task'
+import {
+  asOccurrence,
+  asTask,
+  isTemplate,
+  type Occurrence,
+  type Task,
+  type TaskDraft,
+} from '../types/task'
 import { occurrenceDateOf, isFromOccurrenceOnward, missingInstances } from './recurrence'
 import { reconcileSteps } from './checklistSteps'
 import {
@@ -23,7 +30,16 @@ import {
  * anything: every state transition, every row to write, and every row to delete is computed here.
  */
 
-/** The board and the hidden templates, which most operations have to change together. */
+/**
+ * The board and the hidden Series definitions, which most operations have to change together.
+ *
+ * Both stay `Task[]` rather than `BoardCard[]` / `SeriesDefinition[]`. Narrowing them
+ * surfaces a real defect rather than a typing inconvenience: `planEditSeriesFrom` copies the
+ * draft's `recurFreq` onto the definition, so removing the Recurrence Rule and choosing "this and
+ * all future" produces a definition with no Rule — which materializes nothing and is no longer
+ * reachable as a Series. Fixing that is a decision about what removing a Rule should mean, not a
+ * type change, so it is filed rather than smuggled in here, and these stay wide until it lands.
+ */
 export interface SeriesState {
   tasks: readonly Task[]
   templates: readonly Task[]
@@ -47,7 +63,7 @@ export function instanceKey(t: {
 }
 
 /** Builds one instance of a template for `day`. `nextId` is injected so tests are deterministic. */
-export function makeInstance(tmpl: Task, day: string, nextId: () => string): Task {
+export function makeInstance(tmpl: Task, day: string, nextId: () => string): Occurrence {
   return {
     id: nextId(),
     title: tmpl.title,
@@ -71,12 +87,9 @@ export function makeInstance(tmpl: Task, day: string, nextId: () => string): Tas
     pinned: false,
     order: 5000,
     korder: 5000,
-    recurFreq: 'none',
     recurInterval: 1,
-    recurUntil: null,
-    recurParentId: tmpl.id,
     excludedDates: [],
-    occurrenceDate: day,
+    ...asOccurrence(tmpl.id, day),
   }
 }
 
@@ -124,10 +137,10 @@ export type SaveOp =
   /** A standalone Task that stays standalone. */
   | { kind: 'update-plain'; task: Task }
   /** A standalone Task that gained a Recurrence Rule and becomes a Recurring Series. */
-  | { kind: 'promote-to-series'; task: Task }
+  | { kind: 'promote-to-series'; task: TaskDraft }
   /** One occurrence of a series: the rule is stripped so it never persists onto the instance. */
-  | { kind: 'update-occurrence'; task: Task }
-  | { kind: 'update-series-from'; instance: Task; draft: Task }
+  | { kind: 'update-occurrence'; task: Occurrence }
+  | { kind: 'update-series-from'; instance: TaskDraft; draft: TaskDraft }
 
 export type DeleteOp =
   | { kind: 'delete-plain'; id: string }
@@ -142,27 +155,25 @@ export type DeleteOp =
  * fields on the this-occurrence path, with nothing but a comment enforcing it.
  */
 export function resolveSave(
-  orig: Task | null,
-  draft: Task,
+  orig: TaskDraft | null,
+  draft: TaskDraft,
   isNew: boolean,
   scope?: RecurScope,
 ): SaveOp {
-  if (isNew) return { kind: 'create', task: draft }
+  if (isNew) return { kind: 'create', task: asTask(draft) }
   if (!orig?.recurParentId) {
     // A Recurrence Rule on a Task that had no parent means the user just made it repeat.
     return isTemplate(draft)
       ? { kind: 'promote-to-series', task: draft }
-      : { kind: 'update-plain', task: draft }
+      : { kind: 'update-plain', task: asTask(draft) }
   }
   if (scope === 'future') return { kind: 'update-series-from', instance: orig, draft }
   return {
     kind: 'update-occurrence',
     task: {
       ...draft,
-      recurFreq: 'none',
       recurInterval: 1,
-      recurUntil: null,
-      recurParentId: orig.recurParentId,
+      ...asOccurrence(orig.recurParentId, occurrenceDateOf(orig)),
     },
   }
 }
@@ -230,12 +241,12 @@ export interface SeriesPlan {
  * Occurrence State and Occurrence Placement are excluded by construction: carrying them would
  * clobber each Occurrence's own progress and position.
  */
-function seriesContent(draft: Task): Partial<Task> {
+function seriesContent(draft: TaskDraft): Partial<TaskDraft> {
   return pick(draft, SERIES_CONTENT_FIELDS)
 }
 
 /** What the edited Occurrence keeps of its own: its state and its placement. */
-function occurrenceOwned(draft: Task): Partial<Task> {
+function occurrenceOwned(draft: TaskDraft): Partial<TaskDraft> {
   return pick(draft, PER_OCCURRENCE_FIELDS)
 }
 
@@ -247,8 +258,8 @@ function occurrenceOwned(draft: Task): Partial<Task> {
  */
 export function planEditSeriesFrom(
   state: SeriesState,
-  instance: Task,
-  draft: Task,
+  instance: TaskDraft,
+  draft: TaskDraft,
 ): SeriesPlan | null {
   const template = state.templates.find((t) => t.id === instance.recurParentId)
   if (!template) return null
@@ -260,14 +271,16 @@ export function planEditSeriesFrom(
   // never come from a draft. A draft is an Occurrence, whose own `excludedDates` is always empty,
   // so copying it here would erase the Series' Excluded Dates and resurrect every Occurrence the
   // user has deleted.
-  const nextTemplate: Task = {
+  // `asTask` rather than a bare object: `seriesContent`/`pick` return a partial, and spreading a
+  // partial widens the recurrence fields back to their union, so the shape has to be re-chosen.
+  const nextTemplate: Task = asTask({
     ...template,
     ...seriesContent(draft),
     // Unticked, like `status` above: Step Completion is Occurrence State, so a definition holds
     // the Steps and never their progress.
     checklist: draft.checklist.map((c) => ({ ...c, done: false })),
     ...pick(draft, RULE_EDITABLE_FIELDS),
-  }
+  })
 
   const affected = (t: Task) => t.recurParentId === template.id && isFromOccurrenceOnward(t, cut)
   // Every affected Occurrence takes the new Series Content and keeps its own state and placement —
@@ -280,19 +293,19 @@ export function planEditSeriesFrom(
     // and its own Checklist including whatever it has ticked right now. Reconciling it against the
     // stored row instead would hand back the ticks the user just changed.
     if (t.id === draft.id) {
-      return {
+      return asTask({
         ...t,
         ...seriesContent(draft),
         ...occurrenceOwned(draft),
         checklist: draft.checklist,
-      }
+      })
     }
     // Every other affected Occurrence keeps its own state, placement, and Step Completion.
-    return {
+    return asTask({
       ...t,
       ...seriesContent(draft),
       checklist: reconcileSteps(draft.checklist, t.checklist),
-    }
+    })
   })
 
   // If the rule shortened, occurrences past the new end no longer exist.
@@ -413,7 +426,7 @@ export function planDeleteSeriesFrom(state: SeriesState, instance: Task): Series
     }
   }
 
-  const nextTemplate: Task = { ...template, recurUntil: ymd(addDays(parseDay(cut), -1)) }
+  const nextTemplate: Task = asTask({ ...template, recurUntil: ymd(addDays(parseDay(cut), -1)) })
   const doomed = state.tasks.filter(
     (t) => t.recurParentId === template.id && isFromOccurrenceOnward(t, cut),
   )
@@ -456,10 +469,12 @@ export function planDeleteSeriesFrom(state: SeriesState, instance: Task): Series
  */
 export function planPromoteToSeries(
   state: SeriesState,
-  draft: Task,
+  draft: TaskDraft,
   nextId: () => string,
 ): SeriesPlan {
-  const template: Task = {
+  // `asTask` picks the definition shape: promotion is only reached when the draft carries a Rule,
+  // so this is a `SeriesDefinition` by construction.
+  const template: Task = asTask({
     ...draft,
     id: nextId(),
     // The template is a definition, not a card. Occurrence State is meaningless on it and would
@@ -476,16 +491,13 @@ export function planPromoteToSeries(
     recurParentId: null,
     excludedDates: [],
     occurrenceDate: null,
-  }
+  })
 
-  const first: Task = {
+  const first: Occurrence = {
     ...draft,
-    recurFreq: 'none',
     recurInterval: 1,
-    recurUntil: null,
-    recurParentId: template.id,
     excludedDates: [],
-    occurrenceDate: draft.day,
+    ...asOccurrence(template.id, draft.day),
   }
 
   return {

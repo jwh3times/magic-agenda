@@ -1,6 +1,6 @@
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { beforeEach, expect, test, vi } from 'vitest'
-import { NO_RECUR, type Task } from '../types/task'
+import { asTask, NO_RECUR, type Task } from '../types/task'
 import { addDays, parseDay, ymd } from '../lib/dates'
 
 const h = vi.hoisted(() => {
@@ -105,23 +105,24 @@ import { rowToTask } from './mappers'
 
 const serverTask = (over: Record<string, unknown> = {}) => rowToTask(serverRow(over))
 
-const appTask = (over: Partial<Task>): Task => ({
-  id: 't1',
-  title: 'server',
-  description: '',
-  labelId: null,
-  color: 'yellow',
-  checklist: [],
-  status: 'todo',
-  done: false,
-  day: '2026-07-01',
-  atTime: null,
-  pinned: false,
-  order: 0,
-  korder: 0,
-  ...NO_RECUR,
-  ...over,
-})
+const appTask = (over: Partial<Task>): Task =>
+  asTask({
+    id: 't1',
+    title: 'server',
+    description: '',
+    labelId: null,
+    color: 'yellow',
+    checklist: [],
+    status: 'todo',
+    done: false,
+    day: '2026-07-01',
+    atTime: null,
+    pinned: false,
+    order: 0,
+    korder: 0,
+    ...NO_RECUR,
+    ...over,
+  })
 
 beforeEach(() => {
   h.capture.handler = null

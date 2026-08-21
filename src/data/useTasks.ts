@@ -22,7 +22,7 @@ import {
 } from './series'
 import { newId } from '../lib/id'
 import { ymd } from '../lib/dates'
-import { isTemplate, type Task } from '../types/task'
+import { isTemplate, type Task, type TaskDraft } from '../types/task'
 import type { Mode } from '../dnd/reorder'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 import type { Database } from '../types/database.types'
@@ -496,7 +496,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
   )
 
   const saveTask = useCallback(
-    async (orig: Task | null, draft: Task, isNew: boolean, scope?: RecurScope) => {
+    async (orig: TaskDraft | null, draft: TaskDraft, isNew: boolean, scope?: RecurScope) => {
       const op = resolveSave(orig, draft, isNew, scope)
       if (op.kind === 'create') return createTask(op.task)
       if (op.kind === 'promote-to-series') {
