@@ -6,11 +6,19 @@ import {
   planDeleteOccurrence,
   planDeleteSeriesFrom,
   planEditSeriesFrom,
+  planEndSeriesAt,
   planPromoteToSeries,
   resolveDelete,
   resolveSave,
 } from './series'
-import { asTask, NO_RECUR, type Task, type TaskDraft } from '../types/task'
+import {
+  asTask,
+  isSeriesDefinition,
+  NO_RECUR,
+  type SeriesDefinition,
+  type Task,
+  type TaskDraft,
+} from '../types/task'
 
 function t(id: string, over: Partial<TaskDraft> = {}): Task {
   return asTask({
@@ -32,11 +40,20 @@ function t(id: string, over: Partial<TaskDraft> = {}): Task {
   })
 }
 
+/**
+ * A Series definition. `t()` returns the union, and `SeriesState.templates` holds definitions
+ * only (#220), so the shape is asserted once here rather than cast at every fixture.
+ */
+function def(id: string, over: Partial<TaskDraft> = {}): SeriesDefinition {
+  const task = t(id, { recurFreq: 'weekly', recurInterval: 1, ...over })
+  if (!isSeriesDefinition(task)) throw new Error(`fixture ${id} is not a Series definition`)
+  return task
+}
+
 /** A weekly template anchored on 2026-07-01, and instances for the first three occurrences. */
 function series() {
-  const tmpl = t('tmpl', {
+  const tmpl = def('tmpl', {
     day: '2026-07-01',
-    recurFreq: 'weekly',
     recurInterval: 1,
     title: 'Standup',
   })
@@ -46,6 +63,18 @@ function series() {
     templates: [tmpl],
     tasks: [inst('i1', '2026-07-01'), inst('i2', '2026-07-08'), inst('i3', '2026-07-15')],
   }
+}
+
+/**
+ * The editor's draft for an Occurrence, as `Board.openTask` builds it: the row plus its Series'
+ * Recurrence Rule, which is what the Repeat controls edit.
+ *
+ * An all-future edit's draft always carries the Rule. A draft *without* one means the user removed
+ * it, which is a different operation entirely (`planEndSeriesAt`, #220) — so a fixture that omits
+ * it is not testing an input the app can produce.
+ */
+function editing(occurrence: Task, over: Partial<TaskDraft> = {}): TaskDraft {
+  return { ...occurrence, recurFreq: 'weekly', recurInterval: 1, recurUntil: null, ...over }
 }
 
 const ids = (tasks: readonly Task[]) => tasks.map((x) => x.id)
@@ -179,8 +208,19 @@ describe('resolveSave', () => {
   })
 
   it('edits the series from this occurrence when the scope is "future"', () => {
-    const op = resolveSave(instance, t('i1', { title: 'New' }), false, 'future')
+    // The draft carries the Series' Rule, because `Board.openTask` merges it on so the Repeat
+    // controls have something to edit. A draft without one means the user removed it — see below.
+    const draft: TaskDraft = { ...instance, title: 'New', recurFreq: 'weekly', recurInterval: 1 }
+    const op = resolveSave(instance, draft, false, 'future')
     expect(op).toMatchObject({ kind: 'update-series-from', instance: { id: 'i1' } })
+  })
+
+  it('ends the series when the rule is removed with scope "future" (#220)', () => {
+    // Routed as an ordinary all-future edit, this copied `recurFreq: 'none'` onto the definition
+    // and left a hidden row that materialized nothing.
+    const draft: TaskDraft = { ...instance, recurFreq: 'none' }
+    const op = resolveSave(instance, draft, false, 'future')
+    expect(op).toMatchObject({ kind: 'end-series-at', instance: { id: 'i1' } })
   })
 
   it('strips the rule when editing just this occurrence', () => {
@@ -233,7 +273,7 @@ describe('planEditSeriesFrom', () => {
     // clobber each occurrence's own state.
     const s = series()
     s.tasks[2] = { ...s.tasks[2], done: true, status: 'done', pinned: true }
-    const draft = t('i2', { title: 'Renamed', done: false, status: 'todo', pinned: false })
+    const draft = editing(t('i2'), { title: 'Renamed', done: false, status: 'todo', pinned: false })
     const plan = planEditSeriesFrom(s, s.tasks[1], draft)!
 
     const i3 = plan.state.tasks.find((x) => x.id === 'i3')!
@@ -258,7 +298,7 @@ describe('planEditSeriesFrom', () => {
     const s = series()
     // i2 covers 2026-07-08 but was dragged back before i1's day.
     s.tasks[1] = { ...s.tasks[1], day: '2026-06-30' }
-    const plan = planEditSeriesFrom(s, s.tasks[1], t('i2', { title: 'Renamed' }))!
+    const plan = planEditSeriesFrom(s, s.tasks[1], editing(t('i2'), { title: 'Renamed' }))!
     expect(plan.state.tasks.find((x) => x.id === 'i1')!.title).toBe('Standup')
     expect(plan.state.tasks.find((x) => x.id === 'i2')!.title).toBe('Renamed')
   })
@@ -299,7 +339,7 @@ describe('planEditSeriesFrom', () => {
 
 describe('pinning is never inherited (#215)', () => {
   it('builds an unpinned Occurrence from a pinned definition', () => {
-    const tmpl = t('tmpl', { day: '2026-07-01', recurFreq: 'weekly', pinned: true })
+    const tmpl = def('tmpl', { day: '2026-07-01', pinned: true })
     expect(makeInstance(tmpl, '2026-07-15', nextId).pinned).toBe(false)
   })
 
@@ -307,7 +347,7 @@ describe('pinning is never inherited (#215)', () => {
     // The whole bug in one assertion pair: the user's card stays pinned because it is their card,
     // and the Series carries no pin, so nothing seeds future Occurrences with one.
     const draft = t('a', { day: '2026-07-01', recurFreq: 'weekly', pinned: true })
-    const plan = planPromoteToSeries({ tasks: [draft], templates: [] }, draft, nextId)
+    const plan = planPromoteToSeries({ tasks: [draft], templates: [] }, draft, nextId)!
     const definition = plan.state.templates[0]
     const first = plan.state.tasks.find((x) => x.id === 'a')!
 
@@ -320,7 +360,7 @@ describe('pinning is never inherited (#215)', () => {
   it('pinning one Occurrence leaves every other Occurrence alone', () => {
     const state = series()
     const i2 = state.tasks[1]
-    const plan = planEditSeriesFrom(state, i2, { ...i2, title: 'Renamed', pinned: true })!
+    const plan = planEditSeriesFrom(state, i2, editing(i2, { title: 'Renamed', pinned: true }))!
     expect(plan.state.tasks.find((x) => x.id === 'i1')!.pinned).toBe(false)
     expect(plan.state.tasks.find((x) => x.id === 'i3')!.pinned).toBe(false)
     expect(plan.state.templates[0].pinned).toBe(false)
@@ -333,7 +373,7 @@ describe('planEditSeriesFrom — field ownership (#213)', () => {
     // same save as a rename was dropped on the very card being edited.
     const state = series()
     const i2 = state.tasks[1]
-    const plan = planEditSeriesFrom(state, i2, { ...i2, title: 'Renamed', pinned: true })!
+    const plan = planEditSeriesFrom(state, i2, editing(i2, { title: 'Renamed', pinned: true }))!
     const edited = plan.state.tasks.find((x) => x.id === 'i2')!
     expect(edited.pinned).toBe(true)
     expect(edited.title).toBe('Renamed')
@@ -342,7 +382,11 @@ describe('planEditSeriesFrom — field ownership (#213)', () => {
   it('moves only the edited Occurrence when its day changes alongside series content', () => {
     const state = series()
     const i2 = state.tasks[1]
-    const plan = planEditSeriesFrom(state, i2, { ...i2, title: 'Renamed', day: '2026-07-10' })!
+    const plan = planEditSeriesFrom(
+      state,
+      i2,
+      editing(i2, { title: 'Renamed', day: '2026-07-10' }),
+    )!
     expect(plan.state.tasks.find((x) => x.id === 'i2')!.day).toBe('2026-07-10')
     // Its Occurrence Date is identity and does not move with it.
     expect(plan.state.tasks.find((x) => x.id === 'i2')!.occurrenceDate).toBe('2026-07-08')
@@ -355,12 +399,11 @@ describe('planEditSeriesFrom — field ownership (#213)', () => {
   it('does not carry the edited Occurrence\u2019s state onto any other Occurrence', () => {
     const state = series()
     const i2 = state.tasks[1]
-    const plan = planEditSeriesFrom(state, i2, {
-      ...i2,
-      title: 'Renamed',
-      pinned: true,
-      status: 'doing',
-    })!
+    const plan = planEditSeriesFrom(
+      state,
+      i2,
+      editing(i2, { title: 'Renamed', pinned: true, status: 'doing' }),
+    )!
     const i3 = plan.state.tasks.find((x) => x.id === 'i3')!
     expect(i3.pinned).toBe(false)
     expect(i3.status).toBe('todo')
@@ -375,7 +418,7 @@ describe('planEditSeriesFrom — field ownership (#213)', () => {
       templates: [{ ...base.templates[0], excludedDates: ['2026-07-22'] }],
     }
     const i2 = state.tasks[1]
-    const plan = planEditSeriesFrom(state, i2, { ...i2, title: 'Renamed' })!
+    const plan = planEditSeriesFrom(state, i2, editing(i2, { title: 'Renamed' }))!
     expect(plan.state.templates[0].excludedDates).toEqual(['2026-07-22'])
   })
 
@@ -387,7 +430,7 @@ describe('planEditSeriesFrom — field ownership (#213)', () => {
     const i2 = state.tasks[1]
 
     const draft = {
-      ...i2,
+      ...editing(i2),
       checklist: [
         { id: 'c1', text: 'agenda (revised)', done: false },
         { id: 'c2', text: 'new step', done: false },
@@ -413,10 +456,11 @@ describe('planEditSeriesFrom — field ownership (#213)', () => {
     const state = series()
     state.tasks[0] = { ...state.tasks[0], checklist: [{ id: 'c1', text: 'agenda', done: true }] }
     const i2 = state.tasks[1]
-    const plan = planEditSeriesFrom(state, i2, {
-      ...i2,
-      checklist: [{ id: 'c1', text: 'changed', done: false }],
-    })!
+    const plan = planEditSeriesFrom(
+      state,
+      i2,
+      editing(i2, { checklist: [{ id: 'c1', text: 'changed', done: false }] }),
+    )!
     expect(plan.state.tasks.find((x) => x.id === 'i1')!.checklist).toEqual([
       { id: 'c1', text: 'agenda', done: true },
     ])
@@ -515,6 +559,7 @@ describe('plans do not mutate their input', () => {
     const s = series()
     const before = JSON.stringify(s)
     planEditSeriesFrom(s, s.tasks[1], t('i2', { title: 'X', recurFreq: 'weekly' }))
+    planEndSeriesAt(s, { ...s.tasks[1] }, { ...s.tasks[1], recurFreq: 'none' })
     planDeleteOccurrence(s, s.tasks[1])
     planDeleteSeriesFrom(s, s.tasks[1])
     expect(JSON.stringify(s)).toBe(before)
@@ -547,7 +592,7 @@ describe('planPromoteToSeries', () => {
 
   it('keeps the original row as the first Occurrence, with its progress intact', () => {
     const draft = inProgress()
-    const plan = planPromoteToSeries({ tasks: [draft], templates: [] }, draft, ids())
+    const plan = planPromoteToSeries({ tasks: [draft], templates: [] }, draft, ids())!
 
     // The whole point of #206: this is the same row the user was working on, not a fresh one.
     const first = plan.state.tasks.find((task) => task.id === 't1')!
@@ -561,7 +606,7 @@ describe('planPromoteToSeries', () => {
 
   it('points the first Occurrence at a new template and stamps its Occurrence Date', () => {
     const draft = inProgress()
-    const plan = planPromoteToSeries({ tasks: [draft], templates: [] }, draft, ids())
+    const plan = planPromoteToSeries({ tasks: [draft], templates: [] }, draft, ids())!
 
     const template = plan.state.templates[0]
     expect(template.id).toBe('gen-1')
@@ -578,7 +623,7 @@ describe('planPromoteToSeries', () => {
 
   it('strips per-occurrence state from the template, which seeds every later Occurrence', () => {
     const draft = inProgress()
-    const plan = planPromoteToSeries({ tasks: [draft], templates: [] }, draft, ids())
+    const plan = planPromoteToSeries({ tasks: [draft], templates: [] }, draft, ids())!
 
     const template = plan.state.templates[0]
     expect(template.status).toBe('todo')
@@ -592,7 +637,7 @@ describe('planPromoteToSeries', () => {
 
   it('writes the template and its first Occurrence in one batch', () => {
     const draft = inProgress()
-    const plan = planPromoteToSeries({ tasks: [draft], templates: [] }, draft, ids())
+    const plan = planPromoteToSeries({ tasks: [draft], templates: [] }, draft, ids())!
 
     // A template with no Occurrence is invisible and an Occurrence with no template is orphaned,
     // so a partial write of these two is worse than neither.
@@ -605,14 +650,14 @@ describe('planPromoteToSeries', () => {
   it('leaves the rest of the board alone', () => {
     const draft = inProgress()
     const other = t('other', { day: '2026-07-01', order: 1 })
-    const plan = planPromoteToSeries({ tasks: [other, draft], templates: [] }, draft, ids())
+    const plan = planPromoteToSeries({ tasks: [other, draft], templates: [] }, draft, ids())!
 
     expect(plan.state.tasks.find((task) => task.id === 'other')).toEqual(other)
   })
 
   it('produces a first Occurrence that materialization treats as already covered', () => {
     const draft = inProgress()
-    const plan = planPromoteToSeries({ tasks: [draft], templates: [] }, draft, ids())
+    const plan = planPromoteToSeries({ tasks: [draft], templates: [] }, draft, ids())!
 
     // The regression this guards: if the first Occurrence were not counted, materialization would
     // insert a second row for the same Occurrence Date and hit tasks_recur_instance_uniq.
@@ -620,5 +665,115 @@ describe('planPromoteToSeries', () => {
     expect(pending.some((task) => task.occurrenceDate === '2026-07-01')).toBe(false)
     // Everything after it is still pending — the anchor is skipped, not the whole rule.
     expect(pending[0].occurrenceDate).toBe('2026-07-08')
+  })
+})
+
+describe('planEndSeriesAt (#220)', () => {
+  /** The editor's draft for an Occurrence: the row plus the Series' Rule merged on by `openTask`. */
+  const draftOf = (task: Task, over: Partial<TaskDraft> = {}): TaskDraft => ({ ...task, ...over })
+  /** That draft with Repeat set back to "Does not repeat". */
+  const ruleRemoved = (task: Task, over: Partial<TaskDraft> = {}): TaskDraft =>
+    draftOf(task, { ...over, recurFreq: 'none' })
+
+  it('caps the Series before this Occurrence and keeps the Occurrence as a standalone Task', () => {
+    const s = series()
+    const i2 = s.tasks[1]
+    const plan = planEndSeriesAt(s, draftOf(i2, { recurFreq: 'weekly' }), ruleRemoved(i2))
+
+    // Earlier Occurrences are untouched; this one survives on its own; later ones are gone.
+    expect(ids(plan.state.tasks)).toEqual(['i1', 'i2'])
+    expect(plan.state.templates[0].recurUntil).toBe('2026-07-07') // the day before the cut
+
+    const kept = plan.state.tasks.find((task) => task.id === 'i2')!
+    expect(kept.recurParentId).toBeNull()
+    expect(kept.occurrenceDate).toBeNull()
+    expect(kept.recurFreq).toBe('none')
+  })
+
+  it('deletes only the Occurrences after this one', () => {
+    const s = series()
+    const i2 = s.tasks[1]
+    const plan = planEndSeriesAt(s, draftOf(i2), ruleRemoved(i2))
+
+    // `occurrence-after`, not `occurrence-from`: the cut date is the row being kept, and scoping
+    // strictly after it means the delete cannot reach that row even if the detach has not landed.
+    expect(plan.deletions).toEqual([
+      {
+        target: { by: 'occurrence-after', parentId: 'tmpl', day: '2026-07-08' },
+        onFailure: { abort: false, recover: 'reload' },
+      },
+    ])
+  })
+
+  it('writes the detached Task before anything is deleted, and aborts if that write fails', () => {
+    const s = series()
+    const i1 = s.tasks[0]
+    const plan = planEndSeriesAt(s, draftOf(i1), ruleRemoved(i1))
+
+    // Cutting at the first Occurrence leaves no Series behind, so the definition goes and the
+    // database cascade takes its Occurrences. The detach must be upserted first or the cascade
+    // takes the row the user is keeping — and must abort the deletion if it fails.
+    expect(plan.upserts.map((task) => task.id)).toContain('i1')
+    expect(plan.upsertOnFailure.abort).toBe(true)
+    expect(plan.state.templates).toEqual([])
+    expect(plan.deletions).toEqual([
+      { target: { by: 'id', id: 'tmpl' }, onFailure: { abort: false, recover: 'reload' } },
+    ])
+
+    const kept = plan.state.tasks
+    expect(ids(kept)).toEqual(['i1'])
+    expect(kept[0].recurParentId).toBeNull()
+  })
+
+  it('keeps the edits saved alongside the rule removal', () => {
+    const s = series()
+    const i2 = s.tasks[1]
+    const plan = planEndSeriesAt(
+      s,
+      draftOf(i2),
+      ruleRemoved(i2, { title: 'Renamed', status: 'doing', pinned: true, day: '2026-07-09' }),
+    )
+
+    const kept = plan.state.tasks.find((task) => task.id === 'i2')!
+    expect(kept.title).toBe('Renamed')
+    expect(kept.status).toBe('doing')
+    expect(kept.pinned).toBe(true)
+    expect(kept.day).toBe('2026-07-09')
+    // Earlier Occurrences belong to the Series that just ended, and keep what they had.
+    expect(plan.state.tasks.find((task) => task.id === 'i1')!.title).toBe('Standup')
+  })
+
+  it('scopes by Occurrence Date, not by the day the card was dragged to', () => {
+    const s = series()
+    s.tasks[1] = { ...s.tasks[1], day: '2026-06-01' }
+    const i2 = s.tasks[1]
+    const plan = planEndSeriesAt(s, draftOf(i2), ruleRemoved(i2))
+
+    // i2 still covers 2026-07-08, so this must not fall into the whole-series branch.
+    expect(plan.state.templates).toHaveLength(1)
+    expect(plan.state.templates[0].recurUntil).toBe('2026-07-07')
+  })
+
+  it('detaches an Occurrence whose Series is already gone', () => {
+    const s = series()
+    const i2 = s.tasks[1]
+    const plan = planEndSeriesAt({ ...s, templates: [] }, draftOf(i2), ruleRemoved(i2))
+
+    expect(plan.deletions).toEqual([])
+    expect(plan.state.tasks.find((task) => task.id === 'i2')!.recurParentId).toBeNull()
+  })
+
+  it('never leaves a definition that produces nothing', () => {
+    // The defect this replaces: the definition kept `recurFreq: 'none'`, so it materialized no
+    // further Occurrences, was no longer recognised as a Series, and stayed hidden from the board.
+    // `SeriesState.templates` is `SeriesDefinition[]` now, so that shape is a compile error — the
+    // assertion left worth making at runtime is that the surviving definition still repeats, and
+    // that what gets written is exactly what the plan says the state is.
+    const s = series()
+    const i2 = s.tasks[1]
+    const plan = planEndSeriesAt(s, draftOf(i2), ruleRemoved(i2))
+
+    expect(plan.state.templates.map((tmpl) => tmpl.recurFreq)).toEqual(['weekly'])
+    expect(plan.upserts.filter((task) => task.id === 'tmpl')).toEqual(plan.state.templates)
   })
 })

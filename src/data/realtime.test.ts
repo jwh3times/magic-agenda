@@ -1,6 +1,13 @@
 import { expect, test } from 'vitest'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
-import { asTask, NO_RECUR, type Task, type TaskDraft } from '../types/task'
+import {
+  asTask,
+  isSeriesDefinition,
+  NO_RECUR,
+  type SeriesDefinition,
+  type Task,
+  type TaskDraft,
+} from '../types/task'
 import type { Database } from '../types/database.types'
 import { applyTaskChange, payloadToChange, type BoardState } from './realtime'
 
@@ -55,7 +62,10 @@ const row = (over: Partial<TaskRow> = {}): TaskRow => ({
   ...over,
 })
 
-const state = (tasks: Task[] = [], templates: Task[] = []): BoardState => ({ tasks, templates })
+const state = (tasks: Task[] = [], templates: SeriesDefinition[] = []): BoardState => ({
+  tasks,
+  templates,
+})
 
 // ---- payloadToChange ----
 
@@ -111,7 +121,12 @@ test('DELETE removes the task; unknown ids are a referential no-op', () => {
 
 // ---- applyTaskChange: templates ----
 
-const template = mk({ id: 'tpl1', recurFreq: 'daily', recurParentId: null })
+/** `mk` returns the union; `BoardState.templates` holds definitions only (#220). */
+const asDefinition = (task: Task): SeriesDefinition => {
+  if (!isSeriesDefinition(task)) throw new Error(`fixture ${task.id} is not a Series definition`)
+  return task
+}
+const template = asDefinition(mk({ id: 'tpl1', recurFreq: 'daily', recurParentId: null }))
 
 test('template INSERT/UPDATE goes to templates, never the board', () => {
   const next = applyTaskChange(state([], []), { type: 'INSERT', task: template })

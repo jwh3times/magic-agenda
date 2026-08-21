@@ -1,4 +1,4 @@
-import type { Task } from '../types/task'
+import type { SeriesDefinition, Task } from '../types/task'
 import type { Label } from '../types/label'
 import type { Settings } from './useSettings'
 
@@ -39,7 +39,7 @@ export interface BoardSnapshot {
   boardId: string
   savedAt: number
   tasks: Task[]
-  templates: Task[]
+  templates: SeriesDefinition[]
 }
 
 /**
@@ -114,7 +114,7 @@ export function writeBoardSnapshot(
   userId: string,
   boardId: string,
   tasks: Task[],
-  templates: Task[],
+  templates: readonly SeriesDefinition[],
 ): void {
   if (!boardId) return
   write(boardKey(boardId), userId, { boardId, savedAt: Date.now(), tasks, templates })

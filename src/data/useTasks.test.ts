@@ -261,6 +261,47 @@ test('updateSeries "this and future" persists the edited content to existing ins
   expect(result.current.tasks.find((t) => t.id === 'i1')?.atTime).toBe('14:00')
 })
 
+test('removing the Recurrence Rule with "this and all future" ends the Series here (#220)', async () => {
+  const today = ymd(new Date())
+  const earlier = ymd(addDays(new Date(), -7))
+  h.capture.rows = [
+    serverRow({ id: 'tpl1', recur_freq: 'weekly', day: earlier, title: 'Standup' }),
+    serverRow({ id: 'i0', recur_parent_id: 'tpl1', recur_origin_day: earlier, day: earlier }),
+    serverRow({ id: 'i1', recur_parent_id: 'tpl1', recur_origin_day: today, day: today }),
+  ]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  h.upsert.mockClear()
+
+  const instance = result.current.tasks.find((t) => t.id === 'i1')!
+  await act(async () => {
+    // The draft the editor produces: the Occurrence with its Series' Rule merged on, then Repeat
+    // set back to "Does not repeat".
+    await result.current.saveTask(
+      { ...instance, recurFreq: 'weekly', recurInterval: 1, recurUntil: null },
+      { ...instance, recurFreq: 'none', recurInterval: 1, recurUntil: null },
+      false,
+      'future',
+    )
+  })
+
+  // The edited card survives as a standalone Task rather than vanishing into a hidden definition,
+  // which is what the old routing produced: a definition carrying `recurFreq: 'none'` that
+  // materialized nothing and was no longer reachable as a Series.
+  const kept = result.current.tasks.find((t) => t.id === 'i1')!
+  expect(kept.recurParentId).toBeNull()
+  expect(kept.occurrenceDate).toBeNull()
+  // Earlier Occurrences belong to the Series that just ended and are left alone.
+  expect(result.current.tasks.map((t) => t.id)).toEqual(['i0', 'i1'])
+
+  const call = h.upsert.mock.calls[0] as unknown as unknown[]
+  const rows = call[0] as { id: string; recur_freq: string; recur_until: string | null }[]
+  // The detach is written before anything is deleted, and the definition keeps a real Rule.
+  expect(rows.find((r) => r.id === 'i1')?.recur_freq).toBe('none')
+  expect(rows.find((r) => r.id === 'tpl1')?.recur_freq).toBe('weekly')
+  expect(rows.find((r) => r.id === 'tpl1')?.recur_until).toBe(ymd(addDays(new Date(), -1)))
+})
+
 test('rollForward moves overdue tasks to today and upserts only them', async () => {
   h.capture.rows = [
     serverRow({ id: 't1', day: '2020-01-01', order_index: 0 }),

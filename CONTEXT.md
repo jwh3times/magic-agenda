@@ -27,7 +27,9 @@ _Avoid_: backlog, unscheduled list
 
 **Recurring Series**:
 A Task that repeats under one Recurrence Rule, appearing on its Board only as its Occurrences. A
-standalone Task becomes a Recurring Series when a Recurrence Rule is added to it.
+standalone Task becomes a Recurring Series when a Recurrence Rule is added to it, and a Series ends
+when its Recurrence Rule is removed — it produces no further Occurrences, and the Occurrences it
+has already produced remain what they are.
 _Avoid_: template, parent task, repeating task
 
 **Recurrence Rule**:
@@ -78,6 +80,9 @@ _Avoid_: single, this one only, just this
 The editing scope that changes Series Content or the Recurrence Rule for the edited Occurrence, every
 later Occurrence, and every Occurrence the Series has yet to produce. It overwrites Occurrences that
 were customized individually, and it never changes Occurrence State or Occurrence Placement.
+Removing the Recurrence Rule under this scope ends the Series at the edited Occurrence: earlier
+Occurrences are left alone, the edited Occurrence becomes a standalone Task, and no later Occurrence
+survives or is produced.
 _Avoid_: all following, the rest of the series, future only
 
 **Checklist**:

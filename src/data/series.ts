@@ -2,8 +2,11 @@ import { addDays, parseDay, ymd } from '../lib/dates'
 import {
   asOccurrence,
   asTask,
+  isSeriesDefinition,
   isTemplate,
+  NO_RECUR,
   type Occurrence,
+  type SeriesDefinition,
   type Task,
   type TaskDraft,
 } from '../types/task'
@@ -33,16 +36,21 @@ import {
 /**
  * The board and the hidden Series definitions, which most operations have to change together.
  *
- * Both stay `Task[]` rather than `BoardCard[]` / `SeriesDefinition[]`. Narrowing them
- * surfaces a real defect rather than a typing inconvenience: `planEditSeriesFrom` copies the
- * draft's `recurFreq` onto the definition, so removing the Recurrence Rule and choosing "this and
- * all future" produces a definition with no Rule — which materializes nothing and is no longer
- * reachable as a Series. Fixing that is a decision about what removing a Rule should mean, not a
- * type change, so it is filed rather than smuggled in here, and these stay wide until it lands.
+ * `templates` is `SeriesDefinition[]`, and that is the regression guard for #220 rather than
+ * tidiness. It was `Task[]` because `planEditSeriesFrom` copied the draft's `recurFreq` onto the
+ * definition, so removing the Rule with all-future scope produced a definition carrying
+ * `recurFreq: 'none'` — a hidden row that materialized nothing and was no longer reachable as a
+ * Series. Narrowing this is what makes that state a compile error instead of a silent one; the
+ * operation now routes to `planEndSeriesAt`, which produces a standalone Task and no definition
+ * at all.
+ *
+ * `tasks` stays `readonly Task[]` rather than `BoardCard[]`: definitions are excluded from the
+ * board by `useTasks`, not by this type, and narrowing it is a separate change with its own
+ * fallout.
  */
 export interface SeriesState {
   tasks: readonly Task[]
-  templates: readonly Task[]
+  templates: readonly SeriesDefinition[]
 }
 
 /**
@@ -141,6 +149,8 @@ export type SaveOp =
   /** One occurrence of a series: the rule is stripped so it never persists onto the instance. */
   | { kind: 'update-occurrence'; task: Occurrence }
   | { kind: 'update-series-from'; instance: TaskDraft; draft: TaskDraft }
+  /** The Recurrence Rule was removed with all-future scope: the Series ends at this Occurrence. */
+  | { kind: 'end-series-at'; instance: TaskDraft; draft: TaskDraft }
 
 export type DeleteOp =
   | { kind: 'delete-plain'; id: string }
@@ -167,7 +177,14 @@ export function resolveSave(
       ? { kind: 'promote-to-series', task: draft }
       : { kind: 'update-plain', task: asTask(draft) }
   }
-  if (scope === 'future') return { kind: 'update-series-from', instance: orig, draft }
+  if (scope === 'future') {
+    // Removing the Rule is not an edit *to* the Rule, and routing it as one was #220: the draft's
+    // `recurFreq: 'none'` was copied onto the definition, leaving a hidden row that materialized
+    // nothing and was no longer reachable as a Series. It ends the Series instead.
+    return draft.recurFreq === 'none'
+      ? { kind: 'end-series-at', instance: orig, draft }
+      : { kind: 'update-series-from', instance: orig, draft }
+  }
   return {
     kind: 'update-occurrence',
     task: {
@@ -273,7 +290,7 @@ export function planEditSeriesFrom(
   // user has deleted.
   // `asTask` rather than a bare object: `seriesContent`/`pick` return a partial, and spreading a
   // partial widens the recurrence fields back to their union, so the shape has to be re-chosen.
-  const nextTemplate: Task = asTask({
+  const rebuilt = asTask({
     ...template,
     ...seriesContent(draft),
     // Unticked, like `status` above: Step Completion is Occurrence State, so a definition holds
@@ -281,6 +298,12 @@ export function planEditSeriesFrom(
     checklist: draft.checklist.map((c) => ({ ...c, done: false })),
     ...pick(draft, RULE_EDITABLE_FIELDS),
   })
+  // A draft with no Rule does not describe a Series, and `resolveSave` routes that case to
+  // `planEndSeriesAt` instead — so this is unreachable. It is checked rather than asserted because
+  // it is exactly the invariant #220 broke: the old code wrote the rule-less row and left a
+  // definition that materialized nothing.
+  if (!isSeriesDefinition(rebuilt)) return null
+  const nextTemplate: SeriesDefinition = rebuilt
 
   const affected = (t: Task) => t.recurParentId === template.id && isFromOccurrenceOnward(t, cut)
   // Every affected Occurrence takes the new Series Content and keeps its own state and placement —
@@ -367,7 +390,7 @@ export function planDeleteOccurrence(state: SeriesState, instance: Task): Series
     }
   }
 
-  const nextTemplate: Task = {
+  const nextTemplate: SeriesDefinition = {
     ...template,
     excludedDates: [...template.excludedDates, occurrenceDateOf(instance)],
   }
@@ -426,7 +449,10 @@ export function planDeleteSeriesFrom(state: SeriesState, instance: Task): Series
     }
   }
 
-  const nextTemplate: Task = asTask({ ...template, recurUntil: ymd(addDays(parseDay(cut), -1)) })
+  const nextTemplate: SeriesDefinition = {
+    ...template,
+    recurUntil: ymd(addDays(parseDay(cut), -1)),
+  }
   const doomed = state.tasks.filter(
     (t) => t.recurParentId === template.id && isFromOccurrenceOnward(t, cut),
   )
@@ -452,6 +478,99 @@ export function planDeleteSeriesFrom(state: SeriesState, instance: Task): Series
 }
 
 /**
+ * End the Series at this Occurrence: the Rule stops here, and this Occurrence becomes a
+ * standalone Task carrying the edits saved alongside the removal.
+ *
+ * This is what removing a Recurrence Rule with all-future scope means (#220). Routing it through
+ * `planEditSeriesFrom` instead — as an edit that happens to set `recurFreq: 'none'` — produced a
+ * definition that no test the app applies still recognised: `isTemplate` was false for it, so a
+ * reload would have put it on the board except that it stayed hidden, `missingInstanceDates`
+ * returned `[]` so it materialized nothing ever again, and its existing Occurrences went on
+ * pointing at it.
+ *
+ * Earlier Occurrences are deliberately left alone, content included. All-future scope says
+ * nothing about them, and they remain what they were: Occurrences of a Series that has now ended.
+ *
+ * Two orderings here are load-bearing rather than incidental:
+ *
+ * - **The detach is upserted before anything is deleted**, and a failed upsert aborts the rest
+ *   (`FATAL`). Cutting at the Series' own anchor deletes the definition, and `tasks.recur_parent_id`
+ *   cascades — so a row still naming that parent goes with it. The row the user is *keeping* is
+ *   exactly that row until the detach lands.
+ * - **The trimming delete is scoped `occurrence-after`, not `occurrence-from`.** The cut date is
+ *   the Occurrence being kept, so scoping strictly after it means the delete cannot reach that row
+ *   even if the detach has not been applied yet — the plan does not depend on its own ordering
+ *   twice over.
+ */
+export function planEndSeriesAt(
+  state: SeriesState,
+  instance: TaskDraft,
+  draft: TaskDraft,
+): SeriesPlan {
+  const template = state.templates.find((t) => t.id === instance.recurParentId)
+  // `NO_RECUR` rather than editing the recurrence fields by hand: this row stops being an
+  // Occurrence *and* must not become a definition, which is one shape, not two field changes.
+  const detached = asTask({ ...draft, ...NO_RECUR, recurInterval: 1, excludedDates: [] })
+  const withDetached = state.tasks.map((t) => (t.id === detached.id ? detached : t))
+
+  // No definition to trim: "the Series is gone" is already the outcome being asked for, so this
+  // degrades to detaching the row. `CONTEXT.md`: an Occurrence whose Series no longer exists is a
+  // standalone Task.
+  if (!template) {
+    return {
+      state: { tasks: withDetached, templates: state.templates },
+      upserts: [detached],
+      upsertOnFailure: ROLLBACK,
+      deletions: [],
+      markIds: [detached.id],
+      materialize: [],
+    }
+  }
+
+  // By Occurrence Date, never the movable Scheduled Day — the same rule as every other scope here.
+  const cut = occurrenceDateOf(instance)
+  const ofSeries = (t: Task) => t.recurParentId === template.id
+
+  if (cut <= template.day) {
+    // Nothing precedes this Occurrence, so no Series survives it: the definition goes and the
+    // database cascade takes the Occurrences still pointing at it. The detached row no longer
+    // does, which is why its upsert has to have landed first.
+    return {
+      state: {
+        tasks: withDetached.filter((t) => !ofSeries(t)),
+        templates: state.templates.filter((t) => t.id !== template.id),
+      },
+      upserts: [detached],
+      upsertOnFailure: FATAL,
+      deletions: [{ target: { by: 'id', id: template.id }, onFailure: RESYNC }],
+      markIds: [detached.id, template.id, ...state.tasks.filter(ofSeries).map((t) => t.id)],
+      materialize: [],
+    }
+  }
+
+  const later = (t: Task) => ofSeries(t) && occurrenceDateOf(t) > cut
+  const nextTemplate: SeriesDefinition = {
+    ...template,
+    recurUntil: ymd(addDays(parseDay(cut), -1)),
+  }
+
+  return {
+    state: {
+      tasks: withDetached.filter((t) => !later(t)),
+      templates: state.templates.map((t) => (t.id === template.id ? nextTemplate : t)),
+    },
+    upserts: [detached, nextTemplate],
+    upsertOnFailure: FATAL,
+    deletions: [
+      { target: { by: 'occurrence-after', parentId: template.id, day: cut }, onFailure: RESYNC },
+    ],
+    markIds: [detached.id, template.id, ...state.tasks.filter(later).map((t) => t.id)],
+    // Nothing to create: the Rule now ends before this Occurrence.
+    materialize: [],
+  }
+}
+
+/**
  * Promote a standalone Task to a Recurring Series.
  *
  * The Task **keeps its row** and becomes the Series' first Occurrence; a new row becomes the
@@ -471,10 +590,11 @@ export function planPromoteToSeries(
   state: SeriesState,
   draft: TaskDraft,
   nextId: () => string,
-): SeriesPlan {
-  // `asTask` picks the definition shape: promotion is only reached when the draft carries a Rule,
-  // so this is a `SeriesDefinition` by construction.
-  const template: Task = asTask({
+): SeriesPlan | null {
+  // `asTask` picks the shape from the fields. Promotion is only reached when the draft carries a
+  // Rule, so this is a `SeriesDefinition` — checked below rather than asserted, for the same
+  // reason as in `planEditSeriesFrom`.
+  const built = asTask({
     ...draft,
     id: nextId(),
     // The template is a definition, not a card. Occurrence State is meaningless on it and would
@@ -492,6 +612,9 @@ export function planPromoteToSeries(
     excludedDates: [],
     occurrenceDate: null,
   })
+  // Unreachable: `resolveSave` only produces `promote-to-series` for a rule-bearing draft.
+  if (!isSeriesDefinition(built)) return null
+  const template: SeriesDefinition = built
 
   const first: Occurrence = {
     ...draft,
