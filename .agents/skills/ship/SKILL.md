@@ -132,6 +132,24 @@ Insert a `## [$next] - <today>` section immediately below `## [Unreleased]`.
   (someone else merged first, so `$next` went up), **renumber** the existing section rather than
   adding a new one.
 
+**Before writing it, check whether another open PR already claims `$next`.** `next-version.mjs`
+computes from the highest existing tag, so two branches cut from the same commit *must* compute the
+same number — that is the script working correctly, not a collision to resolve. What it means is
+that whichever PR merges second loses: its `## [$next]` section names a version that has already
+been minted, the required `Changelog` check fails it, and `CHANGELOG.md` conflicts with `main`
+because both inserted at the same offset under `## [Unreleased]`. Both PRs go green first, so the
+failure lands after review, on the one you merge second.
+
+```bash
+gh pr list --state open --json number,title,headRefName
+```
+
+For each open PR that is not this branch, check whether its `CHANGELOG.md` already has a
+`## [$next]` heading (`gh pr diff <number> -- CHANGELOG.md`). If one does, you cannot avoid the
+clash from here — the number is correct for both. Say so explicitly in the report, name the PR, and
+expect to re-run `/ship` to renumber whichever merges second. Merging the other one first and
+renumbering immediately is cheaper than discovering it from a red check.
+
 ### 6. Fast checks — refuse to push if any fail
 
 Cheap gates that catch most mistakes in seconds. **Tests, the full build, and the Deno
@@ -187,6 +205,9 @@ beyond the fast checks.
 - **Leave the branch's entry under `[Unreleased]`, or hand-compute the version** — always use
   `scripts/next-version.mjs`.
 - **Backfill or renumber the legacy 4-part `v1.1.1.x` tags.**
+- **Assume `$next` is yours alone when another PR is open.** Two branches cut from the same commit
+  compute the same version by design; check for a competing claim before writing the section, and
+  say so rather than letting the second merge discover it.
 - **Edit `CLAUDE.md`** (it only imports `AGENTS.md`) or anything under `design/`.
 
 ## Common mistakes
@@ -202,3 +223,4 @@ beyond the fast checks.
 | Skipping the backfill because "it's not my change" | The guard fails your PR for someone else's undocumented build. Step 3 is how it gets paid. |
 | Editing the CHANGELOG or docs and skipping `npm run format` | Markdown is formatting-gated since v1.5.0. Run `npm run format`, then `npm run codex:sync` — in that order. |
 | Merging once green | Stop at PR open — the human self-merges. |
+| Writing `## [$next]` without checking other open PRs | Two branches from the same commit compute the same number. Check first; the second to merge pays with a red required check and a `CHANGELOG.md` conflict. |

@@ -12,6 +12,23 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.19] - 2026-08-21
+
+### Internal
+
+- The `ship` skill now checks whether another open pull request already claims the version the
+  current one is about to write, and says so up front (#223). Two branches cut from the same commit
+  compute the same next version by design — nothing reserves it — so whichever merges second used
+  to fail the required changelog check for naming a version that had already shipped, and conflict
+  on the changelog besides. Both go green before either merges, so that failure always arrived
+  after review, which is the worst moment to meet it. The clash still has to be resolved by hand;
+  what changed is that it is reported before the work rather than discovered from a red check.
+
+### Docs
+
+- `AGENTS.md`'s release section records the same property, since it explains how the next version
+  is computed but not what happens when two pull requests compute it at once.
+
 ## [1.8.18] - 2026-08-21
 
 ### Fixed
@@ -2350,7 +2367,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.18...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.19...HEAD
+[1.8.19]: https://github.com/jwh3times/magic-agenda/compare/v1.8.18...v1.8.19
 [1.8.18]: https://github.com/jwh3times/magic-agenda/compare/v1.8.17...v1.8.18
 [1.8.17]: https://github.com/jwh3times/magic-agenda/compare/v1.8.16...v1.8.17
 [1.8.16]: https://github.com/jwh3times/magic-agenda/compare/v1.8.15...v1.8.16
