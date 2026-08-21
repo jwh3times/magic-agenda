@@ -4,6 +4,16 @@ import type { EditorChrome } from './editorChrome'
 export interface ScopePromptProps {
   /** Which question to ask. Changes only the heading and the destructive-button styling. */
   mode: 'save' | 'delete'
+  /**
+   * True when choosing **This and all future** would end the Recurring Series rather than edit it,
+   * i.e. the draft cleared the Repeat control. Only then does the body copy say that later
+   * Occurrences are removed.
+   *
+   * The caller must compute this with `removesRule`, not with its own reading of the draft: the
+   * promise made here is only worth making while it matches the plan `resolveSave` routes to
+   * (#229). It stays `false` in `delete` mode, where the heading already says "Delete".
+   */
+  endsSeries?: boolean
   chrome: EditorChrome
   onChoose: (scope: RecurScope) => void
   onCancel: () => void
@@ -18,7 +28,7 @@ export interface ScopePromptProps {
  * `TaskEditor.test.tsx` calls a "narrow race". The owner of that state now clears it instead of
  * hiding it, and this component simply renders when it is asked to.
  */
-export function ScopePrompt({ mode, chrome, onChoose, onCancel }: ScopePromptProps) {
+export function ScopePrompt({ mode, endsSeries, chrome, onChoose, onCancel }: ScopePromptProps) {
   return (
     <div
       style={{
@@ -52,7 +62,9 @@ export function ScopePrompt({ mode, chrome, onChoose, onCancel }: ScopePromptPro
           {mode === 'save' ? 'Save repeating task' : 'Delete repeating task'}
         </div>
         <div style={{ fontSize: 13, color: chrome.sub, marginBottom: 16, lineHeight: 1.45 }}>
-          This task repeats. Apply to this occurrence only, or this and all future occurrences?
+          {endsSeries
+            ? 'This task repeats. Applying to this and all future occurrences will stop it repeating, and later occurrences will be removed.'
+            : 'This task repeats. Apply to this occurrence only, or this and all future occurrences?'}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <button

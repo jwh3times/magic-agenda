@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { RecurScope } from '../data/series'
+import { removesRule, type RecurScope } from '../data/series'
 import { cleanDraft, intendDelete, intendSave } from '../data/editIntent'
 import { useTheme } from '../theme/ThemeProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
@@ -635,6 +635,8 @@ export function TaskEditor({
       {scopePrompt && (
         <ScopePrompt
           mode={scopePrompt}
+          // Only the save path can end the Series; the delete prompt's heading already says so.
+          endsSeries={scopePrompt === 'save' && removesRule(initial, draft)}
           chrome={chrome}
           onChoose={chooseScope}
           onCancel={() => setScopePrompt(null)}

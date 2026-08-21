@@ -32,6 +32,19 @@ function mkInstance(over: Partial<TaskDraft> = {}): Task {
   })
 }
 
+/**
+ * An Occurrence's draft as `Board.openTask` builds it: the row plus its Series' Recurrence Rule,
+ * which is what the Repeat controls edit.
+ *
+ * `mkInstance` cannot express this — `asTask` narrows a parented row to an `Occurrence` and forces
+ * `recurFreq` back to `'none'`. A test that skips this helper is therefore editing a draft the app
+ * never produces, which is exactly how the removal path used to go untested (see the twin helper
+ * in `src/data/series.test.ts`).
+ */
+function editing(over: Partial<TaskDraft> = {}): TaskDraft {
+  return { ...mkInstance(), recurFreq: 'weekly', recurInterval: 1, recurUntil: null, ...over }
+}
+
 function TestProviders({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider>
@@ -42,7 +55,7 @@ function TestProviders({ children }: { children: ReactNode }) {
   )
 }
 
-function renderEditor(initial: Task) {
+function renderEditor(initial: TaskDraft) {
   const onSave = vi.fn()
   const onDelete = vi.fn()
   const onClose = vi.fn()
@@ -309,4 +322,48 @@ test('an unscheduled task with no rule still saves', () => {
   // The gate is about the pair, not about the Inbox: an Inbox task on its own is perfectly savable.
   renderEditor(mkInstance({ recurParentId: null, day: 'inbox' }))
   expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
+})
+
+// #229 — in `save` mode "This and all future" reads as the safe, primary action, but since #220 it
+// can end the Series and delete every later Occurrence. The card on screen survives either way, so
+// the rows that disappear are the ones the user cannot see and there is no feedback afterwards.
+// The copy is conditional on `removesRule`, the same predicate `resolveSave` routes on, so the
+// warning cannot promise a removal the plan does not perform.
+test('warns that later occurrences are removed when the repeat rule is cleared', async () => {
+  const user = userEvent.setup()
+  const { container } = renderEditor(editing())
+
+  fireEvent.change(repeatSelect(container), { target: { value: 'none' } })
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+
+  expect(screen.getByText(/later occurrences will be removed/i)).toBeInTheDocument()
+})
+
+test('keeps the neutral scope copy for an all-future edit that only writes', async () => {
+  const user = userEvent.setup()
+  const { container } = renderEditor(editing())
+
+  await user.clear(screen.getByPlaceholderText('Task title…'))
+  await user.type(screen.getByPlaceholderText('Task title…'), 'Water the ferns')
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+
+  expect(screen.getByText('Save repeating task')).toBeInTheDocument()
+  expect(screen.queryByText(/later occurrences will be removed/i)).not.toBeInTheDocument()
+  // The Repeat control was never touched, so nothing about the Rule changed.
+  expect(repeatSelect(container).value).toBe('weekly')
+})
+
+test('does not warn when the editor never had a rule to clear', async () => {
+  // `Board.openTask` merges the Rule on only if it finds the definition. A draft that missed it
+  // shows "Does not repeat" already, so there is nothing for the user to have removed — and
+  // `removesRule` is false, matching the plan, which is an ordinary all-future edit.
+  const user = userEvent.setup()
+  renderEditor(mkInstance())
+
+  await user.clear(screen.getByPlaceholderText('Task title…'))
+  await user.type(screen.getByPlaceholderText('Task title…'), 'Water the ferns')
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+
+  expect(screen.getByText('Save repeating task')).toBeInTheDocument()
+  expect(screen.queryByText(/later occurrences will be removed/i)).not.toBeInTheDocument()
 })
