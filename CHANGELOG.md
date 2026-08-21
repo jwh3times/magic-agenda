@@ -12,6 +12,23 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.15] - 2026-08-20
+
+### Internal
+
+- Added an `end-session` agent skill, the bookend to `ship`: it closes out a work session by moving
+  what was learned into the places that survive it — GitHub issues, `private/`, and memory — and
+  clearing scratch out of the checkout. It never pushes, merges, or edits `AGENTS.md`, `README.md`,
+  `ROADMAP.md`, or `CHANGELOG.md`, since those belong to the PR that changed the code.
+- Two of its rules exist because the failure they prevent is silent: a dated `private/` review is
+  amended rather than rewritten, so it stays evidence of the state it reviewed; and the workspace
+  pass carries an explicit never-delete list, because `.env.local`, `private/`, and
+  `tests/e2e/.auth/` are git-ignored yet each is the only copy of what it holds.
+
+### Docs
+
+- `AGENTS.md` records the new skill alongside `ship` in "Agents and docs automation".
+
 ## [1.8.14] - 2026-08-20
 
 ### Changed
@@ -2276,7 +2293,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.14...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.15...HEAD
+[1.8.15]: https://github.com/jwh3times/magic-agenda/compare/v1.8.14...v1.8.15
 [1.8.14]: https://github.com/jwh3times/magic-agenda/compare/v1.8.13...v1.8.14
 [1.8.13]: https://github.com/jwh3times/magic-agenda/compare/v1.8.12...v1.8.13
 [1.8.12]: https://github.com/jwh3times/magic-agenda/compare/v1.8.11...v1.8.12
