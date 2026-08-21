@@ -635,6 +635,7 @@ Eight details worth keeping:
   materializing anything while its existing Occurrences went on pointing at it (#220).
   `resolveSave` now recognizes a Rule _removal_ under `future` scope as its own `end-series-at` op,
   resolved by the pure planner `planEndSeriesAt`. It tests the **stored** row as well as the draft
+  via the exported predicate `removesRule(orig, draft)`
   (`draft.recurFreq === 'none' && orig.recurFreq !== 'none'`), and both halves are required:
   `Board.openTask` merges the Series' Rule onto a draft only if it finds the definition, so a
   lookup that missed is indistinguishable from a removal on the draft alone — and reading it as one
@@ -646,7 +647,14 @@ Eight details worth keeping:
   definition is deleted, with `FATAL` failure handling, because `tasks.recur_parent_id` cascades and
   would otherwise delete the very row being kept; and the trim is scoped `occurrence-after`
   (strictly after the cut) rather than `occurrence-from`, so it cannot reach the kept Occurrence even
-  independent of that ordering.
+  independent of that ordering. `removesRule` is `resolveSave`'s own inline test pulled out to a
+  named export (#229), not new logic, because it has a second caller that must agree with it: the
+  editor's scope prompt (`ScopePrompt`'s `endsSeries`) reads it to warn that later Occurrences will
+  be removed, and a second,
+  independently-worded copy of the same question is how a warning and the plan it describes drift
+  apart. **Rule _shortening_** — moving `recurUntil` earlier, which also deletes Occurrences and has
+  done since long before #220 — is deliberately outside `removesRule` and unwarned; #229 scoped the
+  copy to removal rather than to every deleting save.
 - **A Series definition carries no pin, and that is a fix rather than an omission.** `makeInstance`
   used to copy `tmpl.pinned`, while nothing after `planPromoteToSeries` ever wrote that column — so
   a Series' pin was frozen at whatever the Task's pin happened to be when it was promoted, and every
