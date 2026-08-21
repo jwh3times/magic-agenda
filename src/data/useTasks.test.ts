@@ -261,6 +261,81 @@ test('updateSeries "this and future" persists the edited content to existing ins
   expect(result.current.tasks.find((t) => t.id === 'i1')?.atTime).toBe('14:00')
 })
 
+test('removing the Recurrence Rule with "this and all future" ends the Series here (#220)', async () => {
+  const today = ymd(new Date())
+  const earlier = ymd(addDays(new Date(), -7))
+  h.capture.rows = [
+    serverRow({ id: 'tpl1', recur_freq: 'weekly', day: earlier, title: 'Standup' }),
+    serverRow({ id: 'i0', recur_parent_id: 'tpl1', recur_origin_day: earlier, day: earlier }),
+    serverRow({ id: 'i1', recur_parent_id: 'tpl1', recur_origin_day: today, day: today }),
+  ]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  h.upsert.mockClear()
+
+  const instance = result.current.tasks.find((t) => t.id === 'i1')!
+  await act(async () => {
+    // The draft the editor produces: the Occurrence with its Series' Rule merged on, then Repeat
+    // set back to "Does not repeat".
+    await result.current.saveTask(
+      { ...instance, recurFreq: 'weekly', recurInterval: 1, recurUntil: null },
+      { ...instance, recurFreq: 'none', recurInterval: 1, recurUntil: null },
+      false,
+      'future',
+    )
+  })
+
+  // The edited card survives as a standalone Task rather than vanishing into a hidden definition,
+  // which is what the old routing produced: a definition carrying `recurFreq: 'none'` that
+  // materialized nothing and was no longer reachable as a Series.
+  const kept = result.current.tasks.find((t) => t.id === 'i1')!
+  expect(kept.recurParentId).toBeNull()
+  expect(kept.occurrenceDate).toBeNull()
+  // Earlier Occurrences belong to the Series that just ended and are left alone.
+  expect(result.current.tasks.map((t) => t.id)).toEqual(['i0', 'i1'])
+
+  const call = h.upsert.mock.calls[0] as unknown as unknown[]
+  const rows = call[0] as { id: string; recur_freq: string; recur_until: string | null }[]
+  // The detach is written before anything is deleted, and the definition keeps a real Rule.
+  expect(rows.find((r) => r.id === 'i1')?.recur_freq).toBe('none')
+  expect(rows.find((r) => r.id === 'tpl1')?.recur_freq).toBe('weekly')
+  expect(rows.find((r) => r.id === 'tpl1')?.recur_until).toBe(ymd(addDays(new Date(), -1)))
+})
+
+test('a failed detach leaves the Series definition undeleted (#220)', async () => {
+  // The ordering `planEndSeriesAt` documents as load-bearing, asserted end to end rather than on
+  // the plan's shape: `tasks.recur_parent_id` cascades, so deleting the definition after a detach
+  // that never landed would take the row the user is keeping.
+  const today = ymd(new Date())
+  h.capture.rows = [
+    serverRow({ id: 'tpl1', recur_freq: 'weekly', day: today, title: 'Standup' }),
+    serverRow({ id: 'i1', recur_parent_id: 'tpl1', recur_origin_day: today, day: today }),
+  ]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  h.deleteEq.mockClear()
+  h.upsert.mockRejectedValueOnce(new Error('detach failed'))
+
+  const instance = result.current.tasks.find((t) => t.id === 'i1')!
+  await act(async () => {
+    await result.current.saveTask(
+      { ...instance, recurFreq: 'weekly', recurInterval: 1, recurUntil: null },
+      { ...instance, recurFreq: 'none', recurInterval: 1, recurUntil: null },
+      false,
+      'future',
+    )
+  })
+
+  // Cutting at the anchor would otherwise delete tpl1 by id, cascading to i1.
+  expect(h.deleteEq).not.toHaveBeenCalled()
+  expect(h.deleteGt).not.toHaveBeenCalled()
+  // `FATAL` also resyncs, so the row comes back from the server rather than being left detached
+  // locally against a database that never took the write.
+  await waitFor(() =>
+    expect(result.current.tasks.find((t) => t.id === 'i1')?.recurParentId).toBe('tpl1'),
+  )
+})
+
 test('rollForward moves overdue tasks to today and upserts only them', async () => {
   h.capture.rows = [
     serverRow({ id: 't1', day: '2020-01-01', order_index: 0 }),
@@ -389,7 +464,7 @@ test('a failed load hydrates from the snapshot and materializes nothing', async 
   localStorage.setItem(
     'ma-snapshot-board.b1',
     JSON.stringify({
-      v: 5,
+      v: 6,
       userId: 'u1',
       boardId: 'b1',
       savedAt: 1_770_000_000_000,
@@ -450,7 +525,7 @@ test('a successful load writes a snapshot', async () => {
 test('reconnecting clears offline mode', async () => {
   localStorage.setItem(
     'ma-snapshot-board.b1',
-    JSON.stringify({ v: 5, userId: 'u1', boardId: 'b1', savedAt: 1, tasks: [], templates: [] }),
+    JSON.stringify({ v: 6, userId: 'u1', boardId: 'b1', savedAt: 1, tasks: [], templates: [] }),
   )
   h.capture.selectError = { message: 'FetchError: Failed to fetch' }
   const { result } = renderHook(() => useTasks('u1', 'b1', true))
@@ -473,7 +548,7 @@ test('reconnecting clears offline mode', async () => {
 // nothing under an "Offline" banner instead of the last-known tasks.
 test('reconnecting while sessionless does not poison the board snapshot with an empty board', async () => {
   const existing = {
-    v: 5,
+    v: 6,
     userId: 'u1',
     boardId: 'b1',
     savedAt: 1,

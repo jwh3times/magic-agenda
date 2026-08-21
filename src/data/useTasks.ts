@@ -12,6 +12,7 @@ import {
   planDeleteOccurrence,
   planDeleteSeriesFrom,
   planEditSeriesFrom,
+  planEndSeriesAt,
   planPromoteToSeries,
   resolveDelete,
   resolveSave,
@@ -22,7 +23,7 @@ import {
 } from './series'
 import { newId } from '../lib/id'
 import { ymd } from '../lib/dates'
-import { isTemplate, type Task, type TaskDraft } from '../types/task'
+import { isSeriesDefinition, type SeriesDefinition, type Task, type TaskDraft } from '../types/task'
 import type { Mode } from '../dnd/reorder'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 import type { Database } from '../types/database.types'
@@ -76,7 +77,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
   const [offline, setOffline] = useState(false)
   const [savedAt, setSavedAt] = useState<number | null>(null)
   const tasksRef = useRef<Task[]>([])
-  const templatesRef = useRef<Task[]>([])
+  const templatesRef = useRef<SeriesDefinition[]>([])
   const inFlight = useRef(false)
   // Set true only by reload()'s success path, and only when that load actually happened under a
   // real session — never by hydrateFromSnapshot(), and never by a sessionless reload's empty
@@ -185,8 +186,8 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         return
       }
       const all = (data ?? []).map(rowToTask)
-      templatesRef.current = all.filter(isTemplate)
-      const instances = all.filter((t) => !isTemplate(t))
+      templatesRef.current = all.filter(isSeriesDefinition)
+      const instances = all.filter((t) => !isSeriesDefinition(t))
       if (hasSession) hasLoadedFromServer.current = true
       setOffline(false)
       setSavedAt(null)
@@ -280,7 +281,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
 
   const createTask = useCallback(
     async (task: Task) => {
-      if (isTemplate(task)) {
+      if (isSeriesDefinition(task)) {
         templatesRef.current = [...templatesRef.current, task]
         markWrites([task.id])
         try {
@@ -500,7 +501,13 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       const op = resolveSave(orig, draft, isNew, scope)
       if (op.kind === 'create') return createTask(op.task)
       if (op.kind === 'promote-to-series') {
-        return runPlan(planPromoteToSeries(seriesState(), op.task, newId))
+        const plan = planPromoteToSeries(seriesState(), op.task, newId)
+        // A draft with no Rule does not describe a Series; `resolveSave` never routes one here.
+        if (plan) await runPlan(plan)
+        return
+      }
+      if (op.kind === 'end-series-at') {
+        return runPlan(planEndSeriesAt(seriesState(), op.instance, op.draft))
       }
       if (op.kind === 'update-series-from') {
         const plan = planEditSeriesFrom(seriesState(), op.instance, op.draft)

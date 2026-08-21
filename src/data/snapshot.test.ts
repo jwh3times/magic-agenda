@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest'
-import { NO_RECUR, type Task } from '../types/task'
+import { NO_RECUR, type SeriesDefinition, type Task } from '../types/task'
 import type { Label } from '../types/label'
 import {
   cachedBoardIds,
@@ -16,6 +16,15 @@ import {
   writeLabelSnapshot,
   writeSettingsSnapshot,
 } from './snapshot'
+
+/** A Series definition, which is what the snapshot's `templates` half holds (#220). */
+const definition = (id: string): SeriesDefinition => ({
+  ...task(id),
+  recurFreq: 'weekly',
+  recurUntil: null,
+  recurParentId: null,
+  occurrenceDate: null,
+})
 
 const task = (id: string): Task => ({
   id,
@@ -45,7 +54,7 @@ const label = (id: string): Label => ({
 afterEach(() => vi.restoreAllMocks())
 
 test('round-trips the board for the same user', () => {
-  writeBoardSnapshot('u1', 'b1', [task('a')], [task('t')])
+  writeBoardSnapshot('u1', 'b1', [task('a')], [definition('t')])
   const snap = readBoardSnapshot('u1', 'b1')
   expect(snap?.tasks.map((t) => t.id)).toEqual(['a'])
   expect(snap?.templates.map((t) => t.id)).toEqual(['t'])
@@ -53,7 +62,7 @@ test('round-trips the board for the same user', () => {
 })
 
 test('templates are stored separately from board tasks', () => {
-  writeBoardSnapshot('u1', 'b1', [task('a')], [task('t')])
+  writeBoardSnapshot('u1', 'b1', [task('a')], [definition('t')])
   expect(readBoardSnapshot('u1', 'b1')?.tasks.some((t) => t.id === 't')).toBe(false)
 })
 
@@ -88,7 +97,7 @@ test('refuses a payload whose shape is wrong', () => {
   // and never reach the shape check it exists to exercise.
   localStorage.setItem(
     'ma-snapshot-board.b1',
-    JSON.stringify({ v: 5, userId: 'u1', boardId: 'b1', tasks: 'nope' }),
+    JSON.stringify({ v: 6, userId: 'u1', boardId: 'b1', tasks: 'nope' }),
   )
   expect(readBoardSnapshot('u1', 'b1')).toBeNull()
 })

@@ -1,5 +1,5 @@
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
-import { isTemplate, type Task } from '../types/task'
+import { isSeriesDefinition, type SeriesDefinition, type Task } from '../types/task'
 import { instanceKey } from './series'
 import { rowToTask } from './mappers'
 import type { Database } from '../types/database.types'
@@ -10,7 +10,7 @@ export interface BoardState {
   /** Board tasks (non-recurring + materialized instances). */
   tasks: Task[]
   /** Hidden recurrence templates (the useTasks templatesRef contents). */
-  templates: Task[]
+  templates: SeriesDefinition[]
 }
 
 export type TaskChange =
@@ -60,7 +60,7 @@ export function applyTaskChange(state: BoardState, change: TaskChange): BoardSta
 
   const task = change.task
 
-  if (isTemplate(task)) {
+  if (isSeriesDefinition(task)) {
     // A template row never renders on the board. The `wasBoardTask` case is a row that turned
     // into a template in place — how this client promoted a Task to a Series until #206, and how
     // a device still running an older build does it today.

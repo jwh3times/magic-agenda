@@ -1,4 +1,4 @@
-import type { Task } from '../types/task'
+import type { SeriesDefinition, Task } from '../types/task'
 import type { Label } from '../types/label'
 import type { Settings } from './useSettings'
 
@@ -28,7 +28,13 @@ const DIRECTORY_KEY = 'ma-snapshot-directory'
 // un-dropped v4 snapshot throws there. Unlike the export format, which is frozen at the old names
 // because other people hold those files, a snapshot is this device's own cache and the next
 // successful load rewrites it.
-const V = 5
+//
+// v6: `templates` narrowed from `Task[]` to `SeriesDefinition[]` (#220). This is a shape change
+// like any other, and it is not hypothetical: the bug that fix closed *wrote* a `recurFreq: 'none'`
+// row into the templates half, so a v5 envelope written by a pre-fix build can hold exactly the
+// shape the type now forbids — and the envelope is asserted, not validated. Bumping drops those
+// rather than hydrating a lie.
+const V = 6
 
 const boardKey = (boardId: string) => `${BOARD_KEY_PREFIX}${boardId}`
 const labelKey = (boardId: string) => `${LABEL_KEY_PREFIX}${boardId}`
@@ -39,7 +45,7 @@ export interface BoardSnapshot {
   boardId: string
   savedAt: number
   tasks: Task[]
-  templates: Task[]
+  templates: SeriesDefinition[]
 }
 
 /**
@@ -114,7 +120,7 @@ export function writeBoardSnapshot(
   userId: string,
   boardId: string,
   tasks: Task[],
-  templates: Task[],
+  templates: readonly SeriesDefinition[],
 ): void {
   if (!boardId) return
   write(boardKey(boardId), userId, { boardId, savedAt: Date.now(), tasks, templates })
