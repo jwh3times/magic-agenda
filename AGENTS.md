@@ -1247,8 +1247,11 @@ workspace audited. It is deliberately **not** a shipping skill: it never pushes,
 changed the code. Run `/ship` first if a branch is still in flight, then `end-session`. Two of its
 rules are load-bearing rather than stylistic: a dated document under `private/` is **amended, never
 rewritten** (it is evidence from the state it reviewed), and the workspace pass carries an explicit
-never-delete list — `.env.local`, `private/`, and `tests/e2e/.auth/` are all git-ignored and all the
-only copy of what they hold, so a blanket sweep of ignored paths destroys them.
+never-delete list. `.env.local`, `private/`, and `tests/e2e/.auth/` are git-ignored and the only
+copy of what they hold, so a blanket sweep of ignored paths destroys them; `supabase/.temp/` (all
+but its regenerable `pgdelta/` cache) and `supabase/.branches/` are on the same list for a
+different reason — that's Supabase CLI link state, so deleting it doesn't destroy data but does
+unlink the project, and relinking needs the database password.
 
 ### Two authored trees, two generated trees — opposite directions on purpose
 
