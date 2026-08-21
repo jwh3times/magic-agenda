@@ -68,6 +68,15 @@ reporting a status on **every** PR including Dependabot's (the exemption lives i
 a job-level `if:`) — a required check that never runs leaves a PR unmergeable forever. The `ship`
 skill automates the whole flow, backfill included.
 
+**Two PRs open at once both name the same version, and that is the design rather than a bug**
+(#223). The next build is computed from the highest existing tag, so branches cut from the same
+commit _must_ compute the same number; nothing reserves it. Whichever merges second then fails the
+required `Changelog` check for naming an already-minted version, and conflicts on `CHANGELOG.md`
+besides, since both inserted a section at the same offset under `## [Unreleased]`. Both go green
+before either merges, so the failure always lands after review. The fix is mechanical — renumber the
+section, fix its two compare links, resolve the conflict — and `ship` now checks for a competing
+claim before writing, so it is reported up front instead of discovered from a red check.
+
 ## Architecture (the parts that span multiple files)
 
 Pure SPA -> Supabase, no server of our own. Postgres **Row-Level Security is the only authorization
