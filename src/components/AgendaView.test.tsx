@@ -4,15 +4,15 @@ import { expect, test, vi } from 'vitest'
 import { ThemeProvider } from '../theme/ThemeProvider'
 import { AgendaView } from './AgendaView'
 import { ymd, addDays } from '../lib/dates'
-import { NO_RECUR, type Task } from '../types/task'
+import { asTask, NO_RECUR, type Task, type TaskDraft } from '../types/task'
 import { BoardActionContext, type BoardActions } from './boardActionContext'
 import { LabelDirectoryContext } from '../labels/labelDirectoryContext'
 import { fakeLabelDirectory } from '../labels/fakeLabelDirectory'
 
 // Local factory — do NOT import from TaskCard.test.tsx (importing a test file
 // registers and re-runs its tests inside this suite too).
-function mkTask(over: Partial<Task> = {}): Task {
-  return {
+function mkTask(over: Partial<TaskDraft> = {}): Task {
+  return asTask({
     id: 't1',
     title: 'T',
     description: '',
@@ -28,7 +28,7 @@ function mkTask(over: Partial<Task> = {}): Task {
     pinned: false,
     ...NO_RECUR,
     ...over,
-  }
+  })
 }
 
 const actions: BoardActions = {

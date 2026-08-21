@@ -1,4 +1,5 @@
 import {
+  asTask,
   INBOX,
   type ChecklistItem,
   type Color,
@@ -25,9 +26,15 @@ export function parseChecklist(value: unknown): ChecklistItem[] {
   return out
 }
 
-/** DB row -> app Task: NULL day becomes the inbox sentinel, done is derived, order_index -> order. */
+/**
+ * DB row -> app Task: NULL day becomes the inbox sentinel, done is derived, order_index -> order.
+ *
+ * `asTask` picks which of the three shapes the row describes, so this is where a flat row becomes a
+ * narrowed `StandaloneTask`, `SeriesDefinition`, or `Occurrence` and nothing downstream has to
+ * re-derive it.
+ */
 export function rowToTask(row: TaskRow): Task {
-  return {
+  return asTask({
     id: row.id,
     title: row.title,
     description: row.description,
@@ -47,7 +54,7 @@ export function rowToTask(row: TaskRow): Task {
     recurParentId: row.recur_parent_id,
     excludedDates: Array.isArray(row.recur_skip) ? (row.recur_skip as string[]) : [],
     occurrenceDate: row.recur_origin_day,
-  }
+  })
 }
 
 /** app Task -> DB insert/update: inbox sentinel becomes NULL, order -> order_index, done is not stored. */

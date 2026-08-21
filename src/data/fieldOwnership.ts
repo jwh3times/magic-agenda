@@ -1,4 +1,4 @@
-import type { Task } from '../types/task'
+import type { Task, TaskDraft } from '../types/task'
 
 /**
  * Who owns each field of a `Task` — the single classification behind both editing scopes.
@@ -104,6 +104,6 @@ export const RULE_EDITABLE_FIELDS: ReadonlySet<keyof Task> = new Set(
 )
 
 /** The values of `fields` picked off `task`, for spreading onto another row. */
-export function pick(task: Task, fields: ReadonlySet<keyof Task>): Partial<Task> {
+export function pick(task: TaskDraft, fields: ReadonlySet<keyof Task>): Partial<TaskDraft> {
   return Object.fromEntries([...fields].map((k) => [k, task[k]]))
 }

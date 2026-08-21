@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react'
 import type { Mode } from '../dnd/reorder'
-import type { Task } from '../types/task'
+import type { Task, TaskDraft } from '../types/task'
 import type { RecurScope } from './series'
 
 /**
@@ -15,8 +15,8 @@ export interface TaskBoard {
   persistReorder: (next: Task[], containers: string[], mode: Mode) => void | Promise<void>
   /** Resolve recurrence scope and save an editor result. */
   saveTask: (
-    orig: Task | null,
-    draft: Task,
+    orig: TaskDraft | null,
+    draft: TaskDraft,
     isNew: boolean,
     scope?: RecurScope,
   ) => void | Promise<void>

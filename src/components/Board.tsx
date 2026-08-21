@@ -32,10 +32,11 @@ import { overdueTasks } from '../data/selectors'
 import type { ViewOption } from './ViewSwitcher'
 import { BoardActionContext, type BoardActions } from './boardActionContext'
 import { useTaskBoard } from '../data/taskBoardContext'
-import { NO_RECUR, type Status, type Task, type ViewName } from '../types/task'
+import { NO_RECUR, type Status, type Task, type TaskDraft, type ViewName } from '../types/task'
 
 interface Editing {
-  task: Task
+  /** The editor's working shape: an Occurrence here also carries its Series' Rule. */
+  task: TaskDraft
   isNew: boolean
 }
 
@@ -140,7 +141,7 @@ export function Board({
   }
 
   const openTask = (task: Task) => {
-    let t = task
+    let t: TaskDraft = task
     if (task.recurParentId) {
       const tmpl = taskBoard.getTemplate(task.recurParentId)
       if (tmpl)

@@ -6,10 +6,10 @@ import {
   intendSave,
   onlyPerOccurrenceChanged,
 } from './editIntent'
-import { NO_RECUR, type Task } from '../types/task'
+import { asTask, NO_RECUR, type Task, type TaskDraft } from '../types/task'
 
-function t(id: string, over: Partial<Task> = {}): Task {
-  return {
+function t(id: string, over: Partial<TaskDraft> = {}): Task {
+  return asTask({
     id,
     title: id,
     description: '',
@@ -25,10 +25,10 @@ function t(id: string, over: Partial<Task> = {}): Task {
     korder: 0,
     ...NO_RECUR,
     ...over,
-  }
+  })
 }
 
-const instance = (over: Partial<Task> = {}) =>
+const instance = (over: Partial<TaskDraft> = {}) =>
   t('i1', { recurParentId: 'tmpl', occurrenceDate: '2026-07-08', day: '2026-07-08', ...over })
 
 describe('changedTaskKeys', () => {

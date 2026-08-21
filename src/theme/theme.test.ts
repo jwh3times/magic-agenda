@@ -3,12 +3,12 @@ import { COLORS, STATUS, PAPER } from './constants'
 import { themeConf } from './themeConf'
 import { boardChrome, cellChrome, inboxChrome, columnChrome, scrollbars } from './chrome'
 import { rotOf, cardStyles } from './cardStyles'
-import { NO_RECUR, type Task, type ThemeName } from '../types/task'
+import { asTask, NO_RECUR, type Task, type ThemeName, type TaskDraft } from '../types/task'
 
 const THEMES: ThemeName[] = ['cork', 'brutal', 'glass']
 
-function task(overrides: Partial<Task> = {}): Task {
-  return {
+function task(overrides: Partial<TaskDraft> = {}): Task {
+  return asTask({
     id: 't1001',
     title: 'Test',
     description: '',
@@ -24,7 +24,7 @@ function task(overrides: Partial<Task> = {}): Task {
     korder: 0,
     ...NO_RECUR,
     ...overrides,
-  }
+  })
 }
 
 describe('constants', () => {

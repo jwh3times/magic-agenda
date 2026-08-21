@@ -1,4 +1,4 @@
-import { isTemplate, type ChecklistItem, type Task } from '../types/task'
+import { asTask, isTemplate, type ChecklistItem, type Task } from '../types/task'
 import { newId } from '../lib/id'
 import { taskToRow } from './mappers'
 import type { Database } from '../types/database.types'
@@ -49,7 +49,9 @@ function toExportTask({ occurrenceDate, excludedDates, ...rest }: Task): ExportT
 }
 
 function fromExportTask({ recurOriginDay, recurSkip, ...rest }: ExportTask): Task {
-  return { ...rest, occurrenceDate: recurOriginDay, excludedDates: recurSkip }
+  // `asTask`, not a bare object: the file format is flat, so which of the three shapes a row is
+  // has to be recovered here rather than trusted from disk.
+  return asTask({ ...rest, occurrenceDate: recurOriginDay, excludedDates: recurSkip })
 }
 
 interface BoardExportV1 {
@@ -336,14 +338,14 @@ export function remapIds(data: Pick<ImportBundle, 'tasks' | 'templates'>): {
   }))
   const tasks = data.tasks.map((task) => {
     const parent = task.recurParentId ? (templateIdMap.get(task.recurParentId) ?? null) : null
-    return {
+    return asTask({
       ...task,
       id: newId(),
       checklist: freshChecklist(task.checklist),
       recurParentId: parent,
       occurrenceDate: parent ? task.occurrenceDate : null,
       excludedDates: [...task.excludedDates],
-    }
+    })
   })
   return { tasks, templates }
 }

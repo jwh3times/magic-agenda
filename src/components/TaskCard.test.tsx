@@ -3,13 +3,13 @@ import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import { ThemeProvider } from '../theme/ThemeProvider'
 import { TaskCard, type TaskCardProps } from './TaskCard'
-import { NO_RECUR, type Task } from '../types/task'
+import { asTask, NO_RECUR, type Task, type TaskDraft } from '../types/task'
 import { BoardActionContext, type BoardActions } from './boardActionContext'
 import { LabelDirectoryContext } from '../labels/labelDirectoryContext'
 import { fakeLabelDirectory } from '../labels/fakeLabelDirectory'
 
-function mkTask(over: Partial<Task> = {}): Task {
-  return {
+function mkTask(over: Partial<TaskDraft> = {}): Task {
+  return asTask({
     id: 't1',
     title: 'Card under test',
     description: '',
@@ -25,7 +25,7 @@ function mkTask(over: Partial<Task> = {}): Task {
     pinned: false,
     ...NO_RECUR,
     ...over,
-  }
+  })
 }
 
 function renderCard(

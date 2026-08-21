@@ -12,6 +12,29 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.14] - 2026-08-20
+
+### Changed
+
+- A task is now modelled as one of three distinct shapes — a standalone task, a repeating task's
+  definition, or one occurrence of it — instead of a single shape that could describe combinations
+  the app does not have (#205). Nothing changes on screen; the point is that impossible states stop
+  being expressible, and two were being built by test fixtures before this landed.
+
+### Fixed
+
+- A repeating occurrence stored without the date it represents could previously be created without
+  anything refusing it, and would have escaped the rule that stops the same occurrence being
+  materialized twice — the uniqueness index does not constrain rows with a missing date. The
+  database now rejects them (`tasks_occurrence_has_date`), and any such row is read as an ordinary
+  task rather than a broken occurrence.
+
+### Internal
+
+- `asTask()` is the single place a stored row, an imported file, or a test fixture becomes one of
+  the three shapes. The task editor's working value is now its own type, `TaskDraft`: it carries an
+  occurrence's parent _and_ its series' repeat rule at once, which no saved task does.
+
 ## [1.8.13] - 2026-08-20
 
 ### Fixed
@@ -2253,7 +2276,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.13...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.14...HEAD
+[1.8.14]: https://github.com/jwh3times/magic-agenda/compare/v1.8.13...v1.8.14
 [1.8.13]: https://github.com/jwh3times/magic-agenda/compare/v1.8.12...v1.8.13
 [1.8.12]: https://github.com/jwh3times/magic-agenda/compare/v1.8.11...v1.8.12
 [1.8.11]: https://github.com/jwh3times/magic-agenda/compare/v1.8.10...v1.8.11

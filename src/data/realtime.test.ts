@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
-import { NO_RECUR, type Task } from '../types/task'
+import { asTask, NO_RECUR, type Task, type TaskDraft } from '../types/task'
 import type { Database } from '../types/database.types'
 import { applyTaskChange, payloadToChange, type BoardState } from './realtime'
 
@@ -22,7 +22,7 @@ const base: Task = {
   korder: 0,
   ...NO_RECUR,
 }
-const mk = (over: Partial<Task>): Task => ({ ...base, ...over })
+const mk = (over: Partial<TaskDraft>): Task => asTask({ ...base, ...over })
 
 const row = (over: Partial<TaskRow> = {}): TaskRow => ({
   id: 't1',
