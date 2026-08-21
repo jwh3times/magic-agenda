@@ -534,9 +534,15 @@ function noOccurrenceSurvives(
  * `string | null` and `occurrenceDates`' `horizonEnd` is `string`, so removing it is a type error
  * rather than a test failure.
  *
- * The walk looks proportional to the Rule's window and is not: this can only return `true` when
- * every date in the window is excluded, so it is bounded by `excludedDates.length + 1` and a Rule
- * capped years out exits on its first unexcluded date.
+ * The cost is **asymmetric**, and only the `true` side is bounded by the exclusions: returning
+ * `true` means every date the walk visited was excluded, so it cannot outrun `excludedDates.length`.
+ * `false` gets no matching shortcut — `occurrenceDates` collects the whole set rather than stopping
+ * at the first unexcluded date, so an unspent Rule walks its entire window, capped only by the
+ * `MAX_OCCURRENCES` ceiling every caller shares (a weekly Rule bounded a year out walks 52; a daily
+ * one bounded six years out stops at 1000). Cheap for the Rules users actually write, which is why
+ * there is no short-circuit here: adding one means a second walk or an `occurrenceDates` variant,
+ * and duplicating that module's fast-forward and monthly-overflow rules to save microseconds is the
+ * worse trade.
  *
  * **Deliberately partial.** A Rule dead by *clock* rather than by exclusion — capped in the past,
  * its Occurrence Dates never materialized because the window starts at today (#210) — is not spent
