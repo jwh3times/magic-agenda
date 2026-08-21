@@ -563,6 +563,90 @@ describe('planDeleteSeriesFrom', () => {
   })
 })
 
+describe('trimming a Series that would own no Occurrences (#228)', () => {
+  /**
+   * The Series after its first Occurrence was individually deleted, which leaves an Excluded Date
+   * behind. Every Occurrence Date before 2026-07-08 is now either excluded or gone, so a cut there
+   * leaves a Rule that can produce nothing.
+   */
+  function firstOccurrenceExcluded() {
+    const s = series()
+    return {
+      templates: [{ ...s.templates[0], excludedDates: ['2026-07-01'] }],
+      tasks: [s.tasks[1], s.tasks[2]],
+    }
+  }
+
+  it('deletes the definition rather than capping it, when deleting from this Occurrence', () => {
+    const s = firstOccurrenceExcluded()
+    const plan = planDeleteSeriesFrom(s, s.tasks[0])
+
+    expect(plan.state.templates).toEqual([])
+    expect(plan.deletions).toEqual([
+      { target: { by: 'id', id: 'tmpl' }, onFailure: { abort: false, recover: 'reload' } },
+    ])
+  })
+
+  it('deletes the definition rather than capping it, when ending the Series here', () => {
+    const s = firstOccurrenceExcluded()
+    const i2 = s.tasks[0]
+    // `editing()`, not the raw row: an Occurrence's own `recurFreq` is already `'none'`, so a
+    // fixture built from it never carried a Rule for the user to remove — and `resolveSave` would
+    // never route it here. See the helper's docstring.
+    const plan = planEndSeriesAt(s, editing(i2), editing(i2, { recurFreq: 'none' }))
+
+    expect(plan.state.templates).toEqual([])
+    expect(plan.deletions).toEqual([
+      { target: { by: 'id', id: 'tmpl' }, onFailure: { abort: false, recover: 'reload' } },
+    ])
+    // The Occurrence the user is keeping still survives as a standalone Task, and still has to be
+    // written before the cascade runs.
+    expect(ids(plan.state.tasks)).toEqual(['i2'])
+    expect(plan.upserts.map((task) => task.id)).toContain('i2')
+    expect(plan.upsertOnFailure.abort).toBe(true)
+  })
+
+  it('still caps the Rule when an earlier Occurrence does survive', () => {
+    // The positive control: without it, a planner that deleted the definition unconditionally
+    // would pass both tests above for the wrong reason.
+    const s = series()
+    expect(planDeleteSeriesFrom(s, s.tasks[1]).state.templates[0].recurUntil).toBe('2026-07-07')
+
+    const i2 = s.tasks[1]
+    const ended = planEndSeriesAt(s, editing(i2), editing(i2, { recurFreq: 'none' }))
+    expect(ended.state.templates[0].recurUntil).toBe('2026-07-07')
+  })
+
+  it('counts only the Occurrences of this Series as survivors', () => {
+    // The parent test is the load-bearing half of the predicate and the positive control above
+    // cannot see it: every row in `series()` belongs to `tmpl`. Drop that clause and any older row
+    // on the board counts as a survivor, so the whole-Series branch never fires and cutting at the
+    // anchor caps `recurUntil` to the day before it — minting the very orphan this guards against.
+    const s = firstOccurrenceExcluded()
+    const standalone = t('other', { day: '2026-06-01' })
+    const otherSeries = t('f1', {
+      day: '2026-06-01',
+      recurParentId: 'other-tmpl',
+      occurrenceDate: '2026-06-01',
+    })
+    const state = { ...s, tasks: [standalone, otherSeries, ...s.tasks] }
+    const i2 = s.tasks[0]
+
+    expect(planDeleteSeriesFrom(state, i2).state.templates).toEqual([])
+    expect(
+      planEndSeriesAt(state, editing(i2), editing(i2, { recurFreq: 'none' })).state.templates,
+    ).toEqual([])
+  })
+
+  it('counts survivors by Occurrence Date, not by the movable Scheduled Day', () => {
+    // i1 dragged past the cut still covers 2026-07-01, so the Series has an Occurrence before the
+    // cut and must be capped. Reading `day` here would delete a definition that still owns a row.
+    const s = series()
+    s.tasks[0] = { ...s.tasks[0], day: '2026-12-25' }
+    expect(planDeleteSeriesFrom(s, s.tasks[1]).state.templates).toHaveLength(1)
+  })
+})
+
 describe('plans do not mutate their input', () => {
   it('leaves the given state untouched', () => {
     const s = series()
