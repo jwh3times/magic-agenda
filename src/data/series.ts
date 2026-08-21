@@ -181,7 +181,16 @@ export function resolveSave(
     // Removing the Rule is not an edit *to* the Rule, and routing it as one was #220: the draft's
     // `recurFreq: 'none'` was copied onto the definition, leaving a hidden row that materialized
     // nothing and was no longer reachable as a Series. It ends the Series instead.
-    return draft.recurFreq === 'none'
+    //
+    // **Both halves are required.** A rule-less draft has two readings, and only one of them is a
+    // removal: `Board.openTask` merges the Series' Rule onto the draft *only if it finds the
+    // definition*, so a lookup that missed produces a draft indistinguishable from one the user
+    // cleared. Testing `draft` alone therefore routes a plain rename to a plan that deletes rows —
+    // and the definition can be absent when the editor opens and present when Save fires, since
+    // the realtime reducer adds one on a definition-shaped UPDATE. `orig` is what seeds the Repeat
+    // control, so a Rule the user could have removed is always visible there; requiring it means
+    // the never-merged case falls back to the behaviour it had before this branch existed.
+    return draft.recurFreq === 'none' && orig.recurFreq !== 'none'
       ? { kind: 'end-series-at', instance: orig, draft }
       : { kind: 'update-series-from', instance: orig, draft }
   }

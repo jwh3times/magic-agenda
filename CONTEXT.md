@@ -28,8 +28,8 @@ _Avoid_: backlog, unscheduled list
 **Recurring Series**:
 A Task that repeats under one Recurrence Rule, appearing on its Board only as its Occurrences. A
 standalone Task becomes a Recurring Series when a Recurrence Rule is added to it, and a Series ends
-when its Recurrence Rule is removed — it produces no further Occurrences, and the Occurrences it
-has already produced remain what they are.
+when its Recurrence Rule is removed — it produces no further Occurrences, and which of the ones it
+has already produced survive depends on the editing scope the removal was made under.
 _Avoid_: template, parent task, repeating task
 
 **Recurrence Rule**:

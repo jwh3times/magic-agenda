@@ -23,13 +23,7 @@ import {
 } from './series'
 import { newId } from '../lib/id'
 import { ymd } from '../lib/dates'
-import {
-  isSeriesDefinition,
-  isTemplate,
-  type SeriesDefinition,
-  type Task,
-  type TaskDraft,
-} from '../types/task'
+import { isSeriesDefinition, type SeriesDefinition, type Task, type TaskDraft } from '../types/task'
 import type { Mode } from '../dnd/reorder'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 import type { Database } from '../types/database.types'
@@ -193,7 +187,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       }
       const all = (data ?? []).map(rowToTask)
       templatesRef.current = all.filter(isSeriesDefinition)
-      const instances = all.filter((t) => !isTemplate(t))
+      const instances = all.filter((t) => !isSeriesDefinition(t))
       if (hasSession) hasLoadedFromServer.current = true
       setOffline(false)
       setSavedAt(null)

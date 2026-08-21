@@ -368,7 +368,7 @@ the answer is almost always to extend `ExportTask` rather than let the format fo
 
 `LabelDirectoryProvider` is mounted inside `BoardDirectoryProvider` above `<Routes>`. Its
 `useLabels(userId, boardId, hasSession)` adapter loads the selected Board's definitions, keeps a
-per-Board v4 snapshot, reloads on visibility/online catch-up, and since #179 also owns the
+per-Board snapshot, reloads on visibility/online catch-up, and since #179 also owns the
 Owner-only management writes. Cards and drag overlays resolve names/colors through this provider; a
 null or missing definition renders the neutral Unlabeled presentation. Label Color supplies the
 accent only; Note Color still chooses the paper.
@@ -607,7 +607,7 @@ That split is what made this subsystem testable. Before it, the three scope oper
 207-line block inside `useTasks` that **no test reached** — `deleteSeriesFuture`, the branchiest
 function in the data layer, had zero — while the cheap date maths in `recurrence.ts` had 22 tests.
 
-Six details worth keeping:
+Seven details worth keeping:
 
 - **Promotion keeps the row and creates the template, not the other way round.** Adding a
   Recurrence Rule to a standalone Task routes through `resolveSave` -> `planPromoteToSeries`: a
@@ -618,6 +618,25 @@ Six details worth keeping:
   because `makeInstance` resets all of them: it builds _future_ Occurrences, where resetting is
   exactly right. The first Occurrence is not a future one. Keeping the row also keeps its id, so
   nothing still referencing that card is left pointing at a row that has left the board.
+- **Ending a Series is not an edit that happens to clear the Rule.** Removing the Recurrence Rule
+  with all-future scope used to route through `planEditSeriesFrom` like any other all-future edit,
+  which copies the draft's Rule fields onto the definition — so it wrote `recurFreq: 'none'` onto
+  the hidden row instead of removing it. That row was no longer `isTemplate`, so it never returned
+  to the board, and `missingInstanceDates` produced `[]` for it forever, so it stopped
+  materializing anything while its existing Occurrences went on pointing at it (#220).
+  `resolveSave` now recognizes a Rule _removal_ under `future` scope as its own `end-series-at` op,
+  resolved by the pure planner `planEndSeriesAt`. It tests the **stored** row as well as the draft
+  (`draft.recurFreq === 'none' && orig.recurFreq !== 'none'`), and both halves are required:
+  `Board.openTask` merges the Series' Rule onto a draft only if it finds the definition, so a
+  lookup that missed is indistinguishable from a removal on the draft alone — and reading it as one
+  routes a plain rename to a plan that deletes rows. The plan: the Series is capped the day
+  before the edited Occurrence (or deleted outright if that Occurrence is the Series' anchor), the
+  edited Occurrence is detached into a standalone Task carrying the edits saved alongside the
+  removal, earlier Occurrences are untouched, and later ones are deleted. Two orderings inside it
+  are load-bearing: the detached row is upserted **before** the definition is deleted, with
+  `FATAL` failure handling, because `tasks.recur_parent_id` cascades and would otherwise delete the
+  very row being kept; and the trim is scoped `occurrence-after` (strictly after the cut) rather
+  than `occurrence-from`, so it cannot reach the kept Occurrence even independent of that ordering.
 - **A Series definition carries no pin, and that is a fix rather than an omission.** `makeInstance`
   used to copy `tmpl.pinned`, while nothing after `planPromoteToSeries` ever wrote that column — so
   a Series' pin was frozen at whatever the Task's pin happened to be when it was promoted, and every
@@ -684,11 +703,17 @@ Four things about it are load-bearing:
   Occurrence and forces `recurFreq` back to `'none'`, silently discarding every all-future Rule
   change. Narrowing happens per branch in `resolveSave`, once the scope says which shape results.
   A `useTasks` test caught this; it is the sharpest edge in the union.
-- **`SeriesState.templates` is still `readonly Task[]`, not `SeriesDefinition[]`.** Narrowing it is
-  a compile error today, and the error is real: removing a Recurrence Rule and choosing all-future
-  writes `recurFreq: 'none'` onto the definition, leaving a hidden row that materializes nothing
-  (#220). Deciding what that should do is a product question, so the type stays wide until it is
-  answered rather than having an answer smuggled in.
+- **`SeriesState.templates` is `readonly SeriesDefinition[]`, and narrowing it is the regression
+  guard for #220, not tidiness.** It was `readonly Task[]` because `planEditSeriesFrom` copied the
+  draft's Rule fields onto the definition, so removing the Rule under all-future scope produced a
+  definition carrying `recurFreq: 'none'` — a hidden row that materialized nothing and was no
+  longer reachable as a Series (see `planEndSeriesAt` above, which is what that operation routes to
+  now instead). With the type narrowed, `planEditSeriesFrom` and `planPromoteToSeries` check
+  `isSeriesDefinition` on the row they build and return `SeriesPlan | null` — `null` for a shape
+  that cannot occur given how `resolveSave` dispatches, which is why both call sites in `useTasks`
+  simply skip a `null` plan rather than handling a real failure. `SeriesState.tasks` stays
+  `readonly Task[]`, not `BoardCard[]`: definitions are excluded from the board by `useTasks`, not
+  by this type, and narrowing it is a separate change with its own fallout.
 
 Spreading a union member and overriding a recurrence field yields a shape matching no member, so
 construction sites either state the target shape (`asOccurrence`, `asSeriesDefinition`) or funnel
@@ -967,7 +992,10 @@ what makes purging one Board's snapshot possible without clearing every cached B
 `cachedBoardIds()` enumerates them by a `localStorage` prefix scan for the two callers that cannot
 yet name a Board: `hasAnyBoardSnapshot()` (the offline-boot gate checked in `App` and
 `ProtectedRoute` before a Board is selected or even known) and `clearSnapshots()`'s sign-out sweep. A version, user-id, or
-**board-id** mismatch drops the envelope rather than migrating it — a board snapshot's own `boardId`
+**board-id** mismatch drops the envelope rather than migrating it. The version is **one constant
+shared by all three**, so bumping it for a shape change in one drops the other two as well — cheap,
+since each is a cache the next successful load rewrites, but it is why a bump shows up as failures
+in the settings and route tests too. A board snapshot's own `boardId`
 field guards against a hand-edited or collided key rendering one Board's tasks under another Board's
 name. **All three are cleared on `SIGNED_OUT`** (`AuthProvider`) — that clearing is the entire
 justification for storing task text at rest in `localStorage` in the first place; see the dated

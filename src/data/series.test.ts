@@ -215,11 +215,20 @@ describe('resolveSave', () => {
     expect(op).toMatchObject({ kind: 'update-series-from', instance: { id: 'i1' } })
   })
 
+  it('does not end the series when the draft never carried a rule to remove', () => {
+    // `Board.openTask` merges the Series' Rule onto a draft only if it finds the definition, so a
+    // lookup that missed yields `recurFreq: 'none'` on a draft the user never touched the Repeat
+    // control in. Reading that as a removal routes a plain rename to a plan that deletes rows.
+    const orig: TaskDraft = { ...instance, recurFreq: 'none' }
+    const op = resolveSave(orig, { ...orig, title: 'Renamed' }, false, 'future')
+    expect(op.kind).toBe('update-series-from')
+  })
+
   it('ends the series when the rule is removed with scope "future" (#220)', () => {
     // Routed as an ordinary all-future edit, this copied `recurFreq: 'none'` onto the definition
     // and left a hidden row that materialized nothing.
-    const draft: TaskDraft = { ...instance, recurFreq: 'none' }
-    const op = resolveSave(instance, draft, false, 'future')
+    const withRule: TaskDraft = { ...instance, recurFreq: 'weekly', recurInterval: 1 }
+    const op = resolveSave(withRule, { ...withRule, recurFreq: 'none' }, false, 'future')
     expect(op).toMatchObject({ kind: 'end-series-at', instance: { id: 'i1' } })
   })
 

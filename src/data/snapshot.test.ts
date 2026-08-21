@@ -97,7 +97,7 @@ test('refuses a payload whose shape is wrong', () => {
   // and never reach the shape check it exists to exercise.
   localStorage.setItem(
     'ma-snapshot-board.b1',
-    JSON.stringify({ v: 5, userId: 'u1', boardId: 'b1', tasks: 'nope' }),
+    JSON.stringify({ v: 6, userId: 'u1', boardId: 'b1', tasks: 'nope' }),
   )
   expect(readBoardSnapshot('u1', 'b1')).toBeNull()
 })

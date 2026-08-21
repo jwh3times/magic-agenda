@@ -12,6 +12,51 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.18] - 2026-08-21
+
+### Fixed
+
+- **Turning off Repeat on a repeating task and choosing "This and all future" now does what it
+  says** (#220). It used to leave the repeat's hidden definition behind carrying "does not
+  repeat" — a row that produced no further occurrences, was no longer recognised as a repeat at
+  all, and still had every existing occurrence pointing at it; the card being edited disappeared
+  from the board with it. Removing the repeat now ends it at that occurrence: the occurrence
+  becomes an ordinary task keeping whatever else was saved with it, earlier occurrences are left
+  as they are, and later ones are removed. Turning off Repeat on the very first occurrence ends
+  the whole repeat.
+
+### Internal
+
+- The operation is its own planner (`planEndSeriesAt`) rather than an edit that happens to clear
+  the rule, and the shape that caused the bug is now unrepresentable: the hidden definitions a
+  board holds are typed as definitions, so writing a rule-less one is a compile error rather than
+  a silent write. Two orderings inside the planner are load-bearing and documented as such — the
+  detached row is written before the definition is deleted (the database cascade would otherwise
+  take the row being kept), and the trimming delete is scoped strictly after the cut so it cannot
+  reach that row even if the detach has not landed.
+- Nine existing tests built "all future" drafts with no repeat rule on them, which the editor
+  never produces; they passed only because the old code never read that field. They now go through
+  a helper that mirrors what opening a task actually builds.
+- Removing the repeat is distinguished from the editor simply having no repeat to show: the two
+  look identical on the saved draft, and treating the second as the first would let an ordinary
+  rename delete rows. The stored task, which is what seeds the Repeat control, settles it.
+- The offline cache version moved to 6, so each device drops its cached board, settings, and board
+  list once and rebuilds them on the next successful load. The cache is asserted rather than
+  validated when read, and a device that hit this bug can have cached exactly the shape the code
+  now rules out.
+
+### Docs
+
+- `CONTEXT.md` records the inverse of "a task becomes a repeat when a rule is added": what ending
+  a repeat means, and what "This and all future" does when the rule is removed.
+
+## [1.8.17] - 2026-08-21
+
+### Internal
+
+- Dependency maintenance (#226): bumped the `npm-minor-and-patch` group — `@testing-library/user-event`
+  14.6.4 to 14.6.5 and `@types/pg` 8.21.0 to 8.23.1. Both are dev-only; no shipped behavior changed.
+
 ## [1.8.16] - 2026-08-21
 
 ### Internal
@@ -2305,7 +2350,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.16...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.18...HEAD
+[1.8.18]: https://github.com/jwh3times/magic-agenda/compare/v1.8.17...v1.8.18
+[1.8.17]: https://github.com/jwh3times/magic-agenda/compare/v1.8.16...v1.8.17
 [1.8.16]: https://github.com/jwh3times/magic-agenda/compare/v1.8.15...v1.8.16
 [1.8.15]: https://github.com/jwh3times/magic-agenda/compare/v1.8.14...v1.8.15
 [1.8.14]: https://github.com/jwh3times/magic-agenda/compare/v1.8.13...v1.8.14
