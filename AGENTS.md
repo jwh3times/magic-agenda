@@ -616,7 +616,7 @@ That split is what made this subsystem testable. Before it, the three scope oper
 207-line block inside `useTasks` that **no test reached** — `deleteSeriesFuture`, the branchiest
 function in the data layer, had zero — while the cheap date maths in `recurrence.ts` had 22 tests.
 
-Seven details worth keeping:
+Eight details worth keeping:
 
 - **Promotion keeps the row and creates the template, not the other way round.** Adding a
   Recurrence Rule to a standalone Task routes through `resolveSave` -> `planPromoteToSeries`: a
@@ -638,14 +638,15 @@ Seven details worth keeping:
   (`draft.recurFreq === 'none' && orig.recurFreq !== 'none'`), and both halves are required:
   `Board.openTask` merges the Series' Rule onto a draft only if it finds the definition, so a
   lookup that missed is indistinguishable from a removal on the draft alone — and reading it as one
-  routes a plain rename to a plan that deletes rows. The plan: the Series is capped the day
-  before the edited Occurrence (or deleted outright if that Occurrence is the Series' anchor), the
-  edited Occurrence is detached into a standalone Task carrying the edits saved alongside the
-  removal, earlier Occurrences are untouched, and later ones are deleted. Two orderings inside it
-  are load-bearing: the detached row is upserted **before** the definition is deleted, with
-  `FATAL` failure handling, because `tasks.recur_parent_id` cascades and would otherwise delete the
-  very row being kept; and the trim is scoped `occurrence-after` (strictly after the cut) rather
-  than `occurrence-from`, so it cannot reach the kept Occurrence even independent of that ordering.
+  routes a plain rename to a plan that deletes rows. The plan: the Series is capped the day before
+  the edited Occurrence (or deleted outright if no Occurrence survives before it — see
+  `noOccurrenceSurvives` below), the edited Occurrence is detached into a standalone Task carrying
+  the edits saved alongside the removal, earlier Occurrences are untouched, and later ones are
+  deleted. Two orderings inside it are load-bearing: the detached row is upserted **before** the
+  definition is deleted, with `FATAL` failure handling, because `tasks.recur_parent_id` cascades and
+  would otherwise delete the very row being kept; and the trim is scoped `occurrence-after`
+  (strictly after the cut) rather than `occurrence-from`, so it cannot reach the kept Occurrence even
+  independent of that ordering.
 - **A Series definition carries no pin, and that is a fix rather than an omission.** `makeInstance`
   used to copy `tmpl.pinned`, while nothing after `planPromoteToSeries` ever wrote that column — so
   a Series' pin was frozen at whatever the Task's pin happened to be when it was promoted, and every
@@ -677,6 +678,23 @@ Seven details worth keeping:
 - **Scope is always by Occurrence Date, never by the card's day.** `occurrenceDateOf` is what stops a
   dragged instance from being scoped wrongly, from resurrecting as a duplicate, or from
   false-triggering the whole-series branch of a delete.
+- **The whole-Series branch of a trim is chosen by counting survivors, not by testing the anchor.**
+  `planDeleteSeriesFrom` and `planEndSeriesAt` both used to ask `cut <= template.day` — does the cut
+  land on the Series' anchor — which is a different question from whether any Occurrence is left
+  behind it. Deleting an Occurrence individually leaves an Excluded Date, so a Series whose earlier
+  Occurrences had each been deleted one at a time could be trimmed down to a Rule that produces
+  nothing while the anchor test still reported a survivor — a valid but meaningless
+  `SeriesDefinition`, hidden from the board, harmless to render, and carried into every backup by
+  `exportBoard` (#228). The `from`-not-`anchor` materialization window (above) is a second,
+  unnamed source of the same rows: a long-running Series whose earliest Occurrences were never
+  materialized has nothing surviving before a present-day cut either, and the anchor test counted
+  that as a survivor too. Both planners now call the private `noOccurrenceSurvives(state, template,
+cut)`, which counts by Occurrence Date and requires `state.tasks` to be the whole board — safe
+  today only because `reload()` selects with no date window and an offline board is read-only; a
+  windowed load would turn this from tidiness into deleting rows the user can still see. Definitions
+  already orphaned in existing accounts are deliberately left alone (triaged as fix-new plus
+  document-old, not a sweep); deleting the **last** Occurrence of an already-capped Series is a
+  distinct, still-open path to the same shape, filed as #231.
 - **`FailureHandling` is two independent questions** (`abort` and `recover`) because the original
   behaviour answered them independently: a failed content upsert aborts the trim that follows it,
   while a failed `excludedDates` write must _not_ stop the occurrence being deleted.

@@ -419,11 +419,59 @@ export function planDeleteOccurrence(state: SeriesState, instance: Task): Series
 }
 
 /**
+ * True when **no Occurrence** of `template` would survive a cut at `cut`, so trimming the Rule
+ * would leave a definition that owns nothing and can never produce anything again.
+ *
+ * Both trimming planners used to ask `cut <= template.day`, which is a different question: it
+ * tests whether the cut lands on the Series' **anchor**, not whether anything is left behind it.
+ * Deleting an Occurrence individually leaves an Excluded Date, so a Series whose earlier
+ * Occurrences have each been deleted can be trimmed to a Rule that yields nothing while the anchor
+ * test still reports a survivor. The result is a valid but meaningless `SeriesDefinition` — hidden
+ * from the board, harmless to render, and carried into every backup by `exportBoard` (#228).
+ *
+ * Survivors are counted by **Occurrence Date**, never the movable Scheduled Day, for the same
+ * reason every other scope decision here is: a card dragged past the cut still covers its own
+ * Occurrence Date, and its Series still owns it.
+ *
+ * For a **scheduled** anchor this subsumes the old test rather than sitting beside it — no
+ * Occurrence Date precedes the anchor — so the whole-Series branch is entered strictly more often,
+ * never less. The one exception is an unscheduled anchor, and it exists only in string ordering:
+ * `'inbox'` sorts after every date, so `cut <= template.day` was vacuously true and the old code
+ * removed the whole Series for any cut at all. Such a definition owns no Occurrences to cut from
+ * (`missingInstanceDates` returns `[]` for an unscheduled anchor, and `TaskEditor` has refused to
+ * save one since #209), and where it is reachable, preserving the earlier rows is the better
+ * answer — so this is a widening in every case that can occur.
+ *
+ * The comparison is safe against the `'inbox'` sentinel by construction: the parent test narrows
+ * `t` to an `Occurrence`, whose `occurrenceDate` is non-null, so `occurrenceDateOf`'s `?? day`
+ * fallback is unreachable here and the value compared is always a real date.
+ *
+ * **Precondition: `state.tasks` is the whole board.** The old test read one field of the
+ * definition, a fact the server also knows. This one reads local state to choose a branch that
+ * deletes the definition and cascades to every Occurrence row in the database — including any this
+ * client never loaded. The two questions coincide only because `reload()` selects the board with no
+ * date window and an offline board is read-only, so no planner ever runs against a partial one. A
+ * windowed load would turn this from tidiness into deleting rows the user can still see.
+ *
+ * Definitions already orphaned in existing accounts are deliberately left as they are: nothing
+ * reads them, and a migration or load-time sweep was judged not worth its cost (#228 option 3).
+ * This stops new ones appearing.
+ */
+function noOccurrenceSurvives(
+  state: SeriesState,
+  template: SeriesDefinition,
+  cut: string,
+): boolean {
+  return !state.tasks.some((t) => t.recurParentId === template.id && occurrenceDateOf(t) < cut)
+}
+
+/**
  * Delete this occurrence and every later one.
  *
- * Cutting at or before the template's own anchor removes the **whole series**: the template row
- * goes, and the database cascade takes its instances with it. Otherwise the rule is capped at the
- * day before the cut and the future instances are deleted.
+ * A cut that leaves the series with no surviving occurrence removes the **whole series**: the
+ * template row goes, and the database cascade takes its instances with it. Otherwise the rule is
+ * capped at the day before the cut and the future instances are deleted. That is not the same as
+ * cutting at the anchor, which is what this used to test — see `noOccurrenceSurvives` (#228).
  */
 export function planDeleteSeriesFrom(state: SeriesState, instance: Task): SeriesPlan {
   const template = state.templates.find((t) => t.id === instance.recurParentId)
@@ -440,7 +488,8 @@ export function planDeleteSeriesFrom(state: SeriesState, instance: Task): Series
 
   const cut = occurrenceDateOf(instance)
 
-  if (cut <= template.day) {
+  // Not "is this the anchor" — "does anything survive". See `noOccurrenceSurvives` (#228).
+  if (noOccurrenceSurvives(state, template, cut)) {
     return {
       state: {
         tasks: state.tasks.filter((t) => t.recurParentId !== template.id),
@@ -540,10 +589,11 @@ export function planEndSeriesAt(
   const cut = occurrenceDateOf(instance)
   const ofSeries = (t: Task) => t.recurParentId === template.id
 
-  if (cut <= template.day) {
-    // Nothing precedes this Occurrence, so no Series survives it: the definition goes and the
+  if (noOccurrenceSurvives(state, template, cut)) {
+    // No Occurrence precedes this one, so no Series survives it: the definition goes and the
     // database cascade takes the Occurrences still pointing at it. The detached row no longer
-    // does, which is why its upsert has to have landed first.
+    // does, which is why its upsert has to have landed first. The test is "does anything survive",
+    // not "is this the anchor" — see `noOccurrenceSurvives` (#228).
     return {
       state: {
         tasks: withDetached.filter((t) => !ofSeries(t)),
