@@ -12,6 +12,18 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.23] - 2026-08-22
+
+### Fixed
+
+- **Renaming a Label now reaches the tasks already assigned to it when returning from Settings**
+  (#235). Label names saved on blur or Enter, but leaving Settings while the name field was still
+  focused could unmount the field before mobile Safari delivered blur. The unsaved draft vanished,
+  so the assigned task cards kept showing the old name. A dirty rename is now flushed as the row is
+  torn down, while a rename already sent by blur is not duplicated and Escape still discards it.
+  A Label deleted while its name field was still being edited is left deleted, rather than the
+  pending rename putting it back on screen.
+
 ## [1.8.22] - 2026-08-21
 
 ### Fixed
@@ -2429,7 +2441,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.22...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.23...HEAD
+[1.8.23]: https://github.com/jwh3times/magic-agenda/compare/v1.8.22...v1.8.23
 [1.8.22]: https://github.com/jwh3times/magic-agenda/compare/v1.8.21...v1.8.22
 [1.8.21]: https://github.com/jwh3times/magic-agenda/compare/v1.8.20...v1.8.21
 [1.8.20]: https://github.com/jwh3times/magic-agenda/compare/v1.8.19...v1.8.20

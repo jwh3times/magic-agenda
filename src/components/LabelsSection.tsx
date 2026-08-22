@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useBoardSession } from '../board/BoardDirectoryProvider'
 import { useLabelDirectoryContext } from '../labels/LabelDirectoryProvider'
 import { explainProblem, NAME_MAX_LENGTH, type LabelProblem } from '../labels/labelIntent'
@@ -44,6 +44,43 @@ export function LabelsSection() {
   const [problem, setProblem] = useState<LabelProblem | null>(null)
   const [pendingDelete, setPendingDelete] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  // Dirty name drafts, published by each row and keyed by Label id.
+  const pendingRenames = useRef(new Map<string, string>())
+  const setPendingRename = useCallback((id: string, name: string | null) => {
+    if (name === null) pendingRenames.current.delete(id)
+    else pendingRenames.current.set(id, name)
+  }, [])
+
+  const flush = useRef({ labels, renameLabel })
+  useEffect(() => {
+    flush.current = { labels, renameLabel }
+  }, [labels, renameLabel])
+
+  useEffect(
+    () => () => {
+      // Leaving Settings can unmount a focused name field before the browser delivers `blur`
+      // — mobile Safari does not reliably send it during teardown — so the pending draft has to
+      // be flushed by something on the way out (#235).
+      //
+      // That something is the **section**, not the row, and the difference is load-bearing. A row
+      // also unmounts when its own Label is deleted, locally or by another surface, and a row
+      // cannot tell the two apart: its props are frozen at its last render, so it would flush a
+      // rename for a Label that no longer exists. `useLabels.renameLabel` guards on the list it
+      // closed over, which still contains that Label, so the optimistic `commit` would put the
+      // deleted row back on screen and `markWrites` would swallow its DELETE echo. Deciding here
+      // fixes that by construction: `flush.current.labels` is the list as of the last render, and
+      // a Label that went away is simply not in it.
+      //
+      // Safe under StrictMode's mount/unmount/mount: at mount no row has published a draft yet,
+      // so the spurious cleanup iterates an empty map.
+      const { labels: listed, renameLabel: rename } = flush.current
+      for (const [id, name] of pendingRenames.current) {
+        if (listed.some((l) => l.id === id)) void rename(id, name)
+      }
+    },
+    [],
+  )
 
   const run = async (write: () => Promise<LabelProblem | null>) => {
     setBusy(true)
@@ -106,6 +143,7 @@ export function LabelsSection() {
               busy={busy}
               confirmingDelete={pendingDelete === label.id}
               onRename={(name) => void run(() => renameLabel(label.id, name))}
+              onPendingRename={setPendingRename}
               onRecolor={(color) => void run(() => recolorLabel(label.id, color))}
               onMove={(delta) => void run(() => reorderLabel(label.id, delta))}
               onAskDelete={() => {
@@ -182,6 +220,13 @@ export function LabelsSection() {
   )
 }
 
+/**
+ * Whether a draft is worth sending. Asked by the field's own commit and by what it publishes for
+ * the section's flush — one wording, one place, per the #229 lesson about a second copy of a
+ * question drifting from the first.
+ */
+const isDirty = (draft: string, name: string) => draft !== name
+
 interface LabelRowProps {
   label: Label
   isFirst: boolean
@@ -190,6 +235,8 @@ interface LabelRowProps {
   busy: boolean
   confirmingDelete: boolean
   onRename: (name: string) => void
+  /** Publish this row's dirty draft (or `null` once it is sent) for the section's flush. */
+  onPendingRename: (id: string, name: string | null) => void
   onRecolor: (color: string) => void
   onMove: (delta: number) => void
   onAskDelete: () => void
@@ -209,6 +256,7 @@ function LabelRow({
   busy,
   confirmingDelete,
   onRename,
+  onPendingRename,
   onRecolor,
   onMove,
   onAskDelete,
@@ -223,8 +271,16 @@ function LabelRow({
     setDraft(label.name)
   }
 
+  // Keep the section's flush map in step with the field. Clearing it in `commit` is what stops a
+  // rename already sent by blur being sent a second time on the way out; the draft only becomes
+  // pending again if the user edits it further.
+  useEffect(() => {
+    onPendingRename(label.id, isDirty(draft, label.name) ? draft : null)
+  }, [label.id, draft, label.name, onPendingRename])
+
   const commit = () => {
-    if (draft === label.name) return
+    if (!isDirty(draft, label.name)) return
+    onPendingRename(label.id, null)
     onRename(draft)
   }
 
