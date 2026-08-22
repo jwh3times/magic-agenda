@@ -264,6 +264,31 @@ test('leaving Settings does not send a rename twice after blur already committed
   expect(renameLabel).toHaveBeenCalledWith('a', 'Focus')
 })
 
+// A row also unmounts when its own Label goes away, and the flush must not fire then: the row's
+// props are frozen at its last render, so `useLabels.renameLabel` would guard against a list that
+// still contains the Label, put the deleted row back with its optimistic `commit`, and swallow the
+// DELETE echo with `markWrites`. Deciding the flush in the section is what makes this a no-op.
+//
+// Note this needs no click: clicking anything blurs the field first, which commits the rename
+// normally. The reachable case is the row vanishing under a still-focused field.
+test('a Label deleted from another surface takes its dirty draft with it', async () => {
+  const user = userEvent.setup()
+  const renameLabel = vi.fn(() => Promise.resolve(null))
+  const props = (labels: Label[]) => (
+    <Wrap directory={fakeLabelDirectory({ labels, renameLabel })} />
+  )
+  const view = render(props(VOCABULARY))
+
+  const input = screen.getByLabelText('Name for Work')
+  await user.clear(input)
+  await user.type(input, 'Focus')
+
+  view.rerender(props(VOCABULARY.slice(1)))
+  view.unmount()
+
+  expect(renameLabel).not.toHaveBeenCalled()
+})
+
 test('Escape abandons a rename without writing', async () => {
   const user = userEvent.setup()
   render(<Harness />)

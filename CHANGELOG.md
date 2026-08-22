@@ -21,6 +21,8 @@ No unreleased changes.
   focused could unmount the field before mobile Safari delivered blur. The unsaved draft vanished,
   so the assigned task cards kept showing the old name. A dirty rename is now flushed as the row is
   torn down, while a rename already sent by blur is not duplicated and Escape still discards it.
+  A Label deleted while its name field was still being edited is left deleted, rather than the
+  pending rename putting it back on screen.
 
 ## [1.8.22] - 2026-08-21
 
