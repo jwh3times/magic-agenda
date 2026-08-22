@@ -701,8 +701,32 @@ cut)`, which counts by Occurrence Date and requires `state.tasks` to be the whol
   today only because `reload()` selects with no date window and an offline board is read-only; a
   windowed load would turn this from tidiness into deleting rows the user can still see. Definitions
   already orphaned in existing accounts are deliberately left alone (triaged as fix-new plus
-  document-old, not a sweep); deleting the **last** Occurrence of an already-capped Series is a
-  distinct, still-open path to the same shape, filed as #231.
+  document-old, not a sweep).
+- **A single-Occurrence delete asks a different question, and reusing `noOccurrenceSurvives` for it
+  is the trap.** Deleting the last Occurrence of an already-capped Series reached the same orphaned
+  shape by a path the trim fix did not touch, because `planDeleteOccurrence` recorded the Excluded
+  Date and stopped (#231). That predicate does not answer it: it asks whether anything survives a
+  **cut**, and here there is no cut. Nor is "owns no Occurrences" sufficient on its own — deleting
+  the only materialized Occurrence of a _live_ Series is ordinary, and materialization creates the
+  next one. A definition may only go when the Rule can produce nothing **more**, which has a
+  clock-free answer: an unbounded Rule always produces more, so `ruleIsSpent` checks that the Rule
+  is bounded and every Occurrence Date in `[day, recurUntil]` is already excluded. No `today` has
+  to be threaded into a planner that takes none. Three things about it are easy to get wrong. It is
+  tested against the state the delete **produces**, since the exclusion being recorded is usually
+  the one that empties the Rule. Its cost is **asymmetric**, and only the `true` side is bounded by
+  the exclusions: a `true` means every date the walk visited was excluded, so it cannot outrun
+  `excludedDates.length`. `false` gets no matching shortcut — `occurrenceDates` collects the whole
+  set rather than stopping at the first unexcluded date, so an unspent Rule walks its entire window,
+  capped only by the `MAX_OCCURRENCES` ceiling every caller shares (measured: a weekly Rule bounded
+  a year out walks 52, a daily one bounded six years out stops at 1000). That is cheap for the
+  Rules users actually write and is why no short-circuit was added — one would mean either a second
+  walk or a `recurrence.ts` variant, and duplicating that module's fast-forward and monthly-overflow
+  rules to save microseconds is the worse trade. And the unbounded early return is enforced by the
+  **typechecker**, not a test: `recurUntil` is `string | null` while `occurrenceDates`' `horizonEnd`
+  is `string`. It is deliberately partial in one direction — a Rule dead by _clock_ rather than by
+  exclusion (capped in the past, its Occurrence Dates never materialized because the window starts
+  at today) is not spent by this test, and catching it would cost the clock-free property for a case
+  that is narrow in practice.
 - **`FailureHandling` is two independent questions** (`abort` and `recover`) because the original
   behaviour answered them independently: a failed content upsert aborts the trim that follows it,
   while a failed `excludedDates` write must _not_ stop the occurrence being deleted.
