@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useBoardSession } from '../board/BoardDirectoryProvider'
 import { useLabelDirectoryContext } from '../labels/LabelDirectoryProvider'
 import { explainProblem, NAME_MAX_LENGTH, type LabelProblem } from '../labels/labelIntent'
@@ -218,13 +218,30 @@ function LabelRow({
   const [draft, setDraft] = useState(label.name)
   // A rename from elsewhere (catch-up, another tab) should win over an untouched draft.
   const [committed, setCommitted] = useState(label.name)
+  const latest = useRef({ draft, committedName: label.name, onRename })
+  const dispatchedDraft = useRef<string | null>(null)
   if (committed !== label.name) {
     setCommitted(label.name)
     setDraft(label.name)
   }
 
+  useEffect(() => {
+    latest.current = { draft, committedName: label.name, onRename }
+  }, [draft, label.name, onRename])
+
+  useEffect(
+    () => () => {
+      const pending = latest.current
+      if (pending.draft !== pending.committedName && pending.draft !== dispatchedDraft.current) {
+        pending.onRename(pending.draft)
+      }
+    },
+    [],
+  )
+
   const commit = () => {
     if (draft === label.name) return
+    dispatchedDraft.current = draft
     onRename(draft)
   }
 
