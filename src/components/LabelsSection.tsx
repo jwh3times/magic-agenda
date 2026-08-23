@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useBoardSession } from '../board/BoardDirectoryProvider'
 import { useLabelDirectoryContext } from '../labels/LabelDirectoryProvider'
 import { explainProblem, NAME_MAX_LENGTH, type LabelProblem } from '../labels/labelIntent'
@@ -41,20 +41,69 @@ export function LabelsSection() {
 
   const [draftName, setDraftName] = useState('')
   const [draftColor, setDraftColor] = useState(DEFAULT_NEW_COLOR)
-  const [problem, setProblem] = useState<LabelProblem | null>(null)
+  const [problem, setProblem] = useState<ScopedProblem | null>(null)
   const [pendingDelete, setPendingDelete] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  const run = async (write: () => Promise<LabelProblem | null>) => {
+  // Dirty name drafts, published by each row and keyed by Label id.
+  const pendingRenames = useRef(new Map<string, string>())
+  const setPendingRename = useCallback((id: string, name: string | null) => {
+    if (name === null) pendingRenames.current.delete(id)
+    else pendingRenames.current.set(id, name)
+  }, [])
+
+  const flush = useRef({ labels, renameLabel })
+  useEffect(() => {
+    flush.current = { labels, renameLabel }
+  }, [labels, renameLabel])
+
+  useEffect(
+    () => () => {
+      // Leaving Settings can unmount a focused name field before the browser delivers `blur`
+      // — mobile Safari does not reliably send it during teardown — so the pending draft has to
+      // be flushed by something on the way out (#235).
+      //
+      // That something is the **section**, not the row, and the difference is load-bearing. A row
+      // also unmounts when its own Label is deleted, locally or by another surface, and a row
+      // cannot tell the two apart: its props are frozen at its last render, so it would flush a
+      // rename for a Label that no longer exists. `useLabels.renameLabel` guards on the list it
+      // closed over, which still contains that Label, so the optimistic `commit` would put the
+      // deleted row back on screen and `markWrites` would swallow its DELETE echo. Deciding here
+      // fixes that by construction: `flush.current.labels` is the list as of the last render, and
+      // a Label that went away is simply not in it.
+      //
+      // Safe under StrictMode's mount/unmount/mount: at mount no row has published a draft yet,
+      // so the spurious cleanup iterates an empty map.
+      //
+      // A refusal here is unreportable and that is accepted, not overlooked (#237): this runs
+      // outside `run()` because there is no `setProblem` left to render into — the section is on
+      // its way out. Screening the draft with `checkName` first would change nothing observable,
+      // since `renameLabel` already checks it before writing and the draft is discarded either
+      // way; it would only add a second copy of the question. Refusals the user *can* act on are
+      // the ones rendered per row, above.
+      const { labels: listed, renameLabel: rename } = flush.current
+      for (const [id, name] of pendingRenames.current) {
+        if (listed.some((l) => l.id === id)) void rename(id, name)
+      }
+    },
+    [],
+  )
+
+  /**
+   * `labelId` is the Label the refusal belongs to, or `null` for the new-Label form. Every write
+   * has to name one: a refusal rendered away from the control that caused it is the whole of #237.
+   */
+  const run = async (labelId: string | null, write: () => Promise<LabelProblem | null>) => {
     setBusy(true)
-    setProblem(await write())
+    const result = await write()
+    setProblem(result ? { labelId, problem: result } : null)
     setBusy(false)
   }
 
   const onAdd = async () => {
     setBusy(true)
     const result = await createLabel(draftName, draftColor)
-    setProblem(result)
+    setProblem(result ? { labelId: null, problem: result } : null)
     if (!result) {
       setDraftName('')
       setDraftColor(DEFAULT_NEW_COLOR)
@@ -105,9 +154,11 @@ export function LabelsSection() {
               readOnly={readOnly || offline}
               busy={busy}
               confirmingDelete={pendingDelete === label.id}
-              onRename={(name) => void run(() => renameLabel(label.id, name))}
-              onRecolor={(color) => void run(() => recolorLabel(label.id, color))}
-              onMove={(delta) => void run(() => reorderLabel(label.id, delta))}
+              onRename={(name) => void run(label.id, () => renameLabel(label.id, name))}
+              onPendingRename={setPendingRename}
+              problem={problem?.labelId === label.id ? problem.problem : null}
+              onRecolor={(color) => void run(label.id, () => recolorLabel(label.id, color))}
+              onMove={(delta) => void run(label.id, () => reorderLabel(label.id, delta))}
               onAskDelete={() => {
                 setProblem(null)
                 setPendingDelete(label.id)
@@ -115,7 +166,7 @@ export function LabelsSection() {
               onCancelDelete={() => setPendingDelete(null)}
               onConfirmDelete={() => {
                 setPendingDelete(null)
-                void run(() => deleteLabel(label.id))
+                void run(label.id, () => deleteLabel(label.id))
               }}
             />
           ))}
@@ -173,14 +224,27 @@ export function LabelsSection() {
         </div>
       )}
 
-      {problem && (
+      {problem?.labelId === null && (
         <div role="alert" style={{ fontSize: 13 }}>
-          {explainProblem(problem)}
+          {explainProblem(problem.problem)}
         </div>
       )}
     </div>
   )
 }
+
+/** A refusal plus the control it belongs to: a Label's row, or `null` for the new-Label form. */
+interface ScopedProblem {
+  labelId: string | null
+  problem: LabelProblem
+}
+
+/**
+ * Whether a draft is worth sending. Asked by the field's own commit and by what it publishes for
+ * the section's flush — one wording, one place, per the #229 lesson about a second copy of a
+ * question drifting from the first.
+ */
+const isDirty = (draft: string, name: string) => draft !== name
 
 interface LabelRowProps {
   label: Label
@@ -190,6 +254,10 @@ interface LabelRowProps {
   busy: boolean
   confirmingDelete: boolean
   onRename: (name: string) => void
+  /** Publish this row's dirty draft (or `null` once it is sent) for the section's flush. */
+  onPendingRename: (id: string, name: string | null) => void
+  /** This Label's own refusal, rendered under its controls rather than at the foot of the page. */
+  problem: LabelProblem | null
   onRecolor: (color: string) => void
   onMove: (delta: number) => void
   onAskDelete: () => void
@@ -209,6 +277,8 @@ function LabelRow({
   busy,
   confirmingDelete,
   onRename,
+  onPendingRename,
+  problem,
   onRecolor,
   onMove,
   onAskDelete,
@@ -223,8 +293,16 @@ function LabelRow({
     setDraft(label.name)
   }
 
+  // Keep the section's flush map in step with the field. Clearing it in `commit` is what stops a
+  // rename already sent by blur being sent a second time on the way out; the draft only becomes
+  // pending again if the user edits it further.
+  useEffect(() => {
+    onPendingRename(label.id, isDirty(draft, label.name) ? draft : null)
+  }, [label.id, draft, label.name, onPendingRename])
+
   const commit = () => {
-    if (draft === label.name) return
+    if (!isDirty(draft, label.name)) return
+    onPendingRename(label.id, null)
     onRename(draft)
   }
 
@@ -285,6 +363,12 @@ function LabelRow({
           </>
         )}
       </div>
+
+      {problem && (
+        <div role="alert" style={{ fontSize: 13 }}>
+          {explainProblem(problem)}
+        </div>
+      )}
 
       {confirmingDelete && (
         <div style={{ ...row, flexWrap: 'wrap', fontSize: 13 }}>

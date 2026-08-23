@@ -10,6 +10,7 @@ import { checkColor, checkName, moveLabel, nextPosition } from '../labels/labelI
 import type { UseLabels } from '../labels/useLabels'
 import { ThemeProvider } from '../theme/ThemeProvider'
 import type { Label } from '../types/label'
+import { asTask, NO_RECUR, type TaskDraft } from '../types/task'
 
 const h = vi.hoisted(() => ({ role: 'owner' as BoardRole }))
 
@@ -18,12 +19,30 @@ vi.mock('../board/BoardDirectoryProvider', () => ({
 }))
 
 import { LabelsSection } from './LabelsSection'
+import { TaskCard } from './TaskCard'
 
 const VOCABULARY = [
   fakeLabel({ id: 'a', name: 'Work', dotColor: '#2563eb', position: 0 }),
   fakeLabel({ id: 'b', name: 'Personal', dotColor: '#db2777', position: 1 }),
   fakeLabel({ id: 'c', name: 'Errands', dotColor: '#d97706', position: 2 }),
 ]
+
+const ASSIGNED_TASK = asTask({
+  id: 'task-with-work-label',
+  title: 'Assigned task',
+  description: '',
+  labelId: 'a',
+  color: 'yellow',
+  checklist: [],
+  status: 'todo',
+  done: false,
+  day: '2026-08-21',
+  order: 0,
+  korder: 0,
+  atTime: null,
+  pinned: false,
+  ...NO_RECUR,
+} satisfies TaskDraft)
 
 /**
  * A Label Directory backed by real React state, so a write actually re-renders the section.
@@ -94,6 +113,28 @@ function Wrap({ directory }: { directory: UseLabels }): ReactNode {
     <ThemeProvider initial="cork">
       <LabelDirectoryContext.Provider value={directory}>
         <LabelsSection />
+      </LabelDirectoryContext.Provider>
+    </ThemeProvider>
+  )
+}
+
+function CrossSurfaceHarness() {
+  const [labels, setLabels] = useState(VOCABULARY)
+  const directory = fakeLabelDirectory({
+    labels,
+    renameLabel: (id, name) => {
+      setLabels((current) =>
+        current.map((label) => (label.id === id ? { ...label, name: name.trim() } : label)),
+      )
+      return Promise.resolve(null)
+    },
+  })
+
+  return (
+    <ThemeProvider initial="cork">
+      <LabelDirectoryContext.Provider value={directory}>
+        <LabelsSection />
+        <TaskCard task={ASSIGNED_TASK} variant="inbox" />
       </LabelDirectoryContext.Provider>
     </ThemeProvider>
   )
@@ -179,6 +220,75 @@ test('renaming commits on blur', async () => {
   await waitFor(() => expect(names()).toEqual(['Focus', 'Personal', 'Errands']))
 })
 
+test('renaming updates an already-rendered task card assigned to that Label', async () => {
+  const user = userEvent.setup()
+  render(<CrossSurfaceHarness />)
+
+  const input = screen.getByLabelText('Name for Work')
+  await user.clear(input)
+  await user.type(input, 'Focus')
+  await user.tab()
+
+  await waitFor(() => expect(screen.getByText('Focus')).toBeInTheDocument())
+  expect(screen.queryByText('Work')).not.toBeInTheDocument()
+})
+
+test('leaving Settings flushes a focused rename before assigned cards render again', async () => {
+  const user = userEvent.setup()
+  const renameLabel = vi.fn(() => Promise.resolve(null))
+  const view = renderStatic({ labels: VOCABULARY, renameLabel })
+
+  const input = screen.getByLabelText('Name for Work')
+  await user.clear(input)
+  await user.type(input, 'Focus')
+
+  // Route navigation unmounts LabelsSection. Mobile Safari does not reliably deliver blur while
+  // tearing down the focused field, so the draft has to be flushed by the row itself.
+  view.unmount()
+
+  expect(renameLabel).toHaveBeenCalledWith('a', 'Focus')
+})
+
+test('leaving Settings does not send a rename twice after blur already committed it', async () => {
+  const user = userEvent.setup()
+  const renameLabel = vi.fn(() => Promise.resolve(null))
+  const view = renderStatic({ labels: VOCABULARY, renameLabel })
+
+  const input = screen.getByLabelText('Name for Work')
+  await user.clear(input)
+  await user.type(input, 'Focus')
+  await user.tab()
+  view.unmount()
+
+  expect(renameLabel).toHaveBeenCalledOnce()
+  expect(renameLabel).toHaveBeenCalledWith('a', 'Focus')
+})
+
+// A row also unmounts when its own Label goes away, and the flush must not fire then: the row's
+// props are frozen at its last render, so `useLabels.renameLabel` would guard against a list that
+// still contains the Label, put the deleted row back with its optimistic `commit`, and swallow the
+// DELETE echo with `markWrites`. Deciding the flush in the section is what makes this a no-op.
+//
+// Note this needs no click: clicking anything blurs the field first, which commits the rename
+// normally. The reachable case is the row vanishing under a still-focused field.
+test('a Label deleted from another surface takes its dirty draft with it', async () => {
+  const user = userEvent.setup()
+  const renameLabel = vi.fn(() => Promise.resolve(null))
+  const props = (labels: Label[]) => (
+    <Wrap directory={fakeLabelDirectory({ labels, renameLabel })} />
+  )
+  const view = render(props(VOCABULARY))
+
+  const input = screen.getByLabelText('Name for Work')
+  await user.clear(input)
+  await user.type(input, 'Focus')
+
+  view.rerender(props(VOCABULARY.slice(1)))
+  view.unmount()
+
+  expect(renameLabel).not.toHaveBeenCalled()
+})
+
 test('Escape abandons a rename without writing', async () => {
   const user = userEvent.setup()
   render(<Harness />)
@@ -200,8 +310,25 @@ test('renaming to a sibling name is refused and the vocabulary is unchanged', as
   await user.type(input, 'Personal')
   await user.tab()
 
-  expect(await screen.findByRole('alert')).toHaveTextContent('Personal')
+  // #237: on the row that caused it, not at the foot of the section below the whole list and the
+  // "New label" form — which on a phone is off-screen, while the field still shows the draft.
+  const row = screen.getByLabelText('Name for Work').closest('li')
+  expect(row).not.toBeNull()
+  expect(await within(row!).findByRole('alert')).toHaveTextContent('Personal')
+  expect(screen.getAllByRole('alert')).toHaveLength(1)
   expect(names()).toEqual(['Work', 'Personal', 'Errands'])
+})
+
+test('a refusal from the New label form stays with that form, not on a row', async () => {
+  const user = userEvent.setup()
+  render(<Harness />)
+
+  await user.type(screen.getByLabelText('New label'), 'Work')
+  await user.click(screen.getByRole('button', { name: 'Add label' }))
+
+  const alert = await screen.findByRole('alert')
+  expect(alert).toHaveTextContent('Work')
+  expect(alert.closest('li')).toBeNull()
 })
 
 test('reordering moves one place and the end arrows are inert', async () => {
