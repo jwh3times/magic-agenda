@@ -310,8 +310,25 @@ test('renaming to a sibling name is refused and the vocabulary is unchanged', as
   await user.type(input, 'Personal')
   await user.tab()
 
-  expect(await screen.findByRole('alert')).toHaveTextContent('Personal')
+  // #237: on the row that caused it, not at the foot of the section below the whole list and the
+  // "New label" form — which on a phone is off-screen, while the field still shows the draft.
+  const row = screen.getByLabelText('Name for Work').closest('li')
+  expect(row).not.toBeNull()
+  expect(await within(row!).findByRole('alert')).toHaveTextContent('Personal')
+  expect(screen.getAllByRole('alert')).toHaveLength(1)
   expect(names()).toEqual(['Work', 'Personal', 'Errands'])
+})
+
+test('a refusal from the New label form stays with that form, not on a row', async () => {
+  const user = userEvent.setup()
+  render(<Harness />)
+
+  await user.type(screen.getByLabelText('New label'), 'Work')
+  await user.click(screen.getByRole('button', { name: 'Add label' }))
+
+  const alert = await screen.findByRole('alert')
+  expect(alert).toHaveTextContent('Work')
+  expect(alert.closest('li')).toBeNull()
 })
 
 test('reordering moves one place and the end arrows are inert', async () => {

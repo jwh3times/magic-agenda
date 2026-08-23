@@ -423,6 +423,20 @@ payoff is the same: one vocabulary of refusals rendered identically whether the 
 problem or PostgREST did. `LabelProblem` is app-owned and keyed on SQLSTATE plus _constraint names_,
 never on message prose, the same bargain `authOutcome.ts` makes.
 
+**A uniform vocabulary is not the same as a visible one, and the gap between them was a real bug.**
+Every refusal used to render in one `role="alert"` at the foot of `LabelsSection` — below the whole
+Label list _and_ the "New label" form, so on a phone a refused rename reported itself off-screen
+while the field went on showing the rejected draft. That reads exactly like the app silently losing
+the edit, which is what #235 was reported as and what #237 fixed: `problem` is now a `ScopedProblem`
+carrying the Label it belongs to (`null` for the new-Label form), `run()` requires that id at every
+call site, and each row renders its own. One refusal is visible at a time, next to the control that
+caused it.
+
+The section's unmount flush (below) is the one refusal that **cannot** be reported, and it is
+accepted rather than overlooked: it runs outside `run()` because there is no `setProblem` left to
+render into. Screening the draft with `checkName` first would change nothing observable — the write
+path already checks it — so it would only add a second copy of the question.
+
 Two schema facts shape the write path and are not guessable from the UI. The INSERT grant is
 `(board_id, name, dot_color, position)`, so **the client cannot supply an `id`** — creation reads
 the row back rather than inventing a temporary id — and PostgREST upsert, which is

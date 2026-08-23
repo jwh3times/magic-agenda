@@ -41,7 +41,7 @@ export function LabelsSection() {
 
   const [draftName, setDraftName] = useState('')
   const [draftColor, setDraftColor] = useState(DEFAULT_NEW_COLOR)
-  const [problem, setProblem] = useState<LabelProblem | null>(null)
+  const [problem, setProblem] = useState<ScopedProblem | null>(null)
   const [pendingDelete, setPendingDelete] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -74,6 +74,13 @@ export function LabelsSection() {
       //
       // Safe under StrictMode's mount/unmount/mount: at mount no row has published a draft yet,
       // so the spurious cleanup iterates an empty map.
+      //
+      // A refusal here is unreportable and that is accepted, not overlooked (#237): this runs
+      // outside `run()` because there is no `setProblem` left to render into — the section is on
+      // its way out. Screening the draft with `checkName` first would change nothing observable,
+      // since `renameLabel` already checks it before writing and the draft is discarded either
+      // way; it would only add a second copy of the question. Refusals the user *can* act on are
+      // the ones rendered per row, above.
       const { labels: listed, renameLabel: rename } = flush.current
       for (const [id, name] of pendingRenames.current) {
         if (listed.some((l) => l.id === id)) void rename(id, name)
@@ -82,16 +89,21 @@ export function LabelsSection() {
     [],
   )
 
-  const run = async (write: () => Promise<LabelProblem | null>) => {
+  /**
+   * `labelId` is the Label the refusal belongs to, or `null` for the new-Label form. Every write
+   * has to name one: a refusal rendered away from the control that caused it is the whole of #237.
+   */
+  const run = async (labelId: string | null, write: () => Promise<LabelProblem | null>) => {
     setBusy(true)
-    setProblem(await write())
+    const result = await write()
+    setProblem(result ? { labelId, problem: result } : null)
     setBusy(false)
   }
 
   const onAdd = async () => {
     setBusy(true)
     const result = await createLabel(draftName, draftColor)
-    setProblem(result)
+    setProblem(result ? { labelId: null, problem: result } : null)
     if (!result) {
       setDraftName('')
       setDraftColor(DEFAULT_NEW_COLOR)
@@ -142,10 +154,11 @@ export function LabelsSection() {
               readOnly={readOnly || offline}
               busy={busy}
               confirmingDelete={pendingDelete === label.id}
-              onRename={(name) => void run(() => renameLabel(label.id, name))}
+              onRename={(name) => void run(label.id, () => renameLabel(label.id, name))}
               onPendingRename={setPendingRename}
-              onRecolor={(color) => void run(() => recolorLabel(label.id, color))}
-              onMove={(delta) => void run(() => reorderLabel(label.id, delta))}
+              problem={problem?.labelId === label.id ? problem.problem : null}
+              onRecolor={(color) => void run(label.id, () => recolorLabel(label.id, color))}
+              onMove={(delta) => void run(label.id, () => reorderLabel(label.id, delta))}
               onAskDelete={() => {
                 setProblem(null)
                 setPendingDelete(label.id)
@@ -153,7 +166,7 @@ export function LabelsSection() {
               onCancelDelete={() => setPendingDelete(null)}
               onConfirmDelete={() => {
                 setPendingDelete(null)
-                void run(() => deleteLabel(label.id))
+                void run(label.id, () => deleteLabel(label.id))
               }}
             />
           ))}
@@ -211,13 +224,19 @@ export function LabelsSection() {
         </div>
       )}
 
-      {problem && (
+      {problem?.labelId === null && (
         <div role="alert" style={{ fontSize: 13 }}>
-          {explainProblem(problem)}
+          {explainProblem(problem.problem)}
         </div>
       )}
     </div>
   )
+}
+
+/** A refusal plus the control it belongs to: a Label's row, or `null` for the new-Label form. */
+interface ScopedProblem {
+  labelId: string | null
+  problem: LabelProblem
 }
 
 /**
@@ -237,6 +256,8 @@ interface LabelRowProps {
   onRename: (name: string) => void
   /** Publish this row's dirty draft (or `null` once it is sent) for the section's flush. */
   onPendingRename: (id: string, name: string | null) => void
+  /** This Label's own refusal, rendered under its controls rather than at the foot of the page. */
+  problem: LabelProblem | null
   onRecolor: (color: string) => void
   onMove: (delta: number) => void
   onAskDelete: () => void
@@ -257,6 +278,7 @@ function LabelRow({
   confirmingDelete,
   onRename,
   onPendingRename,
+  problem,
   onRecolor,
   onMove,
   onAskDelete,
@@ -341,6 +363,12 @@ function LabelRow({
           </>
         )}
       </div>
+
+      {problem && (
+        <div role="alert" style={{ fontSize: 13 }}>
+          {explainProblem(problem)}
+        </div>
+      )}
 
       {confirmingDelete && (
         <div style={{ ...row, flexWrap: 'wrap', fontSize: 13 }}>

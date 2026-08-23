@@ -24,6 +24,14 @@ No unreleased changes.
   A Label deleted while its name field was still being edited is left deleted, rather than the
   pending rename putting it back on screen.
 
+- **A refused label rename now says so next to the label, instead of at the bottom of the page**
+  (#237). Renaming a label to a name another one already uses, or one that is too long, was
+  refused correctly — but the explanation appeared below the whole label list and the "New label"
+  form, which on a phone is off the bottom of the screen. The field kept showing the name that had
+  just been rejected, so the edit looked accepted until a reload put the old name back. That is the
+  same "it won't persist my edit" the report above describes, reached without ever leaving the
+  page. Each label now explains its own refusal, right under its controls.
+
 ## [1.8.22] - 2026-08-21
 
 ### Fixed
