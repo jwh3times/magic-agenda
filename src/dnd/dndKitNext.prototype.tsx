@@ -135,7 +135,7 @@ export function DndKitNextDropLane({ id, children }: { id: string; children: Rea
  * removed because Magic Agenda previews cross-lane moves through resolveDrop and deliberately
  * does not shuffle neighbours while hovering.
  */
-/* oxlint-disable react/react-compiler -- dnd-kit 0.5 exposes sortable state as render-time getters */
+/* oxlint-disable react/refs -- dnd-kit 0.5 exposes sortable state as render-time getters */
 export function DndKitNextSortable({
   id,
   group,
@@ -164,7 +164,7 @@ export function DndKitNextSortable({
     </div>
   )
 }
-/* oxlint-enable react/react-compiler */
+/* oxlint-enable react/refs */
 
 /** One overlay per provider, using the successor render-prop source. */
 export function DndKitNextShell({ children }: { children: ReactNode }) {

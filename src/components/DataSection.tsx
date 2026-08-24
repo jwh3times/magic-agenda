@@ -32,7 +32,6 @@ interface ImportProgress {
 }
 
 /** Settings → Data: one-Board JSON export and additive import with explicit Label mapping. */
-// oxlint-disable-next-line react/react-compiler -- upstream invariant on this valid component
 export function DataSection() {
   const { user } = useAuth()
   const userId = user?.id ?? ''

@@ -153,7 +153,7 @@ export function useLabels(userId: string, boardId: string, hasSession: boolean):
 
   useEffect(() => {
     // The synchronous state updates are bounded to this stable dependency set and cannot loop.
-    // oxlint-disable-next-line react/react-compiler
+    // oxlint-disable-next-line react/set-state-in-effect
     void reload()
   }, [reload])
 

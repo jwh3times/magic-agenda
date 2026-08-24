@@ -180,6 +180,8 @@ export function useSyncedTable({
       disposed = true
       void supabase.removeChannel(channel)
     }
+    // `epoch` is an explicit reconnect trigger; the effect body does not otherwise read it.
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies
   }, [userId, table, primaryKey, filterColumn, filterValue, epoch, reload, onChange, isOwnWrite])
 
   // Mobile Safari (and others) kill background sockets aggressively — catch up on anything missed
