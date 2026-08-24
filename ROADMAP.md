@@ -22,24 +22,24 @@ dependencies on them are satisfied. Items **5.7 (branded auth emails, 2026-07-26
 PWA, offline read, 2026-07-27)**, and **4.1 (settings: week-start & timezone, 2026-07-28)** shipped
 and have been removed the same way.
 
-| Order | Item                             | Pri | Size | Hard dependencies        |
-| ----- | -------------------------------- | --- | ---- | ------------------------ |
-| 3.2   | Reminders / notifications        | P2  | XL   | —                        |
-| 4.2   | Custom labels                    | P2  | XL   | — (6.2 steps 1–2 landed) |
-| 4.3   | Richer recurrence                | P3  | L    | —                        |
-| 4.4   | Quick-add & keyboard shortcuts   | P3  | L    | —                        |
-| 4.5   | Bulk multi-select                | P3  | L    | —                        |
-| 4.6   | Undo                             | P3  | M    | best after 4.5           |
-| 4.7   | Completed / archive view + stats | P3  | M    | —                        |
-| 4.8   | Two-factor (TOTP) enrollment UI  | P3  | M    | —                        |
-| 5.4   | Roles & feature flags            | P2  | L    | —                        |
-| 5.5   | Admin dashboard                  | P2  | L    | 5.4                      |
-| 5.6   | Custom auth domain               | P3  | S    | Supabase Pro (~$35/mo)   |
-| 5.8   | Leaked-password protection       | P3  | S    | Supabase Pro ($25/mo)    |
-| 6.1   | iCal calendar feed               | P3  | L    | —                        |
-| 6.3   | Attachments                      | P3  | L    | —                        |
-| 6.2   | Multiple private boards          | P3  | XL   | —                        |
-| 6.4   | Shared / collaborative boards    | P3  | L    | 6.2, 5.4                 |
+| Order | Item                            | Pri | Size | Hard dependencies        |
+| ----- | ------------------------------- | --- | ---- | ------------------------ |
+| 3.2   | Reminders / notifications       | P2  | XL   | —                        |
+| 4.2   | Custom labels                   | P2  | XL   | — (6.2 steps 1–2 landed) |
+| 4.3   | Richer recurrence               | P3  | L    | —                        |
+| 4.4   | Quick-add & keyboard shortcuts  | P3  | L    | —                        |
+| 4.5   | Bulk multi-select               | P3  | L    | —                        |
+| 4.6   | Undo                            | P3  | M    | best after 4.5           |
+| 4.7   | Completion History + Archive    | P3  | L    | —                        |
+| 4.8   | Two-factor (TOTP) enrollment UI | P3  | M    | —                        |
+| 5.4   | Roles & feature flags           | P2  | L    | —                        |
+| 5.5   | Admin dashboard                 | P2  | L    | 5.4                      |
+| 5.6   | Custom auth domain              | P3  | S    | Supabase Pro (~$35/mo)   |
+| 5.8   | Leaked-password protection      | P3  | S    | Supabase Pro ($25/mo)    |
+| 6.1   | iCal calendar feed              | P3  | L    | —                        |
+| 6.3   | Attachments                     | P3  | L    | —                        |
+| 6.2   | Multiple private boards         | P3  | XL   | —                        |
+| 6.4   | Shared / collaborative boards   | P3  | L    | 6.2, 5.4                 |
 
 Total rough effort for the remaining items: ~7–10 weeks of focused solo work.
 
@@ -192,19 +192,24 @@ were added as their own effort rather than a roadmap feature — see
       semantics — coalesce the N skip-list writes into one template update and surface a count note.
 - [ ] **Undo** · **P3** · M — toast-based "undo last action" reusing the optimistic-rollback
       plumbing. Snapshot-based, scoped to board-safe ops: `useTasks` gains
-      `pushUndo(label, prevTasks, prevTemplates)` before toggleDone, delete (non-recurring), bulk
+      `pushUndo(label, prevTasks, prevTemplates)` before Complete/Reopen, delete (non-recurring), bulk
       ops, drag persist, roll-forward; undo restores the snapshot and diff-upserts/deletes affected
       rows (deleted rows re-insert with original ids). Surface via `Toast.tsx` gaining an action
       button (6s). Series-level ops (`planEditSeriesFrom`/`planDeleteSeriesFrom` in
       `src/data/series.ts`) are **excluded** in v1; `planDeleteOccurrence` _is_ undoable (remove
       skip entry + re-insert). Undo after a realtime change from another device is last-write-wins;
       document it.
-- [ ] **Completed / archive view + light stats** · **P3** · M — history of done tasks plus simple
-      streak/throughput insight. "History" section on `/settings` (not a fifth board view): done
-      tasks grouped by completion week. Small schema addition: `tasks.completed_at timestamptz`,
-      set when status flips to done, cleared when it flips back. Stats: done-per-week bars (last 8
-      weeks, plain divs — no chart dep) + current streak. Optional auto-archive: selector filter
-      hiding done tasks older than 30 days from the board (they remain in History).
+- [~] **Completion History + durable Archive + light stats** · **P3** · L — #167 settled the model
+  in ADR-0003. Workflow Status is the sole completion state; Reopening restores the remembered
+  active status; Completed At exists only for the current Completion; and Checklist Steps never
+  complete a Task. Completion History is the selected Board's currently Completed Tasks,
+  Archived ones included — not an event ledger — so Reopening/deletion removes a Task and
+  recompletion moves it to the later period. Archive is durable state available only to
+  Completed Tasks, not a selector filter or deletion. The safe release chain is additive schema
+  (#239), compatible app-domain/export-v3 cutover (#240), server backfill/enforcement (#241),
+  then the `/settings` History experience, Archive controls, eight-week Throughput bars, and
+  Completion Streak (#242). Automatic archiving is outside that first slice: if added later it
+  must be a Board-owned mutation policy, not personal filtering.
 
 - [ ] **Two-factor (TOTP) enrollment UI** · **P3** · M — **production already allows TOTP and the
       app cannot reach it**: `supabase/config.toml`'s `[auth.mfa.totp]` sets `enroll_enabled` and

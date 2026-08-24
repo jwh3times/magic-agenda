@@ -23,6 +23,50 @@ The state of a Task that has no Scheduled Day. It is a property of the Task, not
 holds it.
 _Avoid_: backlog, unscheduled list
 
+## Workflow and completion
+
+**Workflow Status**:
+A Task's current stage of work: To Do, In Progress, or Completed. A Task has exactly one Workflow
+Status, and Completed is left only through Reopening.
+_Avoid_: done flag, completion flag
+
+**Completion**:
+The transition of a Task from To Do or In Progress to Completed. Completing every Checklist Step
+never completes the Task itself.
+_Avoid_: Done, Finished
+
+**Reopening**:
+The transition from Completed to the Task's most recent non-Completed Workflow Status, unless an
+explicit destination chooses To Do or In Progress. It clears Completed At and returns an Archived
+Task to the active Board.
+_Avoid_: mark not done, uncomplete
+
+**Completed At**:
+The time of a Task's current Completion. It exists only while the Task is Completed; Reopening
+removes it, and a later Completion establishes a new one.
+_Avoid_: done time, finished at
+
+**Archive**:
+The retained state of a Completed Task that is no longer shown on the active Board. Archive never
+deletes the Task or changes Completed At, and an Archived Occurrence still occupies its Occurrence
+Date.
+_Avoid_: hide, delete
+
+**Completion History**:
+The Board-owned collection of Tasks currently Completed, including Archived Tasks, organized by
+Completed At. It is not an event or audit log; a Reopened or deleted Task leaves it.
+_Avoid_: completion ledger, activity log
+
+**Throughput**:
+The number of Tasks on a Board whose current Completed At falls within a period. Each standalone
+Task or Occurrence counts once, and Checklist Steps never count.
+_Avoid_: completed Steps, completion events
+
+**Completion Streak**:
+Consecutive calendar days, interpreted in the viewing Account's Timezone, on which a Board has at
+least one Task with a current Completed At.
+_Avoid_: activity streak, checklist streak
+
 ## Recurrence
 
 **Recurring Series**:

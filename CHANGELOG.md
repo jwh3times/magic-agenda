@@ -12,6 +12,18 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.24] - 2026-08-24
+
+### Docs
+
+- **Defined the completion domain model before implementation** (#167). Workflow Status is the
+  single source of Completion; Reopening restores the prior active status; Completed At describes
+  only the current Completion; Archive is durable Completed-Task state; and Completion History is
+  current state rather than an event ledger. Checklist Step completion remains independent. The
+  ADR and roadmap also split implementation into #239–#242 so database, app-domain, stale-client,
+  export-format, and UI changes can ship in a compatible order. This release changes documentation
+  and planning only, not application behavior.
+
 ## [1.8.23] - 2026-08-22
 
 ### Fixed
@@ -2449,7 +2461,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.23...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.24...HEAD
+[1.8.24]: https://github.com/jwh3times/magic-agenda/compare/v1.8.23...v1.8.24
 [1.8.23]: https://github.com/jwh3times/magic-agenda/compare/v1.8.22...v1.8.23
 [1.8.22]: https://github.com/jwh3times/magic-agenda/compare/v1.8.21...v1.8.22
 [1.8.21]: https://github.com/jwh3times/magic-agenda/compare/v1.8.20...v1.8.21
