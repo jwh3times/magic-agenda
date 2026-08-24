@@ -877,6 +877,43 @@ The edited Occurrence is the exception to reconciliation: it takes `draft.checkl
 ticks included, because reconciling it against its own stored row would hand back the completion
 the user just changed in the editor.
 
+### Completion is one workflow state; history is not an event ledger
+
+Issue #167 settled the completion model in
+[ADR-0003](docs/adr/0003-completion-history-is-current-state.md) and `CONTEXT.md`. The resolved model
+is deliberately ahead of the shipped implementation until #239–#242 land:
+
+- A Task has exactly one **Workflow Status**: To Do, In Progress, or Completed. **Completion** is the
+  transition into Completed, not a second boolean fact. The existing app-domain `done` member is
+  therefore redundant rather than another source of truth; #240 removes it while the database and
+  frozen v1/v2 export tokens stay translated at their seams.
+- **Reopening** returns to the most recent non-Completed Workflow Status. An explicit Kanban or
+  editor destination wins; a legacy Task with no remembered status falls back to To Do. It clears
+  Completed At and Archive state. Completing every Checklist Step never completes the Task.
+- **Completed At** describes only the current Completion. Reopening clears it and recompleting
+  establishes a new value. Editing or rescheduling a Completed Task does not move it.
+- **Archive** is durable Task state, not deletion and not a selector filter. Only a Completed Task
+  may be Archived; unarchiving leaves it Completed, while reopening also unarchives it. An Archived
+  Occurrence stays attached to its Series and occupies its Occurrence Date, so Archive never writes
+  an Excluded Date.
+- **Completion History** and the planned throughput/streak statistics are derived from Tasks that
+  are currently Completed, Archived ones included. They are not an audit ledger: a Reopened or
+  deleted Task leaves history, and recompletion moves it to the later period. Standalone Tasks and
+  Occurrences count once each; Checklist Steps never count. Calendar buckets use the viewing
+  Account's Timezone while the underlying timestamp remains shared Board content.
+
+The implementation order is forced by the same deploy race as the retired `tasks.user_id` column:
+
+1. #239 adds nullable persistence only, so the deployed client keeps writing its old shape.
+2. #240 makes Workflow Status canonical in the app, removes `Task.done`, adds the transition
+   planner, and ships export v3 before the new data becomes mandatory.
+3. #241 backfills and enforces the lifecycle for long-open pre-cutover clients.
+4. #242 exposes Completion History, Archive controls, and current-state statistics.
+
+Do not collapse #239 into #240: a Pages build that wins the race would send columns production does
+not have. Do not move #241 before #240: enforcing/backfilling first would create Completion data the
+deployed export format cannot preserve.
+
 ### Drag-and-drop: every decision is pure; dnd-kit is an adapter
 
 Two pure modules, then thin wiring. `src/dnd/reorder.ts` is the **splice math** (`moveToDay` /
