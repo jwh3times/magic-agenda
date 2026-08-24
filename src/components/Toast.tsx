@@ -27,6 +27,8 @@ export function Toast({
   useEffect(() => {
     const id = window.setTimeout(onDismiss, duration)
     return () => window.clearTimeout(id)
+    // A replacement message restarts the dismissal window even though the callback does not read it.
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies
   }, [message, onDismiss, duration])
 
   const palette = PALETTE[tone]

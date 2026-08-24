@@ -139,7 +139,7 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
     // are Object.is-identical to the useState defaults so React bails out of the re-render, and
     // `load` is stable across renders that don't change `userId`/`hasSession`, so calling it
     // cannot re-trigger this effect.
-    // oxlint-disable-next-line react/react-compiler
+    // oxlint-disable-next-line react/set-state-in-effect
     load()
   }, [load])
 

@@ -34,7 +34,7 @@ export function ThemeProvider({
   // Local changes are unaffected: they flow through setTheme and land back here as
   // the same value, which React bails out on.
   useEffect(() => {
-    // oxlint-disable-next-line react/react-compiler
+    // oxlint-disable-next-line react/set-state-in-effect, react/no-deriving-state-in-effects
     setThemeState(initial)
   }, [initial])
 

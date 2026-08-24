@@ -5,6 +5,7 @@
     "correctness": "off"
   },
   "options": {
+    "reportUnusedDisableDirectives": "error",
     "typeAware": true
   },
   "env": {
@@ -128,15 +129,40 @@
         "typescript/restrict-template-expressions": "error",
         "typescript/triple-slash-reference": "error",
         "typescript/unbound-method": "error",
-        "react/react-compiler": "error",
-        "react/rules-of-hooks": "error",
+        "react/capitalized-calls": "error",
+        "react/error-boundaries": "error",
         "react/exhaustive-deps": "warn",
+        "react/exhaustive-effect-dependencies": "error",
+        "react/globals": "error",
+        "react/immutability": "error",
+        "react/incompatible-library": "error",
+        "react/jsx-key": "error",
+        "react/memo-dependencies": "error",
+        "react/no-children-prop": "error",
+        "react/no-danger-with-children": "error",
+        "react/no-deriving-state-in-effects": "error",
+        "react/no-direct-mutation-state": "error",
+        "react/no-render-return-value": "error",
+        "react/no-unknown-property": "error",
         "react/only-export-components": [
           "warn",
           {
             "allowConstantExport": true
           }
-        ]
+        ],
+        "react/preserve-manual-memoization": "error",
+        "react/purity": "error",
+        "react/refs": "error",
+        "react/rule-suppression": "error",
+        "react/rules-of-hooks": "error",
+        "react/set-state-in-effect": "error",
+        "react/set-state-in-render": "error",
+        "react/static-components": "error",
+        "react/syntax": "error",
+        "react/unsupported-syntax": "error",
+        "react/use-memo": "error",
+        "react/void-dom-elements-no-children": "error",
+        "react/void-use-memo": "error"
       },
       "plugins": [
         "typescript",
@@ -145,6 +171,28 @@
       "env": {
         "es2020": true,
         "browser": true
+      }
+    },
+    {
+      "files": [
+        "src/**/*.test.{ts,tsx}",
+        "tests/rls/**/*.test.ts",
+        "scripts/**/*.test.ts"
+      ],
+      "plugins": [
+        "vitest"
+      ],
+      "rules": {
+        "vitest/no-focused-tests": "error",
+        "vitest/no-identical-title": "error",
+        "vitest/no-import-node-test": "error",
+        "vitest/no-standalone-expect": "error",
+        "vitest/no-test-prefixes": "error",
+        "vitest/no-test-return-statement": "error",
+        "vitest/valid-describe-callback": "error",
+        "vitest/valid-expect": "error",
+        "vitest/valid-expect-in-promise": "error",
+        "vitest/valid-title": "error"
       }
     }
   ]

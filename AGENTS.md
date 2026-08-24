@@ -35,10 +35,17 @@ npx supabase gen types typescript --linked > src/types/database.types.ts
 ```
 
 `.oxlintrc.json` owns the entire lint policy. `options.typeAware` delegates semantic rules to
-`oxlint-tsgolint`, whose compiler engine is TypeScript 7, while `react/react-compiler` covers the
-React Compiler diagnostics. Oxlint v1.78.0 reports an internal invariant on valid
-`DataSection.tsx`, so that component carries one narrow inline suppression; re-check it when Oxlint
-is upgraded. Generated Supabase types and Deno Edge Functions stay outside the Node lint project.
+`oxlint-tsgolint`, whose compiler engine is TypeScript 7, while Oxlint 1.79's category-specific
+`react/*` rules cover the React Compiler diagnostics. `react/invariant` and `react/todo` stay off:
+they report compiler bugs and skipped optimizations rather than app violations, and the removed
+`react/react-compiler` rule filtered both by default. `react/hooks` also stays off because
+`react/rules-of-hooks` already owns that check. Although 1.79's schema advertises `react/config` and
+`react/gating`, its binary does not register either rule; revisit them on the next Oxlint upgrade.
+`options.reportUnusedDisableDirectives` makes stale inline suppressions errors, so every exception
+remains tied to a diagnostic it actually covers. A small explicit React correctness set covers
+invalid keys, props, and DOM children, while a test-file-only Vitest override rejects focused or
+structurally invalid tests. Generated Supabase types and Deno Edge Functions stay outside the Node
+lint project.
 
 Tests are hermetic: `vite.config.ts` injects dummy `VITE_SUPABASE_*` env, so they never hit the real
 project. Local dev needs a real `.env.local` (copy `.env.example`); `src/lib/supabase.ts` throws at

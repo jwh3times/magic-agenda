@@ -125,14 +125,17 @@ test('the security posture of every function in public is the reviewed one', asy
  * crosses to another relation. When it does arrive, expect this list to gain `app_private` for
  * `authenticated` — that is the correct update, not a regression.
  *
- * All nine below are Supabase-managed.
+ * `net` left this list with Supabase CLI 2.115: a fresh local stack no longer enables the opt-in
+ * `pg_net` extension, and Magic Agenda does not use it. Keep the smaller surface rather than
+ * restoring an unused extension or its grants just to preserve the old baseline.
+ *
+ * All eight below are Supabase-managed.
  */
 const REACHABLE_SCHEMAS = [
   'auth',
   'extensions',
   'graphql',
   'graphql_public',
-  'net',
   'public',
   'realtime',
   'storage',

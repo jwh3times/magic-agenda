@@ -180,7 +180,7 @@ export function useBoardDirectory(userId: string, hasSession: boolean): UseBoard
     //
     // Note this disable blankets an entire async function, so any new synchronous setState added to
     // reload's pre-await prefix is silently un-linted. Re-verify this reasoning before adding one.
-    // oxlint-disable-next-line react/react-compiler
+    // oxlint-disable-next-line react/set-state-in-effect
     void reload()
   }, [reload])
 

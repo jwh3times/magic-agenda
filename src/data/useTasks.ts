@@ -218,9 +218,9 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     // `setSettings(null)` call), this one blankets an entire async function: any new synchronous
     // setState added to reload()'s pre-await prefix is silently un-linted, so re-verify this
     // reasoning before adding one.
-    // oxlint-disable-next-line react/react-compiler
+    // oxlint-disable-next-line react/set-state-in-effect
     void reload()
-  }, [reload, userId, boardId])
+  }, [reload])
 
   // Persist the board for offline reads. Debounced because optimistic CRUD churns `tasks`;
   // a rolled-back write re-renders the restored state and the next tick writes that, so this
@@ -242,6 +242,8 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       writeBoardSnapshot(userId, boardId, tasksRef.current, templatesRef.current)
     }, 1000)
     return () => window.clearTimeout(id)
+    // `tasks` is the debounce trigger; the callback reads the coherent task/template pair from refs.
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies
   }, [userId, boardId, hasSession, offline, loading, tasks])
 
   // Live changes from other devices/sessions.
