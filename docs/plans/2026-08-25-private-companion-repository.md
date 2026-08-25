@@ -62,11 +62,11 @@ runtime state; this plan remains the single procedure and must not be copied who
   handoff durable before approving any rotation. The next gate is to ask for explicit approval to
   rotate that password and update the provider account, GitHub Actions secrets, private template,
   and regenerated local E2E state.
-- Task 7 Steps 2, 5, and 6 remain open; Tasks 8–12 are pending, and Task 9 is optional.
-- The public checkout remains on `main`; the Task 8 feature branch has not been created. At this
-  checkpoint this plan file is still untracked locally, so the remotely committed private status
-  is the portable source for the current resume point until Task 8 publishes the public workflow
-  changes through a PR.
+- Task 7 Steps 2, 5, and 6 remain open. Task 8 is in progress with Step 1 complete; Tasks 9–12 are
+  pending, and Task 9 is optional.
+- The public plan was first made durable on `docs/private-companion-workflow` at commit `9f12689`.
+  No PR has been opened and protected `main` is unchanged. A new computer must fetch that branch
+  until Task 12 lands the workflow through a PR.
 
 ## Target layout
 
@@ -479,7 +479,7 @@ as portable.
 - Create: `docs/runbooks/maintainer-workstation-recovery.md`
 - Modify: `CHANGELOG.md` at ship time
 
-- [ ] **Step 1: Create a public feature branch** from fresh `main`, recommended
+- [x] **Step 1: Create a public feature branch** from fresh `main`, recommended
       `docs/private-companion-workflow`.
 
 - [ ] **Step 2: Update `.gitignore`'s comment.** Describe `private/` as an ignored, separately
