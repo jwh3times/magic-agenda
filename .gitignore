@@ -32,7 +32,9 @@ pnpm-debug.log*
 # misc
 *.local
 
-# private (local-only notes, security reviews, etc. — never commit)
+# private companion: a separate, separately versioned PRIVATE Git repository cloned here by
+# `npm run bootstrap:private` (security reviews, accepted risks, recovery metadata). Never commit
+# it, never add its URL here, never turn it into a submodule.
 private/
 
 # superpowers workflow scratch (task briefs, per-agent reports, review diffs — local-only)

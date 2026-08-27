@@ -97,13 +97,26 @@ how it survived: it is the summary, so it is what a reader trusts before they kn
 it, and nothing executable depends on it. `tasks.user_id` was never an authorization input under the
 Board model, and the column itself is gone (#197).
 
-Dated security reviews live in `private/` — **git-ignored, local to the maintainer's checkout**, so
-they are not in a clone. They are where accepted risks and open findings are recorded, with the
-reasoning. If that directory is present, read the newest one before changing auth, RLS, realtime
-publication, or the Edge Functions; several non-obvious decisions in this repo (the redirect
-allow-list wildcard, tokens in `localStorage`, the realtime DELETE fan-out) are accepted risks
-argued there, not oversights to "fix". If it is absent, treat those decisions as load-bearing and
-ask before changing them.
+Dated security reviews live in `private/` — **git-ignored here, and a separate private Git
+repository of its own** (the "private companion"), so it is absent from a fresh clone until
+`npm run bootstrap:private` installs it. They are where accepted risks and open findings are
+recorded, with the reasoning. If that directory is present, read the newest one before changing
+auth, RLS, realtime publication, or the Edge Functions; several non-obvious decisions in this repo
+(the redirect allow-list wildcard, tokens in `localStorage`, the realtime DELETE fan-out) are
+accepted risks argued there, not oversights to "fix". If it is absent, treat those decisions as
+load-bearing and ask before changing them — **its absence never authorizes weakening a boundary**.
+
+The companion's rules, in brief (`private/OPERATING-POLICY.md` is authoritative once it is
+present): `private/.git` existing is the test for "installed", not the directory existing; pull it
+`--ff-only` at the start of a session before trusting its index; never force-push it or
+auto-resolve a divergence; and nothing in it — content, remote URL, commit SHA — may enter this
+repository, an issue, a PR, a log, or a chat transcript. Its durable records stay Markdown.
+**1Password is the credential authority**, reached through the `op` CLI: `op://` secret
+_references_ may cross into the companion's `onepassword/*.env.tpl` templates, but resolved values
+may not appear in either repository. `private/` is `.prettierignore`d and outside every lint and
+test project, so the public checks never see it. Contributors without access to the companion
+work from public code and docs alone; see `docs/runbooks/maintainer-workstation-recovery.md` for
+what a maintainer does on a new machine.
 
 ### Auth: PKCE, not implicit-flow URL fragments
 
@@ -1352,11 +1365,17 @@ a work session by moving knowledge out of the conversation and junk out of the c
 issues brought up to date per `docs/agents/`, `private/` reconciled, memory updated, and the local
 workspace audited. It is deliberately **not** a shipping skill: it never pushes, merges, or edits
 `AGENTS.md` / `README.md` / `ROADMAP.md` / `CHANGELOG.md`, because those belong to the PR that
-changed the code. Run `/ship` first if a branch is still in flight, then `end-session`. Two of its
+changed the code. Run `/ship` first if a branch is still in flight, then `end-session`. It carries
+**one narrowly named exception** to "never push": the private companion at `private/` may be
+committed and pushed to its own `main`, and only after its staged diff is reviewed, a secret scan
+passes, GitHub re-reports the remote as `PRIVATE`, and the maintainer explicitly approves — that
+push is what makes a session's private conclusions reach the next machine. The public
+application repository is never pushed by it. Two of its
 rules are load-bearing rather than stylistic: a dated document under `private/` is **amended, never
 rewritten** (it is evidence from the state it reviewed), and the workspace pass carries an explicit
-never-delete list. `.env.local`, `private/`, and `tests/e2e/.auth/` are git-ignored and the only
-copy of what they hold, so a blanket sweep of ignored paths destroys them; `supabase/.temp/` (all
+never-delete list. `.env.local` and `tests/e2e/.auth/` are git-ignored and the only
+copy of what they hold, and `private/` is the only _local_ copy of its uncommitted work, so a
+blanket sweep of ignored paths destroys them; `supabase/.temp/` (all
 but its regenerable `pgdelta/` cache) and `supabase/.branches/` are on the same list for a
 different reason — that's Supabase CLI link state, so deleting it doesn't destroy data but does
 unlink the project, and relinking needs the database password.

@@ -87,8 +87,20 @@ vocabulary lives in **`docs/agents/triage-labels.md`** (`needs-triage`, `needs-i
 
 ### 3. Reconcile `private/`
 
-`private/` is **git-ignored and local to this checkout** — it is not in a clone, CI never sees
-it, and it is exempt from Prettier. It is the only copy of what it contains. Its layout:
+`private/` is **git-ignored by the public repository and is a separate private Git repository**
+(the private companion). CI never sees it, it is exempt from Prettier, and its remote is the only
+other copy of what it contains — so this step ends with the companion synchronized, not merely
+edited. Its operating rules are in `private/OPERATING-POLICY.md`; the ones that bind here:
+
+- **Detect it by `private/.git`, not by the directory existing.** A bare directory is not a
+  clone. If `private/` exists without `.git`, say so and touch nothing in it.
+- **Fetch first and report the state** before editing anything:
+  `git -C private fetch origin && git -C private status --short --branch` and
+  `git -C private rev-list --left-right --count origin/main...main`. Behind-only: pull
+  `--ff-only`. Ahead-only: carry on; it will be pushed below. **Diverged: stop** — report it and
+  do not merge, rebase, reset, or resolve it yourself. **Never force-push.**
+
+Its layout:
 
 - **`private/README.md` — the index, and the file that almost always needs the edit.** It
   carries `Last reconciled`, a `Repository state` line (version, the issue numbers that landed,
@@ -110,8 +122,28 @@ it, and it is exempt from Prettier. It is the only copy of what it contains. Its
   which of a dated document's conclusions still apply; the original body is the audit trail for
   why. Where private language predates the public glossary, the glossary wins.
 
-If `private/` does not exist in this checkout, skip this step silently — it is the maintainer's
-directory, and its absence means you are not in that checkout, not that it needs creating.
+**Then synchronize the companion.** This is the one push this skill is allowed to make, and it
+is gated four ways, in order:
+
+1. Stage only the intended private files and show `git -C private diff --cached` — the diff
+   itself, not a summary. Do not resolve any `op://` reference while doing so.
+2. Scan the staged content for values: private-key headers, `ghp_`/`sbp_`/`eyJ…` token shapes,
+   passwords, passphrases, connection strings, and `KEY=value` environment assignments. An
+   `op://` reference is fine; a resolved value is an incident even here — stop and say so.
+3. `gh repo view <owner>/<repo> --json nameWithOwner,visibility,url` on the companion's
+   `origin` and **stop unless `visibility` is exactly `PRIVATE`**. A companion reported public
+   means every prior push was a disclosure: do not push, preserve evidence, report.
+4. Ask the maintainer for explicit approval to commit and push. Then commit, and
+   `git -C private push origin main` — plain, never `--force`.
+
+Report the resulting commit SHA and re-run the ahead/behind count; **zero/zero is
+synchronized, anything else is not**, and the report must say so rather than claim success.
+If the approval is declined or the session ends first, say plainly that private changes remain
+local — the next machine will not have them.
+
+If `private/.git` does not exist in this checkout, skip this step silently — it is the
+maintainer's companion, and its absence means it was not bootstrapped here
+(`npm run bootstrap:private`), not that it needs creating.
 
 ### 4. Update memory
 
@@ -157,7 +189,7 @@ Audit, then delete — in that order. `git status --porcelain --ignored` is the 
 | Path                              | Why                                                     |
 | --------------------------------- | ------------------------------------------------------- |
 | `.env.local`                      | Local Supabase credentials; `.env.example` is a template, not a backup. |
-| `private/`                        | Git-ignored, local-only, in no clone and no backup.     |
+| `private/`                        | The private companion checkout; its uncommitted work exists nowhere else. |
 | `tests/e2e/.auth/`                | Playwright storage state for the E2E account.           |
 | `supabase/.temp/` (all but `pgdelta/`), `supabase/.branches/` | CLI link state, not scratch; deleting it unlinks the project, and re-linking needs the database password. |
 | `node_modules/`, `supabase/functions/node_modules/` | Reinstallable, but deleting them is a chore, not cleanup. |
@@ -213,8 +245,9 @@ Give the user, in this order:
 
 ## Do not
 
-- **Ship, push, or merge anything.** If a branch needs a PR, run `/ship` first — separately,
-  before this skill — and say so.
+- **Ship, push, or merge the public application repository.** If a branch needs a PR, run
+  `/ship` first — separately, before this skill — and say so. The one exception is the private
+  companion's own `main` in step 3, and only through its four gates.
 - **Edit `AGENTS.md`, `README.md`, `ROADMAP.md`, or `CHANGELOG.md`.** They belong to the code
   PR. `CLAUDE.md` is only an `@AGENTS.md` import and is never edited at all.
 - **Update `docs/plans/` or `docs/specs/`.** They are dated historical records by design.
@@ -237,6 +270,8 @@ Give the user, in this order:
 | Silently picking a default for a two-sided question           | File it `needs-triage` and leave it. The decision is the maintainer's.                          |
 | Using `template`/`instance` in an issue title                 | Use `CONTEXT.md`'s words: Recurring Series, Occurrence, Occurrence Date.                        |
 | `rm -rf` on everything git-ignored                            | That takes `.env.local` and `private/` with it. Audit against the never-delete list first.      |
+| Reporting "private/ reconciled" with commits still unpushed   | The next machine gets nothing. Say "N commits ahead, not pushed" and why.                      |
+| Pushing the companion without re-checking its visibility      | A repo flipped public turns the push into a disclosure. `gh repo view … --json visibility` first. |
 | Deleting `supabase/.temp/` as CLI scratch                     | It holds the link state; every `--linked` command then fails until `npx supabase link`, which needs the database password. Only `pgdelta/` inside it is cache. |
 | Leaving the local Supabase stack running                      | `npm run test:rls:down` if this session brought it up.                                         |
 | Editing public docs after the branch merged                   | File an issue; a docs-only PR is the maintainer's call.                                        |

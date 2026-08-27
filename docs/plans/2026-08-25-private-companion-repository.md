@@ -68,6 +68,32 @@ runtime state; this plan remains the single procedure and must not be copied who
   No PR has been opened and protected `main` is unchanged. A new computer must fetch that branch
   until Task 12 lands the workflow through a PR.
 
+### Execution checkpoint — 2026-08-27 (clean-machine rehearsal, Linux)
+
+- Task 10 was run for real on a fresh Linux workstation holding only `gh`, `op`, and a clone of
+  the public repository. Steps 2–8 and 10 passed: 1Password access, both clones with the parent
+  ignoring `private/`, the source manifest matching every dated document, the dev server starting
+  under `op run` with no `.env.local`, Supabase link state recreated from 1Password-backed inputs
+  with `migration list --linked` matching all 25 local migrations, the full public check suite
+  green, and that day's backup decrypting with the 1Password-held passphrase.
+- **Defect found by the rehearsal:** the 1Password `SUPABASE_PROJECT_ID` field held a placeholder
+  (words, not the 20-character ref), so `supabase link` via the production-operations template
+  failed until the ref was passed on the command line. Correcting the field is the recorded next
+  action in `private/IMPLEMENTATION-STATUS.md`; the read-only agent identity could not write it.
+- Step 9 (E2E storage state) stays blocked on Task 7's `E2E_TEST_PASSWORD` gate. Steps 11–12
+  (private round trip; end-session behaviour) need the maintainer's push approval and Task 8's
+  skill, respectively.
+- Task 8 Steps 2–7 were completed on this branch, plus one addition the original plan lacked:
+  `scripts/bootstrap-private.mjs` (`npm run bootstrap:private`) resolves the companion's clone
+  URL from 1Password, verifies `PRIVATE` via `gh`, and clones. **Policy amendment:** that script
+  carries one `op://` reference, to a URL-typed field, as its default. Task 12's disclosure
+  search should treat that single reference as the deliberate exception; every other `op://`
+  reference, vault/item name, and the remote URL itself remain undisclosed.
+- `IMPLEMENTATION-STATUS.md` had never reached the companion's remote (the Task 6 correction
+  above). The rehearsal machine therefore recreated it from this checkpoint and the recovered
+  documents; the original machine's uncommitted copy, if it still exists, should be reconciled
+  by hand rather than pulled over.
+
 ## Target layout
 
 ```text
