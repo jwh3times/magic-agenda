@@ -12,6 +12,56 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.28] - 2026-08-27
+
+### Docs
+
+- **Maintainer records now travel between machines.** The git-ignored `private/` directory —
+  security reviews, accepted risks, recovery metadata — is a separately versioned private
+  companion repository rather than a single local copy, and 1Password is the credential
+  authority: the maintainer runs the app with `op run` against reference-only templates instead
+  of a plaintext `.env.local`. `AGENTS.md` and `.gitignore` describe the arrangement, and the new
+  `docs/runbooks/maintainer-workstation-recovery.md` is the public half of bringing a fresh
+  computer back to a working checkout. Nothing here changes application behaviour, and
+  contributors without the companion keep using `.env.example`.
+
+### Internal
+
+- **`npm run bootstrap:private`** (`scripts/bootstrap-private.mjs`) installs the private
+  companion into `private/`: it resolves the clone URL through the 1Password CLI, refuses a URL
+  carrying an embedded credential, requires GitHub to report the repository `PRIVATE` before
+  cloning, never overwrites a non-empty directory that is not a Git worktree, and — run again
+  later — fast-forwards or reports the ahead/behind state. Its URL validation is unit-tested.
+- **The `end-session` skill treats `private/` as a repository.** It detects `private/.git` rather
+  than the directory, fetches and reports ahead/behind, refuses divergence and force-pushes, and
+  carries one narrowly gated exception to its "never push" rule: the companion's own `main`, after
+  a staged-diff review, a secret scan, a fresh `PRIVATE` visibility check, and explicit approval.
+  The public application repository is still never pushed by it.
+- The private-companion plan's checkpoint records the 2026-08-27 clean-machine rehearsal, which
+  recovered 1Password, both repositories, local development, Supabase link state, E2E
+  authentication, and backup decryption on a fresh Linux workstation.
+
+## [1.8.27] - 2026-08-27
+
+### Internal
+
+- Dependabot: bumped `@types/react-dom` 19.2.4 → 19.2.5 (#245).
+
+## [1.8.26] - 2026-08-25
+
+### Internal
+
+- Dependabot: bumped `@testing-library/user-event` 14.6.5 → 14.6.6 (#244).
+
+## [1.8.25] - 2026-08-24
+
+### Internal
+
+- Dependabot group bump (#238): `vite` 8.2.1 → 8.2.2, `vitest` 4.1.10 → 4.1.11, `oxlint` 1.78 →
+  1.79, `@vitejs/plugin-react` 6.0.5 → 6.1.0, and the pinned `supabase` CLI 2.114.0 → 2.115.0.
+  Carried alongside: Oxlint's React Compiler rules migrated to the 1.79 category rules, and the
+  RLS schema baseline updated for the new CLI.
+
 ## [1.8.24] - 2026-08-24
 
 ### Docs
@@ -2461,7 +2511,11 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.24...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.28...HEAD
+[1.8.28]: https://github.com/jwh3times/magic-agenda/compare/v1.8.27...v1.8.28
+[1.8.27]: https://github.com/jwh3times/magic-agenda/compare/v1.8.26...v1.8.27
+[1.8.26]: https://github.com/jwh3times/magic-agenda/compare/v1.8.25...v1.8.26
+[1.8.25]: https://github.com/jwh3times/magic-agenda/compare/v1.8.24...v1.8.25
 [1.8.24]: https://github.com/jwh3times/magic-agenda/compare/v1.8.23...v1.8.24
 [1.8.23]: https://github.com/jwh3times/magic-agenda/compare/v1.8.22...v1.8.23
 [1.8.22]: https://github.com/jwh3times/magic-agenda/compare/v1.8.21...v1.8.22
