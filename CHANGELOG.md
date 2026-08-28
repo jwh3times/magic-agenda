@@ -12,7 +12,7 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
-## [1.8.27] - 2026-08-27
+## [1.8.28] - 2026-08-27
 
 ### Docs
 
@@ -40,6 +40,12 @@ No unreleased changes.
 - The private-companion plan's checkpoint records the 2026-08-27 clean-machine rehearsal, which
   recovered 1Password, both repositories, local development, Supabase link state, E2E
   authentication, and backup decryption on a fresh Linux workstation.
+
+## [1.8.27] - 2026-08-27
+
+### Internal
+
+- Dependabot: bumped `@types/react-dom` 19.2.4 → 19.2.5 (#245).
 
 ## [1.8.26] - 2026-08-25
 
@@ -2505,7 +2511,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.27...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.28...HEAD
+[1.8.28]: https://github.com/jwh3times/magic-agenda/compare/v1.8.27...v1.8.28
 [1.8.27]: https://github.com/jwh3times/magic-agenda/compare/v1.8.26...v1.8.27
 [1.8.26]: https://github.com/jwh3times/magic-agenda/compare/v1.8.25...v1.8.26
 [1.8.25]: https://github.com/jwh3times/magic-agenda/compare/v1.8.24...v1.8.25
