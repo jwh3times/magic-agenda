@@ -20,6 +20,12 @@ No unreleased changes.
   60-second readiness window, and captures an encrypted-upload-eligible trace and screenshot when
   either phase fails. Intermittent setup timeouts no longer fail without diagnostic artifacts.
 
+### Security
+
+- The database-restore runbook now requires deleting the decrypted backup archive and every
+  extracted SQL file after use, and the E2E failure-trace decryption hint carries the same cleanup
+  warning. Credential-bearing plaintext no longer gets left behind by the documented procedures.
+
 ## [1.8.29] - 2026-08-28
 
 ### Internal
