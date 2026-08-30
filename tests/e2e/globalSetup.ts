@@ -3,6 +3,9 @@ import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 
 export const STORAGE_STATE = path.join('tests', 'e2e', '.auth', 'user.json')
+const SETUP_RESULTS = path.join('test-results', 'global-setup')
+const SETUP_SCREENSHOT = path.join(SETUP_RESULTS, 'failure.png')
+const SETUP_TRACE = path.join(SETUP_RESULTS, 'trace.zip')
 
 /**
  * Signs in once per run and saves the session.
@@ -33,14 +36,30 @@ export default async function globalSetup(): Promise<void> {
   const browser = await chromium.launch({ channel: 'chromium' })
   try {
     const page = await browser.newPage({ baseURL })
-    await page.goto('/login')
-    await page.getByPlaceholder('you@example.com').fill(email)
-    await page.getByPlaceholder('Password').fill(password)
-    await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+    const context = page.context()
+    await context.tracing.start({ screenshots: true, snapshots: true, sources: true })
 
-    // The board is the signed-in home route; waiting on its toolbar proves the session took.
-    await page.getByRole('button', { name: '+ New task' }).waitFor({ timeout: 30_000 })
-    await page.context().storageState({ path: STORAGE_STATE })
+    try {
+      await page.goto('/login')
+      await page.getByPlaceholder('you@example.com').fill(email)
+      await page.getByPlaceholder('Password').fill(password)
+      await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+
+      // Separate "the session took" from "the cold Board finished loading". A failure now says
+      // which boundary stalled instead of spending one opaque timeout on the toolbar.
+      await page.waitForURL((url) => url.pathname !== '/login', { timeout: 30_000 })
+      await page.getByRole('button', { name: '+ New task' }).waitFor({ timeout: 60_000 })
+      await context.storageState({ path: STORAGE_STATE })
+
+      // Successful setup needs no artifact. Failure artifacts are retained below and encrypted by
+      // the same CI step as ordinary Playwright traces before this public repository uploads them.
+      await context.tracing.stop()
+    } catch (error) {
+      await mkdir(SETUP_RESULTS, { recursive: true })
+      await page.screenshot({ path: SETUP_SCREENSHOT, fullPage: true }).catch(() => undefined)
+      await context.tracing.stop({ path: SETUP_TRACE }).catch(() => undefined)
+      throw error
+    }
   } finally {
     await browser.close()
   }

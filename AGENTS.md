@@ -1217,9 +1217,11 @@ the same constraint that makes `backup.yml` encrypt its dump, and the fix is del
 shape (`--symmetric --cipher-algo AES256`, a no-op check, a round-trip check). If
 `E2E_TRACE_GPG_PASSPHRASE` is absent the traces are **discarded, not uploaded** — losing a debug
 artifact beats leaking a credential, and gpg would otherwise cheerfully "encrypt" with an empty
-passphrase. Do not replace this with a plain upload of `test-results/`. The general rule: **treat
-every artifact this repo uploads as public**, and check what a new one actually contains before
-adding it.
+passphrase. `globalSetup` is outside Playwright's per-test trace setting, so it starts context
+tracing itself and writes a screenshot plus trace under `test-results/global-setup/` on failure;
+that location is what routes setup failures through the same encryption step. Do not replace this
+with a plain upload of `test-results/`. The general rule: **treat every artifact this repo uploads as
+public**, and check what a new one actually contains before adding it.
 
 E2E drives **one dedicated account in the production project**, so runs are serialised twice:
 `workers: 1` within a run, and a `concurrency` group across PRs — scoped to `pull_request` events, so

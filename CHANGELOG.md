@@ -12,6 +12,21 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.30] - 2026-08-30
+
+### Fixed
+
+- E2E setup now distinguishes successful sign-in from a slow cold Board load, allows the Board a
+  60-second readiness window, and captures an encrypted-upload-eligible trace and screenshot when
+  either phase fails. Intermittent setup timeouts no longer fail without diagnostic artifacts.
+
+## [1.8.29] - 2026-08-28
+
+### Internal
+
+- Dependabot: bumped `@supabase/supabase-js` 2.112.3 → 2.112.4, `@types/node` 26.2.0 → 26.3.0,
+  and Oxlint 1.79.0 → 1.80.0 (#248).
+
 ## [1.8.28] - 2026-08-27
 
 ### Docs
@@ -2511,7 +2526,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.28...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.30...HEAD
+[1.8.30]: https://github.com/jwh3times/magic-agenda/compare/v1.8.29...v1.8.30
+[1.8.29]: https://github.com/jwh3times/magic-agenda/compare/v1.8.28...v1.8.29
 [1.8.28]: https://github.com/jwh3times/magic-agenda/compare/v1.8.27...v1.8.28
 [1.8.27]: https://github.com/jwh3times/magic-agenda/compare/v1.8.26...v1.8.27
 [1.8.26]: https://github.com/jwh3times/magic-agenda/compare/v1.8.25...v1.8.26
