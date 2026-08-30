@@ -108,6 +108,11 @@ tar -xzf backup.tar.gz          # -> schema.sql, data.sql (v1.2.25-26 bundles ad
 If `gpg` reports a bad passphrase, stop — you have the wrong one, and nothing else in this runbook
 will work. There is no recovery path for a lost passphrase.
 
+**Do not leave the decrypted archive or its extracted files behind.** They contain the production
+`auth.users` and `auth.refresh_tokens` tables, so leaving them on disk — especially in a synced
+folder — defeats the encryption applied by the backup workflow. Keep them only while following this
+procedure, then complete [Step 6](#6-delete-the-plaintext) before leaving the working directory.
+
 ## 2. Decide what you are actually restoring
 
 Be honest about the failure before touching production. The three cases are different:
@@ -329,6 +334,18 @@ The project ref changes, so:
    **Deploy Auth Config** workflow manually) so the redirect allow-list, password policy, SMTP, and
    the email templates land on the new project. A restored database does **not** carry these.
 4. Recreate the Google OAuth client's redirect URI for the new `<ref>.supabase.co` host.
+
+## 6. Delete the plaintext
+
+After the restore and verification are complete, record any hash you need and delete both the
+decrypted archive and every extracted SQL file. Keep only the encrypted `.gpg` bundle:
+
+```bash
+rm -f backup.tar.gz schema.sql data.sql auth.sql
+```
+
+If you extracted into a dedicated scratch directory, delete that directory instead. Confirm that no
+plaintext copy remains before closing the session.
 
 ## Rehearse it
 

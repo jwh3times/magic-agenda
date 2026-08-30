@@ -365,6 +365,7 @@ jobs:
           echo "encrypted=true" >> "$GITHUB_OUTPUT"
           echo "Encrypted traces: $bundle.gpg ($(wc -c < "$bundle.gpg") bytes)"
           echo "Decrypt with: gpg --decrypt --output traces.tar.gz $bundle.gpg"
+          echo "After inspection, delete traces.tar.gz and every extracted trace file; keep only $bundle.gpg."
 
       - name: Upload the encrypted traces
         if: failure() && steps.traces.outputs.encrypted == 'true'
