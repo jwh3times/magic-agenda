@@ -1162,7 +1162,8 @@ client reducer silently diverges.
 `baseline.test.ts` holds **baselines** — the security posture as it is _today_, asserted by strict
 equality in both directions, so changing it is a deliberate act with a diff attached. Three of
 them: every function in `public` with its definer flag / `search_path` / whether it carries its own
-ACL, every schema reachable by the Data API roles, and every policy that applies to `PUBLIC`
+ACL / exact non-owner `EXECUTE` grantees, every schema reachable by the Data API roles, and every
+policy that applies to `PUBLIC`
 because it names no role. The remaining known weakness: `set_updated_at` is still EXECUTE-able by
 `PUBLIC` via PostgreSQL's default, tolerable only because it is an invoker trigger function
 unreachable outside a trigger context, and the three legacy policies on `user_settings` still
@@ -1289,16 +1290,15 @@ is a deliberate tradeoff worth understanding before it costs one:
   still works but needs the E2E account's credentials, which exist only as repository secrets.
 
 **Data API grants are explicit, per table, full stop** (`20260729100000_explicit_data_api_grants.sql`)
-and must stay that way. `config.toml` leaves `auto_expose_new_tables` unset, so a new table is
-unreachable through PostgREST until it is granted — and that compatibility flag is removed on
-2026-10-30. The migration deliberately carries no `alter default privileges`: that clause would
-auto-grant every table some future migration creates, forever, which turns "forgot to enable RLS
-on a new table" into a silently world-readable table instead of a loud `42501` — the opposite of
-this repo's default-deny model. A migration that adds a table must grant it explicitly right there;
-the fourth structural test (`tests/rls/structure.test.ts`, "every table in public is reachable by
-the Data API roles") is the backstop that catches one that doesn't. Note `anon` is granted
-deliberately: RLS, not the grant, is what denies it, and `useSettings` depends on an
-unauthenticated select returning zero rows rather than an error.
+and must stay that way. `config.toml` sets `auto_expose_new_tables = false` explicitly, so new
+tables, views, sequences, and functions never inherit Data API grants merely because a CLI or cloud
+default changed. A migration that adds a table must grant it explicitly right there; the fourth
+structural test (`tests/rls/structure.test.ts`, "every table in public is reachable by the Data API
+roles") is the backstop that catches one that doesn't. The function baseline separately pins every
+non-owner `EXECUTE` grantee, because merely checking for an explicit ACL cannot distinguish a
+reviewed grant from an inherited `anon` or `service_role` grant. Note `anon` is granted deliberately:
+RLS, not the grant, is what denies it, and `useSettings` depends on an unauthenticated select
+returning zero rows rather than an error.
 
 That fail-closed premise was **not** true in production until `20260729190000`. Production
 carried `pg_default_acl` entries granting `anon` and `authenticated` full DML on every future
@@ -1320,11 +1320,12 @@ by the Data API roles by default") creates a real table and reads the privileges
 so it guards the `postgres` path against regression — but it connects as `postgres` and cannot
 see the `supabase_admin` path.
 
-## When changing auth config
+## When changing Supabase config
 
 `supabase/config.toml`'s `[auth]` tree describes **production** exactly (site URL, redirect
 allow-list, password policy, OTP settings, rate limits, the Resend SMTP block, the Google OAuth
-block, TOTP MFA) — every edit is a production change, not local scaffolding. Changes to
+block, TOTP MFA), and `[api].auto_expose_new_tables = false` keeps automatic Data API grants off.
+Every edit is a production change, not local scaffolding. Changes to
 `supabase/config.toml` or `supabase/templates/**` **auto-apply to production on merge to `main`**
 via the `Deploy Auth Config` workflow (`.github/workflows/deploy-auth-config.yml`, which runs
 `supabase config push --yes`). The `Config` CI job previews the pending push on PRs that touch

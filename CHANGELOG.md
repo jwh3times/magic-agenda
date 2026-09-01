@@ -12,6 +12,15 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.31] - 2026-09-01
+
+### Security
+
+- Supabase's automatic Data API grants are now disabled explicitly, so a CLI default change cannot
+  expose newly created tables, sequences, or functions. The function-security baseline also pins
+  every non-owner `EXECUTE` grantee, catching inherited grants that an explicit-ACL boolean could
+  not distinguish.
+
 ## [1.8.30] - 2026-08-30
 
 ### Fixed
@@ -2532,7 +2541,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.30...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.31...HEAD
+[1.8.31]: https://github.com/jwh3times/magic-agenda/compare/v1.8.30...v1.8.31
 [1.8.30]: https://github.com/jwh3times/magic-agenda/compare/v1.8.29...v1.8.30
 [1.8.29]: https://github.com/jwh3times/magic-agenda/compare/v1.8.28...v1.8.29
 [1.8.28]: https://github.com/jwh3times/magic-agenda/compare/v1.8.27...v1.8.28
