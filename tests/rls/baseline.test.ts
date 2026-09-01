@@ -27,7 +27,9 @@ import { withPg } from './helpers'
  *
  * `explicitAcl: false` means `proacl is null` — the function carries **no** grants of its own, so
  * PostgreSQL's default applies and `PUBLIC` may execute it. `explicitAcl: true` means someone
- * revoked and granted deliberately.
+ * revoked and granted deliberately. `executeGrantees` expands that ACL and lists every non-owner
+ * grantee holding `EXECUTE`. Both are pinned because an explicit ACL alone cannot tell a reviewed
+ * grant from an inherited `anon` or `service_role` grant.
  *
  * The two `security definer` functions are both triggers on `auth.users`, and both are hardened:
  * empty `search_path` (so no unqualified name in their bodies can be shadowed by whoever can create
@@ -63,13 +65,35 @@ import { withPg } from './helpers'
  * This distinction was added with `create_board`; the single-case version of the rule above it
  * would have flagged a correct function as an error.
  */
-const PUBLIC_FUNCTIONS: Record<string, { secdef: boolean; config: string; explicitAcl: boolean }> =
-  {
-    'create_board(text)': { secdef: true, config: 'search_path=""', explicitAcl: true },
-    'handle_account_deletion()': { secdef: true, config: 'search_path=""', explicitAcl: true },
-    'handle_new_user()': { secdef: true, config: 'search_path=""', explicitAcl: true },
-    'set_updated_at()': { secdef: false, config: '(none)', explicitAcl: false },
-  }
+const PUBLIC_FUNCTIONS: Record<
+  string,
+  { secdef: boolean; config: string; explicitAcl: boolean; executeGrantees: string }
+> = {
+  'create_board(text)': {
+    secdef: true,
+    config: 'search_path=""',
+    explicitAcl: true,
+    executeGrantees: 'authenticated',
+  },
+  'handle_account_deletion()': {
+    secdef: true,
+    config: 'search_path=""',
+    explicitAcl: true,
+    executeGrantees: '(owner only)',
+  },
+  'handle_new_user()': {
+    secdef: true,
+    config: 'search_path=""',
+    explicitAcl: true,
+    executeGrantees: '(owner only)',
+  },
+  'set_updated_at()': {
+    secdef: false,
+    config: '(none)',
+    explicitAcl: false,
+    executeGrantees: 'PUBLIC',
+  },
+}
 
 test('the security posture of every function in public is the reviewed one', async () => {
   const rows = await withPg(async (pg) => {
@@ -78,11 +102,25 @@ test('the security posture of every function in public is the reviewed one', asy
       secdef: boolean
       config: string
       explicit_acl: boolean
+      execute_grantees: string
     }>(
       `select p.oid::regprocedure::text as signature,
               p.prosecdef as secdef,
               coalesce(array_to_string(p.proconfig, ','), '(none)') as config,
-              (p.proacl is not null) as explicit_acl
+              (p.proacl is not null) as explicit_acl,
+              coalesce(
+                (
+                  select string_agg(
+                    case when acl.grantee = 0 then 'PUBLIC' else grantee.rolname end,
+                    ',' order by case when acl.grantee = 0 then 'PUBLIC' else grantee.rolname end
+                  )
+                    from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) acl
+                    left join pg_roles grantee on grantee.oid = acl.grantee
+                   where acl.privilege_type = 'EXECUTE'
+                     and acl.grantee <> p.proowner
+                ),
+                '(owner only)'
+              ) as execute_grantees
          from pg_proc p
          join pg_namespace n on n.oid = p.pronamespace
         where n.nspname = 'public'
@@ -94,7 +132,12 @@ test('the security posture of every function in public is the reviewed one', asy
   const actual = Object.fromEntries(
     rows.map((r) => [
       r.signature,
-      { secdef: r.secdef, config: r.config, explicitAcl: r.explicit_acl },
+      {
+        secdef: r.secdef,
+        config: r.config,
+        explicitAcl: r.explicit_acl,
+        executeGrantees: r.execute_grantees,
+      },
     ]),
   )
   expect(actual).toEqual(PUBLIC_FUNCTIONS)
