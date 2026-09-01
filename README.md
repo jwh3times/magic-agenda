@@ -210,10 +210,10 @@ tier has no automated backups of its own. To restore, follow
 [docs/runbooks/restore-from-backup.md](./docs/runbooks/restore-from-backup.md).
 
 Database migrations apply to production automatically: merging a change under `supabase/migrations/` to
-`main` triggers the **Deploy Migrations** workflow (`supabase db push`). Auth configuration does the
-same: merging a change to `supabase/config.toml` or `supabase/templates/` triggers **Deploy Auth
-Config** (`supabase config push`), so the redirect allow‑list, password policy, and the two auth email
-templates all live in the repo rather than the dashboard.
+`main` triggers the **Deploy Migrations** workflow (`supabase db push`). Supabase configuration does
+the same: merging a change to `supabase/config.toml` or `supabase/templates/` triggers **Deploy Auth
+Config** (`supabase config push`), so Data API defaults, the auth redirect allow‑list and password
+policy, and the two auth email templates all live in the repo rather than the dashboard.
 
 `main` is **protected** — it's PR‑only (no direct pushes), and a PR can't merge until the CI checks
 (`Format`, `Test`, `Build`, `Functions`, `Changelog`, `Agents`, `Config`) and CodeQL pass. Because Cloudflare deploys `main`,
