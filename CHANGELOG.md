@@ -12,6 +12,23 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.33] - 2026-09-02
+
+### Docs
+
+- Added a source-linked evaluation of the public repository, issue backlog, and next-work order.
+  It records portability as complete, prioritizes the offline correctness issues, and identifies
+  the dependency order for the Completion/Archive work and the human modeling gate before
+  reminders.
+
+## [1.8.32] - 2026-09-01
+
+### Internal
+
+- Dependabot: bumped React Router 8.3.0 → 8.3.1, Testing Library React 16.3.2 → 16.3.3,
+  Node types 26.3.0 → 26.4.0, Vite's React plugin 6.1.0 → 6.1.1, and the pinned Supabase CLI
+  2.115.0 → 2.116.0 (#256).
+
 ## [1.8.31] - 2026-09-01
 
 ### Security
@@ -2541,7 +2558,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.31...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.33...HEAD
+[1.8.33]: https://github.com/jwh3times/magic-agenda/compare/v1.8.32...v1.8.33
+[1.8.32]: https://github.com/jwh3times/magic-agenda/compare/v1.8.31...v1.8.32
 [1.8.31]: https://github.com/jwh3times/magic-agenda/compare/v1.8.30...v1.8.31
 [1.8.30]: https://github.com/jwh3times/magic-agenda/compare/v1.8.29...v1.8.30
 [1.8.29]: https://github.com/jwh3times/magic-agenda/compare/v1.8.28...v1.8.29
