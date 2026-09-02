@@ -10,6 +10,8 @@ only work that is on a branch but not yet merged.
 
 ## [Unreleased]
 
+No unreleased changes.
+
 ## [1.8.35] - 2026-09-02
 
 ### Added
