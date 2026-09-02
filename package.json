@@ -30,7 +30,8 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" \"scripts/*.ts\" \"**/*.md\" playwright.config.ts vitest.rls.config.ts",
     "codex:sync": "node scripts/sync-codex.mjs",
     "codex:check": "node scripts/sync-codex.mjs --check",
-    "bootstrap:private": "node scripts/bootstrap-private.mjs"
+    "bootstrap:private": "node scripts/bootstrap-private.mjs",
+    "sync:main": "node scripts/sync-main.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

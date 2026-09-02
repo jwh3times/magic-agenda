@@ -24,6 +24,7 @@ npm run format         # prettier --write (src, tests, scripts, and all .md; see
 npm run format:check   # prettier --check (the CI "Format" job runs this + lint)
 npm run codex:sync     # regenerate Codex's agent config from .claude/ (see below)
 npm run codex:check    # verify it is in sync (the CI "Agents" job runs this)
+npm run sync:main      # move public + private repos to main and fast-forward origin/main
 
 # Run one test file or one test by name:
 npx vitest run src/dnd/reorder.test.ts
