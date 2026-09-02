@@ -1082,6 +1082,9 @@ tasks, the hidden recurrence templates, and a `savedAt` timestamp), a directory 
 Boards this device last saw and which one was open), and a settings snapshot. One account can hold
 several board snapshots at once, so the board key is namespaced rather than singular — that is also
 what makes purging one Board's snapshot possible without clearing every cached Board to do it.
+`useTasks` treats visible Tasks and hidden Series definitions as independent debounce triggers for
+rewriting that Board envelope; watching only the visible `tasks` state leaves a template-only
+realtime edit stale offline even though the snapshot persists both collections.
 `cachedBoardIds()` enumerates them by a `localStorage` prefix scan for the two callers that cannot
 yet name a Board: `hasAnyBoardSnapshot()` (the offline-boot gate checked in `App` and
 `ProtectedRoute` before a Board is selected or even known) and `clearSnapshots()`'s sign-out sweep. A version, user-id, or

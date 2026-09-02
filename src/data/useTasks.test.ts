@@ -555,6 +555,34 @@ test('a successful load writes a snapshot', async () => {
   expect(snap?.templates).toEqual([])
 })
 
+test('a template-only realtime change refreshes the offline snapshot (#249)', async () => {
+  h.capture.rows = [
+    serverRow({ id: 'tpl1', title: 'old series title', recur_freq: 'daily' }),
+    serverRow({ id: 'i1', title: 'occurrence', recur_parent_id: 'tpl1' }),
+  ]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  await waitFor(
+    () => expect(readBoardSnapshot('u1', 'b1')?.templates[0]?.title).toBe('old series title'),
+    { timeout: 2000 },
+  )
+
+  act(() => {
+    h.capture.handler!({
+      eventType: 'UPDATE',
+      new: serverRow({ id: 'tpl1', title: 'new series title', recur_freq: 'daily' }),
+      old: { id: 'tpl1' },
+    })
+  })
+
+  // No visible Task changed, so this catches a writer that only uses `tasks` as its debounce
+  // trigger even though the envelope also persists hidden Series definitions.
+  await waitFor(
+    () => expect(readBoardSnapshot('u1', 'b1')?.templates[0]?.title).toBe('new series title'),
+    { timeout: 2000 },
+  )
+})
+
 test('reconnecting clears offline mode', async () => {
   localStorage.setItem(
     'ma-snapshot-board.b1',

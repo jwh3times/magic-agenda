@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useReducer,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from 'react'
 import { supabase } from '../lib/supabase'
 import { errorMessage } from '../lib/errors'
 import { rowToTask, taskToRow } from './mappers'
@@ -76,6 +84,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
   const [error, setError] = useState<string | null>(null)
   const [offline, setOffline] = useState(false)
   const [savedAt, setSavedAt] = useState<number | null>(null)
+  const [templatesVersion, bumpTemplatesVersion] = useReducer((version: number) => version + 1, 0)
   const tasksRef = useRef<Task[]>([])
   const templatesRef = useRef<SeriesDefinition[]>([])
   const inFlight = useRef(false)
@@ -153,6 +162,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     const snap = readBoardSnapshot(userId, boardId)
     if (!snap) return false
     templatesRef.current = snap.templates
+    bumpTemplatesVersion()
     setTasks(snap.tasks)
     setSavedAt(snap.savedAt)
     setOffline(true)
@@ -187,6 +197,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       }
       const all = (data ?? []).map(rowToTask)
       templatesRef.current = all.filter(isSeriesDefinition)
+      bumpTemplatesVersion()
       const instances = all.filter((t) => !isSeriesDefinition(t))
       if (hasSession) hasLoadedFromServer.current = true
       setOffline(false)
@@ -242,9 +253,10 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       writeBoardSnapshot(userId, boardId, tasksRef.current, templatesRef.current)
     }, 1000)
     return () => window.clearTimeout(id)
-    // `tasks` is the debounce trigger; the callback reads the coherent task/template pair from refs.
+    // Visible Tasks and hidden Series definitions are independent debounce triggers. The callback
+    // reads their coherent pair from refs after either changes.
     // oxlint-disable-next-line react/exhaustive-effect-dependencies
-  }, [userId, boardId, hasSession, offline, loading, tasks])
+  }, [userId, boardId, hasSession, offline, loading, tasks, templatesVersion])
 
   // Live changes from other devices/sessions.
   const onRemoteChange = useCallback(
@@ -262,6 +274,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         templatesRef.current = next.templates
         return next.tasks
       })
+      bumpTemplatesVersion()
     },
     [setTasks],
   )
@@ -285,6 +298,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     async (task: Task) => {
       if (isSeriesDefinition(task)) {
         templatesRef.current = [...templatesRef.current, task]
+        bumpTemplatesVersion()
         markWrites([task.id])
         try {
           const { error: err } = await supabase.from('tasks').insert(taskToRow(task, boardId))
@@ -442,6 +456,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       const prevTemplates = templatesRef.current
       markWrites(plan.markIds)
       templatesRef.current = [...plan.state.templates]
+      bumpTemplatesVersion()
       setTasks([...plan.state.tasks])
 
       // An object rather than a bare `let`: TypeScript narrows a captured `let` to its initial
@@ -481,6 +496,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       if (outcome.recover === 'reload') void reload()
       else if (outcome.recover === 'rollback') {
         templatesRef.current = prevTemplates
+        bumpTemplatesVersion()
         setTasks(prevTasks)
       }
 
