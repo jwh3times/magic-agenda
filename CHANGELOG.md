@@ -12,6 +12,14 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.34] - 2026-09-02
+
+### Fixed
+
+- Offline Board snapshots now refresh when a hidden Recurring Series definition changes without
+  changing a visible Task, so an offline boot no longer restores stale Series content or recurrence
+  rules after a template-only local or realtime update (#249).
+
 ## [1.8.33] - 2026-09-02
 
 ### Docs
@@ -2558,7 +2566,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.33...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.34...HEAD
+[1.8.34]: https://github.com/jwh3times/magic-agenda/compare/v1.8.33...v1.8.34
 [1.8.33]: https://github.com/jwh3times/magic-agenda/compare/v1.8.32...v1.8.33
 [1.8.32]: https://github.com/jwh3times/magic-agenda/compare/v1.8.31...v1.8.32
 [1.8.31]: https://github.com/jwh3times/magic-agenda/compare/v1.8.30...v1.8.31
