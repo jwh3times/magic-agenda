@@ -12,6 +12,13 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.39] - 2026-09-02
+
+### Internal
+
+- Tests can now replace and restore the shared `localStorage` polyfill when exercising quota and
+  storage-hostile-browser paths, instead of failing with an irreversible-property error (#252).
+
 ## [1.8.38] - 2026-09-02
 
 ### Fixed
@@ -2599,7 +2606,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.38...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.39...HEAD
+[1.8.39]: https://github.com/jwh3times/magic-agenda/compare/v1.8.38...v1.8.39
 [1.8.38]: https://github.com/jwh3times/magic-agenda/compare/v1.8.37...v1.8.38
 [1.8.37]: https://github.com/jwh3times/magic-agenda/compare/v1.8.36...v1.8.37
 [1.8.36]: https://github.com/jwh3times/magic-agenda/compare/v1.8.35...v1.8.36
