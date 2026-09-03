@@ -29,11 +29,11 @@ if (typeof globalThis.localStorage === 'undefined') {
     }
   })() as Storage
 
-  // Use Object.defineProperty to properly install so Node doesn't warn
+  // Tests must be able to replace storage (for quota/private-mode paths) and restore this baseline.
   Object.defineProperty(globalThis, 'localStorage', {
     value: polyfill,
-    writable: false,
-    configurable: false,
+    writable: true,
+    configurable: true,
   })
 }
 
