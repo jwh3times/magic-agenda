@@ -483,7 +483,7 @@ Memberships joined to their Boards, resolves which one is open (`resolveSelectio
 caller of `src/board/role.ts`'s capabilities. `useTasks` takes a `boardId` and loads/writes
 `.eq('board_id', boardId)`; `taskToRow(task, boardId)` sends only `board_id` (`user_id` stopped
 being written in #199 — see the Labels section above); offline board snapshots are keyed per
-Board; realtime filters on `board_id`; and `DataSection`'s v2 import/export is scoped the same way.
+Board; realtime filters on `board_id`; and `DataSection`'s v3 import/export is scoped the same way.
 
 **Client-side scoping is still not the boundary — it just no longer disagrees with it.** Everything
 above narrows what the client _asks_ for; RLS narrows what the server _allows_, and since the
@@ -497,7 +497,9 @@ database rather than merely absent from the UI.
   The `'inbox'` sentinel stays everywhere in app/DnD logic and maps to a `NULL` `day` **only** in
   `src/data/mappers.ts`.
 - **`order` is reserved SQL** -> the column is `order_index`; the app keeps `order`/`korder`.
-- **`done` is derived** (`status === 'done'`), never stored.
+- **Workflow Status vocabulary is translated at the seam**: the app uses `completed`, while the
+  database's frozen token remains `done`. Checklist Step `done` is independent and is stored inside
+  `checklist` JSON.
 - These conversions live entirely in `mappers.ts` (`rowToTask` / `taskToRow`). Everything else works in
   app-domain `Task` objects (`src/types/task.ts`).
 

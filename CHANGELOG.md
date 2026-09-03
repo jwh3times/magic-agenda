@@ -12,6 +12,23 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.41] - 2026-09-03
+
+### Changed
+
+- Complete now remembers whether a Task was To Do or In Progress, and quick Reopen restores that
+  active Workflow Status while clearing Completion and Archive state. Explicit editor and Board
+  moves remain authoritative, ordinary edits preserve Completed At, and Checklist Steps stay
+  independent from Task Completion (#240).
+- Board exports now use v3 to preserve current Completion and Archive lifecycle state. Existing v1
+  and v2 files remain importable without inventing historical completion timestamps (#240).
+
+### Internal
+
+- Made Workflow Status the sole app-domain source of Task Completion, with frozen database and
+  pre-v3 file tokens translated at their boundaries, versioned offline snapshots, and authoritative
+  post-write row reconciliation ahead of server lifecycle enforcement (#240).
+
 ## [1.8.40] - 2026-09-03
 
 ### Internal
@@ -2614,7 +2631,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.40...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.41...HEAD
+[1.8.41]: https://github.com/jwh3times/magic-agenda/compare/v1.8.40...v1.8.41
 [1.8.40]: https://github.com/jwh3times/magic-agenda/compare/v1.8.39...v1.8.40
 [1.8.39]: https://github.com/jwh3times/magic-agenda/compare/v1.8.38...v1.8.39
 [1.8.38]: https://github.com/jwh3times/magic-agenda/compare/v1.8.37...v1.8.38
