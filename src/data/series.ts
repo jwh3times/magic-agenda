@@ -89,7 +89,9 @@ export function makeInstance(tmpl: Task, day: string, nextId: () => string): Occ
     // starts with nothing ticked.
     checklist: tmpl.checklist.map((c) => ({ ...c, done: false })),
     status: 'todo',
-    done: false,
+    completedAt: null,
+    reopenStatus: 'todo',
+    archivedAt: null,
     day,
     atTime: tmpl.atTime,
     // Never `tmpl.pinned`. Pinning is Occurrence State (ADR-0002), so a Series has no pin to pass
@@ -741,7 +743,8 @@ export function planEndSeriesAt(
  * The Task **keeps its row** and becomes the Series' first Occurrence; a new row becomes the
  * hidden template. The obvious shape is the reverse — turn the row into the template in place and
  * let materialization produce the first Occurrence — and that is what shipped until #206. It cost
- * the user their work: `makeInstance` resets `status`, `done`, every checklist item's done-state,
+ * the user their work: `makeInstance` resets Workflow Status, Completion state, every checklist
+ * item's done-state,
  * and `order`/`korder`, because it builds *future* Occurrences, where resetting is exactly right.
  * The first Occurrence is not a future one. It is the card the user was already working on, and
  * the cheapest way to preserve it is not to recreate it — which also keeps its id, so anything
@@ -770,7 +773,9 @@ export function planPromoteToSeries(
     // value worth copying. The first Occurrence below keeps the user's own pin, as it keeps the
     // rest of their work.
     status: 'todo',
-    done: false,
+    completedAt: null,
+    reopenStatus: 'todo',
+    archivedAt: null,
     pinned: false,
     checklist: draft.checklist.map((item) => ({ ...item, done: false })),
     recurParentId: null,

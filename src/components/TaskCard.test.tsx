@@ -17,7 +17,9 @@ function mkTask(over: Partial<TaskDraft> = {}): Task {
     color: 'yellow',
     checklist: [],
     status: 'todo',
-    done: false,
+    completedAt: null,
+    reopenStatus: null,
+    archivedAt: null,
     day: '2026-07-10',
     order: 0,
     korder: 0,
@@ -111,4 +113,28 @@ test('kanban card with no due time still shows the day chip', () => {
   renderCard(mkTask({ atTime: null, day: '2026-07-10' }), { variant: 'kanban' })
   expect(screen.getByText('Jul 10')).toBeInTheDocument()
   expect(screen.queryByText(/am|pm/)).not.toBeInTheDocument()
+})
+
+test('the Completion control uses Complete and Reopen product language', () => {
+  const actions: BoardActions = {
+    popId: null,
+    onOpen: vi.fn(),
+    onToggleCompletion: vi.fn(),
+    onAddDay: vi.fn(),
+    onAddInbox: vi.fn(),
+    onAddStatus: vi.fn(),
+  }
+  const { rerender } = renderCard(mkTask(), {}, actions)
+  expect(screen.getByRole('button', { name: 'Complete' })).toBeInTheDocument()
+
+  rerender(
+    <ThemeProvider>
+      <LabelDirectoryContext.Provider value={fakeLabelDirectory()}>
+        <BoardActionContext.Provider value={actions}>
+          <TaskCard task={mkTask({ status: 'completed', reopenStatus: 'todo' })} variant="inbox" />
+        </BoardActionContext.Provider>
+      </LabelDirectoryContext.Provider>
+    </ThemeProvider>,
+  )
+  expect(screen.getByRole('button', { name: 'Reopen' })).toBeInTheDocument()
 })

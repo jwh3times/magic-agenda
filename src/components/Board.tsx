@@ -32,7 +32,14 @@ import { overdueTasks } from '../data/selectors'
 import type { ViewOption } from './ViewSwitcher'
 import { BoardActionContext, type BoardActions } from './boardActionContext'
 import { useTaskBoard } from '../data/taskBoardContext'
-import { NO_RECUR, type Status, type Task, type TaskDraft, type ViewName } from '../types/task'
+import {
+  NO_RECUR,
+  type Task,
+  type TaskDraft,
+  type ViewName,
+  type WorkflowStatus,
+} from '../types/task'
+import { completionDecision } from '../data/completion'
 
 interface Editing {
   /** The editor's working shape: an Occurrence here also carries its Series' Rule. */
@@ -57,22 +64,28 @@ const VIEWS: ViewOption[] = [
   { key: 'kanban', label: 'Board' },
 ]
 
-function newTaskTemplate(day: string, status: Status): Task {
-  return {
+function newTaskTemplate(day: string, status: WorkflowStatus): Task {
+  const active = {
     id: newId(),
     title: '',
     description: '',
     labelId: null,
     color: 'yellow',
     checklist: [],
-    status,
-    done: status === 'done',
+    status: 'todo' as const,
+    completedAt: null,
+    reopenStatus: 'todo' as const,
+    archivedAt: null,
     day,
     atTime: null,
     pinned: false,
     order: 9999,
     korder: 9999,
     ...NO_RECUR,
+  } satisfies Task
+  return {
+    ...active,
+    ...completionDecision(active, status, new Date().toISOString()),
   }
 }
 
@@ -113,12 +126,12 @@ export function Board({
 
   const handleToggle = (id: string) => {
     const t = tasks.find((x) => x.id === id)
-    if (t && !t.done) {
+    if (t && t.status !== 'completed') {
       setPopId(id)
       window.clearTimeout(popTimer.current)
       popTimer.current = window.setTimeout(() => setPopId(null), 520)
     }
-    void taskBoard.toggleDone(id)
+    void taskBoard.toggleCompletion(id)
   }
 
   const handlePin = (id: string) => {
@@ -160,7 +173,7 @@ export function Board({
     onOpen: openTask,
     // Undefined (not a no-op) while read-only: TaskCard already falls back to a non-interactive
     // <span> when no handler is passed, so this is the existing affordance, not a new one.
-    onToggleDone: readOnly ? undefined : handleToggle,
+    onToggleCompletion: readOnly ? undefined : handleToggle,
     onTogglePin: readOnly ? undefined : handlePin,
     onAddDay: (dateStr) => setEditing({ task: newTaskTemplate(dateStr, 'todo'), isNew: true }),
     onAddInbox: () => setEditing({ task: newTaskTemplate('inbox', 'todo'), isNew: true }),

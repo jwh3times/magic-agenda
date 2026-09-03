@@ -1,4 +1,5 @@
-import type { Status, Task } from '../types/task'
+import type { Task, WorkflowStatus } from '../types/task'
+import { completionDecision } from '../data/completion'
 
 /** Whether we are ordering by day (calendar/week) or status (kanban). */
 export type Mode = 'day' | 'status'
@@ -43,18 +44,24 @@ export function moveToDay(tasks: Task[], id: string, day: string, index: number)
 
 /**
  * Move a task to `status` at `index`, splicing into the destination and reassigning contiguous
- * korder; the source column is re-packed on a cross-column move. Sets done = (status === 'done').
+ * korder; the source column is re-packed on a cross-column move. Completion lifecycle fields are
+ * decided at the same time as Workflow Status.
  * Index is clamped. Immutable. Port of the prototype's `moveStatus`, extended to reindex both sides.
  */
-export function moveToStatus(tasks: Task[], id: string, status: Status, index: number): Task[] {
+export function moveToStatus(
+  tasks: Task[],
+  id: string,
+  status: WorkflowStatus,
+  index: number,
+  now: string,
+): Task[] {
   const original = tasks.find((t) => t.id === id)
   if (!original) return tasks
   const sourceStatus = original.status
 
   const next = tasks.map((t) => ({ ...t }))
   const moving = next.find((t) => t.id === id)!
-  moving.status = status
-  moving.done = status === 'done'
+  Object.assign(moving, completionDecision(original, status, now))
 
   const dest = next
     .filter((t) => t.status === status && t.id !== id)

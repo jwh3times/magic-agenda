@@ -93,8 +93,8 @@ were added as their own effort rather than a roadmap feature — see
   the deploy window (migrations and the Pages build land at slightly different moments).
 - **Schema changes**: new file under `supabase/migrations/`, then regenerate
   `src/types/database.types.ts` with `supabase gen types --linked`. All app↔DB conversions stay in
-  `src/data/mappers.ts` (`'inbox'` ↔ `NULL`, `order` ↔ `order_index`, derived `done`); new columns
-  extend `rowToTask` / `taskToRow` and nothing else touches row shapes.
+  `src/data/mappers.ts` (`'inbox'` ↔ `NULL`, `order` ↔ `order_index`, app `completed` ↔ stored
+  `done`); new columns extend `rowToTask` / `taskToRow` and nothing else touches row shapes.
 - **RLS is the only authorization boundary.** Every new table default-denies and scopes to
   `auth.uid() = user_id` (or an explicit membership/role policy). Anything requiring privileges the
   anon key must not have (deleting auth users, cross-user reads, push sending) goes in a **Supabase
@@ -205,8 +205,8 @@ were added as their own effort rather than a roadmap feature — see
   complete a Task. Completion History is the selected Board's currently Completed Tasks,
   Archived ones included — not an event ledger — so Reopening/deletion removes a Task and
   recompletion moves it to the later period. Archive is durable state available only to
-  Completed Tasks, not a selector filter or deletion. The additive schema foundation shipped in
-  #239; the remaining safe release chain is the compatible app-domain/export-v3 cutover (#240),
+  Completed Tasks, not a selector filter or deletion. The additive schema foundation (#239) and
+  compatible app-domain/export-v3 cutover (#240) have shipped; the remaining safe release chain is
   server backfill/enforcement (#241), then the `/settings` History experience, Archive controls,
   eight-week Throughput bars, and Completion Streak (#242). Automatic archiving is outside that
   first slice: if added later it must be a Board-owned mutation policy, not personal filtering.

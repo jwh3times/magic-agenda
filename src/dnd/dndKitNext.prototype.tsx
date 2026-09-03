@@ -19,7 +19,7 @@ import { useSortable } from '@dnd-kit/react/sortable'
 import { PointerActivationConstraints, PointerSensor } from '@dnd-kit/dom'
 import { OptimisticSortingPlugin } from '@dnd-kit/dom/sortable'
 import { closestCorners } from '@dnd-kit/collision'
-import { NO_RECUR, type Status, type Task, type ViewName } from '../types/task'
+import { NO_RECUR, type Task, type ViewName, type WorkflowStatus } from '../types/task'
 import type { Mode } from './reorder'
 import {
   beginDrag,
@@ -63,6 +63,7 @@ export function nextDropInput(event: DragOverEvent | DragEndEvent, phase: DragPh
     overId: operation.target ? String(operation.target.id) : null,
     activeRect: rectOf(operation.shape?.current),
     overRect: rectOf(operation.target?.shape),
+    now: new Date().toISOString(),
   }
 }
 
@@ -185,7 +186,9 @@ const demoTasks: Task[] = [
     color: 'yellow',
     checklist: [],
     status: 'todo',
-    done: false,
+    completedAt: null,
+    reopenStatus: 'todo',
+    archivedAt: null,
     day: 'inbox',
     atTime: null,
     pinned: false,
@@ -201,7 +204,9 @@ const demoTasks: Task[] = [
     color: 'blue',
     checklist: [],
     status: 'doing',
-    done: false,
+    completedAt: null,
+    reopenStatus: 'doing',
+    archivedAt: null,
     day: '2026-07-01',
     atTime: null,
     pinned: false,
@@ -212,7 +217,7 @@ const demoTasks: Task[] = [
 ]
 
 const dayLanes = ['inbox', '2026-07-01', '2026-07-02']
-const statusLanes: Status[] = ['todo', 'doing', 'done']
+const statusLanes: WorkflowStatus[] = ['todo', 'doing', 'completed']
 
 /**
  * A live, throwaway harness for browser-testing the published successor runtime. It deliberately

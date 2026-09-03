@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { removesRule, type RecurScope } from '../data/series'
-import { cleanDraft, intendDelete, intendSave } from '../data/editIntent'
+import { intendDelete, intendSave } from '../data/editIntent'
 import { useTheme } from '../theme/ThemeProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { COLORS, PAPER, STATUS } from '../theme/constants'
@@ -87,7 +87,7 @@ export function TaskEditor({
   }
 
   const attemptSave = () => {
-    const intent = intendSave(initial, draft, isNew)
+    const intent = intendSave(initial, draft, isNew, new Date().toISOString())
     if (intent.kind === 'blocked') return
     if (intent.kind === 'ask') setScopePrompt('save')
     // Called with one argument when there is no scope, rather than an explicit `undefined`:
@@ -103,8 +103,10 @@ export function TaskEditor({
   }
 
   const chooseScope = (scope: RecurScope) => {
-    if (scopePrompt === 'save') onSave(cleanDraft(draft), scope)
-    else onDelete(initial.id, scope)
+    if (scopePrompt === 'save') {
+      const intent = intendSave(initial, draft, isNew, new Date().toISOString(), scope)
+      if (intent.kind === 'save') onSave(intent.task, scope)
+    } else onDelete(initial.id, scope)
   }
 
   const recurUnit =
@@ -388,7 +390,7 @@ export function TaskEditor({
             </div>
           </div>
 
-          <div style={fieldLabel}>Status</div>
+          <div style={fieldLabel}>Workflow Status</div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             {STATUS.map((st) => {
               const active = draft.status === st.key
@@ -396,7 +398,7 @@ export function TaskEditor({
                 <button
                   key={st.key}
                   type="button"
-                  onClick={() => patch({ status: st.key, done: st.key === 'done' })}
+                  onClick={() => patch({ status: st.key })}
                   style={{
                     display: 'flex',
                     alignItems: 'center',

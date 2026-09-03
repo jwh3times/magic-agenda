@@ -16,7 +16,9 @@ function task(overrides: Partial<TaskDraft> = {}): Task {
     color: 'yellow',
     checklist: [],
     status: 'todo',
-    done: false,
+    completedAt: null,
+    reopenStatus: null,
+    archivedAt: null,
     day: 'inbox',
     atTime: null,
     pinned: false,
@@ -75,10 +77,10 @@ describe('cardStyles', () => {
     expect(on).toContain('rgba(124,92,255')
   })
 
-  it('shows the DONE stamp only for a completed cork card', () => {
-    expect(cardStyles('cork', task({ status: 'done' }), 'cell').showStamp).toBe(true)
+  it('shows the Completed stamp only for a Completed cork card', () => {
+    expect(cardStyles('cork', task({ status: 'completed' }), 'cell').showStamp).toBe(true)
     expect(cardStyles('cork', task({ status: 'todo' }), 'cell').showStamp).toBe(false)
-    expect(cardStyles('brutal', task({ status: 'done' }), 'cell').showStamp).toBe(false)
+    expect(cardStyles('brutal', task({ status: 'completed' }), 'cell').showStamp).toBe(false)
   })
 
   it('ghost variant suppresses pin and rotation', () => {
@@ -105,7 +107,7 @@ describe('cardStyles', () => {
   })
 
   it('uses the textDecorationLine longhand (no shorthand/longhand mix)', () => {
-    const s = cardStyles('cork', task({ status: 'done' }), 'cell')
+    const s = cardStyles('cork', task({ status: 'completed' }), 'cell')
     expect(s.titleStyle.textDecorationLine).toBe('line-through')
     expect('textDecoration' in s.titleStyle).toBe(false)
   })

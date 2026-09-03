@@ -1,4 +1,4 @@
-import type { Status, Task, ViewName } from '../types/task'
+import type { Task, ViewName, WorkflowStatus } from '../types/task'
 import { notesForDay, tasksForStatus } from '../data/selectors'
 import { moveToDay, moveToStatus, type Mode } from './reorder'
 
@@ -35,6 +35,8 @@ export interface DropInput {
   /** The dragged item's rect in its *translated* position. Null before dnd-kit has measured it. */
   activeRect: RectLike | null
   overRect: RectLike | null
+  /** Timestamp used only if this drop enters Completed. Injected by the dnd-kit adapter. */
+  now: string
 }
 
 /**
@@ -123,7 +125,7 @@ export function insertionIndex(
   const list =
     mode === 'day'
       ? notesForDay(tasks, container, excludeId)
-      : tasksForStatus(tasks, container as Status, excludeId)
+      : tasksForStatus(tasks, container as WorkflowStatus, excludeId)
   if (overId === container) return list.length
   const idx = list.findIndex((t) => t.id === overId)
   if (idx < 0) return list.length
@@ -169,7 +171,7 @@ export function resolveDrop(
   const next =
     mode === 'day'
       ? moveToDay(tasks, activeId, to, index)
-      : moveToStatus(tasks, activeId, to as Status, index)
+      : moveToStatus(tasks, activeId, to as WorkflowStatus, index, input.now)
 
   const touched = new Set(session.touched)
   touched.add(from)

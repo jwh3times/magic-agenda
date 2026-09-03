@@ -1,5 +1,6 @@
-import type { Status, Task } from '../types/task'
+import type { Task, WorkflowStatus } from '../types/task'
 import { addDays, isScheduled, ymd, weekdayLabels } from '../lib/dates'
+import { completionDecision } from './completion'
 
 /** Tasks on a given day (or 'inbox'), sorted by their calendar order. Ported from `notesForDay`. */
 export function notesForDay(tasks: Task[], day: string, excludeId?: string): Task[] {
@@ -7,7 +8,7 @@ export function notesForDay(tasks: Task[], day: string, excludeId?: string): Tas
 }
 
 /** Tasks in a given status, sorted by their kanban order. Ported from `tasksForStatus`. */
-export function tasksForStatus(tasks: Task[], status: Status, excludeId?: string): Task[] {
+export function tasksForStatus(tasks: Task[], status: WorkflowStatus, excludeId?: string): Task[] {
   return tasks
     .filter((t) => t.status === status && t.id !== excludeId)
     .sort((a, b) => a.korder - b.korder)
@@ -105,30 +106,30 @@ export function agendaGroups(tasks: Task[]): AgendaGroup[] {
 }
 
 /**
- * Toggle a task's done flag, flipping status todo<->done and bumping the completed task to the
- * bottom of its kanban column. Ported from the prototype's `toggleDone`. Returns whether the
- * task just became done (drives the notePop animation).
+ * Complete or Reopen a Task and bump it to the bottom of its destination Kanban column.
  */
-export function applyToggleDone(tasks: Task[], id: string): { tasks: Task[]; justDone: boolean } {
+export function applyToggleCompletion(
+  tasks: Task[],
+  id: string,
+  now: string,
+): { tasks: Task[]; justCompleted: boolean } {
   const next = tasks.map((t) => {
     if (t.id !== id) return { ...t }
-    const done = !t.done
-    const status: Status = done ? 'done' : 'todo'
-    return { ...t, done, status }
+    return { ...t, ...completionDecision(t, 'toggle', now) }
   })
   const moved = next.find((t) => t.id === id)
-  let justDone = false
+  let justCompleted = false
   if (moved) {
     const col = next.filter((t) => t.status === moved.status && t.id !== id)
     moved.korder = col.reduce((m, t) => Math.max(m, t.korder), -1) + 1
-    justDone = moved.done
+    justCompleted = moved.status === 'completed'
   }
-  return { tasks: next, justDone }
+  return { tasks: next, justCompleted }
 }
 
-/** Scheduled in the past and not finished. Derived — never stored. */
+/** Scheduled in the past and not Completed. Derived — never stored. */
 export function isOverdue(t: Task, todayStr: string): boolean {
-  return isScheduled(t.day) && t.day < todayStr && t.status !== 'done'
+  return isScheduled(t.day) && t.day < todayStr && t.status !== 'completed'
 }
 
 /** Overdue tasks, oldest day first, ties by manual order. */

@@ -25,7 +25,7 @@ export interface TaskCardProps {
 export function TaskCard({ task, variant, dragging, wrapStyle }: TaskCardProps) {
   const actions = useBoardActions()
   const onOpen = actions?.onOpen
-  const onToggleDone = actions?.onToggleDone
+  const onToggleCompletion = actions?.onToggleCompletion
   const onTogglePin = actions?.onTogglePin
   const { theme } = useTheme()
   const label = labelPresentation(useLabel(task.labelId))
@@ -37,7 +37,7 @@ export function TaskCard({ task, variant, dragging, wrapStyle }: TaskCardProps) 
     labelColor: label.dotColor,
   })
 
-  const done = task.status === 'done'
+  const completed = task.status === 'completed'
   const total = task.checklist.length
   const ck = task.checklist.filter((c) => c.done).length
   const hasList = total > 0
@@ -48,7 +48,7 @@ export function TaskCard({ task, variant, dragging, wrapStyle }: TaskCardProps) 
   return (
     <div style={{ ...s.wrap, ...wrapStyle }} onClick={() => onOpen?.(task)}>
       {s.showPin && <div style={s.pinStyle} />}
-      {s.showStamp && <div style={s.stampStyle}>DONE</div>}
+      {s.showStamp && <div style={s.stampStyle}>COMPLETED</div>}
 
       <div style={s.titleStyle}>{task.title || 'Untitled'}</div>
       {hasDesc && <div style={s.descStyle}>{task.description}</div>}
@@ -80,25 +80,25 @@ export function TaskCard({ task, variant, dragging, wrapStyle }: TaskCardProps) 
         {/* Without a handler this is a status indicator, not a control — so it renders as a span.
             A <button> that does nothing is still focusable and still announced as a button, which
             matters wherever cards are shown decoratively (the landing preview, the drag ghost). */}
-        {onToggleDone ? (
+        {onToggleCompletion ? (
           <button
             type="button"
-            aria-label={done ? 'Mark not done' : 'Mark done'}
+            aria-label={completed ? 'Reopen' : 'Complete'}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation()
-              onToggleDone(task.id)
+              onToggleCompletion(task.id)
             }}
             style={onTogglePin ? { ...s.check, marginLeft: '0px' } : s.check}
           >
-            {done ? '✓' : ''}
+            {completed ? '✓' : ''}
           </button>
         ) : (
           <span
             aria-hidden="true"
             style={onTogglePin ? { ...s.check, marginLeft: '0px' } : s.check}
           >
-            {done ? '✓' : ''}
+            {completed ? '✓' : ''}
           </span>
         )}
       </div>

@@ -2,6 +2,7 @@ import { isScheduled } from '../lib/dates'
 import { PER_OCCURRENCE_FIELDS } from './fieldOwnership'
 import { type TaskDraft } from '../types/task'
 import type { RecurScope } from './series'
+import { completionDecision } from './completion'
 
 /**
  * What pressing Save or Delete in the task editor should actually do.
@@ -18,7 +19,6 @@ import type { RecurScope } from './series'
 /**
  * Keys whose value differs between `a` and `b`.
  *
- * `done` is skipped — it is derived from `status`, so comparing it separately is redundant.
  * Arrays (the checklist) compare by content rather than reference, since `cleanDraft` always
  * remaps `checklist` into a fresh array.
  *
@@ -29,7 +29,6 @@ import type { RecurScope } from './series'
  */
 export function changedTaskKeys(a: TaskDraft, b: TaskDraft): (keyof TaskDraft)[] {
   return (Object.keys(b) as (keyof TaskDraft)[]).filter((key) => {
-    if (key === 'done') return false
     const av = a[key]
     const bv = b[key]
     if (Array.isArray(av) && Array.isArray(bv)) return JSON.stringify(av) !== JSON.stringify(bv)
@@ -61,7 +60,6 @@ export function cleanDraft(draft: TaskDraft): TaskDraft {
     ...draft,
     title: draft.title.trim(),
     day: isScheduled(draft.day) ? draft.day : 'inbox',
-    done: draft.status === 'done',
     checklist: draft.checklist.map((c) => ({ id: c.id, text: c.text, done: c.done })),
   }
 }
@@ -83,11 +81,22 @@ export type SaveIntent =
  * defends against `undefined` — that default is tested — but nothing produces it for an instance
  * any more.
  */
-export function intendSave(initial: TaskDraft, draft: TaskDraft, isNew: boolean): SaveIntent {
-  const task = cleanDraft(draft)
+export function intendSave(
+  initial: TaskDraft,
+  draft: TaskDraft,
+  isNew: boolean,
+  now: string,
+  chosenScope?: RecurScope,
+): SaveIntent {
+  const cleaned = cleanDraft(draft)
+  const task = {
+    ...cleaned,
+    ...completionDecision(initial, cleaned.status, now),
+  }
   if (task.title.length === 0) return { kind: 'blocked' }
   // `draft.recurParentId` rather than `initial`'s: the draft is what is about to be saved.
   if (isNew || !draft.recurParentId) return { kind: 'save', task }
+  if (chosenScope) return { kind: 'save', task, scope: chosenScope }
   // Edits confined to this Occurrence — its state or its placement — have no series content to
   // route, so there is nothing to ask about.
   if (onlyPerOccurrenceChanged(initial, task)) return { kind: 'save', task, scope: 'this' }

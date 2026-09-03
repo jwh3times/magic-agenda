@@ -11,7 +11,9 @@ function t(id: string, over: Partial<TaskDraft> = {}): Task {
     color: 'yellow',
     checklist: [],
     status: 'todo',
-    done: false,
+    completedAt: null,
+    reopenStatus: null,
+    archivedAt: null,
     day: 'inbox',
     atTime: null,
     pinned: false,
@@ -30,7 +32,7 @@ const tasks = [
     status: 'doing',
   }),
   t('b', { title: 'Call plumber', labelId: 'errands-label', status: 'todo' }),
-  t('c', { title: 'Gym', labelId: null, status: 'done' }),
+  t('c', { title: 'Gym', labelId: null, status: 'completed' }),
 ]
 
 describe('isFilterActive', () => {
@@ -41,7 +43,7 @@ describe('isFilterActive', () => {
     expect(isFilterActive({ ...EMPTY_FILTER, text: 'x' })).toBe(true)
     expect(isFilterActive({ ...EMPTY_FILTER, labelId: 'work-label' })).toBe(true)
     expect(isFilterActive({ ...EMPTY_FILTER, labelId: 'unlabeled' })).toBe(true)
-    expect(isFilterActive({ ...EMPTY_FILTER, status: 'done' })).toBe(true)
+    expect(isFilterActive({ ...EMPTY_FILTER, status: 'completed' })).toBe(true)
   })
 })
 
@@ -64,7 +66,9 @@ describe('applyFilters', () => {
     )
   })
   it('filters by status', () => {
-    expect(applyFilters(tasks, { ...EMPTY_FILTER, status: 'done' }).map((x) => x.id)).toEqual(['c'])
+    expect(applyFilters(tasks, { ...EMPTY_FILTER, status: 'completed' }).map((x) => x.id)).toEqual([
+      'c',
+    ])
   })
   it('combines facets with AND', () => {
     expect(

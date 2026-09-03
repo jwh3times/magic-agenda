@@ -44,6 +44,7 @@ function dropInput(e: DragOverEvent | DragEndEvent, phase: DragPhase): DropInput
     overId: e.over ? String(e.over.id) : null,
     activeRect: e.active.rect.current.translated,
     overRect: e.over?.rect ?? null,
+    now: new Date().toISOString(),
   }
 }
 

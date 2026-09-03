@@ -20,7 +20,9 @@ function t(id: string, over: Partial<TaskDraft> = {}): Task {
     color: 'yellow',
     checklist: [],
     status: 'todo',
-    done: false,
+    completedAt: null,
+    reopenStatus: null,
+    archivedAt: null,
     day: 'inbox',
     atTime: null,
     pinned: false,
@@ -32,6 +34,7 @@ function t(id: string, over: Partial<TaskDraft> = {}): Task {
 }
 
 const rect = (top: number, height = 20) => ({ top, height })
+const NOW = '2026-09-03T14:45:00.000Z'
 const dayIds = (tasks: Task[], day: string) =>
   tasks
     .filter((x) => x.day === day)
@@ -44,6 +47,7 @@ const input = (overId: string | null, over: Partial<DropInput> = {}): DropInput 
   overId,
   activeRect: rect(100),
   overRect: rect(0),
+  now: NOW,
   ...over,
 })
 
@@ -76,7 +80,7 @@ describe('containerOf', () => {
     // is why it could never have shipped — dropping into an empty day would have done nothing.
     expect(containerOf(tasks, '2026-07-04', 'day')).toBe('2026-07-04')
     expect(containerOf(tasks, 'inbox', 'day')).toBe('inbox')
-    expect(containerOf(tasks, 'done', 'status')).toBe('done')
+    expect(containerOf(tasks, 'completed', 'status')).toBe('completed')
   })
 })
 
@@ -192,6 +196,7 @@ describe('resolveDrop', () => {
       overId: 'c',
       activeRect: rect(100),
       overRect: rect(0),
+      now: NOW,
     })!
     expect(dayIds(step.tasks, 'B')).toEqual(['c', 'b'])
     expect([...step.session.touched]).toEqual(['B'])
@@ -230,20 +235,27 @@ describe('resolveDrop', () => {
       overId: 'a', // its own id
       activeRect: rect(100),
       overRect: rect(0),
+      now: NOW,
     })
     expect(settle).toBeNull()
     expect(moved.session.didMove).toBe(true)
     expect([...moved.session.touched].sort()).toEqual(['A', 'B'])
   })
 
-  it('moves by status and updates done in kanban mode', () => {
-    const tasks = [t('a', { status: 'todo', korder: 0 }), t('z', { status: 'done', korder: 0 })]
+  it('moves by Workflow Status and carries the Completion lifecycle in Kanban mode', () => {
+    const tasks = [
+      t('a', { status: 'todo', korder: 0 }),
+      t('z', { status: 'completed', korder: 0 }),
+    ]
     const session: DragSession = beginDrag(tasks, 'a', 'status')
     const step = resolveDrop(session, tasks, { ...input('z'), phase: 'drop' })!
     const moved = step.tasks.find((x) => x.id === 'a')!
-    expect(moved.status).toBe('done')
-    expect(moved.done).toBe(true)
-    expect([...step.session.touched].sort()).toEqual(['done', 'todo'])
+    expect(moved).toMatchObject({
+      status: 'completed',
+      completedAt: NOW,
+      reopenStatus: 'todo',
+    })
+    expect([...step.session.touched].sort()).toEqual(['completed', 'todo'])
   })
 
   it('does not mutate the session or the tasks it is given', () => {

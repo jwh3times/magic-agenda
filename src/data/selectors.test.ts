@@ -5,7 +5,7 @@ import {
   buildMonthGrid,
   buildWeekCells,
   agendaGroups,
-  applyToggleDone,
+  applyToggleCompletion,
   isOverdue,
   overdueTasks,
   applyRollForward,
@@ -22,7 +22,9 @@ function t(id: string, over: Partial<TaskDraft> = {}): Task {
     color: 'yellow',
     checklist: [],
     status: 'todo',
-    done: false,
+    completedAt: null,
+    reopenStatus: null,
+    archivedAt: null,
     day: 'inbox',
     atTime: null,
     pinned: false,
@@ -52,7 +54,7 @@ describe('tasksForStatus', () => {
   const tasks = [
     t('a', { status: 'doing', korder: 1 }),
     t('b', { status: 'doing', korder: 0 }),
-    t('c', { status: 'done', korder: 0 }),
+    t('c', { status: 'completed', korder: 0 }),
   ]
   it('filters by status and sorts by korder', () => {
     expect(tasksForStatus(tasks, 'doing').map((x) => x.id)).toEqual(['b', 'a'])
@@ -159,31 +161,40 @@ describe('agendaGroups', () => {
   })
 })
 
-describe('applyToggleDone', () => {
-  it('marks done, flips status, and bumps korder to the bottom of done', () => {
+describe('applyToggleCompletion', () => {
+  it('Completes and bumps korder to the bottom of Completed', () => {
     const tasks = [
-      t('a', { status: 'done', korder: 0 }),
-      t('b', { status: 'done', korder: 1 }),
+      t('a', { status: 'completed', korder: 0 }),
+      t('b', { status: 'completed', korder: 1 }),
       t('x', { status: 'todo', korder: 5 }),
     ]
-    const { tasks: next, justDone } = applyToggleDone(tasks, 'x')
+    const { tasks: next, justCompleted } = applyToggleCompletion(
+      tasks,
+      'x',
+      '2026-09-03T15:00:00.000Z',
+    )
     const x = next.find((n) => n.id === 'x')!
-    expect(justDone).toBe(true)
-    expect(x.status).toBe('done')
-    expect(x.done).toBe(true)
+    expect(justCompleted).toBe(true)
+    expect(x.status).toBe('completed')
+    expect(x.completedAt).toBe('2026-09-03T15:00:00.000Z')
+    expect(x.reopenStatus).toBe('todo')
     expect(x.korder).toBe(2) // max(0,1) + 1
   })
-  it('un-done flips status back to todo', () => {
-    const { tasks: next } = applyToggleDone([t('a', { status: 'done', done: true })], 'a')
-    expect(next[0].status).toBe('todo')
-    expect(next[0].done).toBe(false)
+  it('quick Reopen returns to the remembered active Workflow Status', () => {
+    const { tasks: next } = applyToggleCompletion(
+      [t('a', { status: 'completed', reopenStatus: 'doing' })],
+      'a',
+      '2026-09-03T15:00:00.000Z',
+    )
+    expect(next[0].status).toBe('doing')
+    expect(next[0].completedAt).toBeNull()
   })
 })
 
-test('isOverdue: past + scheduled + not done, nothing else', () => {
+test('isOverdue: past + scheduled + not Completed, nothing else', () => {
   const today = '2026-07-10'
   expect(isOverdue(t('a', { day: '2026-07-09', status: 'todo' }), today)).toBe(true)
-  expect(isOverdue(t('a', { day: '2026-07-09', status: 'done' }), today)).toBe(false)
+  expect(isOverdue(t('a', { day: '2026-07-09', status: 'completed' }), today)).toBe(false)
   expect(isOverdue(t('a', { day: '2026-07-10' }), today)).toBe(false)
   expect(isOverdue(t('a', { day: 'inbox' }), today)).toBe(false)
 })
@@ -211,7 +222,7 @@ test('applyRollForward appends overdue tasks after today existing order', () => 
       occurrenceDate: '2026-07-09',
     }),
     t('old-early', { day: '2026-07-01', order: 0 }),
-    t('done-old', { day: '2026-07-01', order: 1, status: 'done' }),
+    t('done-old', { day: '2026-07-01', order: 1, status: 'completed' }),
   ]
   const { tasks: next, changed } = applyRollForward(tasks, today)
   expect(changed.map((x) => x.id)).toEqual(['old-early', 'old-late'])

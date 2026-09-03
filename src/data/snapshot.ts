@@ -34,7 +34,11 @@ const DIRECTORY_KEY = 'ma-snapshot-directory'
 // row into the templates half, so a v5 envelope written by a pre-fix build can hold exactly the
 // shape the type now forbids — and the envelope is asserted, not validated. Bumping drops those
 // rather than hydrating a lie.
-const V = 6
+//
+// v7: Workflow Status uses the canonical `completed` token, the redundant Task `done` member is
+// gone, and Completion/Archive persistence joins the Task shape. A v6 snapshot can carry neither
+// those fields nor the new token, so it is dropped instead of asserted into an impossible Task.
+const V = 7
 
 const boardKey = (boardId: string) => `${BOARD_KEY_PREFIX}${boardId}`
 const labelKey = (boardId: string) => `${LABEL_KEY_PREFIX}${boardId}`

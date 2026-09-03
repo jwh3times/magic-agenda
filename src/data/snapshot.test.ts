@@ -34,7 +34,9 @@ const task = (id: string): Task => ({
   color: 'yellow',
   checklist: [],
   status: 'todo',
-  done: false,
+  completedAt: null,
+  reopenStatus: null,
+  archivedAt: null,
   day: '2026-07-27',
   atTime: null,
   pinned: false,
@@ -97,7 +99,7 @@ test('refuses a payload whose shape is wrong', () => {
   // and never reach the shape check it exists to exercise.
   localStorage.setItem(
     'ma-snapshot-board.b1',
-    JSON.stringify({ v: 6, userId: 'u1', boardId: 'b1', tasks: 'nope' }),
+    JSON.stringify({ v: 7, userId: 'u1', boardId: 'b1', tasks: 'nope' }),
   )
   expect(readBoardSnapshot('u1', 'b1')).toBeNull()
 })
@@ -114,6 +116,29 @@ test('v5 refuses a v4 snapshot rather than hydrating tasks with no excludedDates
       templates: [],
     }),
   )
+  expect(readBoardSnapshot('u1', 'b1')).toBeNull()
+})
+
+test('v7 refuses a v6 Task snapshot with the removed done member and no Completion fields', () => {
+  const current = task('old-shape')
+  const {
+    completedAt: _completedAt,
+    reopenStatus: _reopenStatus,
+    archivedAt: _archivedAt,
+    ...old
+  } = current
+  localStorage.setItem(
+    'ma-snapshot-board.b1',
+    JSON.stringify({
+      v: 6,
+      userId: 'u1',
+      boardId: 'b1',
+      savedAt: 1,
+      tasks: [{ ...old, done: false }],
+      templates: [],
+    }),
+  )
+
   expect(readBoardSnapshot('u1', 'b1')).toBeNull()
 })
 

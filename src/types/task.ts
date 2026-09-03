@@ -1,5 +1,6 @@
 export type Color = 'yellow' | 'pink' | 'blue' | 'mint' | 'lilac' | 'orange'
-export type Status = 'todo' | 'doing' | 'done'
+export type ActiveWorkflowStatus = 'todo' | 'doing'
+export type WorkflowStatus = ActiveWorkflowStatus | 'completed'
 export type RecurFreq = 'none' | 'daily' | 'weekly' | 'monthly'
 export type ThemeName = 'cork' | 'brutal' | 'glass'
 export type ViewName = 'calendar' | 'week' | 'agenda' | 'kanban'
@@ -24,9 +25,13 @@ export interface TaskBase {
   labelId: string | null
   color: Color
   checklist: ChecklistItem[]
-  status: Status
-  /** Derived from status === 'done'; kept on the object for parity with the prototype. */
-  done: boolean
+  status: WorkflowStatus
+  /** Time of the current Completion. Null for active and pre-v3 legacy Tasks. */
+  completedAt: string | null
+  /** Active Workflow Status restored by quick Reopen. Null on legacy Tasks until backfill. */
+  reopenStatus: ActiveWorkflowStatus | null
+  /** Time this Completed Task entered Archive. Archive controls ship after this model cutover. */
+  archivedAt: string | null
   /**
    * App-level day sentinel: the literal 'inbox' (unscheduled) or a 'YYYY-MM-DD' date.
    * Maps to NULL at the database boundary (see data/mappers.ts).

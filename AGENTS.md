@@ -483,7 +483,7 @@ Memberships joined to their Boards, resolves which one is open (`resolveSelectio
 caller of `src/board/role.ts`'s capabilities. `useTasks` takes a `boardId` and loads/writes
 `.eq('board_id', boardId)`; `taskToRow(task, boardId)` sends only `board_id` (`user_id` stopped
 being written in #199 — see the Labels section above); offline board snapshots are keyed per
-Board; realtime filters on `board_id`; and `DataSection`'s v2 import/export is scoped the same way.
+Board; realtime filters on `board_id`; and `DataSection`'s v3 import/export is scoped the same way.
 
 **Client-side scoping is still not the boundary — it just no longer disagrees with it.** Everything
 above narrows what the client _asks_ for; RLS narrows what the server _allows_, and since the
@@ -497,7 +497,9 @@ database rather than merely absent from the UI.
   The `'inbox'` sentinel stays everywhere in app/DnD logic and maps to a `NULL` `day` **only** in
   `src/data/mappers.ts`.
 - **`order` is reserved SQL** -> the column is `order_index`; the app keeps `order`/`korder`.
-- **`done` is derived** (`status === 'done'`), never stored.
+- **Workflow Status vocabulary is translated at the seam**: the app uses `completed`, while the
+  database's frozen token remains `done`. Checklist Step `done` is independent and is stored inside
+  `checklist` JSON.
 - These conversions live entirely in `mappers.ts` (`rowToTask` / `taskToRow`). Everything else works in
   app-domain `Task` objects (`src/types/task.ts`).
 
@@ -904,18 +906,32 @@ The edited Occurrence is the exception to reconciliation: it takes `draft.checkl
 ticks included, because reconciling it against its own stored row would hand back the completion
 the user just changed in the editor.
 
-### Completion persistence is additive until the app cutover
+### Completion: Workflow Status is the app-domain source of truth
 
 `tasks.completed_at timestamptz`, `tasks.reopen_status text`, and `tasks.archived_at timestamptz`
 exist as nullable storage for ADR-0003. `reopen_status`, when present, is constrained to the stored
 active Workflow Status tokens `todo` or `doing`. Existing Task grants and Board-membership RLS own
 these columns exactly like the rest of Task content.
 
-This is deliberately a schema-only deploy window: `Task`, `rowToTask`, `taskToRow`, and the export
-format still ignore all three fields, so every deployed insert/update/upsert payload leaves them
-NULL. #240 owns the compatible app-domain and export-v3 cutover; #241 owns backfill and lifecycle
-enforcement. Until those land, preserve NULL as “the current client has no lifecycle data” rather
-than inferring values, and keep cross-column constraints and transition triggers out of this slice.
+`Task.status` uses the app-owned tokens `todo`, `doing`, and `completed`; there is no Task-level
+`done` boolean. The database's frozen `done` token is translated only by `rowToTask` / `taskToRow`,
+and the `done` member on a Checklist Step is a separate concept. `completionDecision()` is the one
+pure transition seam for card Complete/Reopen, editor changes, and Kanban moves. Its caller supplies
+the timestamp. Quick Reopen restores `reopenStatus` or falls back to To Do, while an explicit move
+to an active status uses that destination; every Reopen also clears Completion and Archive state.
+The editor reconciles the final draft against the original Task on Save, so an ordinary edit to a
+Completed Task preserves its timestamp and changing status away and back before Save is a no-op.
+
+Status-changing PostgREST writes request and reconcile the authoritative returned rows. This is
+load-bearing for #241: the server-side lifecycle trigger will own the final stored values, so an
+optimistic client guess may not remain in memory after a successful write.
+
+Export v3 writes the canonical Workflow Status and preserves `completedAt`, `reopenStatus`, and
+`archivedAt`. The v1/v2 formats remain frozen with the `done` token and parse into canonical Tasks
+with NULL lifecycle history; do not infer timestamps that the file never recorded. Offline Task
+snapshots are version 7 for the same domain-shape break. The database fields remain nullable and
+unenforced until #241 backfills legacy rows and installs the transition trigger; NULL still means
+unknown history during this compatibility window. No Archive affordance ships in this slice.
 
 ### Drag-and-drop: every decision is pure; dnd-kit is an adapter
 
