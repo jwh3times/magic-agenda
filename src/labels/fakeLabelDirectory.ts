@@ -19,6 +19,7 @@ export function fakeLabelDirectory(overrides: Partial<UseLabels> = {}): UseLabel
     loading: false,
     error: null,
     offline: false,
+    fallbackReason: null,
     savedAt: null,
     reload: () => Promise.resolve(),
     createLabel: () => Promise.resolve(null),

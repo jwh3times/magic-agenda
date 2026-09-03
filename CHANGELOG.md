@@ -12,6 +12,31 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.38] - 2026-09-02
+
+### Fixed
+
+- Saved Boards remain readable and read-only after any Board Directory, Task, or Label refresh
+  failure, while the banner now distinguishes connectivity, authentication, and other request
+  failures instead of describing every failure as offline. Authentication and server error details
+  remain visible for recovery and diagnosis (#250).
+- The saved-Board banner now follows the active theme and includes the saved date when a snapshot
+  is from an earlier day in the Account's configured timezone, avoiding a misleading time-only
+  freshness claim (#251).
+
+## [1.8.37] - 2026-09-02
+
+### Internal
+
+- Dependabot: bumped Browserslist 4.28.4 → 4.28.8 and refreshed its transitive browser-data
+  packages (#261).
+
+## [1.8.36] - 2026-09-02
+
+### Internal
+
+- Dependabot: bumped `fast-uri` 3.1.5 → 3.1.7 (#262).
+
 ## [1.8.35] - 2026-09-02
 
 ### Added
@@ -2574,7 +2599,10 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.35...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.38...HEAD
+[1.8.38]: https://github.com/jwh3times/magic-agenda/compare/v1.8.37...v1.8.38
+[1.8.37]: https://github.com/jwh3times/magic-agenda/compare/v1.8.36...v1.8.37
+[1.8.36]: https://github.com/jwh3times/magic-agenda/compare/v1.8.35...v1.8.36
 [1.8.35]: https://github.com/jwh3times/magic-agenda/compare/v1.8.34...v1.8.35
 [1.8.34]: https://github.com/jwh3times/magic-agenda/compare/v1.8.33...v1.8.34
 [1.8.33]: https://github.com/jwh3times/magic-agenda/compare/v1.8.32...v1.8.33

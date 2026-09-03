@@ -2,9 +2,10 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, expect, test, vi } from 'vitest'
 
 const h = vi.hoisted(() => {
-  const capture: { rows: unknown[]; selectError: { message: string } | null } = {
+  const capture: { rows: unknown[]; selectError: { message: string } | null; status: number } = {
     rows: [],
     selectError: null,
+    status: 200,
   }
   const update = vi.fn(() => ({ eq: vi.fn(() => Promise.resolve({ error: null })) }))
   return { capture, update }
@@ -16,7 +17,11 @@ vi.mock('../lib/supabase', () => ({
       select: vi.fn(() => ({
         is: vi.fn(() => ({
           order: vi.fn(() =>
-            Promise.resolve({ data: h.capture.rows, error: h.capture.selectError }),
+            Promise.resolve({
+              data: h.capture.rows,
+              error: h.capture.selectError,
+              status: h.capture.status,
+            }),
           ),
         })),
       })),
@@ -59,6 +64,7 @@ beforeEach(() => {
   localStorage.clear()
   h.capture.rows = [membershipRow('b1')]
   h.capture.selectError = null
+  h.capture.status = 200
   h.update.mockClear()
 })
 
@@ -112,12 +118,29 @@ test('a failed load falls back to the remembered directory instead of erroring',
   await waitFor(() => expect(first.current.loading).toBe(false))
 
   h.capture.selectError = { message: 'FetchError: Failed to fetch' }
+  h.capture.status = 0
   const { result } = renderHook(() => useBoardDirectory('u1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
 
   expect(result.current.offline).toBe(true)
+  expect(result.current.fallbackReason).toBe('network')
   expect(result.current.boards.map((b) => b.id)).toEqual(['b1'])
   expect(result.current.error).toBeNull()
+})
+
+test('an authentication failure keeps the directory snapshot without calling it offline', async () => {
+  const { result: first } = renderHook(() => useBoardDirectory('u1', true))
+  await waitFor(() => expect(first.current.loading).toBe(false))
+
+  h.capture.selectError = { message: 'JWT expired' }
+  h.capture.status = 401
+  const { result } = renderHook(() => useBoardDirectory('u1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  expect(result.current.offline).toBe(true)
+  expect(result.current.fallbackReason).toBe('auth')
+  expect(result.current.boards.map((board) => board.id)).toEqual(['b1'])
+  expect(result.current.error).toBe('JWT expired')
 })
 
 test('setDefaultView writes only the membership’s default_view', async () => {

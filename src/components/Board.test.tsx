@@ -69,7 +69,12 @@ const renderBoard = () => render(<Harness />)
 const renderOffline = () =>
   render(
     <OfflineContext.Provider
-      value={{ readOnly: true, savedAt: Date.parse('2026-07-27T12:41:00Z') }}
+      value={{
+        readOnly: true,
+        fallbackReason: 'network',
+        savedAt: Date.parse('2026-07-27T12:41:00Z'),
+        timezone: null,
+      }}
     >
       <Harness />
     </OfflineContext.Provider>,

@@ -87,7 +87,7 @@ export function Board({
   const { tasks } = taskBoard
   const { theme, conf } = useTheme()
   const isMobile = useIsMobile()
-  const { readOnly, savedAt } = useContext(OfflineContext)
+  const { readOnly, fallbackReason, savedAt, timezone } = useContext(OfflineContext)
   // A choice made in this tab wins over the account default; a new tab starts at initialView.
   const [view, setView] = useState<ViewName>(() => readBoardView() ?? initialView ?? 'calendar')
   const today = useToday()
@@ -203,7 +203,13 @@ export function Board({
           addDisabled={readOnly}
         />
 
-        {readOnly && <OfflineBanner savedAt={savedAt} />}
+        {readOnly && (
+          <OfflineBanner
+            reason={fallbackReason ?? 'request-error'}
+            savedAt={savedAt}
+            timezone={timezone}
+          />
+        )}
 
         <SearchFilterBar query={filter} onChange={setFilter} />
 

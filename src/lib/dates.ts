@@ -113,32 +113,37 @@ export function weekdayLabels(weekStart = 0): string[] {
 }
 
 /**
- * Today as 'YYYY-MM-DD' in `tz` (an IANA id); a nullish `tz` means the browser's own zone.
+ * One instant as 'YYYY-MM-DD' in `tz` (an IANA id); a nullish `tz` means the browser's own zone.
  *
  * The locale is pinned to 'en-US-u-ca-gregory' rather than left to the ambient one: a
  * locale-less formatter under, say, a Thai locale yields a Buddhist-era year, which would
  * silently break every comparison against a stored `day`. `formatToParts` rather than the
  * 'en-CA' → 'YYYY-MM-DD' trick, which is a locale-data coincidence, not a guarantee.
  */
-export function todayYmd(tz?: string | null): string {
+export function dateYmd(date: Date, tz?: string | null): string {
   try {
     const parts = new Intl.DateTimeFormat('en-US-u-ca-gregory', {
       ...(tz ? { timeZone: tz } : {}),
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
-    }).formatToParts(new Date())
+    }).formatToParts(date)
     const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
     const y = get('year')
     const m = get('month')
     const d = get('day')
-    if (!y || !m || !d) return ymd(new Date())
+    if (!y || !m || !d) return ymd(date)
     return `${y}-${m}-${d}`
   } catch {
     // An unknown zone (a stale value synced from another device, a hand-edited row) throws
     // RangeError. Browser-local is the honest fallback, and never throwing keeps the board up.
-    return ymd(new Date())
+    return ymd(date)
   }
+}
+
+/** Today as 'YYYY-MM-DD' in the configured or browser-local timezone. */
+export function todayYmd(tz?: string | null): string {
+  return dateYmd(new Date(), tz)
 }
 
 /** The browser's own IANA zone, for the settings picker's "Automatic (…)" label. */

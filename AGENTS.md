@@ -511,8 +511,14 @@ Directory's resolved selection (`selectedBoardId`, see below), not something `Bo
 itself: while the directory is still loading it is `null`, `useTasks` guards on `!boardId` the same
 shape as its existing `!userId` guard, and `BoardPage` gates its own render on `boardsLoading` too —
 rendering before the directory resolves would show the board's empty state, indistinguishable from a
-genuinely empty board. It also waits for Labels; a task or Label snapshot makes the whole board
-read-only, since editing against only half of the Board vocabulary is unsafe. `Board` holds only
+genuinely empty board. It also waits for Labels; a Directory, Task, or Label snapshot makes the
+whole board read-only, since a stale Membership role or only half of the Board vocabulary is unsafe
+to edit against. `snapshotFallback.ts` classifies the final PostgREST response by stable status
+(`0` transport, `401`/`403` auth, everything else request failure), never message prose, and
+`BoardPage` gives the most actionable reason to `OfflineBanner`. The snapshot remains readable for
+every failure, but only a transport failure is called Offline; a successful live load remains the
+only path that clears fallback state and allows the Board Directory to purge revoked snapshots.
+`Board` holds only
 **UI** state (view, anchor date, editing modal, pop animation, filter); its props are account
 settings/navigation plus the derived `assignLabels` capability, not task operations. This keeps
 `Board` testable without Supabase: `Board.test.tsx` supplies the same `TaskBoard` interface with a

@@ -81,6 +81,7 @@ test('renders the offline board instead of spinning forever when there is no ses
   h.auth.user = null
   tasks.tasks = makeMockTasks()
   tasks.offline = true
+  tasks.fallbackReason = 'network'
   tasks.savedAt = 1_700_000_000_000
   renderPage()
   expect(screen.getByText('Finish Q3 deck')).toBeInTheDocument()
@@ -107,10 +108,27 @@ test('a Label snapshot makes the whole board read-only while offline', () => {
   h.auth.user = { id: 'u1' }
   tasks.tasks = makeMockTasks()
   labels.offline = true
+  labels.fallbackReason = 'network'
   labels.savedAt = 1_700_000_000_000
   renderPage()
   expect(screen.getByText(/offline/i)).toBeInTheDocument()
   expect(screen.getByRole('button', { name: '+ New task' })).toBeDisabled()
+})
+
+test('an authentication failure keeps the saved board read-only without calling it offline', () => {
+  h.auth.user = { id: 'u1' }
+  tasks.tasks = makeMockTasks()
+  tasks.offline = true
+  tasks.fallbackReason = 'auth'
+  tasks.error = 'JWT expired'
+  tasks.savedAt = 1_700_000_000_000
+
+  renderPage()
+
+  expect(screen.getByText(/access couldn’t be verified/i)).toBeInTheDocument()
+  expect(screen.queryByText(/^Offline\.$/i)).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '+ New task' })).toBeDisabled()
+  expect(screen.getByRole('alert')).toHaveTextContent(/JWT expired/i)
 })
 
 test('a Viewer’s assignLabels capability disables Label assignment', async () => {
