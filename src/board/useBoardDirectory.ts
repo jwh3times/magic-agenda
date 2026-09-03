@@ -10,6 +10,7 @@ import {
 import { asBoardRole } from './role'
 import { purgeableBoardIds, resolveSelection, type BoardSummary } from './selection'
 import type { ViewName } from '../types/task'
+import { snapshotFallbackReason, type SnapshotFallbackReason } from '../data/snapshotFallback'
 
 /**
  * Loads the Boards this Account is a current member of, remembers which one was open, and purges
@@ -34,6 +35,8 @@ export interface UseBoardDirectory {
   error: string | null
   /** True when the list came from a local snapshot rather than a live load. */
   offline: boolean
+  /** Why the live read failed while this snapshot is shown. Null when the load is live. */
+  fallbackReason: SnapshotFallbackReason | null
   reload: () => Promise<void>
   /** Set the Default View for one Board's Membership. The only Membership Preference so far. */
   setDefaultView: (boardId: string, view: ViewName) => Promise<void>
@@ -107,15 +110,21 @@ export function useBoardDirectory(userId: string, hasSession: boolean): UseBoard
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [offline, setOffline] = useState(false)
+  const [fallbackReason, setFallbackReason] = useState<SnapshotFallbackReason | null>(null)
   const inFlight = useRef(false)
 
-  const hydrateFromSnapshot = useCallback((): boolean => {
-    const snap = readDirectorySnapshot(userId)
-    if (!snap) return false
-    setBoards(snap.boards as BoardSummary[])
-    setOffline(true)
-    return true
-  }, [userId])
+  const hydrateFromSnapshot = useCallback(
+    (reason: SnapshotFallbackReason, loadError: string | null): boolean => {
+      const snap = readDirectorySnapshot(userId)
+      if (!snap) return false
+      setBoards(snap.boards as BoardSummary[])
+      setOffline(true)
+      setFallbackReason(reason)
+      setError(loadError)
+      return true
+    },
+    [userId],
+  )
 
   const reload = useCallback(async () => {
     if (!userId) {
@@ -127,14 +136,16 @@ export function useBoardDirectory(userId: string, hasSession: boolean): UseBoard
     setLoading(true)
     setError(null)
     try {
-      const { data, error: err } = await supabase
+      const response = await supabase
         .from('board_memberships')
         .select('id, board_id, role, default_view, boards ( id, name )')
         .is('ended_at', null)
         .order('joined_at', { ascending: true })
+      const { data, error: err } = response
 
       if (err) {
-        if (hydrateFromSnapshot()) return
+        const reason = snapshotFallbackReason(response.status)
+        if (hydrateFromSnapshot(reason, reason === 'network' ? null : err.message)) return
         setError(err.message)
         return
       }
@@ -145,6 +156,7 @@ export function useBoardDirectory(userId: string, hasSession: boolean): UseBoard
 
       setBoards(next)
       setOffline(false)
+      setFallbackReason(null)
 
       // Only a load made under a real session is authoritative about what this Account can reach.
       // A sessionless read succeeds against RLS with `[]` and no error, and treating that as "you
@@ -158,8 +170,9 @@ export function useBoardDirectory(userId: string, hasSession: boolean): UseBoard
         writeDirectorySnapshot(userId, next, selected)
       }
     } catch (e) {
-      if (hydrateFromSnapshot()) return
-      setError(e instanceof Error ? e.message : String(e))
+      const message = e instanceof Error ? e.message : String(e)
+      if (hydrateFromSnapshot('request-error', message)) return
+      setError(message)
     } finally {
       setLoading(false)
       inFlight.current = false
@@ -348,6 +361,7 @@ export function useBoardDirectory(userId: string, hasSession: boolean): UseBoard
     loading,
     error,
     offline,
+    fallbackReason,
     reload,
   }
 }

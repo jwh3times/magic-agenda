@@ -14,6 +14,7 @@ import { canPersistSnapshot, readBoardSnapshot, writeBoardSnapshot } from './sna
 import { applyRollForward, applyToggleDone } from './selectors'
 import { applyTaskChange, payloadToChange } from './realtime'
 import { useOwnWrites, useSyncedTable, type ChangePayload } from './useSyncedTable'
+import { snapshotFallbackReason, type SnapshotFallbackReason } from './snapshotFallback'
 import {
   instanceKey,
   pendingInstances,
@@ -65,6 +66,8 @@ export interface UseTasks extends TaskBoard {
   removeTask: (id: string) => Promise<void>
   /** True when the board is showing the last-known local snapshot instead of a live server load. */
   offline: boolean
+  /** Why the live read failed while this snapshot is shown. Null when the load is live. */
+  fallbackReason: SnapshotFallbackReason | null
   /** When that snapshot was taken (epoch ms), for the offline banner. Null when online. */
   savedAt: number | null
 }
@@ -83,6 +86,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [offline, setOffline] = useState(false)
+  const [fallbackReason, setFallbackReason] = useState<SnapshotFallbackReason | null>(null)
   const [savedAt, setSavedAt] = useState<number | null>(null)
   const [templatesVersion, bumpTemplatesVersion] = useReducer((version: number) => version + 1, 0)
   const tasksRef = useRef<Task[]>([])
@@ -158,17 +162,21 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
    * duplicate instances and hit tasks_recur_instance_uniq (23505). Offline is read-only, so
    * there is nothing to materialize for anyway.
    */
-  const hydrateFromSnapshot = useCallback(() => {
-    const snap = readBoardSnapshot(userId, boardId)
-    if (!snap) return false
-    templatesRef.current = snap.templates
-    bumpTemplatesVersion()
-    setTasks(snap.tasks)
-    setSavedAt(snap.savedAt)
-    setOffline(true)
-    setError(null)
-    return true
-  }, [userId, boardId, setTasks])
+  const hydrateFromSnapshot = useCallback(
+    (reason: SnapshotFallbackReason, loadError: string | null) => {
+      const snap = readBoardSnapshot(userId, boardId)
+      if (!snap) return false
+      templatesRef.current = snap.templates
+      bumpTemplatesVersion()
+      setTasks(snap.tasks)
+      setSavedAt(snap.savedAt)
+      setOffline(true)
+      setFallbackReason(reason)
+      setError(loadError)
+      return true
+    },
+    [userId, boardId, setTasks],
+  )
 
   const reload = useCallback(async () => {
     // Signed out. `BoardPage` calls this hook before its own `if (!userId) return <Spinner/>`,
@@ -189,9 +197,11 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     setLoading(true)
     setError(null)
     try {
-      const { data, error: err } = await supabase.from('tasks').select('*').eq('board_id', boardId)
+      const response = await supabase.from('tasks').select('*').eq('board_id', boardId)
+      const { data, error: err } = response
       if (err) {
-        if (hydrateFromSnapshot()) return
+        const reason = snapshotFallbackReason(response.status)
+        if (hydrateFromSnapshot(reason, reason === 'network' ? null : err.message)) return
         setError(err.message)
         return
       }
@@ -201,6 +211,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       const instances = all.filter((t) => !isSeriesDefinition(t))
       if (hasSession) hasLoadedFromServer.current = true
       setOffline(false)
+      setFallbackReason(null)
       setSavedAt(null)
       setTasks(instances)
       // Pass the freshly-loaded instances directly: tasksRef.current is not yet updated here.
@@ -208,8 +219,9 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     } catch (e) {
       // postgrest resolves fetch failures rather than throwing, so this is defensive: a future
       // .throwOnError() must not turn an offline boot into an unhandled rejection.
-      if (hydrateFromSnapshot()) return
-      setError(errorMessage(e))
+      const message = errorMessage(e)
+      if (hydrateFromSnapshot('request-error', message)) return
+      setError(message)
     } finally {
       setLoading(false)
       inFlight.current = false
@@ -572,6 +584,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     saveTask,
     deleteTask,
     offline,
+    fallbackReason,
     savedAt,
   }
 }

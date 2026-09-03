@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { readLabelSnapshot, writeLabelSnapshot } from '../data/snapshot'
 import { useOwnWrites, useSyncedTable, type ChangePayload } from '../data/useSyncedTable'
+import { snapshotFallbackReason, type SnapshotFallbackReason } from '../data/snapshotFallback'
 import { supabase } from '../lib/supabase'
 import { applyLabelChange, payloadToLabelChange } from './labelRealtime'
 import type { Label } from '../types/label'
@@ -57,6 +58,8 @@ export interface UseLabels {
   error: string | null
   /** True when labels came from the per-Board local snapshot. */
   offline: boolean
+  /** Why the live read failed while this snapshot is shown. Null when the load is live. */
+  fallbackReason: SnapshotFallbackReason | null
   savedAt: number | null
   reload: () => Promise<void>
   createLabel: (name: string, dotColor: string) => Promise<LabelWriteResult>
@@ -85,6 +88,7 @@ export function useLabels(userId: string, boardId: string, hasSession: boolean):
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [offline, setOffline] = useState(false)
+  const [fallbackReason, setFallbackReason] = useState<SnapshotFallbackReason | null>(null)
   const [savedAt, setSavedAt] = useState<number | null>(null)
   const requestSequence = useRef(0)
   const { markWrites, isOwnWrite } = useOwnWrites()
@@ -98,15 +102,19 @@ export function useLabels(userId: string, boardId: string, hasSession: boolean):
     [userId, boardId, hasSession],
   )
 
-  const hydrateFromSnapshot = useCallback((): boolean => {
-    const snapshot = readLabelSnapshot(userId, boardId)
-    if (!snapshot) return false
-    setLabels(snapshot.labels)
-    setOffline(true)
-    setSavedAt(snapshot.savedAt)
-    setError(null)
-    return true
-  }, [userId, boardId])
+  const hydrateFromSnapshot = useCallback(
+    (reason: SnapshotFallbackReason, loadError: string | null): boolean => {
+      const snapshot = readLabelSnapshot(userId, boardId)
+      if (!snapshot) return false
+      setLabels(snapshot.labels)
+      setOffline(true)
+      setFallbackReason(reason)
+      setSavedAt(snapshot.savedAt)
+      setError(loadError)
+      return true
+    },
+    [userId, boardId],
+  )
 
   const reload = useCallback(async () => {
     const request = ++requestSequence.current
@@ -115,6 +123,7 @@ export function useLabels(userId: string, boardId: string, hasSession: boolean):
       setLoading(false)
       setError(null)
       setOffline(false)
+      setFallbackReason(null)
       setSavedAt(null)
       return
     }
@@ -122,16 +131,19 @@ export function useLabels(userId: string, boardId: string, hasSession: boolean):
     setLoading(true)
     setError(null)
     try {
-      const { data, error: loadError } = await supabase
+      const response = await supabase
         .from('labels')
         .select(SELECT_COLUMNS)
         .eq('board_id', boardId)
         .order('position', { ascending: true })
         .order('id', { ascending: true })
+      const { data, error: loadError } = response
 
       if (request !== requestSequence.current) return
       if (loadError) {
-        if (!hydrateFromSnapshot()) setError(loadError.message)
+        const reason = snapshotFallbackReason(response.status)
+        if (!hydrateFromSnapshot(reason, reason === 'network' ? null : loadError.message))
+          setError(loadError.message)
         return
       }
 
@@ -139,13 +151,13 @@ export function useLabels(userId: string, boardId: string, hasSession: boolean):
       const now = Date.now()
       setLabels(next)
       setOffline(false)
+      setFallbackReason(null)
       setSavedAt(now)
       if (hasSession) writeLabelSnapshot(userId, boardId, next)
     } catch (caught) {
       if (request !== requestSequence.current) return
-      if (!hydrateFromSnapshot()) {
-        setError(caught instanceof Error ? caught.message : String(caught))
-      }
+      const message = caught instanceof Error ? caught.message : String(caught)
+      if (!hydrateFromSnapshot('request-error', message)) setError(message)
     } finally {
       if (request === requestSequence.current) setLoading(false)
     }
@@ -329,6 +341,7 @@ export function useLabels(userId: string, boardId: string, hasSession: boolean):
     loading,
     error,
     offline,
+    fallbackReason,
     savedAt,
     reload,
     createLabel,

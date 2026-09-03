@@ -44,6 +44,7 @@ export function fakeBoardDirectory(overrides: Partial<UseBoardDirectory> = {}): 
     loading: false,
     error: null,
     offline: false,
+    fallbackReason: null,
     reload: async () => {},
     setDefaultView: async () => {},
     createBoard: () => Promise.resolve(null),

@@ -2,15 +2,18 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, expect, test, vi } from 'vitest'
 
 const h = vi.hoisted(() => {
-  const capture: { rows: unknown[]; error: { message: string } | null } = {
+  const capture: { rows: unknown[]; error: { message: string } | null; status: number } = {
     rows: [],
     error: null,
+    status: 200,
   }
   const from = vi.fn(() => ({
     select: vi.fn(() => ({
       eq: vi.fn(() => ({
         order: vi.fn(() => ({
-          order: vi.fn(() => Promise.resolve({ data: capture.rows, error: capture.error })),
+          order: vi.fn(() =>
+            Promise.resolve({ data: capture.rows, error: capture.error, status: capture.status }),
+          ),
         })),
       })),
     })),
@@ -53,6 +56,7 @@ beforeEach(() => {
   localStorage.clear()
   h.capture.rows = [row('l1')]
   h.capture.error = null
+  h.capture.status = 200
   h.from.mockClear()
   h.realtime.handler = null
   h.realtime.status = null
@@ -75,13 +79,31 @@ test('falls back to the selected Board’s snapshot when loading fails', async (
     { id: 'cached', boardId: 'b1', name: 'Cached', dotColor: '#dc2626', position: 2 },
   ])
   h.capture.error = { message: 'FetchError: Failed to fetch' }
+  h.capture.status = 0
 
   const { result } = renderHook(() => useLabels('u1', 'b1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
 
   expect(result.current.labels.map((label) => label.id)).toEqual(['cached'])
   expect(result.current.offline).toBe(true)
+  expect(result.current.fallbackReason).toBe('network')
   expect(result.current.error).toBeNull()
+})
+
+test('an authentication failure keeps the Label snapshot without calling it offline', async () => {
+  writeLabelSnapshot('u1', 'b1', [
+    { id: 'cached', boardId: 'b1', name: 'Cached', dotColor: '#dc2626', position: 2 },
+  ])
+  h.capture.error = { message: 'JWT expired' }
+  h.capture.status = 401
+
+  const { result } = renderHook(() => useLabels('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  expect(result.current.labels.map((label) => label.id)).toEqual(['cached'])
+  expect(result.current.offline).toBe(true)
+  expect(result.current.fallbackReason).toBe('auth')
+  expect(result.current.error).toBe('JWT expired')
 })
 
 test('a sessionless successful read never overwrites a Label snapshot', async () => {

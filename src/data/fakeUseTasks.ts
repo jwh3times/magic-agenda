@@ -22,6 +22,7 @@ export function fakeUseTasks(overrides: Partial<UseTasks> = {}): UseTasks {
     saveTask: noOpAsync,
     deleteTask: noOpAsync,
     offline: false,
+    fallbackReason: null,
     savedAt: null,
     ...overrides,
   }

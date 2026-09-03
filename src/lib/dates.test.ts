@@ -1,6 +1,7 @@
 import { expect, test, vi } from 'vitest'
 import {
   formatTime,
+  dateYmd,
   todayYmd,
   ymd,
   startOfWeek,
@@ -25,6 +26,12 @@ test('todayYmd resolves the calendar date in the given zone', () => {
   expect(todayYmd('Pacific/Kiritimati')).toBe('2026-07-29')
   expect(todayYmd('Pacific/Niue')).toBe('2026-07-28')
   vi.useRealTimers()
+})
+
+test('dateYmd resolves an arbitrary instant in the given zone', () => {
+  const instant = new Date('2026-07-28T11:30:00Z')
+  expect(dateYmd(instant, 'Pacific/Kiritimati')).toBe('2026-07-29')
+  expect(dateYmd(instant, 'Pacific/Niue')).toBe('2026-07-28')
 })
 
 test('todayYmd falls back to browser-local for a nullish or unknown zone', () => {

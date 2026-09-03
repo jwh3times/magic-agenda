@@ -8,10 +8,12 @@ const h = vi.hoisted(() => {
     handler: ((p: unknown) => void) | null
     rows: unknown[]
     selectError: { message: string } | null
+    selectStatus: number
   } = {
     handler: null,
     rows: [],
     selectError: null,
+    selectStatus: 200,
   }
   const ok = () => Promise.resolve({ data: null, error: null })
   // Stable spies so tests can assert on the rows reload/materialize/updateSeries write.
@@ -48,7 +50,11 @@ vi.mock('../lib/supabase', () => ({
       // failed as an empty board rather than as an error — the loudest possible bug reported in the
       // quietest possible way, so the mock keeps both shapes rather than only the one in use.
       select: vi.fn(() => {
-        const result = { data: h.capture.rows, error: h.capture.selectError }
+        const result = {
+          data: h.capture.rows,
+          error: h.capture.selectError,
+          status: h.capture.selectStatus,
+        }
         return {
           eq: vi.fn(() => Promise.resolve(result)),
           then: (resolve: (v: typeof result) => unknown) => Promise.resolve(result).then(resolve),
@@ -128,6 +134,7 @@ beforeEach(() => {
   h.capture.handler = null
   h.capture.rows = [serverRow()]
   h.capture.selectError = null
+  h.capture.selectStatus = 200
   h.insert.mockClear()
   h.upsert.mockClear()
   h.updateEq.mockReset()
@@ -506,12 +513,14 @@ test('a failed load hydrates from the snapshot and materializes nothing', async 
     }),
   )
   h.capture.selectError = { message: 'FetchError: Failed to fetch' }
+  h.capture.selectStatus = 0
 
   const { result } = renderHook(() => useTasks('u1', 'b1', true))
 
   await waitFor(() => expect(result.current.loading).toBe(false))
   expect(result.current.tasks.map((t) => t.id)).toEqual(['cached'])
   expect(result.current.offline).toBe(true)
+  expect(result.current.fallbackReason).toBe('network')
   expect(result.current.savedAt).toBe(1_770_000_000_000)
   expect(result.current.error).toBeNull()
   // Templates live outside the `tasks` list (in templatesRef), so this is the only way to prove
@@ -523,8 +532,33 @@ test('a failed load hydrates from the snapshot and materializes nothing', async 
   expect(h.insert).not.toHaveBeenCalled()
 })
 
+test('an authentication failure keeps the snapshot but is not relabelled as offline', async () => {
+  localStorage.setItem(
+    'ma-snapshot-board.b1',
+    JSON.stringify({
+      v: 6,
+      userId: 'u1',
+      boardId: 'b1',
+      savedAt: 1_770_000_000_000,
+      tasks: [{ ...serverTask(), id: 'cached' }],
+      templates: [],
+    }),
+  )
+  h.capture.selectError = { message: 'JWT expired' }
+  h.capture.selectStatus = 401
+
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  expect(result.current.tasks.map((task) => task.id)).toEqual(['cached'])
+  expect(result.current.offline).toBe(true)
+  expect(result.current.fallbackReason).toBe('auth')
+  expect(result.current.error).toBe('JWT expired')
+})
+
 test('a failed load with no snapshot still surfaces the error', async () => {
   h.capture.selectError = { message: 'FetchError: Failed to fetch' }
+  h.capture.selectStatus = 0
   const { result } = renderHook(() => useTasks('u1', 'b1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
   expect(result.current.offline).toBe(false)
@@ -533,6 +567,7 @@ test('a failed load with no snapshot still surfaces the error', async () => {
 
 test('a failed load with no snapshot does not poison storage with an empty board', async () => {
   h.capture.selectError = { message: 'FetchError: Failed to fetch' }
+  h.capture.selectStatus = 0
   const { result } = renderHook(() => useTasks('u1', 'b1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
   // Advance well past the writer's 1s debounce so this proves no write ever happens, rather
@@ -589,15 +624,18 @@ test('reconnecting clears offline mode', async () => {
     JSON.stringify({ v: 6, userId: 'u1', boardId: 'b1', savedAt: 1, tasks: [], templates: [] }),
   )
   h.capture.selectError = { message: 'FetchError: Failed to fetch' }
+  h.capture.selectStatus = 0
   const { result } = renderHook(() => useTasks('u1', 'b1', true))
   await waitFor(() => expect(result.current.offline).toBe(true))
 
   h.capture.selectError = null
+  h.capture.selectStatus = 200
   h.capture.rows = [serverRow()]
   act(() => {
     window.dispatchEvent(new Event('online'))
   })
   await waitFor(() => expect(result.current.offline).toBe(false))
+  expect(result.current.fallbackReason).toBeNull()
   expect(result.current.tasks).toHaveLength(1)
 })
 
@@ -618,6 +656,7 @@ test('reconnecting while sessionless does not poison the board snapshot with an 
   }
   localStorage.setItem('ma-snapshot-board.b1', JSON.stringify(existing))
   h.capture.selectError = { message: 'FetchError: Failed to fetch' }
+  h.capture.selectStatus = 0
   const { result } = renderHook(() => useTasks('u1', 'b1', false))
   await waitFor(() => expect(result.current.offline).toBe(true))
   expect(result.current.tasks.map((t) => t.id)).toEqual(['cached'])
@@ -625,6 +664,7 @@ test('reconnecting while sessionless does not poison the board snapshot with an 
   // Network returns, but there is still no session: RLS answers the reload with `[]` and no
   // error rather than an error.
   h.capture.selectError = null
+  h.capture.selectStatus = 200
   h.capture.rows = []
   act(() => {
     window.dispatchEvent(new Event('online'))

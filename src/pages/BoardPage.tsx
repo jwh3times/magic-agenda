@@ -14,6 +14,7 @@ import { readLastUserId } from '../lib/lastUser'
 import { OfflineContext } from '../data/offlineContext'
 import { TaskBoardContext } from '../data/taskBoardContext'
 import { useLabelDirectoryContext } from '../labels/LabelDirectoryProvider'
+import { dominantSnapshotFallbackReason } from '../data/snapshotFallback'
 
 /** The signed-in board: owns the Supabase-backed task state, reads session-wide settings. */
 export function BoardPage() {
@@ -25,7 +26,12 @@ export function BoardPage() {
   // The selected Board comes from the session-wide directory above <Routes>. Until it resolves
   // `selectedBoardId` is null and `useTasks` deliberately loads nothing: an unfiltered load would
   // fetch every task this account owns across every Board.
-  const { selectedBoardId, loading: boardsLoading } = useBoardDirectoryContext()
+  const {
+    selectedBoardId,
+    loading: boardsLoading,
+    offline: directoryOffline,
+    fallbackReason: directoryFallbackReason,
+  } = useBoardDirectoryContext()
   // Default View is a Membership Preference: it describes how this account experiences THIS board.
   // There is no Account-level fallback any more — `user_settings.default_view` was a compatibility
   // copy and is gone. `DEFAULT_VIEW` covers the only remaining gap: a render before the Membership
@@ -45,7 +51,12 @@ export function BoardPage() {
     return <Spinner />
   }
 
-  const readOnly = t.offline || labelDirectory.offline
+  const readOnly = directoryOffline || t.offline || labelDirectory.offline
+  const fallbackReason = dominantSnapshotFallbackReason([
+    directoryFallbackReason,
+    t.fallbackReason,
+    labelDirectory.fallbackReason,
+  ])
   const offlineSavedAt = [
     t.offline ? t.savedAt : null,
     labelDirectory.offline ? labelDirectory.savedAt : null,
@@ -67,15 +78,17 @@ export function BoardPage() {
 
   return (
     <ThemeProvider initial={settings.theme} onThemeChange={(theme) => void saveTheme(theme)}>
-      {labelDirectory.error && labelDirectory.labels.length === 0 ? (
+      {labelDirectory.error && labelDirectory.labels.length === 0 && !labelDirectory.offline ? (
         <ErrorScreen message={labelDirectory.error} onRetry={() => void labelDirectory.reload()} />
-      ) : t.error && t.tasks.length === 0 ? (
+      ) : t.error && t.tasks.length === 0 && !t.offline ? (
         <ErrorScreen message={t.error} onRetry={() => void t.reload()} />
       ) : t.loading && t.tasks.length === 0 ? (
         <Spinner label="Loading your board…" />
       ) : (
         <>
-          <OfflineContext.Provider value={{ readOnly, savedAt }}>
+          <OfflineContext.Provider
+            value={{ readOnly, fallbackReason, savedAt, timezone: settings.timezone }}
+          >
             <TaskBoardContext.Provider value={t}>
               <Board
                 initialView={board?.defaultView ?? DEFAULT_VIEW}
