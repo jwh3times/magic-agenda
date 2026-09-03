@@ -1,19 +1,19 @@
-import type { Color, Status, ThemeName } from '../types/task'
+import type { Color, ThemeName, WorkflowStatus } from '../types/task'
 
-// Note Color, Status, and paper values ported from design/Task Board.dc.html.
+// Note Color, Workflow Status, and paper values ported from design/Task Board.dc.html.
 
 export const COLORS: Color[] = ['yellow', 'pink', 'blue', 'mint', 'lilac', 'orange']
 
-export interface StatusDef {
-  key: Status
+export interface WorkflowStatusDef {
+  key: WorkflowStatus
   label: string
   accent: string
 }
 
-export const STATUS: StatusDef[] = [
+export const STATUS: WorkflowStatusDef[] = [
   { key: 'todo', label: 'To Do', accent: '#94a3b8' },
   { key: 'doing', label: 'In Progress', accent: '#3b82f6' },
-  { key: 'done', label: 'Completed', accent: '#22c55e' },
+  { key: 'completed', label: 'Completed', accent: '#22c55e' },
 ]
 
 export interface PaperDef {

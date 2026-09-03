@@ -33,13 +33,15 @@ function usePreviewTasks(columns: number): { dateStr: string; tasks: Task[] }[] 
       const tasks = all
         .filter((t) => t.day === dateStr)
         .slice(0, 2)
-        // The seed board has nothing pinned and nothing done; the whole point of the preview is
+        // The seed board has nothing pinned or Completed; the whole point of the preview is
         // showing what a card can look like, so give the first column one of each.
         .map((t, row) => ({
           ...t,
           pinned: col === 0 && row === 0,
-          status: col === 1 && row === 0 ? ('done' as const) : t.status,
-          done: col === 1 && row === 0 ? true : t.done,
+          status: col === 1 && row === 0 ? ('completed' as const) : t.status,
+          completedAt: null,
+          reopenStatus: col === 1 && row === 0 ? 'todo' : t.reopenStatus,
+          archivedAt: null,
         }))
       return { dateStr, tasks }
     })

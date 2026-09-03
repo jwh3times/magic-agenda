@@ -23,7 +23,7 @@ export interface TaskBoard {
   updateTask: (task: Task) => void | Promise<void>
   /** Delete the row currently owned by the data layer; an unknown id is already gone. */
   deleteTask: (id: string, scope?: RecurScope) => void | Promise<void>
-  toggleDone: (id: string) => void | Promise<void>
+  toggleCompletion: (id: string) => void | Promise<void>
   /** Move overdue tasks to today; onlyIds narrows the operation to a filtered board. */
   rollForward: (todayStr: string, onlyIds?: ReadonlySet<string>) => void | Promise<void>
   /** Read the hidden template that owns a materialized recurring instance. */

@@ -195,6 +195,10 @@ design/                the original prototype (reference only — not built)
   occurrence; a deleted occurrence's date is remembered so it's never regenerated. Why the
   occurrences are rows rather than computed on read:
   [ADR‑0001](./docs/adr/0001-materialized-occurrences.md).
+- **Workflow Status is Completion** — Tasks use To Do, In Progress, or Completed as one canonical
+  state. Quick Reopen restores the prior active status, while Checklist Step completion remains
+  independent. The lifecycle model is recorded in
+  [ADR‑0003](./docs/adr/0003-completion-history-is-current-state.md).
 - **[CONTEXT.md](./CONTEXT.md)** is the domain glossary — the words to use for Boards, Tasks,
   Workflow Status and Completion, Labels, and recurrence in issues, comments, and product copy.
 

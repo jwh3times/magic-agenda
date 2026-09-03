@@ -1,4 +1,4 @@
-import { NO_RECUR, type Color, type Status, type Task } from '../types/task'
+import { NO_RECUR, type Color, type Task, type WorkflowStatus } from '../types/task'
 import { addDays, ymd } from '../lib/dates'
 
 let seq = 1000
@@ -10,14 +10,14 @@ interface MkInput {
   labelId: string | null
   k: Color
   l?: { t: string; d?: boolean }[]
-  s?: Status
+  s?: WorkflowStatus
   day: string
   o?: number
   ko?: number
 }
 
 function mk(o: MkInput): Task {
-  const status: Status = o.s ?? 'todo'
+  const status: WorkflowStatus = o.s ?? 'todo'
   return {
     id: uid('t'),
     title: o.t,
@@ -26,7 +26,9 @@ function mk(o: MkInput): Task {
     color: o.k,
     checklist: (o.l ?? []).map((x) => ({ id: uid('c'), text: x.t, done: !!x.d })),
     status,
-    done: status === 'done',
+    completedAt: null,
+    reopenStatus: status === 'completed' ? null : status,
+    archivedAt: null,
     day: o.day,
     atTime: null,
     pinned: false,
@@ -71,7 +73,7 @@ export function makeMockTasks(): Task[] {
       k: 'mint',
       day: off(1),
       o: 0,
-      s: 'done',
+      s: 'completed',
       ko: 0,
     }),
     mk({
@@ -103,7 +105,7 @@ export function makeMockTasks(): Task[] {
       k: 'orange',
       day: off(2),
       o: 1,
-      s: 'done',
+      s: 'completed',
       ko: 1,
     }),
     mk({
@@ -127,7 +129,7 @@ export function makeMockTasks(): Task[] {
       k: 'blue',
       day: off(5),
       o: 0,
-      s: 'done',
+      s: 'completed',
       ko: 2,
     }),
     mk({

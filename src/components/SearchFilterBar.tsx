@@ -3,7 +3,7 @@ import { useTheme } from '../theme/ThemeProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { STATUS } from '../theme/constants'
 import { EMPTY_FILTER, isFilterActive, type FilterQuery } from '../data/filters'
-import type { Status } from '../types/task'
+import type { WorkflowStatus } from '../types/task'
 import { useLabelDirectoryContext } from '../labels/LabelDirectoryProvider'
 
 export interface SearchFilterBarProps {
@@ -67,7 +67,7 @@ export function SearchFilterBar({ query, onChange }: SearchFilterBarProps) {
       <select
         aria-label="Filter by status"
         value={query.status}
-        onChange={(e) => onChange({ ...query, status: e.target.value as Status | 'all' })}
+        onChange={(e) => onChange({ ...query, status: e.target.value as WorkflowStatus | 'all' })}
         style={{ ...control, ...(isMobile && { flex: '1 1 40%', minWidth: 0 }) }}
       >
         <option value="all">All statuses</option>

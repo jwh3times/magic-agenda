@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { moveToDay, moveToStatus } from './reorder'
-import { asTask, NO_RECUR, type Status, type Task, type TaskDraft } from '../types/task'
+import { asTask, NO_RECUR, type Task, type TaskDraft, type WorkflowStatus } from '../types/task'
+
+const NOW = '2026-09-03T14:45:00.000Z'
 
 function t(id: string, over: Partial<TaskDraft> = {}): Task {
   return asTask({
@@ -11,7 +13,9 @@ function t(id: string, over: Partial<TaskDraft> = {}): Task {
     color: 'yellow',
     checklist: [],
     status: 'todo',
-    done: false,
+    completedAt: null,
+    reopenStatus: null,
+    archivedAt: null,
     day: 'inbox',
     atTime: null,
     pinned: false,
@@ -34,12 +38,12 @@ const dayOrders = (tasks: Task[], day: string) =>
     .filter((x) => x.day === day)
     .map((x) => x.order)
     .sort((a, b) => a - b)
-const statusIds = (tasks: Task[], status: Status) =>
+const statusIds = (tasks: Task[], status: WorkflowStatus) =>
   tasks
     .filter((x) => x.status === status)
     .sort((a, b) => a.korder - b.korder)
     .map((x) => x.id)
-const statusKorders = (tasks: Task[], status: Status) =>
+const statusKorders = (tasks: Task[], status: WorkflowStatus) =>
   tasks
     .filter((x) => x.status === status)
     .map((x) => x.korder)
@@ -106,37 +110,49 @@ describe('moveToStatus', () => {
     t('a', { status: 'todo', korder: 0 }),
     t('b', { status: 'todo', korder: 1 }),
     t('c', { status: 'doing', korder: 0 }),
-    t('d', { status: 'done', korder: 0, done: true }),
+    t('d', {
+      status: 'completed',
+      completedAt: '2026-09-01T10:00:00.000Z',
+      reopenStatus: 'doing',
+      korder: 0,
+    }),
   ]
 
   it('moves across columns, reindexing both, and respects the drop index', () => {
-    const next = moveToStatus(base(), 'a', 'doing', 0)
+    const next = moveToStatus(base(), 'a', 'doing', 0, NOW)
     expect(statusIds(next, 'doing')).toEqual(['a', 'c'])
     expect(statusKorders(next, 'doing')).toEqual([0, 1])
     expect(statusIds(next, 'todo')).toEqual(['b'])
     expect(statusKorders(next, 'todo')).toEqual([0])
   })
 
-  it('sets done=true when moving into done, false when leaving', () => {
-    const intoDone = moveToStatus(base(), 'a', 'done', 1)
-    expect(intoDone.find((x) => x.id === 'a')!.done).toBe(true)
-    expect(intoDone.find((x) => x.id === 'a')!.status).toBe('done')
+  it('Completes and explicitly Reopens through the shared lifecycle decision', () => {
+    const intoCompleted = moveToStatus(base(), 'a', 'completed', 1, NOW)
+    expect(intoCompleted.find((x) => x.id === 'a')).toMatchObject({
+      status: 'completed',
+      completedAt: NOW,
+      reopenStatus: 'todo',
+    })
 
-    const outOfDone = moveToStatus(intoDone, 'd', 'todo', 0)
-    expect(outOfDone.find((x) => x.id === 'd')!.done).toBe(false)
-    expect(outOfDone.find((x) => x.id === 'd')!.status).toBe('todo')
+    const reopened = moveToStatus(intoCompleted, 'd', 'todo', 0, NOW)
+    expect(reopened.find((x) => x.id === 'd')).toMatchObject({
+      status: 'todo',
+      completedAt: null,
+      reopenStatus: 'todo',
+      archivedAt: null,
+    })
   })
 
   it('drops into an empty column', () => {
     const tasks = [t('a', { status: 'todo', korder: 0 })]
-    const next = moveToStatus(tasks, 'a', 'done', 5)
-    expect(statusIds(next, 'done')).toEqual(['a'])
+    const next = moveToStatus(tasks, 'a', 'completed', 5, NOW)
+    expect(statusIds(next, 'completed')).toEqual(['a'])
     expect(next.find((x) => x.id === 'a')!.korder).toBe(0)
   })
 
   it('does not mutate the input', () => {
     const tasks = base()
-    moveToStatus(tasks, 'a', 'done', 0)
+    moveToStatus(tasks, 'a', 'completed', 0, NOW)
     expect(tasks.find((x) => x.id === 'a')!.status).toBe('todo')
   })
 })

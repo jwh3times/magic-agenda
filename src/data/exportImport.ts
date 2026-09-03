@@ -1,10 +1,17 @@
-import { asTask, isTemplate, type ChecklistItem, type Task } from '../types/task'
+import {
+  asTask,
+  isTemplate,
+  type ChecklistItem,
+  type Task,
+  type WorkflowStatus,
+} from '../types/task'
 import { newId } from '../lib/id'
-import { taskToRow } from './mappers'
+import { taskToRow, workflowStatusFromStorage } from './mappers'
 import type { Database } from '../types/database.types'
 
-export const EXPORT_VERSION = 2 as const
+export const EXPORT_VERSION = 3 as const
 const LEGACY_EXPORT_VERSION = 1 as const
+const LABEL_EXPORT_VERSION = 2 as const
 
 export interface ExportLabel {
   id: string
@@ -41,8 +48,17 @@ export type ExportTask = Omit<Task, 'occurrenceDate' | 'excludedDates'> & {
   recurSkip: string[]
 }
 
+/** Frozen v1/v2 shape: stored `done` vocabulary plus the now-removed redundant boolean. */
+export type ExportTaskV2 = Omit<
+  ExportTask,
+  'status' | 'completedAt' | 'reopenStatus' | 'archivedAt'
+> & {
+  status: 'todo' | 'doing' | 'done'
+  done: boolean
+}
+
 /** The on-disk v1 Task. Category exists only at this file-format compatibility seam. */
-export type LegacyTask = Omit<ExportTask, 'labelId'> & { category: LegacyCategory }
+export type LegacyTask = Omit<ExportTaskV2, 'labelId'> & { category: LegacyCategory }
 
 function toExportTask({ occurrenceDate, excludedDates, ...rest }: Task): ExportTask {
   return { ...rest, recurOriginDay: occurrenceDate, recurSkip: excludedDates }
@@ -54,6 +70,24 @@ function fromExportTask({ recurOriginDay, recurSkip, ...rest }: ExportTask): Tas
   return asTask({ ...rest, occurrenceDate: recurOriginDay, excludedDates: recurSkip })
 }
 
+function fromPreV3Task({
+  recurOriginDay,
+  recurSkip,
+  status,
+  done: _done,
+  ...rest
+}: ExportTaskV2): Task {
+  return asTask({
+    ...rest,
+    status: workflowStatusFromStorage(status),
+    completedAt: null,
+    reopenStatus: null,
+    archivedAt: null,
+    occurrenceDate: recurOriginDay,
+    excludedDates: recurSkip,
+  })
+}
+
 interface BoardExportV1 {
   version: typeof LEGACY_EXPORT_VERSION
   exportedAt: string
@@ -63,6 +97,14 @@ interface BoardExportV1 {
 }
 
 export interface BoardExportV2 {
+  version: typeof LABEL_EXPORT_VERSION
+  exportedAt: string
+  labels: ExportLabel[]
+  tasks: ExportTaskV2[]
+  templates: ExportTaskV2[]
+}
+
+export interface BoardExportV3 {
   version: typeof EXPORT_VERSION
   exportedAt: string
   labels: ExportLabel[]
@@ -76,7 +118,7 @@ export interface BoardExportV2 {
  * are ignored rather than interpreted as authority to overwrite destination Account Preferences.
  */
 export interface ImportBundle {
-  sourceVersion: typeof LEGACY_EXPORT_VERSION | typeof EXPORT_VERSION
+  sourceVersion: typeof LEGACY_EXPORT_VERSION | typeof LABEL_EXPORT_VERSION | typeof EXPORT_VERSION
   exportedAt: string
   labels: ExportLabel[]
   tasks: Task[]
@@ -117,7 +159,8 @@ export function serializeExport(
 }
 
 const COLORS = ['yellow', 'pink', 'blue', 'mint', 'lilac', 'orange'] as const
-const STATUSES = ['todo', 'doing', 'done'] as const
+const PRE_V3_STATUSES = ['todo', 'doing', 'done'] as const
+const WORKFLOW_STATUSES: readonly WorkflowStatus[] = ['todo', 'doing', 'completed']
 const FREQS = ['none', 'daily', 'weekly', 'monthly'] as const
 const HEX_COLOR = /^#[0-9a-f]{6}$/i
 
@@ -147,7 +190,11 @@ function isChecklist(value: unknown): value is ChecklistItem[] {
   )
 }
 
-function hasTaskFields(value: unknown): value is Omit<ExportTask, 'labelId'> {
+type CommonExportTask = Omit<ExportTaskV2, 'status' | 'done' | 'labelId'> & {
+  labelId?: unknown
+}
+
+function hasCommonTaskFields(value: unknown): value is CommonExportTask {
   if (!value || typeof value !== 'object') return false
   const task = value as ExportTask
   return (
@@ -155,8 +202,6 @@ function hasTaskFields(value: unknown): value is Omit<ExportTask, 'labelId'> {
     typeof task.title === 'string' &&
     typeof task.description === 'string' &&
     (COLORS as readonly string[]).includes(task.color) &&
-    (STATUSES as readonly string[]).includes(task.status) &&
-    typeof task.done === 'boolean' &&
     typeof task.day === 'string' &&
     typeof task.order === 'number' &&
     typeof task.korder === 'number' &&
@@ -177,16 +222,39 @@ function hasTaskFields(value: unknown): value is Omit<ExportTask, 'labelId'> {
 }
 
 function isLegacyTask(value: unknown): value is LegacyTask {
+  if (!hasCommonTaskFields(value)) return false
+  const task = value as LegacyTask
   return (
-    hasTaskFields(value) &&
-    (LEGACY_CATEGORIES as readonly string[]).includes((value as LegacyTask).category)
+    (PRE_V3_STATUSES as readonly string[]).includes(task.status) &&
+    typeof task.done === 'boolean' &&
+    (LEGACY_CATEGORIES as readonly string[]).includes(task.category)
   )
 }
 
-function isV2Task(value: unknown): value is ExportTask {
-  if (!hasTaskFields(value)) return false
-  const labelId = (value as ExportTask).labelId
-  return labelId === null || (typeof labelId === 'string' && labelId.length > 0)
+function hasLabelId(task: { labelId?: unknown }): boolean {
+  return task.labelId === null || (typeof task.labelId === 'string' && task.labelId.length > 0)
+}
+
+function isV2Task(value: unknown): value is ExportTaskV2 {
+  if (!hasCommonTaskFields(value)) return false
+  const task = value as ExportTaskV2
+  return (
+    hasLabelId(task) &&
+    (PRE_V3_STATUSES as readonly string[]).includes(task.status) &&
+    typeof task.done === 'boolean'
+  )
+}
+
+function isV3Task(value: unknown): value is ExportTask {
+  if (!hasCommonTaskFields(value)) return false
+  const task = value as ExportTask
+  return (
+    hasLabelId(task) &&
+    WORKFLOW_STATUSES.includes(task.status) &&
+    (task.completedAt === null || typeof task.completedAt === 'string') &&
+    (task.reopenStatus === null || task.reopenStatus === 'todo' || task.reopenStatus === 'doing') &&
+    (task.archivedAt === null || typeof task.archivedAt === 'string')
+  )
 }
 
 function isExportLabel(value: unknown): value is ExportLabel {
@@ -206,13 +274,16 @@ function isExportLabel(value: unknown): value is ExportLabel {
   )
 }
 
-function arraysAreSeparated(tasks: ExportTask[], templates: ExportTask[]): boolean {
+function arraysAreSeparated(
+  tasks: Array<Pick<ExportTask, 'recurFreq' | 'recurParentId'>>,
+  templates: Array<Pick<ExportTask, 'recurFreq' | 'recurParentId'>>,
+): boolean {
   return templates.every(isTemplate) && tasks.every((task) => !isTemplate(task))
 }
 
 function legacyTaskToCanonical(task: LegacyTask): Task {
   const { category, ...content } = task
-  return fromExportTask({ ...content, labelId: LEGACY_LABEL_BY_CATEGORY.get(category)!.id })
+  return fromPreV3Task({ ...content, labelId: LEGACY_LABEL_BY_CATEGORY.get(category)!.id })
 }
 
 function parseV1(raw: BoardExportV1): ParseResult {
@@ -223,12 +294,7 @@ function parseV1(raw: BoardExportV1): ParseResult {
   if ([...raw.tasks, ...raw.templates].some((task) => !isLegacyTask(task))) {
     return { ok: false, error: 'The file contains a malformed task.' }
   }
-  if (
-    !arraysAreSeparated(
-      raw.tasks as unknown as ExportTask[],
-      raw.templates as unknown as ExportTask[],
-    )
-  ) {
+  if (!arraysAreSeparated(raw.tasks, raw.templates)) {
     return { ok: false, error: 'The file mixes up repeating series and tasks.' }
   }
   return {
@@ -271,6 +337,43 @@ function parseV2(raw: BoardExportV2): ParseResult {
   return {
     ok: true,
     data: {
+      sourceVersion: LABEL_EXPORT_VERSION,
+      exportedAt: raw.exportedAt,
+      labels: raw.labels.map((label) => ({ ...label })),
+      tasks: raw.tasks.map(fromPreV3Task),
+      templates: raw.templates.map(fromPreV3Task),
+    },
+  }
+}
+
+function parseV3(raw: BoardExportV3): ParseResult {
+  if (typeof raw.exportedAt !== 'string') return { ok: false, error: 'Not a Magic Agenda export.' }
+  if (!Array.isArray(raw.labels) || !Array.isArray(raw.tasks) || !Array.isArray(raw.templates)) {
+    return { ok: false, error: 'Not a Magic Agenda export.' }
+  }
+  if (raw.labels.some((label) => !isExportLabel(label))) {
+    return { ok: false, error: 'The file contains a malformed Label.' }
+  }
+  const labelIds = new Set(raw.labels.map((label) => label.id))
+  if (labelIds.size !== raw.labels.length) {
+    return { ok: false, error: 'The file contains duplicate Label definitions.' }
+  }
+  if ([...raw.tasks, ...raw.templates].some((task) => !isV3Task(task))) {
+    return { ok: false, error: 'The file contains a malformed task.' }
+  }
+  if (!arraysAreSeparated(raw.tasks, raw.templates)) {
+    return { ok: false, error: 'The file mixes up repeating series and tasks.' }
+  }
+  if (
+    [...raw.tasks, ...raw.templates].some(
+      (task) => task.labelId !== null && !labelIds.has(task.labelId),
+    )
+  ) {
+    return { ok: false, error: 'The file references a Label definition it does not contain.' }
+  }
+  return {
+    ok: true,
+    data: {
       sourceVersion: EXPORT_VERSION,
       exportedAt: raw.exportedAt,
       labels: raw.labels.map((label) => ({ ...label })),
@@ -293,7 +396,8 @@ export function parseExport(json: string): ParseResult {
   if (!raw || typeof raw !== 'object') return { ok: false, error: 'Not a Magic Agenda export.' }
   const version = (raw as { version?: unknown }).version
   if (version === LEGACY_EXPORT_VERSION) return parseV1(raw as BoardExportV1)
-  if (version === EXPORT_VERSION) return parseV2(raw as BoardExportV2)
+  if (version === LABEL_EXPORT_VERSION) return parseV2(raw as BoardExportV2)
+  if (version === EXPORT_VERSION) return parseV3(raw as BoardExportV3)
   return { ok: false, error: 'Unsupported export version — export again from the current app.' }
 }
 

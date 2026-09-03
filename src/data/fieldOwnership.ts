@@ -46,7 +46,9 @@ export const FIELD_OWNER: { readonly [K in keyof Task]: FieldOwner } = {
   checklist: 'series-content',
 
   status: 'occurrence-state',
-  done: 'occurrence-state',
+  completedAt: 'occurrence-state',
+  reopenStatus: 'occurrence-state',
+  archivedAt: 'occurrence-state',
   pinned: 'occurrence-state',
 
   day: 'occurrence-placement',

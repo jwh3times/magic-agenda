@@ -3,7 +3,7 @@ import {
   changedTaskKeys,
   cleanDraft,
   intendDelete,
-  intendSave,
+  intendSave as decideSave,
   onlyPerOccurrenceChanged,
 } from './editIntent'
 import { asTask, NO_RECUR, type Task, type TaskDraft } from '../types/task'
@@ -17,7 +17,9 @@ function t(id: string, over: Partial<TaskDraft> = {}): Task {
     color: 'yellow',
     checklist: [],
     status: 'todo',
-    done: false,
+    completedAt: null,
+    reopenStatus: null,
+    archivedAt: null,
     day: 'inbox',
     atTime: null,
     pinned: false,
@@ -31,6 +33,10 @@ function t(id: string, over: Partial<TaskDraft> = {}): Task {
 const instance = (over: Partial<TaskDraft> = {}) =>
   t('i1', { recurParentId: 'tmpl', occurrenceDate: '2026-07-08', day: '2026-07-08', ...over })
 
+const NOW = '2026-09-03T15:15:00.000Z'
+const intendSave = (initial: TaskDraft, draft: TaskDraft, isNew: boolean) =>
+  decideSave(initial, draft, isNew, NOW)
+
 describe('changedTaskKeys', () => {
   it('reports only the fields that actually differ', () => {
     const a = t('x', { title: 'A', pinned: false })
@@ -38,10 +44,10 @@ describe('changedTaskKeys', () => {
     expect(changedTaskKeys(a, { ...a, title: 'B' })).toEqual(['title'])
   })
 
-  it('ignores `done`, which is derived from status', () => {
+  it('reports the one canonical Workflow Status field', () => {
     // Comparing it separately would double-count every status change.
-    const a = t('x', { status: 'todo', done: false })
-    expect(changedTaskKeys(a, { ...a, status: 'done', done: true })).toEqual(['status'])
+    const a = t('x', { status: 'todo' })
+    expect(changedTaskKeys(a, { ...a, status: 'completed' })).toEqual(['status'])
   })
 
   it('compares the checklist by content, not by reference', () => {
@@ -72,7 +78,7 @@ describe('onlyPerOccurrenceChanged', () => {
     const a = instance()
     expect(onlyPerOccurrenceChanged(a, { ...a, pinned: true })).toBe(true)
     expect(onlyPerOccurrenceChanged(a, { ...a, status: 'doing' })).toBe(true)
-    expect(onlyPerOccurrenceChanged(a, { ...a, status: 'done', done: true })).toBe(true)
+    expect(onlyPerOccurrenceChanged(a, { ...a, status: 'completed' })).toBe(true)
   })
 
   it('is false as soon as any series content changes', () => {
@@ -95,10 +101,10 @@ describe('onlyPerOccurrenceChanged', () => {
 })
 
 describe('cleanDraft', () => {
-  it('trims the title and derives done from status', () => {
-    const cleaned = cleanDraft(t('x', { title: '  spaced  ', status: 'done', done: false }))
+  it('trims the title without introducing a second Completion fact', () => {
+    const cleaned = cleanDraft(t('x', { title: '  spaced  ', status: 'completed' }))
     expect(cleaned.title).toBe('spaced')
-    expect(cleaned.done).toBe(true)
+    expect('done' in cleaned).toBe(false)
   })
 
   it('normalizes an unscheduled day to the inbox sentinel', () => {
@@ -147,17 +153,21 @@ describe('intendSave', () => {
   })
 
   it('returns the cleaned task, not the raw draft', () => {
-    const intent = intendSave(t('x'), t('x', { title: '  Trimmed  ', status: 'done' }), true)
+    const intent = intendSave(t('x'), t('x', { title: '  Trimmed  ', status: 'completed' }), true)
     if (intent.kind !== 'save') throw new Error('unreachable')
     expect(intent.task.title).toBe('Trimmed')
-    expect(intent.task.done).toBe(true)
+    expect(intent.task.status).toBe('completed')
   })
 
   it('never emits an undefined scope for an instance', () => {
     // The whole point of resolving the ambiguity here: for an instance the answer is always
     // 'this', or the caller is told to ask.
     const a = instance()
-    for (const draft of [{ ...a }, { ...a, pinned: true }, { ...a, status: 'done' as const }]) {
+    for (const draft of [
+      { ...a },
+      { ...a, pinned: true },
+      { ...a, status: 'completed' as const },
+    ]) {
       const intent = intendSave(a, draft, false)
       if (intent.kind === 'save') expect(intent.scope).toBe('this')
       else expect(intent.kind).toBe('ask')

@@ -49,7 +49,9 @@ function task(over: Partial<TaskDraft> = {}): Task {
     color: 'yellow',
     checklist: [],
     status: 'todo',
-    done: false,
+    completedAt: null,
+    reopenStatus: null,
+    archivedAt: null,
     day: 'inbox',
     atTime: null,
     pinned: false,
@@ -81,9 +83,26 @@ describe('rowToTask', () => {
   it('passes a real date through', () => {
     expect(rowToTask(row({ day: '2026-07-01' })).day).toBe('2026-07-01')
   })
-  it('derives done from status', () => {
-    expect(rowToTask(row({ status: 'done' })).done).toBe(true)
-    expect(rowToTask(row({ status: 'todo' })).done).toBe(false)
+  it('translates the stored done token into canonical Completed', () => {
+    expect(rowToTask(row({ status: 'done' })).status).toBe('completed')
+    expect(rowToTask(row({ status: 'todo' })).status).toBe('todo')
+  })
+  it('maps nullable Completion and Archive persistence into the app domain', () => {
+    expect(
+      rowToTask(
+        row({
+          status: 'done',
+          completed_at: '2026-09-03T12:00:00Z',
+          reopen_status: 'doing',
+          archived_at: '2026-09-03T13:00:00Z',
+        }),
+      ),
+    ).toMatchObject({
+      status: 'completed',
+      completedAt: '2026-09-03T12:00:00Z',
+      reopenStatus: 'doing',
+      archivedAt: '2026-09-03T13:00:00Z',
+    })
   })
   it('maps order_index -> order and keeps korder', () => {
     const t = rowToTask(row({ order_index: 5, korder: 3 }))
@@ -132,12 +151,24 @@ describe('taskToRow', () => {
     // see `taskToRow`.
     expect('user_id' in r).toBe(false)
   })
-  it('maps order -> order_index and never stores the derived done flag', () => {
-    const r = taskToRow(task({ order: 7, korder: 2, status: 'done', done: true }), 'b1')
+  it('maps canonical Completed and its lifecycle fields to database tokens', () => {
+    const r = taskToRow(
+      task({
+        order: 7,
+        korder: 2,
+        status: 'completed',
+        completedAt: '2026-09-03T12:00:00Z',
+        reopenStatus: 'doing',
+        archivedAt: '2026-09-03T13:00:00Z',
+      }),
+      'b1',
+    )
     expect(r.order_index).toBe(7)
     expect(r.korder).toBe(2)
     expect(r.status).toBe('done')
-    expect('done' in r).toBe(false)
+    expect(r.completed_at).toBe('2026-09-03T12:00:00Z')
+    expect(r.reopen_status).toBe('doing')
+    expect(r.archived_at).toBe('2026-09-03T13:00:00Z')
   })
   it('maps occurrenceDate -> recur_origin_day', () => {
     expect(

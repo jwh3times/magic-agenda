@@ -7,6 +7,7 @@ import { asTask, NO_RECUR, type Task, type TaskDraft } from '../types/task'
 import type { ReactNode } from 'react'
 import { LabelDirectoryContext } from '../labels/labelDirectoryContext'
 import { fakeLabelDirectory } from '../labels/fakeLabelDirectory'
+import type { RecurScope } from '../data/series'
 
 function mkInstance(over: Partial<TaskDraft> = {}): Task {
   return asTask({
@@ -17,7 +18,9 @@ function mkInstance(over: Partial<TaskDraft> = {}): Task {
     color: 'yellow',
     checklist: [],
     status: 'todo',
-    done: false,
+    completedAt: null,
+    reopenStatus: null,
+    archivedAt: null,
     day: '2026-07-10',
     atTime: null,
     pinned: false,
@@ -56,7 +59,7 @@ function TestProviders({ children }: { children: ReactNode }) {
 }
 
 function renderEditor(initial: TaskDraft) {
-  const onSave = vi.fn()
+  const onSave = vi.fn<(task: TaskDraft, scope?: RecurScope) => void>()
   const onDelete = vi.fn()
   const onClose = vi.fn()
   const { container } = render(
@@ -116,15 +119,101 @@ test('saving a pin-only change to a recurring instance skips the scope prompt', 
 
 test('saving a status-only change to a recurring instance skips the scope prompt', async () => {
   const user = userEvent.setup()
-  const { onSave } = renderEditor(mkInstance({ status: 'todo', done: false }))
+  const { onSave } = renderEditor(mkInstance({ status: 'todo' }))
 
   await user.click(screen.getByRole('button', { name: 'Completed' }))
   await user.click(screen.getByRole('button', { name: 'Save' }))
 
   expect(screen.queryByText('Save repeating task')).not.toBeInTheDocument()
   expect(onSave).toHaveBeenCalledTimes(1)
+  const [saved, scope] = onSave.mock.calls[0]
+  expect(saved).toMatchObject({ status: 'completed', reopenStatus: 'todo' })
+  expect(typeof saved.completedAt).toBe('string')
+  expect(scope).toBe('this')
+})
+
+test('all Checklist Steps may be complete while Workflow Status remains To Do', async () => {
+  const user = userEvent.setup()
+  const { onSave } = renderEditor(
+    mkInstance({ checklist: [{ id: 'c1', text: 'Only step', done: true }], status: 'todo' }),
+  )
+
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ status: 'todo' }), 'this')
+})
+
+test('rescheduling a Completed Task preserves Completed At', async () => {
+  const user = userEvent.setup()
+  const { onSave, container } = renderEditor(
+    mkInstance({
+      status: 'completed',
+      completedAt: '2026-09-01T12:00:00.000Z',
+      reopenStatus: 'doing',
+    }),
+  )
+  const day = container.querySelector('input[type="date"]') as HTMLInputElement
+  fireEvent.change(day, { target: { value: '2026-07-11' } })
+
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+
   expect(onSave).toHaveBeenCalledWith(
-    expect.objectContaining({ status: 'done', done: true }),
+    expect.objectContaining({
+      status: 'completed',
+      completedAt: '2026-09-01T12:00:00.000Z',
+      day: '2026-07-11',
+    }),
+    'this',
+  )
+})
+
+test('ending an edit on the original Completed status preserves its lifecycle state', async () => {
+  const user = userEvent.setup()
+  const { onSave } = renderEditor(
+    mkInstance({
+      status: 'completed',
+      completedAt: '2026-09-01T12:00:00.000Z',
+      reopenStatus: 'doing',
+      archivedAt: '2026-09-02T12:00:00.000Z',
+    }),
+  )
+
+  await user.click(screen.getByRole('button', { name: 'To Do' }))
+  await user.click(screen.getByRole('button', { name: 'Completed' }))
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+
+  expect(onSave).toHaveBeenCalledWith(
+    expect.objectContaining({
+      status: 'completed',
+      completedAt: '2026-09-01T12:00:00.000Z',
+      reopenStatus: 'doing',
+      archivedAt: '2026-09-02T12:00:00.000Z',
+    }),
+    'this',
+  )
+})
+
+test('explicitly Reopening a Completed Task clears Completed At and Archive', async () => {
+  const user = userEvent.setup()
+  const { onSave } = renderEditor(
+    mkInstance({
+      status: 'completed',
+      completedAt: '2026-09-01T12:00:00.000Z',
+      reopenStatus: 'doing',
+      archivedAt: '2026-09-02T12:00:00.000Z',
+    }),
+  )
+
+  await user.click(screen.getByRole('button', { name: 'To Do' }))
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+
+  expect(onSave).toHaveBeenCalledWith(
+    expect.objectContaining({
+      status: 'todo',
+      completedAt: null,
+      reopenStatus: 'todo',
+      archivedAt: null,
+    }),
     'this',
   )
 })

@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react'
 import type { ThemeName } from '../types/task'
 import type { ThemeConf } from './themeConf'
 import type { CellMeta } from '../data/selectors'
-import type { StatusDef } from './constants'
+import type { WorkflowStatusDef } from './constants'
 
 /**
  * Thin, theme-matched scrollbars for any container that can overflow.
@@ -444,7 +444,7 @@ export function inboxChrome(theme: ThemeName, conf: ThemeConf) {
   } satisfies Record<string, CSSProperties>
 }
 
-export function columnChrome(theme: ThemeName, conf: ThemeConf, col: StatusDef) {
+export function columnChrome(theme: ThemeName, conf: ThemeConf, col: WorkflowStatusDef) {
   const cork = theme === 'cork'
   const brutal = theme === 'brutal'
   const glass = theme === 'glass'

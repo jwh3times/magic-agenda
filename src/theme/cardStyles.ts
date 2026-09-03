@@ -56,7 +56,7 @@ export function cardStyles(
   const { dragging = false, pop = false, overdue = false, labelColor = UNLABELED_DOT_COLOR } = opts
   const C = themeConf(theme)
   const P = PAPER[theme][task.color] ?? PAPER[theme].yellow
-  const done = task.status === 'done'
+  const completed = task.status === 'completed'
   const total = task.checklist.length
   const ck = task.checklist.filter((c) => c.done).length
   const pct = total ? Math.round((ck / total) * 100) : 0
@@ -73,7 +73,7 @@ export function cardStyles(
     touchAction: 'none',
     userSelect: 'none',
     transition: 'box-shadow .15s, transform .12s',
-    opacity: done ? 0.82 : 1,
+    opacity: completed ? 0.82 : 1,
   }
   let titleStyle: CSSProperties
   const meta: CSSProperties = {
@@ -116,7 +116,7 @@ export function cardStyles(
       fontSize: v === 'inbox' ? '22px' : '19px',
       lineHeight: 1.05,
       fontWeight: 700,
-      textDecorationLine: done ? 'line-through' : 'none',
+      textDecorationLine: completed ? 'line-through' : 'none',
       textDecorationColor: 'rgba(120,30,20,.6)',
       display: '-webkit-box',
       WebkitLineClamp: v === 'inbox' ? 3 : 2,
@@ -124,7 +124,7 @@ export function cardStyles(
       overflow: 'hidden',
       wordBreak: 'break-word',
     }
-    if (done)
+    if (completed)
       stampStyle = {
         position: 'absolute',
         top: '40%',
@@ -160,7 +160,7 @@ export function cardStyles(
       fontWeight: 700,
       textTransform: 'uppercase',
       letterSpacing: '.3px',
-      textDecorationLine: done ? 'line-through' : 'none',
+      textDecorationLine: completed ? 'line-through' : 'none',
       display: '-webkit-box',
       WebkitLineClamp: v === 'inbox' ? 3 : 2,
       WebkitBoxOrient: 'vertical',
@@ -202,8 +202,8 @@ export function cardStyles(
       lineHeight: 1.2,
       fontWeight: 700,
       letterSpacing: '.1px',
-      textDecorationLine: done ? 'line-through' : 'none',
-      opacity: done ? 0.8 : 1,
+      textDecorationLine: completed ? 'line-through' : 'none',
+      opacity: completed ? 0.8 : 1,
       display: '-webkit-box',
       WebkitLineClamp: v === 'inbox' ? 3 : 2,
       WebkitBoxOrient: 'vertical',
@@ -271,8 +271,8 @@ export function cardStyles(
     cursor: 'pointer',
     borderRadius: theme === 'glass' ? '6px' : theme === 'brutal' ? '1px' : '4px',
     border: `1.5px solid ${inkSoft(0.4)}`,
-    background: done ? labelColor : 'transparent',
-    color: done ? '#fff' : 'transparent',
+    background: completed ? labelColor : 'transparent',
+    color: completed ? '#fff' : 'transparent',
     fontSize: '12px',
     lineHeight: 1,
     fontWeight: 800,
@@ -304,7 +304,7 @@ export function cardStyles(
     width: `${pct}%`,
     height: '100%',
     borderRadius: '3px',
-    background: done
+    background: completed
       ? labelColor
       : theme === 'glass'
         ? (P.edge ?? '').replace(/[\d.]+\)$/, '.9)')
@@ -339,7 +339,7 @@ export function cardStyles(
     meta,
     showPin: (theme === 'cork' || theme === 'brutal') && task.pinned && !isGhost,
     pinStyle,
-    showStamp: done && theme === 'cork' && !isGhost,
+    showStamp: completed && theme === 'cork' && !isGhost,
     stampStyle,
     dot,
     labelStyle,

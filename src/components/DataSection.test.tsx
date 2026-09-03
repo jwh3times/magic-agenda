@@ -57,7 +57,9 @@ function task(over: Partial<TaskDraft> = {}): Task {
     color: 'yellow',
     checklist: [],
     status: 'todo',
-    done: false,
+    completedAt: null,
+    reopenStatus: null,
+    archivedAt: null,
     day: '2026-07-10',
     order: 0,
     korder: 0,
@@ -69,16 +71,25 @@ function task(over: Partial<TaskDraft> = {}): Task {
 }
 
 function legacyTask(over: Partial<LegacyTask> = {}): LegacyTask {
-  // The on-disk shape keeps the pre-#204 recurrence names; the app-domain `Task` no longer has
-  // them, so this helper translates rather than spreading one into the other.
-  const { labelId: _labelId, occurrenceDate, excludedDates, ...base } = task()
+  const {
+    labelId: _labelId,
+    occurrenceDate,
+    excludedDates,
+    completedAt: _completedAt,
+    reopenStatus: _reopenStatus,
+    archivedAt: _archivedAt,
+    status,
+    ...base
+  } = task()
   return {
     ...base,
+    status: status === 'completed' ? 'done' : status,
+    done: status === 'completed',
     recurOriginDay: occurrenceDate,
     recurSkip: excludedDates,
     category: 'work',
     ...over,
-  }
+  } satisfies LegacyTask
 }
 
 function legacyExport(tasks: LegacyTask[], templates: LegacyTask[] = []): string {
@@ -213,7 +224,7 @@ test('v1 Categories use the same mapping UI and may map to Unlabeled without wri
   expect(row).not.toHaveProperty('category')
 })
 
-test('export downloads v2 with Board Labels and nullable assignments, not settings or Category', async () => {
+test('export downloads v3 with Board Labels and Completion fields, not settings or Category', async () => {
   h.selectTasks.mockResolvedValue({ data: [taskRow()], error: null })
   h.selectLabels.mockResolvedValue({
     data: [{ id: 'l-work', board_id: 'b1', name: 'Work', dot_color: '#2563eb', position: 0 }],
@@ -230,11 +241,18 @@ test('export downloads v2 with Board Labels and nullable assignments, not settin
     tasks: Array<Record<string, unknown>>
     settings?: unknown
   }
-  expect(exported.version).toBe(2)
+  expect(exported.version).toBe(3)
   expect(exported.labels).toEqual([
     { id: 'l-work', name: 'Work', dotColor: '#2563eb', position: 0 },
   ])
   expect(exported.tasks[0].labelId).toBe('l-work')
+  expect(exported.tasks[0]).toMatchObject({
+    status: 'todo',
+    completedAt: null,
+    reopenStatus: null,
+    archivedAt: null,
+  })
+  expect(exported.tasks[0]).not.toHaveProperty('done')
   expect(exported.tasks[0]).not.toHaveProperty('category')
   expect(exported).not.toHaveProperty('settings')
   expect(h.selectTasks).toHaveBeenCalledWith('board_id', 'b1')

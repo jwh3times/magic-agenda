@@ -1,10 +1,10 @@
-import type { Status, Task } from '../types/task'
+import type { Task, WorkflowStatus } from '../types/task'
 
 export interface FilterQuery {
   text: string
   /** A Label id, all Labels, or the first-class null assignment. */
   labelId: string
-  status: Status | 'all'
+  status: WorkflowStatus | 'all'
   pinned: boolean
 }
 

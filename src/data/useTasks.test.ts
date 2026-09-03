@@ -9,19 +9,26 @@ const h = vi.hoisted(() => {
     rows: unknown[]
     selectError: { message: string } | null
     selectStatus: number
+    writeRows: unknown[] | null
   } = {
     handler: null,
     rows: [],
     selectError: null,
     selectStatus: 200,
+    writeRows: null,
   }
   const ok = () => Promise.resolve({ data: null, error: null })
+  const writeSelect = vi.fn(() => Promise.resolve({ data: capture.writeRows, error: null }))
+  const selectable = () => {
+    const result = ok()
+    return Object.assign(result, { select: writeSelect })
+  }
   // Stable spies so tests can assert on the rows reload/materialize/updateSeries write.
-  const insert = vi.fn(ok)
-  const upsert = vi.fn(ok)
+  const insert = vi.fn(selectable)
+  const upsert = vi.fn(selectable)
   // Stable spy behind `.update(...).eq(...)` so a test can force it to reject (throw),
   // proving a throw takes the same rollback + setError path as a resolved `{ error }`.
-  const updateEq = vi.fn(ok)
+  const updateEq = vi.fn(selectable)
   // `.delete().eq(...)` is used both as a one-level chain (removeTask, deleteSeriesFuture's
   // whole-series delete) and as a two-level chain (`.eq(...).gt/gte(...)`, updateSeries's
   // truncation-delete / deleteSeriesFuture's instance-delete). Give `.eq(...)`'s return value
@@ -39,7 +46,19 @@ const h = vi.hoisted(() => {
     cb?.('SUBSCRIBED')
     return channel
   })
-  return { capture, ok, insert, upsert, updateEq, deleteEq, deleteGt, deleteGte, channel }
+  return {
+    capture,
+    ok,
+    selectable,
+    writeSelect,
+    insert,
+    upsert,
+    updateEq,
+    deleteEq,
+    deleteGt,
+    deleteGte,
+    channel,
+  }
 })
 
 vi.mock('../lib/supabase', () => ({
@@ -96,8 +115,8 @@ const serverRow = (over: Record<string, unknown> = {}) => ({
   recur_parent_id: null,
   recur_skip: [],
   recur_origin_day: null,
-  // Board containment, attribution, and the compare-and-swap token. Present on every row since the
-  // Board foundation migration; still unread by the app, which is why the mapper ignores them.
+  // Board containment, attribution, and the compare-and-swap token are present on every row. The
+  // app maps Label ownership but intentionally keeps the remaining storage metadata outside Task.
   board_id: 'b1',
   label_id: null,
   label_assignment_explicit: false,
@@ -123,7 +142,9 @@ const appTask = (over: Partial<Task>): Task =>
     color: 'yellow',
     checklist: [],
     status: 'todo',
-    done: false,
+    completedAt: null,
+    reopenStatus: null,
+    archivedAt: null,
     day: '2026-07-01',
     atTime: null,
     pinned: false,
@@ -138,10 +159,12 @@ beforeEach(() => {
   h.capture.rows = [serverRow()]
   h.capture.selectError = null
   h.capture.selectStatus = 200
+  h.capture.writeRows = null
   h.insert.mockClear()
   h.upsert.mockClear()
   h.updateEq.mockReset()
-  h.updateEq.mockImplementation(h.ok)
+  h.updateEq.mockImplementation(h.selectable)
+  h.writeSelect.mockClear()
   h.deleteEq.mockClear()
   h.deleteGt.mockReset()
   h.deleteGt.mockImplementation(h.ok)
@@ -389,19 +412,94 @@ test('rollForward with onlyIds moves only the given overdue tasks', async () => 
 test('a thrown/rejected write rolls back the optimistic change and sets error, same as a resolved { error }', async () => {
   const { result } = renderHook(() => useTasks('u1', 'b1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
-  expect(result.current.tasks.find((t) => t.id === 't1')?.done).toBe(false)
+  expect(result.current.tasks.find((t) => t.id === 't1')?.status).toBe('todo')
 
   // The write layer rejects instead of resolving `{ error }` (e.g. a network fault).
-  h.updateEq.mockRejectedValueOnce(new Error('network down'))
+  h.writeSelect.mockRejectedValueOnce(new Error('network down'))
 
   await act(async () => {
-    await result.current.toggleDone('t1')
+    await result.current.toggleCompletion('t1')
   })
 
   // The optimistic toggle must be rolled back...
-  expect(result.current.tasks.find((t) => t.id === 't1')?.done).toBe(false)
+  expect(result.current.tasks.find((t) => t.id === 't1')?.status).toBe('todo')
   // ...and the throw must surface through the same setError path a resolved `{ error }` would.
   expect(result.current.error).toBe('network down')
+})
+
+test('a Completion write reconciles the authoritative row returned after server triggers', async () => {
+  h.capture.rows = [serverRow({ status: 'doing' })]
+  h.capture.writeRows = [
+    serverRow({
+      status: 'done',
+      completed_at: '2026-09-03T14:30:00.000Z',
+      reopen_status: 'doing',
+    }),
+  ]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  await act(async () => {
+    await result.current.toggleCompletion('t1')
+  })
+
+  expect(h.writeSelect).toHaveBeenCalledTimes(1)
+  expect(result.current.tasks[0]).toMatchObject({
+    status: 'completed',
+    completedAt: '2026-09-03T14:30:00.000Z',
+    reopenStatus: 'doing',
+  })
+})
+
+test('an editor Workflow Status change reconciles its authoritative returned row', async () => {
+  h.capture.rows = [serverRow({ status: 'todo' })]
+  h.capture.writeRows = [
+    serverRow({
+      status: 'done',
+      completed_at: '2026-09-03T14:31:00.000Z',
+      reopen_status: 'todo',
+    }),
+  ]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  await act(async () => {
+    await result.current.updateTask(
+      appTask({
+        status: 'completed',
+        completedAt: '2026-09-03T14:30:59.000Z',
+        reopenStatus: 'todo',
+      }),
+    )
+  })
+
+  expect(h.writeSelect).toHaveBeenCalledTimes(1)
+  expect(result.current.tasks[0].completedAt).toBe('2026-09-03T14:31:00.000Z')
+})
+
+test('a Kanban Workflow Status batch reconciles all authoritative returned rows', async () => {
+  h.capture.rows = [serverRow({ status: 'todo' })]
+  h.capture.writeRows = [
+    serverRow({
+      status: 'done',
+      completed_at: '2026-09-03T14:32:00.000Z',
+      reopen_status: 'todo',
+    }),
+  ]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  const completed = appTask({
+    status: 'completed',
+    completedAt: '2026-09-03T14:31:59.000Z',
+    reopenStatus: 'todo',
+  })
+
+  await act(async () => {
+    await result.current.persistReorder([completed], ['todo', 'completed'], 'status')
+  })
+
+  expect(h.writeSelect).toHaveBeenCalledTimes(1)
+  expect(result.current.tasks[0].completedAt).toBe('2026-09-03T14:32:00.000Z')
 })
 
 test('a failing excludedDates write on deleteOccurrence still removes the occurrence locally and surfaces the error', async () => {
@@ -507,7 +605,7 @@ test('a failed load hydrates from the snapshot and materializes nothing', async 
   localStorage.setItem(
     'ma-snapshot-board.b1',
     JSON.stringify({
-      v: 6,
+      v: 7,
       userId: 'u1',
       boardId: 'b1',
       savedAt: 1_770_000_000_000,
@@ -539,7 +637,7 @@ test('an authentication failure keeps the snapshot but is not relabelled as offl
   localStorage.setItem(
     'ma-snapshot-board.b1',
     JSON.stringify({
-      v: 6,
+      v: 7,
       userId: 'u1',
       boardId: 'b1',
       savedAt: 1_770_000_000_000,
@@ -624,7 +722,7 @@ test('a template-only realtime change refreshes the offline snapshot (#249)', as
 test('reconnecting clears offline mode', async () => {
   localStorage.setItem(
     'ma-snapshot-board.b1',
-    JSON.stringify({ v: 6, userId: 'u1', boardId: 'b1', savedAt: 1, tasks: [], templates: [] }),
+    JSON.stringify({ v: 7, userId: 'u1', boardId: 'b1', savedAt: 1, tasks: [], templates: [] }),
   )
   h.capture.selectError = { message: 'FetchError: Failed to fetch' }
   h.capture.selectStatus = 0
@@ -650,7 +748,7 @@ test('reconnecting clears offline mode', async () => {
 // nothing under an "Offline" banner instead of the last-known tasks.
 test('reconnecting while sessionless does not poison the board snapshot with an empty board', async () => {
   const existing = {
-    v: 6,
+    v: 7,
     userId: 'u1',
     boardId: 'b1',
     savedAt: 1,

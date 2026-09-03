@@ -8,6 +8,7 @@ import {
   remapIds,
   serializeExport,
   type ExportLabel,
+  type ExportTaskV2,
   type LegacyTask,
 } from './exportImport'
 import { missingInstances } from './recurrence'
@@ -21,7 +22,9 @@ function task(over: Partial<TaskDraft> = {}): Task {
     color: 'yellow',
     checklist: [],
     status: 'todo',
-    done: false,
+    completedAt: null,
+    reopenStatus: null,
+    archivedAt: null,
     day: '2026-07-10',
     order: 0,
     korder: 0,
@@ -32,17 +35,29 @@ function task(over: Partial<TaskDraft> = {}): Task {
   })
 }
 
-function legacyTask(over: Partial<LegacyTask> = {}): LegacyTask {
-  // The on-disk shape keeps the pre-#204 recurrence names; the app-domain `Task` no longer has
-  // them, so this helper translates rather than spreading one into the other.
-  const { labelId: _labelId, occurrenceDate, excludedDates, ...base } = task()
+function v2Task(over: Partial<ExportTaskV2> = {}): ExportTaskV2 {
+  const {
+    occurrenceDate,
+    excludedDates,
+    completedAt: _completedAt,
+    reopenStatus: _reopenStatus,
+    archivedAt: _archivedAt,
+    status,
+    ...base
+  } = task()
   return {
     ...base,
+    status: status === 'completed' ? 'done' : status,
+    done: status === 'completed',
     recurOriginDay: occurrenceDate,
     recurSkip: excludedDates,
-    category: 'work',
     ...over,
   }
+}
+
+function legacyTask(over: Partial<LegacyTask> = {}): LegacyTask {
+  const { labelId: _labelId, ...base } = v2Task()
+  return { ...base, category: 'work', ...over }
 }
 
 function legacyExport(tasks: LegacyTask[], templates: LegacyTask[] = []): string {
@@ -50,6 +65,16 @@ function legacyExport(tasks: LegacyTask[], templates: LegacyTask[] = []): string
     version: 1,
     exportedAt: '2026-07-10T00:00:00Z',
     settings: { theme: 'cork', defaultView: 'calendar', weekStart: 0, timezone: null },
+    tasks,
+    templates,
+  })
+}
+
+function v2Export(tasks: ExportTaskV2[], templates: ExportTaskV2[] = []): string {
+  return JSON.stringify({
+    version: 2,
+    exportedAt: '2026-07-10T00:00:00Z',
+    labels,
     tasks,
     templates,
   })
@@ -76,31 +101,92 @@ const instance = task({
 })
 const plain = task({ id: 'plain-1', labelId: null, atTime: '09:30', pinned: true })
 
-test('v2 serialize → parse round-trips Label definitions and nullable assignments without account settings', () => {
-  const json = serializeExport([plain, instance], [template], labels, '2026-07-10T00:00:00Z')
+test('v3 serialize → parse preserves Completion, Archive, Labels, and canonical vocabulary', () => {
+  const completed = task({
+    id: 'completed-1',
+    status: 'completed',
+    completedAt: '2026-09-02T12:00:00.000Z',
+    reopenStatus: 'doing',
+    archivedAt: '2026-09-03T12:00:00.000Z',
+  })
+  const json = serializeExport(
+    [plain, instance, completed],
+    [template],
+    labels,
+    '2026-07-10T00:00:00Z',
+  )
   const raw = JSON.parse(json) as Record<string, unknown>
-  expect(raw.version).toBe(2)
+  expect(raw.version).toBe(3)
   expect(raw).not.toHaveProperty('settings')
+  expect((raw.tasks as Array<Record<string, unknown>>)[2]).not.toHaveProperty('done')
 
   const parsed = parseExport(json)
   if (!parsed.ok) throw new Error(parsed.error)
-  expect(parsed.data.sourceVersion).toBe(2)
+  expect(parsed.data.sourceVersion).toBe(3)
   expect(parsed.data.labels).toEqual(labels)
-  expect(parsed.data.tasks.map((item) => item.labelId)).toEqual([null, 'source-work'])
+  expect(parsed.data.tasks.map((item) => item.labelId)).toEqual([null, 'source-work', null])
   expect(parsed.data.templates[0].labelId).toBe('source-custom')
+  expect(parsed.data.tasks[2]).toMatchObject({
+    status: 'completed',
+    completedAt: '2026-09-02T12:00:00.000Z',
+    reopenStatus: 'doing',
+    archivedAt: '2026-09-03T12:00:00.000Z',
+  })
 })
 
-test('v2 serialization fails closed when split reads observed a dangling Label assignment', () => {
+test('v3 serialization fails closed when split reads observed a dangling Label assignment', () => {
   expect(() =>
     serializeExport([task({ labelId: 'concurrently-removed' })], [], labels, 'x'),
   ).toThrow('A task references a Label that is missing from this export.')
+})
+
+test('v2 done imports as canonical Completed without fabricating historical Completion state', () => {
+  const parsed = parseExport(v2Export([v2Task({ status: 'done', done: true })]))
+  if (!parsed.ok) throw new Error(parsed.error)
+
+  expect(parsed.data.sourceVersion).toBe(2)
+  expect(parsed.data.tasks[0]).toMatchObject({
+    status: 'completed',
+    completedAt: null,
+    reopenStatus: null,
+    archivedAt: null,
+  })
+  expect('done' in parsed.data.tasks[0]).toBe(false)
+})
+
+test('v3 import planning preserves Completion and Archive persistence in destination rows', () => {
+  const parsed = parseExport(
+    serializeExport(
+      [
+        task({
+          status: 'completed',
+          completedAt: '2026-09-02T12:00:00.000Z',
+          reopenStatus: 'doing',
+          archivedAt: '2026-09-03T12:00:00.000Z',
+        }),
+      ],
+      [],
+      labels,
+      '2026-09-03T13:00:00.000Z',
+    ),
+  )
+  if (!parsed.ok) throw new Error(parsed.error)
+  const planned = prepareImport(parsed.data, new Map(), new Set(), 'b1')
+  if (!planned.ok) throw new Error(planned.error)
+
+  expect(planned.data.taskRows[0]).toMatchObject({
+    status: 'done',
+    completed_at: '2026-09-02T12:00:00.000Z',
+    reopen_status: 'doing',
+    archived_at: '2026-09-03T12:00:00.000Z',
+  })
 })
 
 test('v1 remains parseable and presents referenced Categories as source Labels while discarding settings', () => {
   const parsed = parseExport(
     legacyExport([
       legacyTask({ id: 'work', category: 'work' }),
-      legacyTask({ id: 'health', category: 'health' }),
+      legacyTask({ id: 'health', category: 'health', status: 'done', done: true }),
     ]),
   )
   if (!parsed.ok) throw new Error(parsed.error)
@@ -109,9 +195,10 @@ test('v1 remains parseable and presents referenced Categories as source Labels w
   expect('settings' in parsed.data).toBe(false)
   expect(referencedSourceLabels(parsed.data).map((label) => label.name)).toEqual(['Work', 'Health'])
   expect(parsed.data.tasks.every((item) => item.labelId !== null)).toBe(true)
+  expect(parsed.data.tasks[1]).toMatchObject({ status: 'completed', completedAt: null })
 })
 
-test('v2 rejects duplicate Label ids, malformed definitions, and dangling task references', () => {
+test('v3 rejects duplicate Label ids, malformed definitions, and dangling task references', () => {
   const valid = JSON.parse(
     serializeExport([task({ labelId: 'source-work' })], [], labels, 'x'),
   ) as {
@@ -251,12 +338,12 @@ test('an instance whose template is missing becomes a plain task', () => {
 test('parseExport rejects garbage, unsupported versions, malformed tasks, and mixed arrays', () => {
   expect(parseExport('not json').ok).toBe(false)
   expect(parseExport('42').ok).toBe(false)
-  expect(parseExport(JSON.stringify({ version: 3, tasks: [], templates: [] })).ok).toBe(false)
+  expect(parseExport(JSON.stringify({ version: 4, tasks: [], templates: [] })).ok).toBe(false)
 
   const malformed = JSON.parse(serializeExport([plain], [], labels, 'x')) as {
     tasks: Array<Record<string, unknown>>
   }
-  malformed.tasks[0].done = 'yes'
+  malformed.tasks[0].completedAt = 42
   expect(parseExport(JSON.stringify(malformed)).ok).toBe(false)
 
   // Routed through the real serializer rather than dropping an app-domain Task into the file: the
@@ -266,7 +353,7 @@ test('parseExport rejects garbage, unsupported versions, malformed tasks, and mi
     templates: unknown[]
   }
   const templateInTasks = JSON.stringify({
-    version: 2,
+    version: 3,
     exportedAt: 'x',
     labels,
     tasks: onDisk.templates,
@@ -290,7 +377,7 @@ test('chunk splits preserving order', () => {
   expect(chunk([], 2)).toEqual([])
 })
 
-test('the v2 file format keeps the pre-#204 recurrence field names', () => {
+test('the v3 file format keeps the established recurrence field names', () => {
   // The app renamed these two fields to the domain vocabulary; the file format did not follow.
   // Other people hold exported files, and `serializeExport` used to stringify `Task[]` directly —
   // so without the translation in `exportImport.ts` this rename would have invalidated every one
@@ -319,8 +406,8 @@ test('a v2 file written before #204 still imports', () => {
         labelId: 'source-work',
         color: 'yellow',
         checklist: [],
-        status: 'todo',
-        done: false,
+        status: 'done',
+        done: true,
         day: '2026-07-10',
         order: 0,
         korder: 0,
@@ -362,5 +449,7 @@ test('a v2 file written before #204 still imports', () => {
   expect(parsed.ok).toBe(true)
   if (!parsed.ok) return
   expect(parsed.data.tasks[0].occurrenceDate).toBe('2026-07-10')
+  expect(parsed.data.tasks[0].status).toBe('completed')
+  expect(parsed.data.tasks[0].completedAt).toBeNull()
   expect(parsed.data.templates[0].excludedDates).toEqual(['2026-07-11'])
 })

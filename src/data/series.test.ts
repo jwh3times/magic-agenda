@@ -30,7 +30,9 @@ function t(id: string, over: Partial<TaskDraft> = {}): Task {
     color: 'yellow',
     checklist: [],
     status: 'todo',
-    done: false,
+    completedAt: null,
+    reopenStatus: null,
+    archivedAt: null,
     day: 'inbox',
     atTime: null,
     pinned: false,
@@ -140,8 +142,9 @@ describe('makeInstance', () => {
     // lets an all-future Checklist edit carry each Occurrence's ticks across instead of resetting
     // them. Only `done` resets here — a future Occurrence starts with nothing ticked.
     expect(inst.checklist[0].id).toBe('c1')
-    expect(inst.done).toBe(false)
     expect(inst.status).toBe('todo')
+    expect(inst.completedAt).toBeNull()
+    expect(inst.reopenStatus).toBe('todo')
   })
 })
 
@@ -325,17 +328,24 @@ describe('planEditSeriesFrom', () => {
   })
 
   it('never carries per-occurrence progress across the series', () => {
-    // pinned/status/done are per-occurrence; a "this and all future" edit that copied them would
+    // Pin and Completion are per-occurrence; a "this and all future" edit that copied them would
     // clobber each occurrence's own state.
     const s = series()
-    s.tasks[2] = { ...s.tasks[2], done: true, status: 'done', pinned: true }
-    const draft = editing(t('i2'), { title: 'Renamed', done: false, status: 'todo', pinned: false })
+    s.tasks[2] = {
+      ...s.tasks[2],
+      status: 'completed',
+      completedAt: '2026-09-03T10:00:00.000Z',
+      reopenStatus: 'doing',
+      pinned: true,
+    }
+    const draft = editing(t('i2'), { title: 'Renamed', status: 'todo', pinned: false })
     const plan = planEditSeriesFrom(s, s.tasks[1], draft)!
 
     const i3 = plan.state.tasks.find((x) => x.id === 'i3')!
     expect(i3.title).toBe('Renamed')
-    expect(i3.done).toBe(true)
-    expect(i3.status).toBe('done')
+    expect(i3.status).toBe('completed')
+    expect(i3.completedAt).toBe('2026-09-03T10:00:00.000Z')
+    expect(i3.reopenStatus).toBe('doing')
     expect(i3.pinned).toBe(true)
   })
 
@@ -825,7 +835,8 @@ describe('planPromoteToSeries', () => {
 
     const template = plan.state.templates[0]
     expect(template.status).toBe('todo')
-    expect(template.done).toBe(false)
+    expect(template.completedAt).toBeNull()
+    expect(template.reopenStatus).toBe('todo')
     expect(template.checklist.map((c) => c.done)).toEqual([false, false])
     // Shared content still travels: these are what each Occurrence is made of.
     expect(template.title).toBe('Water the plants')

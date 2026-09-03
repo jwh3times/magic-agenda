@@ -15,7 +15,7 @@ export function fakeUseTasks(overrides: Partial<UseTasks> = {}): UseTasks {
     createTask: noOpAsync,
     updateTask: noOpAsync,
     removeTask: noOpAsync,
-    toggleDone: noOpAsync,
+    toggleCompletion: noOpAsync,
     persistReorder: noOpAsync,
     rollForward: noOpAsync,
     getTemplate: () => undefined,

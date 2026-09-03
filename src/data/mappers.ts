@@ -2,16 +2,26 @@ import {
   asTask,
   INBOX,
   type ChecklistItem,
+  type ActiveWorkflowStatus,
   type Color,
   type RecurFreq,
-  type Status,
   type Task,
+  type WorkflowStatus,
 } from '../types/task'
 import { isScheduled } from '../lib/dates'
 import type { Database, Json } from '../types/database.types'
 
 type TaskRow = Database['public']['Tables']['tasks']['Row']
 type TaskInsert = Database['public']['Tables']['tasks']['Insert']
+
+/** Stored and pre-v3 file vocabulary stays outside the app-domain Workflow Status. */
+export function workflowStatusFromStorage(status: string): WorkflowStatus {
+  return status === 'done' ? 'completed' : (status as ActiveWorkflowStatus)
+}
+
+export function workflowStatusToStorage(status: WorkflowStatus): 'todo' | 'doing' | 'done' {
+  return status === 'completed' ? 'done' : status
+}
 
 /** Coerce the stored JSON checklist into validated ChecklistItem[], dropping malformed entries. */
 export function parseChecklist(value: unknown): ChecklistItem[] {
@@ -27,7 +37,7 @@ export function parseChecklist(value: unknown): ChecklistItem[] {
 }
 
 /**
- * DB row -> app Task: NULL day becomes the inbox sentinel, done is derived, order_index -> order.
+ * DB row -> app Task: NULL day becomes the inbox sentinel and stored tokens are translated.
  *
  * `asTask` picks which of the three shapes the row describes, so this is where a flat row becomes a
  * narrowed `StandaloneTask`, `SeriesDefinition`, or `Occurrence` and nothing downstream has to
@@ -41,8 +51,10 @@ export function rowToTask(row: TaskRow): Task {
     labelId: row.label_id,
     color: row.color as Color,
     checklist: parseChecklist(row.checklist),
-    status: row.status as Status,
-    done: row.status === 'done',
+    status: workflowStatusFromStorage(row.status),
+    completedAt: row.completed_at,
+    reopenStatus: row.reopen_status as ActiveWorkflowStatus | null,
+    archivedAt: row.archived_at,
     day: row.day ?? INBOX,
     atTime: row.at_time ? row.at_time.slice(0, 5) : null,
     pinned: row.pinned ?? false,
@@ -57,7 +69,7 @@ export function rowToTask(row: TaskRow): Task {
   })
 }
 
-/** app Task -> DB insert/update: inbox sentinel becomes NULL, order -> order_index, done is not stored. */
+/** app Task -> DB insert/update: app vocabulary is translated at the persistence seam. */
 /**
  * `board_id` is the authorization boundary, and now the only ownership column written.
  *
@@ -86,7 +98,10 @@ export function taskToRow(task: Task, boardId: string): TaskInsert {
     label_id: task.labelId,
     color: task.color,
     checklist: task.checklist as unknown as Json,
-    status: task.status,
+    status: workflowStatusToStorage(task.status),
+    completed_at: task.completedAt,
+    reopen_status: task.reopenStatus,
+    archived_at: task.archivedAt,
     day: isScheduled(task.day) ? task.day : null,
     at_time: task.atTime,
     pinned: task.pinned,

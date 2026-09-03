@@ -58,9 +58,9 @@ filtering may hide a Task without archiving it.
 - **Completion fields are Occurrence State under ADR-0002.** The remembered active status,
   Completed At, and Archive state never propagate through This and All Future, and a Recurring
   Series definition carries no meaningful values for them.
-- **The app-domain `done` boolean is redundant.** Follow-up work should make Workflow Status the
-  single source of truth and translate any frozen database or export-file token at those seams
-  rather than preserving duplicate state in `Task`.
+- **The app-domain has no Task-level `done` boolean.** Workflow Status is the single source of truth;
+  the frozen database and pre-v3 export-file `done` tokens are translated at those seams rather than
+  preserved as duplicate state in `Task`.
 - **Completion History is not an audit promise.** A future requirement to retain every completion,
   reopening, or deletion must introduce a separate event model and revisit this decision
   explicitly.

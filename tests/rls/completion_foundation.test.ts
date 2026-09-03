@@ -61,33 +61,41 @@ test('reopen_status accepts only active Workflow Status tokens when present', as
   expect(invalidCode).toBe('23514')
 })
 
-test('the current Task payload still inserts, updates, and upserts without lifecycle fields', async () => {
+test('the canonical Task payload inserts, updates, and upserts lifecycle fields together', async () => {
   const user = await createTestUser()
   try {
     const boardId = await currentBoardId(user.id)
+    const completedAt = '2026-09-03T12:00:00.000Z'
+    const archivedAt = '2026-09-03T13:00:00.000Z'
     const task = {
       ...makeMockTasks()[0],
       id: randomUUID(),
       labelId: null,
-      title: 'legacy payload insert',
+      title: 'canonical payload insert',
+      status: 'completed' as const,
+      completedAt,
+      reopenStatus: 'doing' as const,
     }
     const insertPayload = taskToRow(task, boardId)
-    expect(insertPayload).not.toHaveProperty('completed_at')
-    expect(insertPayload).not.toHaveProperty('reopen_status')
-    expect(insertPayload).not.toHaveProperty('archived_at')
+    expect(insertPayload).toMatchObject({
+      status: 'done',
+      completed_at: completedAt,
+      reopen_status: 'doing',
+      archived_at: null,
+    })
 
     const { error: insertError } = await user.client.from('tasks').insert(insertPayload)
     expect(insertError).toBeNull()
 
     const { error: updateError } = await user.client
       .from('tasks')
-      .update(taskToRow({ ...task, title: 'legacy payload update' }, boardId))
+      .update(taskToRow({ ...task, title: 'canonical payload update', archivedAt }, boardId))
       .eq('id', task.id)
     expect(updateError).toBeNull()
 
     const { error: upsertError } = await user.client
       .from('tasks')
-      .upsert(taskToRow({ ...task, title: 'legacy payload upsert' }, boardId), {
+      .upsert(taskToRow({ ...task, title: 'canonical payload upsert', archivedAt }, boardId), {
         onConflict: 'id',
       })
     expect(upsertError).toBeNull()
@@ -106,10 +114,10 @@ test('the current Task payload still inserts, updates, and upserts without lifec
     )
     expect(stored.rows).toEqual([
       {
-        title: 'legacy payload upsert',
-        completed_at: null,
-        reopen_status: null,
-        archived_at: null,
+        title: 'canonical payload upsert',
+        completed_at: new Date(completedAt),
+        reopen_status: 'doing',
+        archived_at: new Date(archivedAt),
       },
     ])
   } finally {

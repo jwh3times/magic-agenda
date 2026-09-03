@@ -3,12 +3,12 @@ import { columnChrome } from '../theme/chrome'
 import { tasksForStatus } from '../data/selectors'
 import { DropLane } from '../dnd/DropLane'
 import { SortableCard } from '../dnd/SortableCard'
-import type { StatusDef } from '../theme/constants'
+import type { WorkflowStatusDef } from '../theme/constants'
 import type { Task } from '../types/task'
 import { useBoardActions } from './boardActionContext'
 
 export interface ColumnProps {
-  col: StatusDef
+  col: WorkflowStatusDef
   tasks: Task[]
 }
 

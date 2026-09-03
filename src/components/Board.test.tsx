@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { ThemeProvider } from '../theme/ThemeProvider'
 import { Board } from './Board'
-import { applyToggleDone } from '../data/selectors'
+import { applyToggleCompletion } from '../data/selectors'
 import { makeMockTasks } from '../data/mockTasks'
 import { OfflineContext } from '../data/offlineContext'
 import { TodayContext } from '../data/todayContext'
@@ -43,7 +43,8 @@ function Harness({
     updateTask: (task) =>
       setTasks((prev) => prev.map((current) => (current.id === task.id ? task : current))),
     deleteTask: (id) => setTasks((prev) => prev.filter((task) => task.id !== id)),
-    toggleDone: (id) => setTasks((prev) => applyToggleDone(prev, id).tasks),
+    toggleCompletion: (id) =>
+      setTasks((prev) => applyToggleCompletion(prev, id, '2026-09-03T15:00:00.000Z').tasks),
     rollForward: () => {},
     getTemplate: () => undefined,
   }
@@ -106,22 +107,22 @@ test('offline disables drag via the DragDisabledContext', () => {
   expect(card).toHaveAttribute('aria-disabled', 'true')
 })
 
-// TaskCard renders the pin/done toggles as plain <button>s only when handed a handler, falling
+// TaskCard renders the Pin and Completion controls as buttons only when handed handlers, falling
 // back to a non-interactive <span> otherwise (see TaskCard.tsx) — this is the same mechanism
 // the drag test above relies on, applied to the two per-card mutation affordances the brief
 // missed (a coordinator-flagged Critical: neither was gated on readOnly).
-test('offline disables the per-card done and pin toggles', () => {
+test('offline disables the per-card Completion and Pin controls', () => {
   renderOffline()
   const card = screen.getByText('Renew passport').closest('[role="button"]') as HTMLElement
   expect(within(card).queryByRole('button', { name: 'Pin' })).not.toBeInTheDocument()
-  expect(within(card).queryByRole('button', { name: 'Mark done' })).not.toBeInTheDocument()
+  expect(within(card).queryByRole('button', { name: 'Complete' })).not.toBeInTheDocument()
 })
 
-test('online keeps the per-card done and pin toggles interactive', () => {
+test('online keeps the per-card Completion and Pin controls interactive', () => {
   renderBoard()
   const card = screen.getByText('Renew passport').closest('[role="button"]') as HTMLElement
   expect(within(card).getByRole('button', { name: 'Pin' })).toBeEnabled()
-  expect(within(card).getByRole('button', { name: 'Mark done' })).toBeEnabled()
+  expect(within(card).getByRole('button', { name: 'Complete' })).toBeEnabled()
 })
 
 test('online leaves the board fully interactive', () => {
@@ -141,7 +142,7 @@ test('switches between Calendar and Board (kanban) views', async () => {
   const user = userEvent.setup()
   renderBoard()
 
-  // Status words also appear in the filter dropdown <option>s, so scope to the column <span>s.
+  // Workflow Status words also appear in the filter dropdown, so scope to the column spans.
   expect(screen.queryByText('In Progress', { selector: 'span' })).not.toBeInTheDocument()
 
   await user.click(screen.getByRole('button', { name: 'Board' }))

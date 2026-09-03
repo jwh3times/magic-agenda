@@ -18,7 +18,9 @@ const sample: Task = {
   color: 'yellow',
   checklist: [],
   status: 'todo',
-  done: false,
+  completedAt: null,
+  reopenStatus: null,
+  archivedAt: null,
   day: '2026-07-08',
   atTime: null,
   pinned: false,
@@ -36,6 +38,7 @@ describe('FIELD_OWNER', () => {
     expect(sorted(new Set(Object.keys(FIELD_OWNER) as (keyof Task)[]))).toEqual(
       (Object.keys(sample) as (keyof Task)[]).sort(),
     )
+    expect(sample).not.toHaveProperty('done')
   })
 
   it('assigns each field a single owner', () => {
@@ -48,11 +51,13 @@ describe('FIELD_OWNER', () => {
 describe('derived scope lists', () => {
   it('per-occurrence is occurrence state plus placement', () => {
     expect(sorted(PER_OCCURRENCE_FIELDS)).toEqual([
+      'archivedAt',
+      'completedAt',
       'day',
-      'done',
       'korder',
       'order',
       'pinned',
+      'reopenStatus',
       'status',
     ])
   })

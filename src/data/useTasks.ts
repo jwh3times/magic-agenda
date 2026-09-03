@@ -11,7 +11,7 @@ import { supabase } from '../lib/supabase'
 import { errorMessage } from '../lib/errors'
 import { rowToTask, taskToRow } from './mappers'
 import { canPersistSnapshot, readBoardSnapshot, writeBoardSnapshot } from './snapshot'
-import { applyRollForward, applyToggleDone } from './selectors'
+import { applyRollForward, applyToggleCompletion } from './selectors'
 import { applyTaskChange, payloadToChange } from './realtime'
 import { useOwnWrites, useSyncedTable, type ChangePayload } from './useSyncedTable'
 import { snapshotFallbackReason, type SnapshotFallbackReason } from './snapshotFallback'
@@ -112,6 +112,32 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       return next
     })
   }, [])
+
+  /** Replace optimistic rows with the post-trigger values returned by PostgREST. */
+  const reconcileReturnedRows = useCallback(
+    (rows: TaskRow[] | null) => {
+      if (!rows || rows.length === 0) return
+      const returned = rows.map(rowToTask)
+      const byId = new Map(returned.map((task) => [task.id, task]))
+      setTasks((current) =>
+        current.map((task) => {
+          const replacement = byId.get(task.id)
+          return replacement && !isSeriesDefinition(replacement) ? replacement : task
+        }),
+      )
+
+      const templateIds = new Set(templatesRef.current.map((task) => task.id))
+      const templates = returned.filter(
+        (task): task is SeriesDefinition => isSeriesDefinition(task) && templateIds.has(task.id),
+      )
+      if (templates.length > 0) {
+        const replacements = new Map(templates.map((task) => [task.id, task]))
+        templatesRef.current = templatesRef.current.map((task) => replacements.get(task.id) ?? task)
+        bumpTemplatesVersion()
+      }
+    },
+    [setTasks],
+  )
 
   const previewReorder = useCallback((next: Task[]) => setTasks(next), [setTasks])
 
@@ -313,8 +339,12 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         bumpTemplatesVersion()
         markWrites([task.id])
         try {
-          const { error: err } = await supabase.from('tasks').insert(taskToRow(task, boardId))
+          const { data, error: err } = await supabase
+            .from('tasks')
+            .insert(taskToRow(task, boardId))
+            .select()
           if (err) throw new Error(err.message)
+          reconcileReturnedRows(data)
         } catch (e) {
           setError(errorMessage(e))
           return
@@ -332,14 +362,18 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       setTasks((p) => [...p, full])
       markWrites([full.id])
       try {
-        const { error: err } = await supabase.from('tasks').insert(taskToRow(full, boardId))
+        const { data, error: err } = await supabase
+          .from('tasks')
+          .insert(taskToRow(full, boardId))
+          .select()
         if (err) throw new Error(err.message)
+        reconcileReturnedRows(data)
       } catch (e) {
         setTasks(prev)
         setError(errorMessage(e))
       }
     },
-    [setTasks, materialize, boardId, markWrites],
+    [setTasks, materialize, boardId, markWrites, reconcileReturnedRows],
   )
 
   /**
@@ -356,17 +390,18 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       setTasks((p) => p.map((t) => (t.id === task.id ? task : t)))
       markWrites([task.id])
       try {
-        const { error: err } = await supabase
-          .from('tasks')
-          .update(taskToRow(task, boardId))
-          .eq('id', task.id)
+        const previous = prev.find((item) => item.id === task.id)
+        const write = supabase.from('tasks').update(taskToRow(task, boardId)).eq('id', task.id)
+        const { data, error: err } =
+          previous?.status !== task.status ? await write.select() : await write
         if (err) throw new Error(err.message)
+        reconcileReturnedRows(data)
       } catch (e) {
         setTasks(prev)
         setError(errorMessage(e))
       }
     },
-    [setTasks, boardId, markWrites],
+    [setTasks, boardId, markWrites, reconcileReturnedRows],
   )
 
   const removeTask = useCallback(
@@ -385,26 +420,28 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     [setTasks, markWrites],
   )
 
-  const toggleDone = useCallback(
+  const toggleCompletion = useCallback(
     async (id: string) => {
       const prev = tasksRef.current
-      const { tasks: next } = applyToggleDone(prev, id)
+      const { tasks: next } = applyToggleCompletion(prev, id, new Date().toISOString())
       setTasks(next)
       const toggled = next.find((t) => t.id === id)
       if (!toggled) return
       markWrites([id])
       try {
-        const { error: err } = await supabase
+        const { data, error: err } = await supabase
           .from('tasks')
           .update(taskToRow(toggled, boardId))
           .eq('id', id)
+          .select()
         if (err) throw new Error(err.message)
+        reconcileReturnedRows(data)
       } catch (e) {
         setTasks(prev)
         setError(errorMessage(e))
       }
     },
-    [setTasks, boardId, markWrites],
+    [setTasks, boardId, markWrites, reconcileReturnedRows],
   )
 
   const persistReorder = useCallback(
@@ -416,14 +453,16 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       if (rows.length === 0) return
       markWrites(rows.map((r) => r.id))
       try {
-        const { error: err } = await supabase.from('tasks').upsert(rows, { onConflict: 'id' })
+        const write = supabase.from('tasks').upsert(rows, { onConflict: 'id' })
+        const { data, error: err } = mode === 'status' ? await write.select() : await write
         if (err) throw new Error(err.message)
+        reconcileReturnedRows(data)
       } catch (e) {
         setError(errorMessage(e))
         void reload()
       }
     },
-    [setTasks, boardId, reload, markWrites],
+    [setTasks, boardId, reload, markWrites, reconcileReturnedRows],
   )
 
   const rollForward = useCallback(
@@ -486,11 +525,19 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
 
       if (plan.upserts.length > 0) {
         try {
-          const { error: err } = await supabase.from('tasks').upsert(
+          const previous = new Map(
+            [...prevTasks, ...prevTemplates].map((task) => [task.id, task.status]),
+          )
+          const changesStatus = plan.upserts.some(
+            (task) => previous.has(task.id) && previous.get(task.id) !== task.status,
+          )
+          const write = supabase.from('tasks').upsert(
             plan.upserts.map((t) => taskToRow(t, boardId)),
             { onConflict: 'id' },
           )
+          const { data, error: err } = changesStatus ? await write.select() : await write
           if (err) throw new Error(err.message)
+          reconcileReturnedRows(data)
         } catch (e) {
           failed(e, plan.upsertOnFailure)
         }
@@ -518,7 +565,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         await materialize(plan.materialize, [...plan.state.tasks])
       }
     },
-    [setTasks, markWrites, boardId, reload, materialize],
+    [setTasks, markWrites, boardId, reload, materialize, reconcileReturnedRows],
   )
 
   const seriesState = useCallback(
@@ -577,7 +624,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     createTask,
     updateTask,
     removeTask,
-    toggleDone,
+    toggleCompletion,
     persistReorder,
     rollForward,
     getTemplate,
