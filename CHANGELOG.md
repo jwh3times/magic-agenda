@@ -12,6 +12,14 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.40] - 2026-09-03
+
+### Internal
+
+- Added nullable `completed_at`, `reopen_status`, and `archived_at` Task storage as the deploy-safe
+  persistence foundation for Completion and Archive, while preserving every existing client payload
+  and Board Membership permission (#239).
+
 ## [1.8.39] - 2026-09-02
 
 ### Internal
@@ -2606,7 +2614,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.39...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.40...HEAD
+[1.8.40]: https://github.com/jwh3times/magic-agenda/compare/v1.8.39...v1.8.40
 [1.8.39]: https://github.com/jwh3times/magic-agenda/compare/v1.8.38...v1.8.39
 [1.8.38]: https://github.com/jwh3times/magic-agenda/compare/v1.8.37...v1.8.38
 [1.8.37]: https://github.com/jwh3times/magic-agenda/compare/v1.8.36...v1.8.37
