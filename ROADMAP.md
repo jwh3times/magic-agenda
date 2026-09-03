@@ -205,11 +205,11 @@ were added as their own effort rather than a roadmap feature — see
   complete a Task. Completion History is the selected Board's currently Completed Tasks,
   Archived ones included — not an event ledger — so Reopening/deletion removes a Task and
   recompletion moves it to the later period. Archive is durable state available only to
-  Completed Tasks, not a selector filter or deletion. The safe release chain is additive schema
-  (#239), compatible app-domain/export-v3 cutover (#240), server backfill/enforcement (#241),
-  then the `/settings` History experience, Archive controls, eight-week Throughput bars, and
-  Completion Streak (#242). Automatic archiving is outside that first slice: if added later it
-  must be a Board-owned mutation policy, not personal filtering.
+  Completed Tasks, not a selector filter or deletion. The additive schema foundation shipped in
+  #239; the remaining safe release chain is the compatible app-domain/export-v3 cutover (#240),
+  server backfill/enforcement (#241), then the `/settings` History experience, Archive controls,
+  eight-week Throughput bars, and Completion Streak (#242). Automatic archiving is outside that
+  first slice: if added later it must be a Board-owned mutation policy, not personal filtering.
 
 - [ ] **Two-factor (TOTP) enrollment UI** · **P3** · M — **production already allows TOTP and the
       app cannot reach it**: `supabase/config.toml`'s `[auth.mfa.totp]` sets `enroll_enabled` and

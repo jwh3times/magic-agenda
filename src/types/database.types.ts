@@ -157,12 +157,14 @@ export type Database = {
       }
       tasks: {
         Row: {
+          archived_at: string | null
           at_time: string | null
           author_id: string | null
           author_kind: string
           board_id: string
           checklist: Json
           color: string
+          completed_at: string | null
           created_at: string
           day: string | null
           description: string
@@ -178,18 +180,21 @@ export type Database = {
           recur_parent_id: string | null
           recur_skip: Json
           recur_until: string | null
+          reopen_status: string | null
           revision: number
           status: string
           title: string
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
           at_time?: string | null
           author_id?: string | null
           author_kind?: string
           board_id: string
           checklist?: Json
           color?: string
+          completed_at?: string | null
           created_at?: string
           day?: string | null
           description?: string
@@ -205,18 +210,21 @@ export type Database = {
           recur_parent_id?: string | null
           recur_skip?: Json
           recur_until?: string | null
+          reopen_status?: string | null
           revision?: number
           status?: string
           title?: string
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
           at_time?: string | null
           author_id?: string | null
           author_kind?: string
           board_id?: string
           checklist?: Json
           color?: string
+          completed_at?: string | null
           created_at?: string
           day?: string | null
           description?: string
@@ -232,6 +240,7 @@ export type Database = {
           recur_parent_id?: string | null
           recur_skip?: Json
           recur_until?: string | null
+          reopen_status?: string | null
           revision?: number
           status?: string
           title?: string

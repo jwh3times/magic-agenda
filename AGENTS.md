@@ -904,6 +904,19 @@ The edited Occurrence is the exception to reconciliation: it takes `draft.checkl
 ticks included, because reconciling it against its own stored row would hand back the completion
 the user just changed in the editor.
 
+### Completion persistence is additive until the app cutover
+
+`tasks.completed_at timestamptz`, `tasks.reopen_status text`, and `tasks.archived_at timestamptz`
+exist as nullable storage for ADR-0003. `reopen_status`, when present, is constrained to the stored
+active Workflow Status tokens `todo` or `doing`. Existing Task grants and Board-membership RLS own
+these columns exactly like the rest of Task content.
+
+This is deliberately a schema-only deploy window: `Task`, `rowToTask`, `taskToRow`, and the export
+format still ignore all three fields, so every deployed insert/update/upsert payload leaves them
+NULL. #240 owns the compatible app-domain and export-v3 cutover; #241 owns backfill and lifecycle
+enforcement. Until those land, preserve NULL as “the current client has no lifecycle data” rather
+than inferring values, and keep cross-column constraints and transition triggers out of this slice.
+
 ### Drag-and-drop: every decision is pure; dnd-kit is an adapter
 
 Two pure modules, then thin wiring. `src/dnd/reorder.ts` is the **splice math** (`moveToDay` /
