@@ -30,6 +30,12 @@ No unreleased changes.
   hand edit on every merge.
 - Documented `docs/research/` in the `docs/` index, which previously classified every directory
   except that one as living or historical.
+- Retargeted the agent instructions that maintained the old arrangement, so the next session does
+  not rebuild it. The `end-session` skill told sessions to keep a shipped-list and a next-work
+  ordering in the private index — the two sections this change removes — and now says not to, with
+  the reason. It also adds newly filed issues to the project board, since an issue that is filed
+  but not on the board is the same drift one surface over. The `docs-updater` subagent and `ship`
+  skill no longer treat `ROADMAP.md` as a backlog to prune.
 
 ## [1.8.41] - 2026-09-03
 

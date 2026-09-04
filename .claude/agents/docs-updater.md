@@ -1,6 +1,6 @@
 ---
 name: docs-updater
-description: Use to keep project documentation current after code changes — AGENTS.md, README.md, ROADMAP.md, and CHANGELOG.md. Run after completing a feature, schema migration, or architectural change.
+description: Use to keep project documentation current after code changes — AGENTS.md, README.md, and CHANGELOG.md. Planned work lives in GitHub issues, not in ROADMAP.md, so there is no backlog file to prune. Run after completing a feature, schema migration, or architectural change.
 tools: Read, Write, Edit, Glob, Grep, Bash
 model: sonnet
 ---

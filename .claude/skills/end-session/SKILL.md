@@ -78,6 +78,11 @@ vocabulary lives in **`docs/agents/triage-labels.md`** (`needs-triage`, `needs-i
   product judgement, the issue is the deliverable — do not pick a default and bake it into the
   repo. (`#220`'s "a Series definition with `recurFreq: 'none'` materializes nothing" is the
   shape: real, cheap to change, and meaningless until someone decides what it should do.)
+- **Put every new issue on the project board.** `gh project item-add 5 --owner jwh3times --url
+  <issue-url>`, then set `Phase` / `Priority` / `Size`. An issue that is filed but not on the board
+  is invisible to the queue, which is the same drift the Markdown backlog had, one surface over.
+  (If the board's built-in auto-add workflow is enabled, this is already done — verify rather than
+  assume, since that setting is UI-only and not visible from `gh`.)
 - **Use the glossary's words.** `CONTEXT.md` is authoritative for domain vocabulary — Recurring
   Series, Recurrence Rule, Occurrence, Occurrence Date, Scheduled Day, Excluded Date. `template`
   and `instance` are implementation words and stay inside the recurrence code; an issue title
@@ -102,13 +107,20 @@ edited. Its operating rules are in `private/OPERATING-POLICY.md`; the ones that 
 
 Its layout:
 
-- **`private/README.md` — the index, and the file that almost always needs the edit.** It
-  carries `Last reconciled`, a `Repository state` line (version, the issue numbers that landed,
-  whether a local feature branch remains), a **Current implementation boundary** split into
-  Shipped / Not shipped, a **Next work** ordering with the rationale for the order, a **Current
-  security and operational register** of open and accepted risks, and a **Document map**.
-  Update the date, the state line, the boundary lists, and the ordering to match what this
-  session changed. Move an item from Not shipped to Shipped only when it actually merged.
+- **`private/README.md` — the index.** It carries `Last reconciled`, a `Repository state` line
+  (version, the issue numbers that landed, whether a local feature branch remains), a **Where work
+  is tracked** pointer, a **Current security and operational register** of open and accepted risks,
+  and a **Document map**. Update the date and the state line; update the register when this session
+  changed an accepted risk, closed one, or gave one an issue.
+
+  **Do not reintroduce a shipped-list or a next-work ordering here.** Both existed until
+  2026-09-04 and both drifted — a shipped-list is a worse `CHANGELOG.md`, and a next-work list is a
+  worse issue queue. Planned work lives in GitHub issues and on the project board (see step 2). If
+  this session's state feels like it needs a list in this file, it needs an issue instead.
+
+  What the register **is** for, and why it is not an issue: an accepted risk with a revisit trigger
+  has no closed state, and a closed issue is invisible at the moment someone needs it. Record the
+  decision here; record the *action* as an issue and link it.
 - **`private/YYYY-MM-DD-<topic>.md` — dated evidence documents.** Security reviews, decision
   records, threat models, accepted-risk registers. **These are evidence from the state they
   reviewed and are not silently rewritten to look like they were written today.** If this
