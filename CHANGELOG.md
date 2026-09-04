@@ -12,6 +12,16 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.43] - 2026-09-04
+
+### Internal
+
+- Recorded what the project board's automation does and does not do, after enabling auto-add for
+  the public repository. A new public issue is added and gets a status automatically, but no
+  workflow sets Phase, Priority, or Size, and a private-repository issue is never auto-added —
+  auto-add is per-repository and the plan allows one workflow. Both gaps fail silently, so the
+  session-closeout skill now names them as explicit steps.
+
 ## [1.8.42] - 2026-09-04
 
 ### Changed
@@ -2656,7 +2666,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.42...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.43...HEAD
+[1.8.43]: https://github.com/jwh3times/magic-agenda/compare/v1.8.42...v1.8.43
 [1.8.42]: https://github.com/jwh3times/magic-agenda/compare/v1.8.41...v1.8.42
 [1.8.41]: https://github.com/jwh3times/magic-agenda/compare/v1.8.40...v1.8.41
 [1.8.40]: https://github.com/jwh3times/magic-agenda/compare/v1.8.39...v1.8.40
