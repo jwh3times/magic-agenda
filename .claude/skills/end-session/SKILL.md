@@ -78,11 +78,19 @@ vocabulary lives in **`docs/agents/triage-labels.md`** (`needs-triage`, `needs-i
   product judgement, the issue is the deliverable — do not pick a default and bake it into the
   repo. (`#220`'s "a Series definition with `recurFreq: 'none'` materializes nothing" is the
   shape: real, cheap to change, and meaningless until someone decides what it should do.)
-- **Put every new issue on the project board.** `gh project item-add 5 --owner jwh3times --url
-  <issue-url>`, then set `Phase` / `Priority` / `Size`. An issue that is filed but not on the board
-  is invisible to the queue, which is the same drift the Markdown backlog had, one surface over.
-  (If the board's built-in auto-add workflow is enabled, this is already done — verify rather than
-  assume, since that setting is UI-only and not visible from `gh`.)
+- **Set the board fields on every new issue, and add private ones by hand.** The two halves are
+  different because the automation covers less than it looks like it does:
+  - A **public** issue is added to the board automatically (the `Auto-add to project` workflow,
+    enabled 2026-09-04, filter `is:issue`), and `Status` is set to `Todo` by `Item added to
+    project`. **Neither sets `Phase`, `Priority`, or `Size`** — do that:
+    `gh project item-edit --id <item-id> --project-id <proj-id> --field-id <f> --single-select-option-id <o>`.
+  - A **private-repo** issue is *never* auto-added. Auto-add is per-repository and GitHub Free
+    allows exactly one workflow, which is spent on the public repo. Add it:
+    `gh project item-add 5 --owner jwh3times --url <issue-url>`, then set the same three fields.
+
+  An issue that is filed but not on the board, or on it with no fields, is invisible to the queue —
+  the same drift the Markdown backlog had, one surface over. This has already gone wrong once: the
+  board held only the public issues while three documents claimed it carried both.
 - **Use the glossary's words.** `CONTEXT.md` is authoritative for domain vocabulary — Recurring
   Series, Recurrence Rule, Occurrence, Occurrence Date, Scheduled Day, Excluded Date. `template`
   and `instance` are implementation words and stay inside the recurrence code; an issue title
