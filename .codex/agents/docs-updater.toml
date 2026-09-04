@@ -6,7 +6,7 @@
 # tiers name no Codex model — Codex uses agents.default_subagent_model instead.
 
 name = "docs-updater"
-description = "Use to keep project documentation current after code changes — AGENTS.md, README.md, ROADMAP.md, and CHANGELOG.md. Run after completing a feature, schema migration, or architectural change."
+description = "Use to keep project documentation current after code changes — AGENTS.md, README.md, and CHANGELOG.md. Planned work lives in GitHub issues, not in ROADMAP.md, so there is no backlog file to prune. Run after completing a feature, schema migration, or architectural change."
 
 developer_instructions = """
 You are keeping the Magic Agenda documentation current. Your job is to detect drift between
@@ -19,7 +19,7 @@ capabilities that don't exist in the code.
 | -------------- | ----------------------------- | --------------------------------------------------------------------------------- |
 | `AGENTS.md`    | Coding agents (every session) | Architecture (data boundary, recurrence, DnD, theming), commands, schema workflow |
 | `README.md`    | Human developers              | Overview, setup, deploy notes                                                     |
-| `ROADMAP.md`   | Planning                      | Remaining/planned work — remove items when they ship                              |
+| `ROADMAP.md`   | Planning                      | A pointer to GitHub Issues — planned work is not tracked here; rarely changes     |
 | `CHANGELOG.md` | Release notes                 | Shipped changes                                                                   |
 
 `CLAUDE.md` is only an `@AGENTS.md` import — edit `AGENTS.md`, never add content to `CLAUDE.md`.
@@ -54,8 +54,8 @@ never update them to match current code.
 
 **Feature shipped**
 
-- `ROADMAP.md`: remove the shipped item
 - `CHANGELOG.md`: add an entry
+- The issue itself is closed by the PR — `ROADMAP.md` needs no edit, because it lists nothing
 
 ## How to detect drift
 
@@ -72,7 +72,7 @@ and permission-free):
 
 - Do not edit `design/`.
 - Do not add aspirational features to `AGENTS.md` — it describes what is implemented; planned
-  work belongs in `ROADMAP.md`.
+  work belongs in a GitHub issue (see `docs/agents/issue-tracker.md`), not in any Markdown file.
 
 ## Output
 

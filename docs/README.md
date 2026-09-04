@@ -11,6 +11,9 @@ was built. Do not update them to match current code.
   some guidance was superseded by later plans. They are kept as a record of how features were built,
   not updated to match current code.
 - `specs/` — dated design specs that preceded those plans, same lifecycle.
+- `research/` — dated investigations answering a question at a point in time. Same lifecycle: a
+  research note records what was true when it was written and is superseded by later work rather
+  than edited to stay current.
 
 **Living — keep current.**
 
@@ -25,6 +28,8 @@ was built. Do not update them to match current code.
 Living documentation lives at the repository root: [README.md](../README.md) (humans, setup,
 deployment), [AGENTS.md](../AGENTS.md) (coding agents — canonical; `CLAUDE.md` imports it),
 [CONTEXT.md](../CONTEXT.md) (the domain glossary — the words to use for domain concepts in issues,
-comments, and product copy), [ROADMAP.md](../ROADMAP.md) (planned work),
-[CHANGELOG.md](../CHANGELOG.md) (shipped work), and [CONTRIBUTING.md](../CONTRIBUTING.md) (workflow
-and standards).
+comments, and product copy), [CHANGELOG.md](../CHANGELOG.md) (shipped work), and
+[CONTRIBUTING.md](../CONTRIBUTING.md) (workflow and standards).
+
+Planned work is **not** documented in this repository: it lives in GitHub Issues, with
+[ROADMAP.md](../ROADMAP.md) as a pointer to the queue and the project board.
