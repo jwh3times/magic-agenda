@@ -191,6 +191,15 @@ one Board, and every task carries a `board_id` — which is now **NOT NULL and a
 four `tasks` policies compare `board_id` against the caller's current Memberships; `user_id` was no
 longer an authorization input anywhere even before it was dropped from the table entirely (#197).
 
+**`board_id = NULL` meaning "the personal board" was considered and rejected**, and the reason is
+worth keeping because it generalizes past Boards. The zero-migration appeal is real: nothing has to
+be backfilled and the deployed client keeps working. What it buys is two task-ownership models
+preserved indefinitely, so every reader, policy, realtime filter, snapshot, and export path has to
+handle both forever. The same trap appears one table over whenever a new Board-scoped thing is
+tempted to scope by Account instead — Labels were made Board-scoped from their first migration for
+exactly this reason, and a user-prefixed storage path for attachments would reintroduce it. Prefer
+one containment model and pay the migration.
+
 The policy shape is `board_id in (select ...)` rather than a helper function of `board_id`, and that
 is deliberate on two counts. A function taking the row's Board id cannot be hoisted to an InitPlan,
 so it would run once per row on the hottest query in the app; the uncorrelated subquery is evaluated
