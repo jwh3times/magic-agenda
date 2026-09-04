@@ -15,7 +15,7 @@ capabilities that don't exist in the code.
 | -------------- | ----------------------------- | --------------------------------------------------------------------------------- |
 | `AGENTS.md`    | Coding agents (every session) | Architecture (data boundary, recurrence, DnD, theming), commands, schema workflow |
 | `README.md`    | Human developers              | Overview, setup, deploy notes                                                     |
-| `ROADMAP.md`   | Planning                      | Remaining/planned work — remove items when they ship                              |
+| `ROADMAP.md`   | Planning                      | A pointer to GitHub Issues — planned work is not tracked here; rarely changes     |
 | `CHANGELOG.md` | Release notes                 | Shipped changes                                                                   |
 
 `CLAUDE.md` is only an `@AGENTS.md` import — edit `AGENTS.md`, never add content to `CLAUDE.md`.
@@ -50,8 +50,8 @@ never update them to match current code.
 
 **Feature shipped**
 
-- `ROADMAP.md`: remove the shipped item
 - `CHANGELOG.md`: add an entry
+- The issue itself is closed by the PR — `ROADMAP.md` needs no edit, because it lists nothing
 
 ## How to detect drift
 
@@ -68,7 +68,7 @@ and permission-free):
 
 - Do not edit `design/`.
 - Do not add aspirational features to `AGENTS.md` — it describes what is implemented; planned
-  work belongs in `ROADMAP.md`.
+  work belongs in a GitHub issue (see `docs/agents/issue-tracker.md`), not in any Markdown file.
 
 ## Output
 

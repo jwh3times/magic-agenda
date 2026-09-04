@@ -106,7 +106,8 @@ Invoke the **`docs-updater`** subagent, scoped to **this branch's diff only**:
 git diff "$(git merge-base main HEAD)"..HEAD --stat
 ```
 
-Let it update the docs it owns — `AGENTS.md`, `README.md`, `ROADMAP.md` (remove shipped items). It
+Let it update the docs it owns — `AGENTS.md` and `README.md`. `ROADMAP.md` is only a pointer to
+GitHub Issues and almost never needs an edit; shipped work is recorded by closing the issue. It
 also owns `CHANGELOG.md`, but **you** write that in step 5 — tell it to **leave `CHANGELOG.md`
 alone**. Never edit `CLAUDE.md` (an `@AGENTS.md` import) or anything under `design/`.
 

@@ -1392,15 +1392,15 @@ This file is the **canonical agent guide**; `CLAUDE.md` is only an `@AGENTS.md` 
 loads the same content. Edit `AGENTS.md` — never duplicate content into `CLAUDE.md`.
 
 Project subagents live in `.claude/agents/`: `docs-updater` (keeps `AGENTS.md`,
-`README.md`, `ROADMAP.md`, `CHANGELOG.md` in sync with the code) and `code-reviewer` (reviews diffs
+`README.md`, `CHANGELOG.md` in sync with the code) and `code-reviewer` (reviews diffs
 against the app/DB boundary, RLS, recurrence, and DnD correctness rules before merging). The `ship`
 skill (`.claude/skills/ship/`) takes a finished branch to an open PR — it refreshes the docs (via
 `docs-updater`), evaluates the release level from shipped compatibility and user impact, gets
 confirmation before starting a major/minor line, records the resulting version in `CHANGELOG.md`,
 runs the fast checks (`format:check`, `lint`, `tsc -b`), pushes, and opens or updates the PR; run it
 with "ship it" when a branch is ready. Whether or not you use it, keep `AGENTS.md`, `README.md`,
-`ROADMAP.md`, and `CHANGELOG.md` aligned when a change affects project behavior, commands,
-architecture, or release notes.
+and `CHANGELOG.md` aligned when a change affects project behavior, commands, architecture, or
+release notes. `ROADMAP.md` is a pointer to GitHub Issues and holds no item list to update.
 
 The `end-session` skill (authored at `.agents/skills/end-session/`) is the other bookend: it closes
 a work session by moving knowledge out of the conversation and junk out of the checkout — GitHub
@@ -1552,6 +1552,28 @@ procedure, including what to verify: `docs/runbooks/restore-from-backup.md`.
 ### Issue tracker
 
 Issues and specs live in GitHub Issues for jwh3times/magic-agenda. See `docs/agents/issue-tracker.md`.
+
+**Every unbuilt item is an open issue, including the ones that are years out.** There is no Markdown
+backlog to consult alongside it — `ROADMAP.md` is a pointer, and the per-item implementation
+sketches that used to live there are now issue bodies. The
+[project board](https://github.com/users/jwh3times/projects/5) carries `Phase` / `Priority` / `Size`
+/ `Status` as fields, and ordering is expressed with GitHub's native **blocked-by** dependency
+edges rather than prose, so a blocked item shows its open blockers in the UI. The board is private
+because it also holds maintainer-only items; the public issues on it stay public regardless, since
+a private project cannot make a public issue's body private.
+
+The dividing line is worth stating because it is what stopped the old file drifting: **state goes in
+GitHub, reasoning stays in files.** An issue has a closed state and a dependency graph; a Markdown
+checkbox has neither. Things that are never "done" — the domain glossary, an architecture decision,
+an accepted risk with a revisit trigger, an operational procedure — stay in `CONTEXT.md`,
+`docs/adr/`, `docs/runbooks/`, and (for confidential ones) the private companion. Do not reintroduce
+a status list, a shipped-items list, or a build-order table into any Markdown file; each is a second
+copy of something GitHub already answers authoritatively, and each drifted before.
+
+Work whose **issue body itself** would disclose something the public code does not — an undefended
+surface, an unclosable production weakness, provider or credential metadata — goes in the private
+companion's tracker instead. Note that GitHub cannot transfer a private-repository issue to a public
+one, so misfiling in that direction is the harder mistake to undo.
 
 ### Triage labels
 

@@ -235,8 +235,11 @@ undocumented. See [Versioning](./CONTRIBUTING.md#versioning) for details.
 
 ## Roadmap
 
-Planned features and fixes are tracked in [ROADMAP.md](./ROADMAP.md); shipped work lives in the
-[changelog](./CHANGELOG.md).
+Planned features and fixes are tracked as
+[GitHub issues](https://github.com/jwh3times/magic-agenda/issues) — each one carries its own
+implementation sketch, and ordering lives on a project board rather than in a file.
+[ROADMAP.md](./ROADMAP.md) explains that arrangement and points at the queue. Shipped work lives in
+the [changelog](./CHANGELOG.md).
 
 ## Contributing
 

@@ -12,6 +12,25 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.42] - 2026-09-04
+
+### Changed
+
+- Planned work is now tracked entirely as GitHub issues rather than as a checklist in
+  `ROADMAP.md`. Every unbuilt item is an open issue carrying its own implementation sketch, with
+  phase, priority, and size as project-board fields and ordering expressed as native blocked-by
+  dependency edges. `ROADMAP.md` is now a pointer explaining that arrangement.
+
+### Internal
+
+- Recorded the rule that produced the change in `AGENTS.md`: state belongs in GitHub, which has a
+  closed state and a dependency graph, while durable reasoning stays in files. The previous
+  arrangement kept a second copy of issue state in Markdown, and the copy drifted — an item stayed
+  marked in progress after both of its sub-items had shipped, and the build-order table needed a
+  hand edit on every merge.
+- Documented `docs/research/` in the `docs/` index, which previously classified every directory
+  except that one as living or historical.
+
 ## [1.8.41] - 2026-09-03
 
 ### Changed
@@ -2631,7 +2650,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.41...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.42...HEAD
+[1.8.42]: https://github.com/jwh3times/magic-agenda/compare/v1.8.41...v1.8.42
 [1.8.41]: https://github.com/jwh3times/magic-agenda/compare/v1.8.40...v1.8.41
 [1.8.40]: https://github.com/jwh3times/magic-agenda/compare/v1.8.39...v1.8.40
 [1.8.39]: https://github.com/jwh3times/magic-agenda/compare/v1.8.38...v1.8.39
