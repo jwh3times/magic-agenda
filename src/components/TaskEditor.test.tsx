@@ -456,3 +456,57 @@ test('does not warn when the editor never had a rule to clear', async () => {
   expect(screen.getByText('Save repeating task')).toBeInTheDocument()
   expect(screen.queryByText(/later occurrences will be removed/i)).not.toBeInTheDocument()
 })
+
+test('oversized cached content explains the limit and can be repaired before saving', () => {
+  renderEditor(mkInstance({ recurParentId: null, title: 'x'.repeat(501) }))
+  expect(screen.getByRole('alert')).toHaveTextContent('500 characters')
+  expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+  const title = screen.getByPlaceholderText('Task title…')
+  expect(title).toHaveAttribute('maxlength', '1000')
+  expect(screen.getByPlaceholderText('Add a short description…')).toHaveAttribute(
+    'maxlength',
+    '40000',
+  )
+  fireEvent.change(title, { target: { value: 'Repaired' } })
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
+})
+
+test('a full checklist prevents additions and removal enables them again', () => {
+  renderEditor(
+    mkInstance({
+      checklist: Array.from({ length: 200 }, (_, i) => ({
+        id: String(i),
+        text: 'Item',
+        done: false,
+      })),
+    }),
+  )
+  expect(screen.getByPlaceholderText('Checklist limit reached (200 items)')).toBeDisabled()
+  fireEvent.click(screen.getAllByRole('button', { name: 'Remove item' })[0])
+  expect(screen.getByPlaceholderText('Add a subtask and press Enter…')).toBeEnabled()
+})
+
+test('an out-of-range cached interval remains repairable even with repetition off', () => {
+  renderEditor({ ...mkInstance({ recurParentId: null }), recurInterval: 367 })
+  expect(screen.getByRole('alert')).toHaveTextContent('1 to 366')
+  const interval = screen.getByRole('spinbutton')
+  expect(interval).toHaveAttribute('max', '366')
+  fireEvent.change(interval, { target: { value: '366' } })
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
+})
+
+test('editor character limits allow full emoji titles and trim pasted excess by code point', () => {
+  const { onSave } = renderEditor(mkInstance({ recurParentId: null }))
+  const title = screen.getByPlaceholderText('Task title…')
+  fireEvent.change(title, { target: { value: '🎉'.repeat(501) } })
+  expect(title).toHaveValue('🎉'.repeat(500))
+  const description = screen.getByPlaceholderText('Add a short description…')
+  fireEvent.change(description, { target: { value: '🎉'.repeat(20001) } })
+  expect(description).toHaveValue('🎉'.repeat(20000))
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  expect(onSave).toHaveBeenCalledWith(
+    expect.objectContaining({ title: '🎉'.repeat(500), description: '🎉'.repeat(20000) }),
+  )
+})
