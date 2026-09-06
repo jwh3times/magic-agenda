@@ -275,7 +275,8 @@ recursion detected in policy for relation`. That clause is a sharing feature wit
   with `PGRST106` even for `service_role`.
 
 The Board tables grant **nothing to `service_role`**, and almost nothing to anyone — a deliberate
-departure from `tasks`/`user_settings`, which grant full DML to all three Data API roles. Membership
+departure from the broader grants on `tasks`/`user_settings`. Authenticated Task INSERT/UPDATE
+grants are column-scoped as described below. Membership
 administration carries invariants a direct table write cannot enforce, so `board_memberships` has no
 INSERT grant or policy at all and never will have a self-serve one. What has since been added to
 `boards` is three things, and the asymmetry between them is the point:
@@ -315,6 +316,19 @@ content is not its call, whereas here the caller is the Owner and that is what O
 
 Practical consequence for fixtures: a test that reaches for the service client to create a Board
 gets a permission error; seed through direct SQL or `create_board`, never by widening the grant.
+
+**Task attribution is stamped by the database (#291).** The invoker trigger
+`stamp_task_attribution` sets `author_id = auth.uid()`, `author_kind = 'author'`, and `revision = 1`
+on INSERT; every UPDATE increments the stored revision, and both paths stamp `last_editor_id`.
+Administrative writes without an authenticated user stamp a null editor. Existing attribution is
+not backfilled: Board containment cannot establish historical authorship. Revision records writes;
+the client does not yet enforce compare-and-swap checks to reject stale edits.
+
+Authenticated INSERT/UPDATE grants match the `taskToRow` payload, including `id` for PostgREST
+upserts, and exclude attribution and database timestamps. **Leave `author_id` untouched in the
+UPDATE trigger:** the grant prevents client forgery, while the foreign key must still be able to
+SET NULL when an author deletes their account. `tests/rls/task_attribution.test.ts` covers canonical
+writes and upserts, protected-column forgery, account deletion, and concurrent revision increments.
 
 ### Labels: optional classification, legacy bridge retired
 

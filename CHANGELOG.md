@@ -12,6 +12,15 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.52] - 2026-09-06
+
+### Security
+
+- Stamp Task authorship, last-editor attribution, and revision in the database, and restrict
+  authenticated client writes to content fields. Editors can no longer forge attribution or
+  timestamps; ordinary saves and upserts remain compatible, and account deletion still clears
+  attribution without deleting another Owner’s Board content (#291).
+
 ## [1.8.51] - 2026-09-06
 
 ### Docs
@@ -2735,7 +2744,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.51...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.52...HEAD
+[1.8.52]: https://github.com/jwh3times/magic-agenda/compare/v1.8.51...v1.8.52
 [1.8.51]: https://github.com/jwh3times/magic-agenda/compare/v1.8.50...v1.8.51
 [1.8.50]: https://github.com/jwh3times/magic-agenda/compare/v1.8.49...v1.8.50
 [1.8.49]: https://github.com/jwh3times/magic-agenda/compare/v1.8.48...v1.8.49
