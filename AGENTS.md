@@ -53,8 +53,8 @@ project. Local dev needs a real `.env.local` (copy `.env.example`); `src/lib/sup
 startup if the two `VITE_SUPABASE_*` vars are missing.
 
 `main` is **protected: PR-only, no direct pushes** (no admin bypass). Land changes via a branch + PR;
-the `Format` / `Test` / `Build` / `Functions` / `Agents` / `Changelog` / `Config` checks and CodeQL must
-pass and review threads resolve before merge (0 approvals required, so you can self-merge once green).
+the checks required by the [active ruleset](https://github.com/jwh3times/magic-agenda/rules/18273908)
+must pass and review threads resolve before merge (0 approvals required, so you can self-merge once green).
 `Config` previews the pending `supabase config push` on PRs touching `supabase/config.toml` or
 `supabase/templates/**` and no-ops elsewhere — it is required, so it reports on every PR. Branch names must not start
 with `release/` — a ruleset protects that namespace and rejects the push; use `chore/release-vX.Y.Z`. Cloudflare Pages builds & deploys `main`
