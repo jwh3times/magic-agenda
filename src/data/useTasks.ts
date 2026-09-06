@@ -10,6 +10,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { errorMessage } from '../lib/errors'
 import { rowToTask, taskToRow } from './mappers'
+import { loadBoardTasks } from './loadBoardTasks'
 import { canPersistSnapshot, readBoardSnapshot, writeBoardSnapshot } from './snapshot'
 import { applyRollForward, applyToggleCompletion } from './selectors'
 import { applyTaskChange, payloadToChange } from './realtime'
@@ -220,10 +221,11 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     // which would materialize the same instances twice and hit the unique index.
     if (inFlight.current) return
     inFlight.current = true
+    hasLoadedFromServer.current = false
     setLoading(true)
     setError(null)
     try {
-      const response = await supabase.from('tasks').select('*').eq('board_id', boardId)
+      const response = await loadBoardTasks(boardId)
       const { data, error: err } = response
       if (err) {
         const reason = snapshotFallbackReason(response.status)
@@ -503,6 +505,11 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
    */
   const runPlan = useCallback(
     async (plan: SeriesPlan) => {
+      // Snapshots (including snapshots made by older capped clients) do not prove completeness.
+      if (!hasSession || !hasLoadedFromServer.current) {
+        setError('Reload the complete Board before editing a Recurring Series.')
+        return
+      }
       const prevTasks = tasksRef.current
       const prevTemplates = templatesRef.current
       markWrites(plan.markIds)
@@ -565,7 +572,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         await materialize(plan.materialize, [...plan.state.tasks])
       }
     },
-    [setTasks, markWrites, boardId, reload, materialize, reconcileReturnedRows],
+    [setTasks, markWrites, boardId, reload, materialize, reconcileReturnedRows, hasSession],
   )
 
   const seriesState = useCallback(

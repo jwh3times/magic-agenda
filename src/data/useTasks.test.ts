@@ -9,12 +9,14 @@ const h = vi.hoisted(() => {
     rows: unknown[]
     selectError: { message: string } | null
     selectStatus: number
+    failLaterPage: boolean
     writeRows: unknown[] | null
   } = {
     handler: null,
     rows: [],
     selectError: null,
     selectStatus: 200,
+    failLaterPage: false,
     writeRows: null,
   }
   const ok = () => Promise.resolve({ data: null, error: null })
@@ -64,18 +66,29 @@ const h = vi.hoisted(() => {
 vi.mock('../lib/supabase', () => ({
   supabase: {
     from: vi.fn(() => ({
-      // `select(...)` is both awaitable and chainable, because the board load is now
-      // `.select('*').eq('board_id', …)`. Returning a bare Promise made `.eq` undefined, which
-      // failed as an empty board rather than as an error — the loudest possible bug reported in the
-      // quietest possible way, so the mock keeps both shapes rather than only the one in use.
+      // Model the API cap even for an unpaged query, so removing pagination reproduces #287.
       select: vi.fn(() => {
         const result = {
-          data: h.capture.rows,
+          data: h.capture.rows.slice(0, 1000),
+          count: h.capture.rows.length,
           error: h.capture.selectError,
           status: h.capture.selectStatus,
         }
         return {
-          eq: vi.fn(() => Promise.resolve(result)),
+          eq: vi.fn(() =>
+            Object.assign(Promise.resolve(result), {
+              order: () => ({
+                range: (from: number, to: number) =>
+                  Promise.resolve({
+                    ...result,
+                    data: h.capture.rows.slice(from, Math.min(to + 1, from + 1000)),
+                    ...(from > 0 && h.capture.failLaterPage
+                      ? { error: { message: 'later page failed' }, status: 500 }
+                      : {}),
+                  }),
+              }),
+            }),
+          ),
           then: (resolve: (v: typeof result) => unknown) => Promise.resolve(result).then(resolve),
         }
       }),
@@ -159,6 +172,7 @@ beforeEach(() => {
   h.capture.rows = [serverRow()]
   h.capture.selectError = null
   h.capture.selectStatus = 200
+  h.capture.failLaterPage = false
   h.capture.writeRows = null
   h.insert.mockClear()
   h.upsert.mockClear()
@@ -870,4 +884,104 @@ test('promotion writes the template and the first occurrence in one batch', asyn
   expect(first.recur_parent_id).toBe(template.id)
   expect(first.recur_origin_day).toBe(today)
   expect(first.recur_freq).toBe('none')
+})
+
+test('loads every Task on a Board larger than the API row cap', async () => {
+  h.capture.rows = Array.from({ length: 1250 }, (_, i) => serverRow({ id: `task-${i}` }))
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  expect(result.current.error).toBeNull()
+  expect(result.current.tasks).toHaveLength(1250)
+})
+
+test.each(['delete', 'end'] as const)(
+  '%s Series from here preserves an earlier Occurrence beyond the first page',
+  async (operation) => {
+    h.capture.rows = [
+      serverRow({ id: 'tpl', recur_freq: 'daily', day: '2020-01-01', recur_until: '2020-01-02' }),
+      serverRow({
+        id: 'later',
+        recur_parent_id: 'tpl',
+        recur_origin_day: '2020-01-02',
+        day: '2020-01-02',
+      }),
+      ...Array.from({ length: 1247 }, (_, i) => serverRow({ id: `plain-${i}` })),
+      serverRow({
+        id: 'earlier',
+        recur_parent_id: 'tpl',
+        recur_origin_day: '2020-01-01',
+        day: '2020-01-01',
+      }),
+    ]
+    const { result } = renderHook(() => useTasks('u1', 'b1', true))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    const later = result.current.tasks.find((task) => task.id === 'later')!
+    await act(async () => {
+      if (operation === 'delete') await result.current.deleteTask(later.id, 'future')
+      else
+        await result.current.saveTask(
+          { ...later, recurFreq: 'daily' },
+          { ...later, recurFreq: 'none' },
+          false,
+          'future',
+        )
+    })
+    expect(result.current.error).toBeNull()
+    expect(result.current.tasks.some((task) => task.id === 'earlier')).toBe(true)
+    expect(result.current.getTemplate('tpl')).toBeDefined()
+    expect(h.deleteEq).not.toHaveBeenCalledWith('id', 'tpl')
+    if (operation === 'end') {
+      expect(result.current.tasks.find((task) => task.id === 'later')?.recurParentId).toBeNull()
+      expect(h.deleteGt).toHaveBeenCalledWith('recur_origin_day', '2020-01-02')
+    }
+  },
+)
+
+test('a failed reload revokes permission to execute destructive Series plans until a complete reload', async () => {
+  h.capture.rows = [
+    serverRow({ id: 'tpl', recur_freq: 'daily', day: '2020-01-01', recur_until: '2020-01-01' }),
+    serverRow({
+      id: 'occurrence',
+      recur_parent_id: 'tpl',
+      recur_origin_day: '2020-01-01',
+      day: '2020-01-01',
+    }),
+  ]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  h.capture.selectError = { message: 'load failed' }
+  h.capture.selectStatus = 500
+  await act(async () => {
+    await result.current.reload()
+  })
+  await act(async () => {
+    await result.current.deleteTask('occurrence', 'future')
+  })
+  expect(result.current.error).toContain('Reload the complete Board')
+  expect(h.deleteEq).not.toHaveBeenCalled()
+  expect(h.upsert).not.toHaveBeenCalled()
+  h.capture.selectError = null
+  h.capture.selectStatus = 200
+  await act(async () => {
+    await result.current.reload()
+  })
+  await act(async () => {
+    await result.current.deleteTask('occurrence', 'future')
+  })
+  expect(h.deleteEq).toHaveBeenCalledWith('id', 'tpl')
+})
+
+test('a later load page failure publishes no partial Board and materializes nothing', async () => {
+  h.capture.rows = [
+    serverRow({ id: 'tpl', recur_freq: 'daily', day: ymd(new Date()) }),
+    ...Array.from({ length: 1000 }, (_, i) => serverRow({ id: `plain-${i}` })),
+  ]
+  h.capture.failLaterPage = true
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  expect(result.current.error).toBe('later page failed')
+  expect(result.current.tasks).toEqual([])
+  expect(result.current.getTemplate('tpl')).toBeUndefined()
+  expect(h.insert).not.toHaveBeenCalled()
+  expect(h.upsert).not.toHaveBeenCalled()
 })

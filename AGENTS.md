@@ -512,6 +512,14 @@ database rather than merely absent from the UI.
 - These conversions live entirely in `mappers.ts` (`rowToTask` / `taskToRow`). Everything else works in
   app-domain `Task` objects (`src/types/task.ts`).
 
+**Whole-Board Task reads use `src/data/loadBoardTasks.ts`** for both `useTasks.reload()` and
+`DataSection` export. PostgREST can return success while capping rows, so the reader pages in stable
+id order and checks exact counts and duplicate ids before publishing any rows. A failed or
+inconsistent page returns no partial data. `useTasks` revokes its successful-load flag on every
+reload, and Series plans can execute only after a complete authenticated load; offline snapshots
+cannot authorize a definition deletion that cascades to unseen Occurrences. Pagination is not a
+transactional snapshot: simultaneous edits with unchanged row counts can still race across pages.
+
 ### Data ownership: `BoardPage` owns state; task operations cross one context seam
 
 `pages/BoardPage.tsx` wires `useTasks(userId, boardId, hasSession)` + `useSettingsContext()` +

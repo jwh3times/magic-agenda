@@ -13,6 +13,7 @@ import {
   type ImportTaskRow,
 } from '../data/exportImport'
 import { rowToTask } from '../data/mappers'
+import { loadBoardTasks } from '../data/loadBoardTasks'
 import { isTemplate } from '../types/task'
 import { ymd } from '../lib/dates'
 
@@ -79,7 +80,7 @@ export function DataSection() {
       const [tasksResult, labelsResult] = await Promise.all([
         // Both reads are selected-Board scoped. RLS remains authoritative; `exportBoard` controls
         // the Owner-only affordance defined by the Board capability model.
-        supabase.from('tasks').select('*').eq('board_id', boardId),
+        loadBoardTasks(boardId),
         supabase
           .from('labels')
           .select('id, board_id, name, dot_color, position')

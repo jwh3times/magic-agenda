@@ -503,8 +503,8 @@ export function planDeleteOccurrence(state: SeriesState, instance: Task): Series
  * **Precondition: `state.tasks` is the whole board.** The old test read one field of the
  * definition, a fact the server also knows. This one reads local state to choose a branch that
  * deletes the definition and cascades to every Occurrence row in the database — including any this
- * client never loaded. The two questions coincide only because `reload()` selects the board with no
- * date window and an offline board is read-only, so no planner ever runs against a partial one. A
+ * client never loaded. `loadBoardTasks()` pages the whole Board without a date window, and
+ * `useTasks.runPlan()` refuses writes unless the latest authenticated load completed. A
  * windowed load would turn this from tidiness into deleting rows the user can still see.
  *
  * Definitions already orphaned in existing accounts are deliberately left as they are: nothing
