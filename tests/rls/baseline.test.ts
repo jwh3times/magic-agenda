@@ -87,6 +87,12 @@ const PUBLIC_FUNCTIONS: Record<
     explicitAcl: true,
     executeGrantees: '(owner only)',
   },
+  'stamp_task_attribution()': {
+    secdef: false,
+    config: 'search_path=""',
+    explicitAcl: true,
+    executeGrantees: '(owner only)',
+  },
   'set_updated_at()': {
     secdef: false,
     config: '(none)',
