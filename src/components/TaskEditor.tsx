@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { removesRule, type RecurScope } from '../data/series'
 import { intendDelete, intendSave } from '../data/editIntent'
+import { TASK_LIMITS, taskLimitError } from '../data/taskLimits'
 import { useTheme } from '../theme/ThemeProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { COLORS, PAPER, STATUS } from '../theme/constants'
@@ -69,7 +70,12 @@ export function TaskEditor({
    * no error (#209). The warning below the Repeat field has always said so; only now does it bind.
    */
   const recurNeedsDay = draft.recurFreq !== 'none' && !isScheduled(draft.day)
-  const canSave = titleOk && !recurNeedsDay
+  const intervalInvalid =
+    !Number.isInteger(draft.recurInterval) ||
+    draft.recurInterval < 1 ||
+    draft.recurInterval > TASK_LIMITS.recurInterval
+  const limitError = taskLimitError(draft)
+  const canSave = titleOk && !recurNeedsDay && !limitError
 
   const chrome = editorChrome(theme, conf, isMobile)
   const { dark, panelBg, fg, sub, fieldBg, border, ctlFont, inputBase, fieldLabel, btn } = chrome
@@ -81,7 +87,7 @@ export function TaskEditor({
 
   const addChecklistItem = () => {
     const text = newItem.trim()
-    if (!text) return
+    if (!text || draft.checklist.length >= TASK_LIMITS.checklistItems) return
     patch({ checklist: [...draft.checklist, { id: newId(), text, done: false }] })
     setNewItem('')
   }
@@ -186,17 +192,31 @@ export function TaskEditor({
             </button>
           </div>
 
+          {limitError && (
+            <p role="alert" style={{ color: '#e0524a' }}>
+              {limitError}
+            </p>
+          )}
+          {/* Native maxLength counts UTF-16 units; handlers enforce PostgreSQL code points. */}
           <input
+            maxLength={TASK_LIMITS.title * 2}
             value={draft.title}
-            onChange={(e) => patch({ title: e.target.value })}
+            onChange={(e) =>
+              patch({ title: Array.from(e.target.value).slice(0, TASK_LIMITS.title).join('') })
+            }
             placeholder="Task title…"
             autoFocus
             disabled={readOnly}
             style={{ ...inputBase, fontSize: '17px', fontWeight: 700, marginBottom: '10px' }}
           />
           <textarea
+            maxLength={TASK_LIMITS.description * 2}
             value={draft.description}
-            onChange={(e) => patch({ description: e.target.value })}
+            onChange={(e) =>
+              patch({
+                description: Array.from(e.target.value).slice(0, TASK_LIMITS.description).join(''),
+              })
+            }
             placeholder="Add a short description…"
             disabled={readOnly}
             style={{ ...inputBase, minHeight: '62px', resize: 'vertical', lineHeight: 1.45 }}
@@ -374,8 +394,12 @@ export function TaskEditor({
                     addChecklistItem()
                   }
                 }}
-                placeholder="Add a subtask and press Enter…"
-                disabled={readOnly}
+                placeholder={
+                  draft.checklist.length >= TASK_LIMITS.checklistItems
+                    ? 'Checklist limit reached (200 items)'
+                    : 'Add a subtask and press Enter…'
+                }
+                disabled={readOnly || draft.checklist.length >= TASK_LIMITS.checklistItems}
                 style={{
                   flex: 1,
                   padding: '8px 10px',
@@ -550,15 +574,22 @@ export function TaskEditor({
               <option value="weekly">Weekly</option>
               <option value="monthly">Monthly</option>
             </select>
-            {draft.recurFreq !== 'none' && (
+            {(draft.recurFreq !== 'none' || intervalInvalid) && (
               <>
                 <span style={{ fontSize: 13, color: sub }}>every</span>
                 <input
                   type="number"
                   min={1}
+                  max={TASK_LIMITS.recurInterval}
+                  step={1}
                   value={draft.recurInterval}
                   onChange={(e) =>
-                    patch({ recurInterval: Math.max(1, Number(e.target.value) || 1) })
+                    patch({
+                      recurInterval: Math.min(
+                        TASK_LIMITS.recurInterval,
+                        Math.max(1, Math.trunc(Number(e.target.value)) || 1),
+                      ),
+                    })
                   }
                   disabled={readOnly}
                   style={{ ...inputBase, width: 60, padding: '8px 10px' }}

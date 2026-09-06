@@ -3,6 +3,7 @@ import { PER_OCCURRENCE_FIELDS } from './fieldOwnership'
 import { type TaskDraft } from '../types/task'
 import type { RecurScope } from './series'
 import { completionDecision } from './completion'
+import { taskLimitError } from './taskLimits'
 
 /**
  * What pressing Save or Delete in the task editor should actually do.
@@ -65,7 +66,7 @@ export function cleanDraft(draft: TaskDraft): TaskDraft {
 }
 
 export type SaveIntent =
-  /** The title is empty; Save does nothing. */
+  /** The draft is invalid; Save does nothing. */
   | { kind: 'blocked' }
   /** Apply immediately. */
   | { kind: 'save'; task: TaskDraft; scope?: RecurScope }
@@ -93,7 +94,7 @@ export function intendSave(
     ...cleaned,
     ...completionDecision(initial, cleaned.status, now),
   }
-  if (task.title.length === 0) return { kind: 'blocked' }
+  if (task.title.length === 0 || taskLimitError(task)) return { kind: 'blocked' }
   // `draft.recurParentId` rather than `initial`'s: the draft is what is about to be saved.
   if (isNew || !draft.recurParentId) return { kind: 'save', task }
   if (chosenScope) return { kind: 'save', task, scope: chosenScope }
