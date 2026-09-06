@@ -12,6 +12,14 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.49] - 2026-09-06
+
+### Docs
+
+- Update the Privacy Policy to disclose analytics, authentication email delivery, external fonts,
+  offline browser snapshots, and encrypted backup storage. Explain in-app account deletion and
+  the 90-day backup retention period, and align Labels and Board access terminology (#303).
+
 ## [1.8.48] - 2026-09-06
 
 ### Internal
@@ -2711,7 +2719,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.48...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.49...HEAD
+[1.8.49]: https://github.com/jwh3times/magic-agenda/compare/v1.8.48...v1.8.49
 [1.8.48]: https://github.com/jwh3times/magic-agenda/compare/v1.8.47...v1.8.48
 [1.8.47]: https://github.com/jwh3times/magic-agenda/compare/v1.8.46...v1.8.47
 [1.8.46]: https://github.com/jwh3times/magic-agenda/compare/v1.8.45...v1.8.46
