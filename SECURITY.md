@@ -71,9 +71,9 @@ This repository runs several automated checks (configured in `.github/`):
   merging on medium‑or‑higher severity.
 - **Secret scanning + push protection** — blocks commits containing known secret formats.
 - **Dependabot** — daily dependency + GitHub Actions update PRs, plus security alerts and updates.
-- **Branch protection** — `main` is PR-only. The
-  [active GitHub ruleset](https://github.com/jwh3times/magic-agenda/rules/18273908) is authoritative
-  for required checks (including RLS and E2E), CodeQL thresholds, and review-thread resolution.
+- **Branch protection** — `main` is PR-only. See the
+  [required checks and merge rules](AGENTS.md#required-checks-and-releases), which link to the
+  authoritative GitHub ruleset for scanning thresholds and review-thread resolution.
 - **Auth configuration as code** — the production `[auth]` settings (redirect allow‑list, password
   policy, OTP and rate limits, MFA) live in `supabase/config.toml` and deploy from CI, so a weakening
   change is reviewable in a PR diff and previewed by the `Config` check rather than made silently in a
