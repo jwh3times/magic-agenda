@@ -1524,8 +1524,13 @@ nightly logical dump: `schema.sql` (DDL for `public`) plus `data.sql`, which car
 `public` and `auth` rows — `supabase db dump --data-only` includes Supabase-managed schemas even
 though the schema dump excludes them. Do not "helpfully" add a separate `--schema auth` data dump;
 one existed until v1.2.27 and was a strict subset that made restores fail on duplicate `auth.users`
-keys. The verify step asserts `data.sql` contains both `public.tasks` and `auth.users`, which is what
-would catch that CLI behaviour changing.
+keys. The data dump excludes `auth.sessions`, `auth.refresh_tokens`, `auth.mfa_amr_claims`,
+`auth.mfa_challenges`, `auth.one_time_tokens`, and `auth.flow_state`; a restore into a fresh project
+requires a new sign-in. Durable accounts, OAuth links, and enrolled MFA factors remain in the
+bundle. The verify step requires `public.tasks`, `auth.users`, and `auth.identities` and refuses any
+of those six excluded tables before encryption/upload. `scripts/backup.test.ts` exercises the
+workflow's actual verification shell with both INSERT and COPY fixtures. Older encrypted bundles
+still contain the auth state captured when they were made; this change does not rewrite them.
 
 It also asserts the three Board tables are in `data.sql` and that `schema.sql` defines
 `handle_new_user`, `handle_account_deletion`, and `create_board` — the last of which replaced

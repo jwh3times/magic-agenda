@@ -71,8 +71,8 @@ jobs:
       #  - schema: DDL for `public`. Redundant with supabase/migrations/ but makes the bundle
       #    self-contained and captures anything ever applied out-of-band. It excludes the `auth`
       #    schema, which is correct — a Supabase project provisions `auth` itself.
-      #  - data: EVERYTHING the CLI will give us, which as of 2026-07-27 includes the `auth` tables
-      #    (auth.users, identities, sessions, ...) as well as public.tasks / public.user_settings.
+      #  - data: public rows plus durable auth data (accounts, OAuth links, enrolled MFA factors).
+      #    Exclude sessions and temporary authentication state: restoring requires a fresh sign-in.
       #
       # There is deliberately NO separate `--schema auth` data dump. One was added originally on the
       # documented premise that `db dump` excludes Supabase-managed schemas — true of the SCHEMA
@@ -90,7 +90,13 @@ jobs:
         run: |
           mkdir -p backup
           supabase db dump --linked -f backup/schema.sql
-          supabase db dump --linked --data-only -f backup/data.sql
+          supabase db dump --linked --data-only -f backup/data.sql \
+            -x auth.sessions \
+            -x auth.refresh_tokens \
+            -x auth.mfa_amr_claims \
+            -x auth.mfa_challenges \
+            -x auth.one_time_tokens \
+            -x auth.flow_state
 
       # The failure mode that actually bites is a *successful* empty dump: the job stays green for
       # months while backing up nothing. Assert on content, not just exit codes.
@@ -151,6 +157,17 @@ jobs:
           # restores tasks belonging to users who no longer exist.
           has_table backup/data.sql auth.users \
             || fail "data.sql does not contain auth.users — accounts were not captured. The CLI's --data-only dump used to include the auth schema; if that changed, add an explicit auth dump back."
+          has_table backup/data.sql auth.identities \
+            || fail "data.sql does not contain auth.identities — OAuth account links were not captured"
+
+          # A CLI flag regression must fail before encrypting/uploading a bundle with sessions.
+          # Keep auth.users, auth.identities, and auth.mfa_factors: they are durable account data.
+          for t in auth.sessions auth.refresh_tokens auth.mfa_amr_claims \
+            auth.mfa_challenges auth.one_time_tokens auth.flow_state; do
+            if has_table backup/data.sql "$t"; then
+              fail "data.sql contains excluded table $t — refusing to back up sessions or temporary auth state"
+            fi
+          done
 
           # Board containment. Restoring tasks without these is worse than restoring nothing: every
           # task carries a board_id pointing at a board that no longer exists, so the restore either

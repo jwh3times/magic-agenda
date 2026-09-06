@@ -19,14 +19,21 @@ outage.
 
 ## What is in the bundle
 
-| File         | Contents                                                                                                                                       | Why it matters                                                                                                                                          |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schema.sql` | DDL for the `public` schema **only**                                                                                                           | Nearly a substitute for `supabase/migrations/` — but it omits `on_auth_user_created` and `on_auth_user_deleted`, both triggers on `auth.users`. See 3.1 |
-| `data.sql`   | **All** rows — `public` (`tasks`, `user_settings`, `boards`, `board_memberships`, `account_profiles`) **and** `auth` (`auth.users`, sessions…) | Everything. This single file carries the accounts and the boards they own                                                                               |
+| File         | Contents                                                                                                                   | Why it matters                                                                                                                                          |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema.sql` | DDL for the `public` schema **only**                                                                                       | Nearly a substitute for `supabase/migrations/` — but it omits `on_auth_user_created` and `on_auth_user_deleted`, both triggers on `auth.users`. See 3.1 |
+| `data.sql`   | Board data in `public` (including Labels) plus durable `auth` data (`auth.users`, `auth.identities`, enrolled MFA factors) | Restores accounts and their Boards; sessions and temporary auth state are excluded                                                                      |
 
 `data.sql` holds the `auth` rows as well as the `public` ones — `supabase db dump --data-only`
 includes Supabase-managed schemas even though the schema dump excludes them. There is one data file
 and you load it once.
+
+Starting with v1.8.46, the dump excludes `auth.sessions`, `auth.refresh_tokens`,
+`auth.mfa_amr_claims`, `auth.mfa_challenges`, `auth.one_time_tokens`, and `auth.flow_state`. The
+workflow verifies their absence and the presence of accounts and OAuth links before upload.
+Restoring into a fresh project requires users to sign in again and restart any in-progress auth
+flows; enrolled MFA factors remain available. Older bundles retain the sessions and temporary auth
+state originally captured — the exclusions do not modify existing artifacts.
 
 > **Bundles from v1.2.25–v1.2.26 also contain `auth.sql`.** It is a strict subset of `data.sql`.
 > **Ignore it** — loading both inserts `auth.users` twice and fails on a duplicate key.
@@ -108,9 +115,10 @@ tar -xzf backup.tar.gz          # -> schema.sql, data.sql (v1.2.25-26 bundles ad
 If `gpg` reports a bad passphrase, stop — you have the wrong one, and nothing else in this runbook
 will work. There is no recovery path for a lost passphrase.
 
-**Do not leave the decrypted archive or its extracted files behind.** They contain the production
-`auth.users` and `auth.refresh_tokens` tables, so leaving them on disk — especially in a synced
-folder — defeats the encryption applied by the backup workflow. Keep them only while following this
+**Do not leave the decrypted archive or its extracted files behind.** They contain production
+account data, password hashes, enrolled MFA secrets, and Task content; older bundles also contain
+sessions and refresh tokens. Leaving them on disk — especially in a synced folder — defeats the
+encryption applied by the backup workflow. Keep them only while following this
 procedure, then complete [Step 6](#6-delete-the-plaintext) before leaving the working directory.
 
 ## 2. Decide what you are actually restoring
@@ -227,6 +235,8 @@ as above — which the rehearsal confirmed for `on_auth_user_created`.
 
 ```sql
 select count(*) from auth.users;
+select count(*) from auth.identities;
+select count(*) from auth.mfa_factors;
 select count(*) from public.tasks;
 select count(*) from public.user_settings;
 select count(*) from public.boards;
@@ -320,7 +330,21 @@ when there is no recurrence data at all. As of 2026-07-27 production holds zero 
 instances, so on today's data that query **cannot fail**. Keep it for the day there is recurrence
 data, but do not read a green result as evidence those rows came back.
 
+For backups from v1.8.46 onward, also verify these counts are **zero before any test sign-in** in
+the fresh restore target. These assertions do not apply to older bundles, which included session
+state.
+
+```sql
+select count(*) from auth.sessions;
+select count(*) from auth.refresh_tokens;
+select count(*) from auth.mfa_amr_claims;
+select count(*) from auth.mfa_challenges;
+select count(*) from auth.one_time_tokens;
+select count(*) from auth.flow_state;
+```
+
 Then sign in as a real user and confirm a board renders, a task saves, and realtime still syncs.
+Check OAuth sign-in and enrolled MFA as applicable.
 
 ## 5. If it is a new project, repoint the app
 
@@ -379,6 +403,14 @@ foreign keys into `auth.users` and therefore cannot be restored into a bare data
 needs a project that provisions `auth` itself, which is exactly why step 1 says to create one.
 
 ### Rehearsal log
+
+- **2026-09-06 — auth-data exclusion check (#289), synthetic local data only.** Executed the
+  pinned Supabase CLI's generated data-dump script against a disposable Postgres database with
+  rows in all six excluded tables plus accounts, OAuth links, MFA factors, and Board tables. The
+  workflow verifier accepted the filtered dump and rejected each excluded table when reintroduced.
+  Restoring into a fresh fixture database preserved retained rows and left all six excluded tables
+  empty. This verifies dump filtering and the upload guard, not a full Supabase auth rehearsal or
+  production restore.
 
 - **2026-08-19** — **dump-and-restore, local, against the current schema** (#202). The first
   rehearsal since Boards, Labels, the Board lifecycle, realtime Labels, and the compatibility

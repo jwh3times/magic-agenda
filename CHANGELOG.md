@@ -12,6 +12,16 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.46] - 2026-09-06
+
+### Security
+
+- Exclude sessions, refresh tokens, MFA challenges/claims, one-time tokens, and PKCE flow state
+  from nightly database backups while preserving accounts, OAuth links, and enrolled MFA factors.
+  Backup verification refuses excluded tables and missing account links before upload (#289).
+- Document fresh sign-in after restoring a new backup, and retain the handling guidance for
+  older encrypted bundles that still contain session state.
+
 ## [1.8.45] - 2026-09-06
 
 ### Security
@@ -2683,7 +2693,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.45...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.46...HEAD
+[1.8.46]: https://github.com/jwh3times/magic-agenda/compare/v1.8.45...v1.8.46
 [1.8.45]: https://github.com/jwh3times/magic-agenda/compare/v1.8.44...v1.8.45
 [1.8.44]: https://github.com/jwh3times/magic-agenda/compare/v1.8.43...v1.8.44
 [1.8.43]: https://github.com/jwh3times/magic-agenda/compare/v1.8.42...v1.8.43
