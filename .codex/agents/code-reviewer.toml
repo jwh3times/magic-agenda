@@ -25,7 +25,7 @@ any of these (each is a correctness bug, not a preference):
    `account_id = (select auth.uid())` and `ended_at is null`, and policies name `to authenticated`.
    Any current member may read Tasks and Labels; Task writes require Owner or Editor, while Label
    management and Board rename/delete require Owner. UPDATE carries both `using` and `with check`
-   so editable content cannot be transferred to another Board. Column-level grants restrict
+   so editable content cannot be transferred to a Board the caller cannot edit. Column-level grants restrict
    writable fields where RLS cannot compare old and new rows; composite foreign keys keep Series
    and Label references inside their Board. Account settings/profiles remain self-scoped, and
    Membership rows are visible only to their own account — do not impose Board policies on them.
