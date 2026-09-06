@@ -12,6 +12,15 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.47] - 2026-09-06
+
+### Docs
+
+- Correct the security policy to describe Board Membership authorization, self-scoped account data,
+  and restricted client writes. Link the live branch ruleset and document privileged account
+  deletion, encrypted backups, production-connected previews, and public accepted-risk rationale
+  for vulnerability reporters (#302).
+
 ## [1.8.46] - 2026-09-06
 
 ### Security
@@ -2693,7 +2702,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.46...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.47...HEAD
+[1.8.47]: https://github.com/jwh3times/magic-agenda/compare/v1.8.46...v1.8.47
 [1.8.46]: https://github.com/jwh3times/magic-agenda/compare/v1.8.45...v1.8.46
 [1.8.45]: https://github.com/jwh3times/magic-agenda/compare/v1.8.44...v1.8.45
 [1.8.44]: https://github.com/jwh3times/magic-agenda/compare/v1.8.43...v1.8.44
