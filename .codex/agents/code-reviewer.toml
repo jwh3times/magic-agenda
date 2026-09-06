@@ -15,15 +15,29 @@ any of these (each is a correctness bug, not a preference):
 
 1. **App/DB boundary.** The `'inbox'` ↔ `NULL` day conversion lives only in
    `src/data/mappers.ts`; app/DnD code keeps the `'inbox'` sentinel. The DB column is
-   `order_index` (`order` is reserved SQL); the app uses `order`/`korder`. `done` is derived
-   from `status === 'done'` and never stored.
-2. **RLS.** Every new table default-denies and scopes to `auth.uid() = user_id` — RLS is the
-   only authorization boundary (the anon key is public by design). A migration adding a table
-   without a policy is a security bug.
+   `order_index` (`order` is reserved SQL); the app uses `order`/`korder`. Task completion is
+   `status === 'completed'` in the app; only `mappers.ts` translates that to/from the database
+   token `'done'`. Tasks have no separate `done` flag; Checklist Steps still store their own
+   `done` boolean, independently of Task completion.
+2. **RLS and Board containment.** Application tables enable RLS and default-deny; explicit
+   policies grant only intended operations. Board-owned rows scope through current Membership,
+   using an uncorrelated `board_id in (select … from board_memberships …)` predicate with
+   `account_id = (select auth.uid())` and `ended_at is null`, and policies name `to authenticated`.
+   Any current member may read Tasks and Labels; Task writes require Owner or Editor, while Label
+   management and Board rename/delete require Owner. UPDATE carries both `using` and `with check`
+   so editable content cannot be transferred to a Board the caller cannot edit. Column-level grants restrict
+   writable fields where RLS cannot compare old and new rows; composite foreign keys keep Series
+   and Label references inside their Board. Account settings/profiles remain self-scoped, and
+   Membership rows are visible only to their own account — do not impose Board policies on them.
+   Keep `boards`, `board_memberships`, `account_profiles`, and `labels` ungranted to `service_role`,
+   and Membership INSERT closed to clients;
+   create Boards through `create_board` or direct SQL in fixtures, never by widening a grant.
+   See [Board ownership](../../AGENTS.md#board-ownership-containment-is-the-authorization-boundary)
+   for the authorization boundary and rationale.
 3. **Recurrence.** Template rows (`recurFreq != 'none'`, `recurParentId === null`) stay out of
    the board `tasks` list; deleted occurrences are recorded in `excludedDates` so they are never
    regenerated; `reload()` keeps its in-flight guard (StrictMode double-invoke trips the
-   `(recur_parent_id, day)` unique index otherwise). Occurrence identity (`instanceKey`), scope
+   `(board_id, recur_parent_id, recur_origin_day)` unique index otherwise). Occurrence identity (`instanceKey`), scope
    resolution (`resolveSave`/`resolveDelete`), and the per-operation plans
    (`planEditSeriesFrom`/`planDeleteOccurrence`/`planDeleteSeriesFrom`) live only in
    `src/data/series.ts` — `Board` and `useTasks` must not reimplement this-occurrence-vs-future
@@ -42,6 +56,12 @@ any of these (each is a correctness bug, not a preference):
 6. **Schema workflow.** A migration under `supabase/migrations/` auto-applies to production on
    merge to `main`; the diff must include regenerated `src/types/database.types.ts` and keep
    the `mappers.ts` conventions intact.
+7. **Privileged functions.** A new `security definer` function needs a justified privilege
+   boundary, `set search_path = ''`, schema-qualified references, and an explicit EXECUTE ACL:
+   revoke from `PUBLIC` and grant only to intended callers. Client-invoked RPCs such as
+   `create_board` live in the exposed schema; policy helpers belong in a non-exposed schema.
+   Review the matching `tests/rls/baseline.test.ts` change as a security decision, not a snapshot
+   refresh. Preserve `create_board`'s lack of an account parameter — it acts for the caller.
 
 Read the diff (`git diff main...HEAD` or the staged changes), then the touched files for
 context. Be specific and cite the rule; do not raise generic style nits. If the diff is clean

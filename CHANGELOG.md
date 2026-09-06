@@ -12,6 +12,15 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.48] - 2026-09-06
+
+### Internal
+
+- Update the code-reviewer instructions to enforce Board Membership authorization, restricted
+  grants, privileged-function hardening, and the current completion and recurrence identities.
+  Regenerate the Codex reviewer from the authored prompt so both agents apply the same rules
+  (#304).
+
 ## [1.8.47] - 2026-09-06
 
 ### Docs
@@ -2702,7 +2711,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.47...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.48...HEAD
+[1.8.48]: https://github.com/jwh3times/magic-agenda/compare/v1.8.47...v1.8.48
 [1.8.47]: https://github.com/jwh3times/magic-agenda/compare/v1.8.46...v1.8.47
 [1.8.46]: https://github.com/jwh3times/magic-agenda/compare/v1.8.45...v1.8.46
 [1.8.45]: https://github.com/jwh3times/magic-agenda/compare/v1.8.44...v1.8.45
