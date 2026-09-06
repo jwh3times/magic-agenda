@@ -208,7 +208,8 @@ design/                the original prototype (reference only — not built)
 [Cloudflare Pages](https://pages.cloudflare.com) builds and deploys `main` (framework preset **Vite**,
 build `npm run build`, output `dist`). The `VITE_SUPABASE_*` variables are set in the Pages project for
 Production and Preview; `public/_redirects` provides the SPA deep‑link fallback, and `public/_headers`
-sets security response headers (Content‑Security‑Policy, `X-Frame-Options`, `nosniff`, `Referrer-Policy`).
+sets security response headers (Content‑Security‑Policy, HSTS, `X-Frame-Options`, `nosniff`,
+`Referrer-Policy`).
 
 The database is backed up nightly by the **Backup** workflow — a logical dump (schema, board data,
 and accounts), GPG-encrypted on the runner and kept as a 90-day Actions artifact. The Supabase free
