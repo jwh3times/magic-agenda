@@ -44,7 +44,8 @@ of three hand‑built themes.
   and preserved series links. Every referenced source Label must be mapped explicitly to an existing
   destination Label or Unlabeled; Labels are never created or matched automatically by name.
   Existing v2 and Category-shaped v1 files remain importable through the same mapping flow. Account
-  preferences are not part of Board backups.
+  preferences are not part of Board backups. Large Boards load and export across multiple pages;
+  an incomplete read reports an error rather than exporting a partial backup.
 - **A public front door** — signed out, `magicagenda.app` is a landing page with a live, themed
   preview of the real board (rendered, not screenshotted); signed in, the same URL is your board.
 - **Accounts & sync** — email/password and Google sign‑in; every task is private to you via Postgres

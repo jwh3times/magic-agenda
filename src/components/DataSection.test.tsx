@@ -16,7 +16,9 @@ const h = vi.hoisted(() => {
     inserted,
     role: roles[0],
     destinationLabels: [] as Label[],
-    selectTasks: vi.fn(() => Promise.resolve({ data: [] as unknown[], error: null })),
+    selectTasks: vi.fn((_column: string, _boardId: string) =>
+      Promise.resolve({ data: [] as unknown[], error: null }),
+    ),
     selectLabels: vi.fn(() => Promise.resolve({ data: [] as unknown[], error: null })),
     insert: vi.fn((rows: unknown[]): Promise<{ error: { message: string } | null }> => {
       inserted.push(rows)
@@ -29,7 +31,24 @@ vi.mock('../lib/supabase', () => ({
   supabase: {
     from: vi.fn((table: string) =>
       table === 'tasks'
-        ? { select: vi.fn(() => ({ eq: h.selectTasks })), insert: h.insert }
+        ? {
+            select: vi.fn(() => ({
+              eq: (column: string, boardId: string) => ({
+                order: () => ({
+                  range: async (from: number, to: number) => {
+                    const result = await h.selectTasks(column, boardId)
+                    return {
+                      ...result,
+                      count: result.data.length,
+                      status: 200,
+                      data: result.data.slice(from, Math.min(to + 1, from + 1000)),
+                    }
+                  },
+                }),
+              }),
+            })),
+            insert: h.insert,
+          }
         : { select: vi.fn(() => ({ eq: h.selectLabels })) },
     ),
   },
@@ -340,4 +359,40 @@ test('export clears busy and surfaces an error when the load throws', async () =
   await userEvent.click(exportButton)
   expect(await screen.findByText(/Could not load your data/)).toBeInTheDocument()
   expect(exportButton).toBeEnabled()
+})
+
+test('exports every Task on a Board larger than the API row cap', async () => {
+  h.selectTasks.mockResolvedValue({
+    data: Array.from({ length: 1250 }, (_, i) => ({
+      ...taskRow(),
+      id: `task-${i}`,
+      label_id: null,
+    })),
+    error: null,
+  })
+  render(<DataSection />)
+  await userEvent.click(screen.getByRole('button', { name: 'Export my data' }))
+  await waitFor(() => expect(exportedBlob).not.toBeNull())
+  const exported = JSON.parse(await exportedBlob!.text()) as { tasks: Task[] }
+  expect(exported.tasks).toHaveLength(1250)
+  expect(new Set(exported.tasks.map((task) => task.id)).size).toBe(1250)
+})
+
+test('a later export page failure never downloads a partial Board', async () => {
+  h.selectTasks
+    .mockResolvedValueOnce({
+      data: Array.from({ length: 1250 }, (_, i) => ({
+        ...taskRow(),
+        id: `task-${i}`,
+        label_id: null,
+      })),
+      error: null,
+    })
+    .mockRejectedValueOnce(new Error('later page failed'))
+  render(<DataSection />)
+  const button = screen.getByRole('button', { name: 'Export my data' })
+  await userEvent.click(button)
+  await waitFor(() => expect(button).toBeEnabled())
+  expect(exportedBlob).toBeNull()
+  expect(screen.getByText('Could not load your data. Please try again.')).toBeInTheDocument()
 })

@@ -12,6 +12,15 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.44] - 2026-09-05
+
+### Fixed
+
+- Load and export all Tasks on Boards exceeding the API's 1,000-row response cap. Both paths now
+  share ordered pagination with completeness checks and discard partial results on failure.
+- Block Recurring Series plans after a failed or incomplete reload, protecting Occurrences that
+  could otherwise be deleted by a cascade based on an incomplete Board (#287).
+
 ## [1.8.43] - 2026-09-04
 
 ### Internal
@@ -2666,7 +2675,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.43...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.44...HEAD
+[1.8.44]: https://github.com/jwh3times/magic-agenda/compare/v1.8.43...v1.8.44
 [1.8.43]: https://github.com/jwh3times/magic-agenda/compare/v1.8.42...v1.8.43
 [1.8.42]: https://github.com/jwh3times/magic-agenda/compare/v1.8.41...v1.8.42
 [1.8.41]: https://github.com/jwh3times/magic-agenda/compare/v1.8.40...v1.8.41
