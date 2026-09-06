@@ -22,6 +22,9 @@ of three hand‑built themes.
   inbox, with a floating drag ghost (powered by [dnd‑kit](https://dndkit.com)).
 - **Rich task editor** — title, description, Note Color, an optional Board Label (or Unlabeled),
   checklist, status, schedule, an optional due time, and a pin toggle for priority.
+  Tasks allow 500-character titles, 20,000-character descriptions, up to 200 checklist items within
+  64 KiB of serialized checklist data, and repeat intervals from 1 to 366. The editor provides
+  feedback; database constraints also enforce these limits for imports and direct API writes.
 - **Custom Labels** — create, rename, recolor, reorder, and delete your board's Labels from
   Settings → Labels; the five starter Labels are ordinary, editable definitions, not built-ins.
   Deleting a Label leaves its tasks in place and Unlabeled.

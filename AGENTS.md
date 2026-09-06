@@ -531,6 +531,19 @@ database rather than merely absent from the UI.
 - These conversions live entirely in `mappers.ts` (`rowToTask` / `taskToRow`). Everything else works in
   app-domain `Task` objects (`src/types/task.ts`).
 
+**Task content limits live in `src/data/taskLimits.ts` and database CHECK constraints (#290).**
+Consult both when changing editor validation, import payloads, or Task persistence. The editor
+counts Unicode code points for title/description fields, matching PostgreSQL `char_length`, and
+`intendSave` blocks invalid drafts, including those loaded from old snapshots. Database constraints
+remain the boundary for imports and callers that bypass the editor.
+
+Checklist size means UTF-8 bytes of PostgreSQL's canonical `jsonb::text`, including JSON escaping
+and spacing. `checklistBytes()` mirrors that representation for the persisted fields;
+`tests/rls/task_content_limits.test.ts` compares it directly with PostgreSQL and checks INSERT/UPDATE
+refusals and exact boundaries. Keep this measure stable: `pg_column_size` depends on TOAST
+compression, so the same logical content can have different stored sizes. Unit and editor coverage
+lives in `taskLimits.test.ts` and `TaskEditor.test.tsx`.
+
 **Whole-Board Task reads use `src/data/loadBoardTasks.ts`** for both `useTasks.reload()` and
 `DataSection` export. PostgREST can return success while capping rows, so the reader pages in stable
 id order and checks exact counts and duplicate ids before publishing any rows. A failed or

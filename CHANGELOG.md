@@ -12,6 +12,15 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.53] - 2026-09-06
+
+### Security
+
+- Bound Task titles to 500 characters, descriptions to 20,000 characters, checklists to 200 items
+  and 64 KiB of JSON text, and recurrence intervals to 1–366. Enforce these limits in the database
+  and explain invalid drafts in the editor, with Unicode-aware input limits and repair paths for
+  older cached content (#290).
+
 ## [1.8.52] - 2026-09-06
 
 ### Security
@@ -2744,7 +2753,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.52...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.53...HEAD
+[1.8.53]: https://github.com/jwh3times/magic-agenda/compare/v1.8.52...v1.8.53
 [1.8.52]: https://github.com/jwh3times/magic-agenda/compare/v1.8.51...v1.8.52
 [1.8.51]: https://github.com/jwh3times/magic-agenda/compare/v1.8.50...v1.8.51
 [1.8.50]: https://github.com/jwh3times/magic-agenda/compare/v1.8.49...v1.8.50
