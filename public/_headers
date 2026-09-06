@@ -56,6 +56,7 @@
 # hash the browser prints in that message into script-src here. Nothing else depends on it.
 
 /*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
