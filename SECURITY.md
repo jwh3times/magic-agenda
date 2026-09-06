@@ -31,6 +31,9 @@ few days and will coordinate a fix and disclosure timeline with you.
   to our own origin, `frame-ancestors 'none'`) plus `X-Frame-Options: DENY`, `X-Content-Type-Options:
 nosniff`, `Referrer-Policy`, and a minimal `Permissions-Policy`, via `public/_headers` (Cloudflare
   Pages).
+- **HTTPS transport.** `public/_headers` configures HSTS for one year with `includeSubDomains` and
+  `preload`. Keep HTTPS available on the apex and every subdomain. The `preload` directive does not
+  submit the domain to browser preload lists; submission remains a separate maintainer decision.
 - **Production DB credentials stay in CI secrets.** The `Deploy Migrations` workflow applies schema
   changes using a Supabase access token + database password held as **encrypted GitHub Actions
   secrets** — never in client code or a `VITE_`‑prefixed variable.
