@@ -32,6 +32,7 @@
     "scripts/a11y-baseline.ts",
     "scripts/a11y-baseline.test.ts",
     "scripts/e2e-global-setup.test.ts",
-    "scripts/backup.test.ts"
+    "scripts/backup.test.ts",
+    "scripts/workflow-pins.test.ts"
   ]
 }

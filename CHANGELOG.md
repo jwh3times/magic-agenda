@@ -12,6 +12,14 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.50] - 2026-09-06
+
+### Security
+
+- Pin workflow actions to full commit SHAs and production/config-preview Supabase CLI installs
+  to the same exact version used locally and in RLS tests. Add regression checks for moving action
+  references and CLI-version drift so upstream changes reach production through reviewed PRs (#293).
+
 ## [1.8.49] - 2026-09-06
 
 ### Docs
@@ -2719,7 +2727,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.49...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.50...HEAD
+[1.8.50]: https://github.com/jwh3times/magic-agenda/compare/v1.8.49...v1.8.50
 [1.8.49]: https://github.com/jwh3times/magic-agenda/compare/v1.8.48...v1.8.49
 [1.8.48]: https://github.com/jwh3times/magic-agenda/compare/v1.8.47...v1.8.48
 [1.8.47]: https://github.com/jwh3times/magic-agenda/compare/v1.8.46...v1.8.47

@@ -17,7 +17,9 @@ test('every external action is pinned to a full commit SHA', () => {
   for (const { name, source } of workflows) {
     for (const [, reference] of source.matchAll(/^\s*(?:-\s+)?uses:\s*([^\s#]+)/gm)) {
       if (reference.startsWith('./')) continue
-      expect(reference, name).toMatch(/^[\w-]+\/[\w./-]+@[a-f0-9]{40}$/)
+      expect({ workflow: name, pinned: /^[\w-]+\/[\w./-]+@[a-f0-9]{40}$/.test(reference) }).toEqual(
+        { workflow: name, pinned: true },
+      )
       actions++
     }
   }
@@ -34,7 +36,7 @@ test('every setup-cli install uses the same exact CLI version as local and RLS t
     for (const step of steps) {
       if (!/(?:^|\n)\s*uses: supabase\/setup-cli@/.test(step)) continue
       const installed = step.match(/^\s+version:\s*([^\s#]+)/m)?.[1]
-      expect(installed, `${name}: setup-cli version`).toBe(version)
+      expect({ workflow: name, version: installed }).toEqual({ workflow: name, version })
       installs++
     }
   }
