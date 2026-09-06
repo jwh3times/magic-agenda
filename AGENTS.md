@@ -1378,6 +1378,10 @@ see the `supabase_admin` path.
 
 ## When changing Supabase config
 
+Keep the five `supabase/setup-cli` version pins in `.github/workflows/` aligned with the exact
+`supabase` devDependency in `package.json`; `scripts/workflow-pins.test.ts` rejects drift. Actions
+use full commit SHAs with version comments, updated through Dependabot’s `github-actions` ecosystem.
+
 `supabase/config.toml`'s `[auth]` tree describes **production** exactly (site URL, redirect
 allow-list, password policy, OTP settings, rate limits, the Resend SMTP block, the Google OAuth
 block, TOTP MFA), and `[api].auto_expose_new_tables = false` keeps automatic Data API grants off.
