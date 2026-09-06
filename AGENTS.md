@@ -52,9 +52,14 @@ Tests are hermetic: `vite.config.ts` injects dummy `VITE_SUPABASE_*` env, so the
 project. Local dev needs a real `.env.local` (copy `.env.example`); `src/lib/supabase.ts` throws at
 startup if the two `VITE_SUPABASE_*` vars are missing.
 
-`main` is **protected: PR-only, no direct pushes** (no admin bypass). Land changes via a branch + PR;
-the checks required by the [active ruleset](https://github.com/jwh3times/magic-agenda/rules/18273908)
-must pass and review threads resolve before merge (0 approvals required, so you can self-merge once green).
+## Required checks and releases
+
+`main` is **protected: PR-only, no direct pushes** (no admin bypass). Land changes via a branch + PR.
+The nine required status checks are `Format`, `Test`, `Build`, `Functions`, `Agents`, `Changelog`,
+`Config`, `RLS`, and `E2E`. These checks and the CodeQL gate must pass, and review threads must be
+resolved before merge (0 approvals required, so you can self-merge once green). The
+[active ruleset](https://github.com/jwh3times/magic-agenda/rules/18273908) is authoritative for all
+merge requirements and scanning thresholds.
 `Config` previews the pending `supabase config push` on PRs touching `supabase/config.toml` or
 `supabase/templates/**` and no-ops elsewhere — it is required, so it reports on every PR. Branch names must not start
 with `release/` — a ruleset protects that namespace and rejects the push; use `chore/release-vX.Y.Z`. Cloudflare Pages builds & deploys `main`

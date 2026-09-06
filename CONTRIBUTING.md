@@ -31,8 +31,8 @@ npm run dev
    npm run build                            # the "Build" check
    cd supabase/functions && deno test       # the "Functions" check (edge functions; must run from
                                             # inside supabase/functions — see below)
-   npm run codex:check                      # the "Agents" check (only matters if you touched
-                                            # .claude/ — see below)
+   npm run codex:check                      # the "Agents" check (agent and skill source changes;
+                                            # see Agent configuration below)
    ```
 
    Also add a `## [x.y.z]` changelog section for the version this merge will mint (see
@@ -57,14 +57,13 @@ npm run dev
    npm run test:rls:down # stop it when you're done
    ```
 
-   This is not yet one of the required checks above — see [Testing
-   layers](./AGENTS.md#testing-layers) in AGENTS.md for why and what it covers.
+   The `RLS` suite is a required CI check. See [Testing layers](./AGENTS.md#testing-layers)
+   for what it covers and how the separate required `E2E` check exercises the deployed preview.
 
-5. Open a Pull Request against `main` and fill in the template. The **`Format`, `Test`, `Build`,
-   `Functions`, `Agents`, `Changelog`, and `Config`** checks plus **CodeQL** must pass and any review
-   threads must be resolved before it can merge — no approvals are required, so you can self‑merge
-   once it's green. (`Config` only does real work when a PR touches `supabase/config.toml` or
-   `supabase/templates/**`; on every other PR it reports a green no‑op.)
+5. Open a Pull Request against `main` and fill in the template. Satisfy the
+   [required checks and merge rules](./AGENTS.md#required-checks-and-releases) before merging.
+   No approvals are required, so you can self-merge once the checks pass and review threads are
+   resolved.
 
 ## Versioning
 
@@ -109,9 +108,10 @@ whole flow — backfill, compute the version, write the entry, run the checks, o
 
 ### Agent configuration
 
-Claude Code and Codex read different files, so only one side is authored: **`.claude/` is the source
-of truth**, and `.codex/agents/` (subagents) plus `.agents/skills/` (skills) are generated from it by
-[`scripts/sync-codex.mjs`](./scripts/sync-codex.mjs). Edit `.claude/`, then:
+Claude Code and Codex read different files. Edit subagents in **`.claude/agents/`** and skills in
+**`.agents/skills/`**. [`scripts/sync-codex.mjs`](./scripts/sync-codex.mjs) generates
+`.codex/agents/` from the subagent sources and `.claude/skills/` from the skill sources. After
+editing either authored tree, run:
 
 ```bash
 npm run codex:sync     # regenerate; commit the result
@@ -120,7 +120,7 @@ npm run codex:check     # what the required "Agents" check runs
 
 Never hand-edit the generated trees — the script owns them, and the check fails on any file that is
 missing, edited, or left over from a deleted source. See
-[AGENTS.md](./AGENTS.md#claude-is-the-source-of-truth-the-codex-trees-are-generated) for the mapping.
+[AGENTS.md](./AGENTS.md#two-authored-trees-two-generated-trees--opposite-directions-on-purpose) for the mapping.
 
 ## Standards
 

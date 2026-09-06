@@ -223,7 +223,7 @@ Config** (`supabase config push`), so Data API defaults, the auth redirect allow
 policy, and the two auth email templates all live in the repo rather than the dashboard.
 
 `main` is **protected** — it's PR‑only (no direct pushes), and a PR must satisfy the
-[active ruleset](https://github.com/jwh3times/magic-agenda/rules/18273908) before merging.
+[required checks and merge rules](./AGENTS.md#required-checks-and-releases) before merging.
 Because Cloudflare deploys `main`,
 **production only ships after a PR closes with all checks green.** See [CONTRIBUTING.md](./CONTRIBUTING.md)
 for the workflow.

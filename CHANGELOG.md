@@ -12,6 +12,14 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.51] - 2026-09-06
+
+### Docs
+
+- Consolidate the nine required CI checks in AGENTS.md and link the contribution, security, and
+  project guides to that list. Correct CONTRIBUTING’s RLS requirement, authored skill paths, and
+  agent-configuration link so contributors edit the source trees and run the right checks (#305).
+
 ## [1.8.50] - 2026-09-06
 
 ### Security
@@ -2727,7 +2735,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.50...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.51...HEAD
+[1.8.51]: https://github.com/jwh3times/magic-agenda/compare/v1.8.50...v1.8.51
 [1.8.50]: https://github.com/jwh3times/magic-agenda/compare/v1.8.49...v1.8.50
 [1.8.49]: https://github.com/jwh3times/magic-agenda/compare/v1.8.48...v1.8.49
 [1.8.48]: https://github.com/jwh3times/magic-agenda/compare/v1.8.47...v1.8.48
