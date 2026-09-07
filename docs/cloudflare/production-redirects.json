@@ -1,0 +1,24 @@
+[
+  {
+    "redirect": {
+      "source_url": "www.magicagenda.app/",
+      "target_url": "https://magicagenda.app/",
+      "status_code": 301,
+      "include_subdomains": false,
+      "subpath_matching": true,
+      "preserve_path_suffix": true,
+      "preserve_query_string": true
+    }
+  },
+  {
+    "redirect": {
+      "source_url": "magic-agenda.pages.dev/",
+      "target_url": "https://magicagenda.app/",
+      "status_code": 301,
+      "include_subdomains": false,
+      "subpath_matching": true,
+      "preserve_path_suffix": true,
+      "preserve_query_string": true
+    }
+  }
+]

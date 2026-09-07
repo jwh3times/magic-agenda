@@ -214,6 +214,10 @@ Production and Preview; `public/_redirects` provides the SPA deep‑link fallbac
 sets security response headers (Content‑Security‑Policy, HSTS, `X-Frame-Options`, `nosniff`,
 `Referrer-Policy`).
 
+See the [canonical-host runbook](./docs/runbooks/canonical-host.md) for configuring production
+alias redirects, preserving preview routing, and verifying the result. Account-level redirects
+require separate Cloudflare configuration; committing the redirect JSON does not activate them.
+
 The database is backed up nightly by the **Backup** workflow — a logical dump (schema, board data,
 and accounts), GPG-encrypted on the runner and kept as a 90-day Actions artifact. The Supabase free
 tier has no automated backups of its own. To restore, follow
