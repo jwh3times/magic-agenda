@@ -12,6 +12,14 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.54] - 2026-09-06
+
+### Docs
+
+- Prepare canonical-host redirect configuration, an operator runbook, and a read-only live checker
+  for production aliases and preview isolation (#299). Activation requires separate Cloudflare
+  account permissions; this release does not enable the redirects.
+
 ## [1.8.53] - 2026-09-06
 
 ### Security
@@ -2753,7 +2761,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.53...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.54...HEAD
+[1.8.54]: https://github.com/jwh3times/magic-agenda/compare/v1.8.53...v1.8.54
 [1.8.53]: https://github.com/jwh3times/magic-agenda/compare/v1.8.52...v1.8.53
 [1.8.52]: https://github.com/jwh3times/magic-agenda/compare/v1.8.51...v1.8.52
 [1.8.51]: https://github.com/jwh3times/magic-agenda/compare/v1.8.50...v1.8.51

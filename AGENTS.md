@@ -92,6 +92,11 @@ claim before writing, so it is reported up front instead of discovered from a re
 
 ## Architecture (the parts that span multiple files)
 
+**When changing production host redirects or checking preview routing**, read the
+[canonical-host runbook](docs/runbooks/canonical-host.md). It describes account-level Bulk Redirects for the two production aliases while
+keeping deployment preview subdomains direct. The redirect JSON records the desired configuration;
+merge does not deploy it. Check #299 and run the live verifier before treating it as active.
+
 Pure SPA -> Supabase, no server of our own. Postgres **Row-Level Security is the only authorization
 boundary** (every table default-denies; `user_settings` scopes to `auth.uid() = user_id`, while
 `tasks`, `labels`, and the Board tables all scope through **Membership** — see below); the anon key

@@ -1,18 +1,24 @@
 # Canonical production host
 
-Production uses `https://magicagenda.app`. Cloudflare account-level Bulk Redirects send
-`www.magicagenda.app` and the bare `magic-agenda.pages.dev` alias there with HTTP 301, preserving
+Use Cloudflare account-level Bulk Redirects to make `https://magicagenda.app` the single
+production origin. Configure redirects from
+`www.magicagenda.app` and the bare `magic-agenda.pages.dev` alias to the apex with HTTP 301, preserving
 paths and query strings. Preview hosts such as `<deployment>.magic-agenda.pages.dev` still serve
-that deployment directly. A visitor previously signed in on an alias may need to sign in again on
+that deployment directly when `include_subdomains` is false. A visitor previously signed in on an alias may need to sign in again on
 the apex: browser sessions and offline snapshots are origin-scoped and are not transferred.
 Already-open or offline cached tabs are not remotely cleared by an edge redirect; these rules
-apply when a request reaches Cloudflare.
+apply when a request reaches Cloudflare. A Google sign-in started on an alias before cutover
+may need to be restarted on the apex: preserving the callback query cannot move the PKCE verifier
+from the original browser origin.
 
 ## Configuration
 
+An operator needs dashboard access or an API token with **Account Filter Lists Edit** and
+**Mass URL Redirects Write** for this account. The repository does not provision those permissions.
+
 The desired redirect items are recorded in
 [production-redirects.json](../cloudflare/production-redirects.json). The live configuration is
-managed through Cloudflare Bulk Redirects; changing this file alone does not deploy it.
+managed through Cloudflare Bulk Redirects; consult #299 for activation status. Changing this file alone does not deploy it.
 
 1. Find or create the account-level redirect list `magic_agenda_canonical` (kind `redirect`).
 2. Apply the two items from the JSON file and wait for the list's bulk operation to complete.
