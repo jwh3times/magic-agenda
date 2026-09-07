@@ -12,6 +12,20 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.57] - 2026-09-07
+
+### Internal
+
+- Upgrade Vitest to 5 and register jest-dom matchers explicitly with matching Vitest declarations,
+  preserving typed synchronous and asynchronous DOM assertions without Jest global types (#318).
+
+## [1.8.56] - 2026-09-07
+
+### Internal
+
+- Update Supabase JS, Testing Library user-event, Node and React DOM types, and Oxlint through
+  the grouped minor and patch dependency update (#319).
+
 ## [1.8.55] - 2026-09-07
 
 ### Docs
@@ -2770,7 +2784,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.55...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.57...HEAD
+[1.8.57]: https://github.com/jwh3times/magic-agenda/compare/v1.8.56...v1.8.57
+[1.8.56]: https://github.com/jwh3times/magic-agenda/compare/v1.8.55...v1.8.56
 [1.8.55]: https://github.com/jwh3times/magic-agenda/compare/v1.8.54...v1.8.55
 [1.8.54]: https://github.com/jwh3times/magic-agenda/compare/v1.8.53...v1.8.54
 [1.8.53]: https://github.com/jwh3times/magic-agenda/compare/v1.8.52...v1.8.53

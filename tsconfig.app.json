@@ -20,8 +20,8 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
 
-    /* Test globals + jest-dom matchers */
-    "types": ["vitest/globals", "@testing-library/jest-dom"]
+    /* Test globals; DOM matcher types live in src/test/domMatchers.d.ts. */
+    "types": ["vitest/globals"]
   },
   "include": ["src"],
   // sw.ts runs under the WebWorker lib (tsconfig.worker.json), not DOM — typechecking it here too
