@@ -1,5 +1,7 @@
-import '@testing-library/jest-dom'
-import { afterEach } from 'vitest'
+import * as domMatchers from '@testing-library/jest-dom/matchers'
+import { afterEach, expect } from 'vitest'
+
+expect.extend(domMatchers)
 
 // localStorage polyfill: Node 26 + vitest 4's jsdom exposes Storage but no instance.
 // Neither globalThis.localStorage nor window.localStorage is defined, though the
