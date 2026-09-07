@@ -57,6 +57,15 @@ never update them to match current code.
 - `CHANGELOG.md`: add an entry
 - The issue itself is closed by the PR — `ROADMAP.md` needs no edit, because it lists nothing
 
+## Required human follow-up
+
+For every required human action left by the completed work, execute
+`docs/agents/human-follow-up.md`: a private follow-up issue labeled `ready-for-human`, verified
+private board placement, and published step-by-step private wiki instructions are required.
+Check existing records before creating duplicates. If your delegated scope cannot publish,
+return that obligation explicitly to the coordinating agent; the handoff remains incomplete
+until publication is verified. Report private publication status without exposing private details.
+
 ## How to detect drift
 
 Verify against actual code using the **Grep and Glob tools** (not shell commands — portable

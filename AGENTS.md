@@ -129,6 +129,15 @@ test project, so the public checks never see it. Contributors without access to 
 work from public code and docs alone; see `docs/runbooks/maintainer-workstation-recovery.md` for
 what a maintainer does on a new machine.
 
+### Required human follow-up
+
+Whenever completed agent work leaves a required human action, follow
+[the human follow-up workflow](docs/agents/human-follow-up.md) before reporting completion:
+record or update a private follow-up issue labeled `ready-for-human`, place it on the private
+board, and publish cross-linked step-by-step instructions in the private wiki. Verify all three
+surfaces; report any access blocker explicitly. The final summary or a temporary wizard is not
+the durable record. Keep private identifiers and contents within private surfaces.
+
 ### Auth: PKCE, not implicit-flow URL fragments
 
 `src/lib/supabase.ts` sets `flowType: 'pkce'` and, critically, `detectSessionInUrl: () => false` (the

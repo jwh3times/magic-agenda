@@ -40,7 +40,7 @@ wrong the moment it lands. The `Changelog` CI job enforces this on every PR.
   ruleset rejects that push; use `chore/release-vX.Y.Z` for a version cut.
 - **Clean working tree.** Run `git status --porcelain`. Your feature code must already be
   committed. If anything is uncommitted, stop and ask the user whether to commit it — do **not**
-  commit their work silently. (The docs/changelog edits *this skill* makes are committed in step 7.)
+  commit their work silently. (The docs/changelog edits _this skill_ makes are committed in step 7.)
 - **`gh` authenticated.** `gh auth status` must succeed.
 
 ### 2. Evaluate the release level
@@ -134,7 +134,7 @@ Insert a `## [$next] - <today>` section immediately below `## [Unreleased]`.
   adding a new one.
 
 **Before writing it, check whether another open PR already claims `$next`.** `next-version.mjs`
-computes from the highest existing tag, so two branches cut from the same commit *must* compute the
+computes from the highest existing tag, so two branches cut from the same commit _must_ compute the
 same number — that is the script working correctly, not a collision to resolve. What it means is
 that whichever PR merges second loses: its `## [$next]` section names a version that has already
 been minted, the required `Changelog` check fails it, and `CHANGELOG.md` conflicts with `main`
@@ -168,7 +168,7 @@ backfill gap. If it still reports missing builds, go back to step 3 — do not p
 
 `format:check` covers `**/*.md` as of v1.5.0, so **the CHANGELOG and docs you just edited are
 formatting-gated in CI** — this used to be untrue and the old text said so. Fix failures with
-`npm run format`, then re-run `npm run codex:sync`: `.claude/agents/*.md` is formatted *and* is the
+`npm run format`, then re-run `npm run codex:sync`: `.claude/agents/*.md` is formatted _and_ is the
 source for `.codex/agents/*.toml`, so formatting after syncing leaves the generated TOML stale and
 fails the required `Agents` check. If any check is red, stop and report — do not push.
 
@@ -190,7 +190,14 @@ gh pr list --head "$(git branch --show-current)" --state open --json number -q '
   section you just wrote.
 - **PR exists** → `gh pr edit <number>` to refresh the body. Do **not** open a second PR.
 
-### 9. Report
+### 9. Record required human follow-up
+
+Before reporting, execute `docs/agents/human-follow-up.md` for every required human action left
+by this work. Verify the private issue, `ready-for-human` label, private board placement, and
+published step-by-step wiki instructions. Reuse records prepared by docs-updater and fill any
+gaps. Distinguish shipped implementation from pending activation or manual verification.
+
+### 10. Report
 
 Give the user: the PR URL; the evaluated release level and rationale; the version this merge will
 mint (`v$next`); any versions you backfilled in step 3 and what they turned out to be. State plainly
@@ -213,15 +220,15 @@ beyond the fast checks.
 
 ## Common mistakes
 
-| Mistake | Fix |
-| --- | --- |
-| Writing the entry under `## [Unreleased]` | Every merge releases — write `## [$next]` for the computed version; `[Unreleased]` stays empty. |
-| Hand-computing the next build | Run `node scripts/next-version.mjs`; it's what CI checks against. |
-| Treating a large refactor as a minor release | Classify shipped compatibility and user capability, not diff size or effort. |
-| Silently cutting a new release line | State the major/minor recommendation and get confirmation before editing version files. |
-| Letting `docs-updater` edit `CHANGELOG.md` too | Tell it to skip `CHANGELOG.md`; the skill owns that file. |
-| Stacking a second section on re-ship | Rewrite in place; renumber if `$next` changed since last ship. |
-| Skipping the backfill because "it's not my change" | The guard fails your PR for someone else's undocumented build. Step 3 is how it gets paid. |
-| Editing the CHANGELOG or docs and skipping `npm run format` | Markdown is formatting-gated since v1.5.0. Run `npm run format`, then `npm run codex:sync` — in that order. |
-| Merging once green | Stop at PR open — the human self-merges. |
-| Writing `## [$next]` without checking other open PRs | Two branches from the same commit compute the same number. Check first; the second to merge pays with a red required check and a `CHANGELOG.md` conflict. |
+| Mistake                                                     | Fix                                                                                                                                                       |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Writing the entry under `## [Unreleased]`                   | Every merge releases — write `## [$next]` for the computed version; `[Unreleased]` stays empty.                                                           |
+| Hand-computing the next build                               | Run `node scripts/next-version.mjs`; it's what CI checks against.                                                                                         |
+| Treating a large refactor as a minor release                | Classify shipped compatibility and user capability, not diff size or effort.                                                                              |
+| Silently cutting a new release line                         | State the major/minor recommendation and get confirmation before editing version files.                                                                   |
+| Letting `docs-updater` edit `CHANGELOG.md` too              | Tell it to skip `CHANGELOG.md`; the skill owns that file.                                                                                                 |
+| Stacking a second section on re-ship                        | Rewrite in place; renumber if `$next` changed since last ship.                                                                                            |
+| Skipping the backfill because "it's not my change"          | The guard fails your PR for someone else's undocumented build. Step 3 is how it gets paid.                                                                |
+| Editing the CHANGELOG or docs and skipping `npm run format` | Markdown is formatting-gated since v1.5.0. Run `npm run format`, then `npm run codex:sync` — in that order.                                               |
+| Merging once green                                          | Stop at PR open — the human self-merges.                                                                                                                  |
+| Writing `## [$next]` without checking other open PRs        | Two branches from the same commit compute the same number. Check first; the second to merge pays with a red required check and a `CHANGELOG.md` conflict. |
