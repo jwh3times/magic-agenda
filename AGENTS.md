@@ -1244,6 +1244,13 @@ nothing listens there — so an unmocked call fails fast with `ECONNREFUSED` rat
 the local stack, which is live whenever `test:rls` is running. Keep `tests/**` excluded from
 that project.
 
+DOM matchers are registered in `src/test/setup.ts` with `expect.extend`; their Vitest 5
+`Matchers<R, T>` types live in `src/test/domMatchers.d.ts`. Keep these together when upgrading
+the test stack: jest-dom 7.0.1's Vitest adapter still augments the older `Assertion<T>` interface,
+and global Jest matcher declarations do not supply Vitest 5's types. `domMatchers.test.ts`
+checks runtime registration and synchronous/asynchronous return types; run the TypeScript
+build as well as Vitest to verify the type assertions.
+
 `npm run test:rls` is a **separate Vitest project** (`vitest.rls.config.ts`) running integration
 tests in `tests/rls/` against a real local stack — start one with `npm run test:rls:up`. It is
 where the authorization boundary is actually exercised: RLS is the only thing standing between

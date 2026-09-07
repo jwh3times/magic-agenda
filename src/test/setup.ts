@@ -3,7 +3,7 @@ import { afterEach, expect } from 'vitest'
 
 expect.extend(domMatchers)
 
-// localStorage polyfill: Node 26 + vitest 4's jsdom exposes Storage but no instance.
+// localStorage fallback, originally needed with Node 26 + Vitest 4's jsdom.
 // Neither globalThis.localStorage nor window.localStorage is defined, though the
 // Storage constructor exists. Methods are own properties (not on Storage.prototype),
 // so tests must spy on the instance, not the prototype.
