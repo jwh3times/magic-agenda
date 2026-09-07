@@ -43,3 +43,8 @@ Hold the bar the template sets: open the URL before asking for its value, use `a
 - `chmod +x <script>`.
 - Don't run it end-to-end yourself — it opens browsers and blocks on human input. Trace it statically instead: every value from step 1 is captured and lands where step 1 said, and every `set_secret` name exactly matches a `secrets.*` reference in CI.
 - Tell the user how to run it. If it's a repeatable setup path, commit it and link it from the README so the next person runs the script instead of asking an AI.
+
+- Before handing off required human actions from agent-completed work, execute
+  `docs/agents/human-follow-up.md`. Publish the private follow-up issue, private board entry, and
+  step-by-step private wiki instructions; the temporary wizard is only a convenience and must
+  not be the only copy of the procedure.

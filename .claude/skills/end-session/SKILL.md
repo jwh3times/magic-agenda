@@ -66,9 +66,15 @@ Conventions and exact `gh` invocations live in **`docs/agents/issue-tracker.md`*
 vocabulary lives in **`docs/agents/triage-labels.md`** (`needs-triage`, `needs-info`,
 `ready-for-agent`, `ready-for-human`, `wontfix`). `gh` infers the repo from the clone.
 
+- **Record all required human follow-up from completed agent work.** Execute
+  `docs/agents/human-follow-up.md` before closeout: verify the labeled private issue, private board
+  entry, and published step-by-step wiki instructions for every remaining action. Reuse existing
+  records. This requirement also applies when implementation shipped but activation or verification
+  remains; closing the code task does not complete the human follow-up.
 - **Close what shipped.** For each issue this session finished, `gh issue close <n> --comment
 "..."` naming the PR and the version it merged as. Do not close an issue whose PR is still
-  open — comment instead.
+  open — comment instead. Keep acceptance criteria requiring human action open until verified;
+  record the private follow-up through the workflow above.
 - **Comment where evidence was found but nothing was implemented.** A future session will not
   have this conversation. Put the `file:line` evidence in the issue.
 - **File what was discovered and not fixed.** This repo's practice is findings-into-the-tracker
@@ -82,20 +88,23 @@ vocabulary lives in **`docs/agents/triage-labels.md`** (`needs-triage`, `needs-i
   different because the automation covers less than it looks like it does:
   - A **public** issue is added to the board automatically (the `Auto-add to project` workflow,
     enabled 2026-09-04, filter `is:issue`), and `Status` is set to `Todo` by `Item added to
-    project`. **Neither sets `Phase`, `Priority`, or `Size`** — do that:
+project`. **Neither sets `Phase`, `Priority`, or `Size`** — do that:
     `gh project item-edit --id <item-id> --project-id <proj-id> --field-id <f> --single-select-option-id <o>`.
-  - A **private-repo** issue is *never* auto-added. Auto-add is per-repository and GitHub Free
+  - A **private-repo** issue is _never_ auto-added. Auto-add is per-repository and GitHub Free
     allows exactly one workflow, which is spent on the public repo. Add it:
-    `gh project item-add 5 --owner jwh3times --url <issue-url>`, then set the same three fields.
+    discover its designated private board and verify visibility before adding the issue, then set
+    that board's applicable fields. For required human follow-up, follow
+    `docs/agents/human-follow-up.md`; do not default to the public board.
 
   An issue that is filed but not on the board, or on it with no fields, is invisible to the queue —
   the same drift the Markdown backlog had, one surface over. This has already gone wrong once: the
   board held only the public issues while three documents claimed it carried both.
+
 - **Use the glossary's words.** `CONTEXT.md` is authoritative for domain vocabulary — Recurring
   Series, Recurrence Rule, Occurrence, Occurrence Date, Scheduled Day, Excluded Date. `template`
   and `instance` are implementation words and stay inside the recurrence code; an issue title
   using them is drift. If a concept has no glossary entry yet, that is itself worth noting.
-- **Never paste `private/` content into an issue.** Those files carry threat models and accepted
+- **Keep `private/` content out of public issues.** Those files carry threat models and accepted
   risks that are deliberately not public. Summarize the public half; leave the reasoning private.
 
 ### 3. Reconcile `private/`
@@ -128,7 +137,8 @@ Its layout:
 
   What the register **is** for, and why it is not an issue: an accepted risk with a revisit trigger
   has no closed state, and a closed issue is invisible at the moment someone needs it. Record the
-  decision here; record the *action* as an issue and link it.
+  decision here; record the _action_ as an issue and link it.
+
 - **`private/YYYY-MM-DD-<topic>.md` — dated evidence documents.** Security reviews, decision
   records, threat models, accepted-risk registers. **These are evidence from the state they
   reviewed and are not silently rewritten to look like they were written today.** If this
@@ -161,7 +171,7 @@ synchronized, anything else is not**, and the report must say so rather than cla
 If the approval is declined or the session ends first, say plainly that private changes remain
 local — the next machine will not have them.
 
-If `private/.git` does not exist in this checkout, skip this step silently — it is the
+If `private/.git` does not exist in this checkout, skip routine reconciliation — it is the
 maintainer's companion, and its absence means it was not bootstrapped here
 (`npm run bootstrap:private`), not that it needs creating.
 
@@ -182,7 +192,7 @@ the index — one line per memory, never content. Update in place; do not accumu
   correction.
 - **Link related memories with `[[name]]`.**
 
-The highest-value memory writes from a session here are usually the *landmines* — the things
+The highest-value memory writes from a session here are usually the _landmines_ — the things
 that were true, cost time, and are invisible from the code. Prior examples: a required CI check
 must report on Dependabot PRs or the PR wedges forever; `supabase config push` deploys straight
 to production and must never run locally; the Supabase CLI's prompts default to **yes** on EOF.
@@ -196,7 +206,7 @@ or an ADR — not in memory or `private/`. Decide by ownership, not convenience:
   the PR that changed the behavior. Do not edit public docs here.
 - **Already merged?** File an issue. Editing a public doc on a fresh branch after the fact is a
   second PR, which is a decision for the maintainer, not a cleanup task.
-- **Runbooks are the exception worth watching.** `docs/runbooks/` is *living* documentation and
+- **Runbooks are the exception worth watching.** `docs/runbooks/` is _living_ documentation and
   must change in the same PR as whatever it describes. `docs/plans/` and `docs/specs/` are
   dated historical records — never update them to match current code.
 
@@ -206,14 +216,14 @@ Audit, then delete — in that order. `git status --porcelain --ignored` is the 
 
 **Never delete these.** Each is unrecoverable, the only copy, or costly to bring back:
 
-| Path                              | Why                                                     |
-| --------------------------------- | ------------------------------------------------------- |
-| `.env.local`                      | Local Supabase credentials; `.env.example` is a template, not a backup. |
-| `private/`                        | The private companion checkout; its uncommitted work exists nowhere else. |
-| `tests/e2e/.auth/`                | Playwright storage state for the E2E account.           |
+| Path                                                          | Why                                                                                                       |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `.env.local`                                                  | Local Supabase credentials; `.env.example` is a template, not a backup.                                   |
+| `private/`                                                    | The private companion checkout; its uncommitted work exists nowhere else.                                 |
+| `tests/e2e/.auth/`                                            | Playwright storage state for the E2E account.                                                             |
 | `supabase/.temp/` (all but `pgdelta/`), `supabase/.branches/` | CLI link state, not scratch; deleting it unlinks the project, and re-linking needs the database password. |
-| `node_modules/`, `supabase/functions/node_modules/` | Reinstallable, but deleting them is a chore, not cleanup. |
-| Any file with uncommitted work in it | Ask; never silently discard the user's work.         |
+| `node_modules/`, `supabase/functions/node_modules/`           | Reinstallable, but deleting them is a chore, not cleanup.                                                 |
+| Any file with uncommitted work in it                          | Ask; never silently discard the user's work.                                                              |
 
 **Safe to delete** once you have confirmed nothing in them is wanted:
 
@@ -256,7 +266,8 @@ Give the user, in this order:
 
 - **Issues** — closed, commented, filed (with numbers and one-line reasons), and anything left
   `needs-triage` awaiting their decision.
-- **`private/`** — which files changed, and whether the boundary/next-work ordering moved.
+- **Private records** — whether reconciliation and required human follow-up publication succeeded,
+  or which recording step is blocked; keep private identifiers and contents out of the report.
 - **Memory** — which memories were updated or created, and which were deleted as wrong.
 - **Workspace** — what was deleted, what was deliberately kept, and anything you left alone
   pending their answer (a stash, `.superpowers/`, an unexplained ignored path).
@@ -272,7 +283,7 @@ Give the user, in this order:
   PR. `CLAUDE.md` is only an `@AGENTS.md` import and is never edited at all.
 - **Update `docs/plans/` or `docs/specs/`.** They are dated historical records by design.
 - **Rewrite the body of a dated `private/` document.** Amend it.
-- **Copy `private/` reasoning into a GitHub issue.**
+- **Copy `private/` reasoning into a public GitHub issue.**
 - **Delete `.env.local`, `private/`, or `tests/e2e/.auth/`** — or any ignored path you cannot
   account for.
 - **Drop a stash, or delete a branch with unpushed commits.**
@@ -281,18 +292,18 @@ Give the user, in this order:
 
 ## Common mistakes
 
-| Mistake                                                       | Fix                                                                                          |
-| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Recording a discovery only in the conversation                | It vanishes at session end. Issue, `private/`, or memory — pick one, in that order of preference. |
-| Writing a memory that restates `AGENTS.md`                    | Memory is for what the repo does not already record. Prefer the landmine over the summary.     |
-| Adding a tenth memory that overlaps three existing ones       | Read `MEMORY.md` first and edit in place.                                                     |
-| Rewriting a dated `private/` review to match today's code     | It is evidence from the state it reviewed. Extend its amendment section instead.               |
-| Silently picking a default for a two-sided question           | File it `needs-triage` and leave it. The decision is the maintainer's.                          |
-| Using `template`/`instance` in an issue title                 | Use `CONTEXT.md`'s words: Recurring Series, Occurrence, Occurrence Date.                        |
-| `rm -rf` on everything git-ignored                            | That takes `.env.local` and `private/` with it. Audit against the never-delete list first.      |
-| Reporting "private/ reconciled" with commits still unpushed   | The next machine gets nothing. Say "N commits ahead, not pushed" and why.                      |
-| Pushing the companion without re-checking its visibility      | A repo flipped public turns the push into a disclosure. `gh repo view … --json visibility` first. |
-| Deleting `supabase/.temp/` as CLI scratch                     | It holds the link state; every `--linked` command then fails until `npx supabase link`, which needs the database password. Only `pgdelta/` inside it is cache. |
-| Leaving the local Supabase stack running                      | `npm run test:rls:down` if this session brought it up.                                         |
-| Editing public docs after the branch merged                   | File an issue; a docs-only PR is the maintainer's call.                                        |
-| Ending without a "next thing I would pick up" line            | That line is the whole point of closing out cleanly.                                           |
+| Mistake                                                     | Fix                                                                                                                                                            |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Recording a discovery only in the conversation              | It vanishes at session end. Issue, `private/`, or memory — pick one, in that order of preference.                                                              |
+| Writing a memory that restates `AGENTS.md`                  | Memory is for what the repo does not already record. Prefer the landmine over the summary.                                                                     |
+| Adding a tenth memory that overlaps three existing ones     | Read `MEMORY.md` first and edit in place.                                                                                                                      |
+| Rewriting a dated `private/` review to match today's code   | It is evidence from the state it reviewed. Extend its amendment section instead.                                                                               |
+| Silently picking a default for a two-sided question         | File it `needs-triage` and leave it. The decision is the maintainer's.                                                                                         |
+| Using `template`/`instance` in an issue title               | Use `CONTEXT.md`'s words: Recurring Series, Occurrence, Occurrence Date.                                                                                       |
+| `rm -rf` on everything git-ignored                          | That takes `.env.local` and `private/` with it. Audit against the never-delete list first.                                                                     |
+| Reporting "private/ reconciled" with commits still unpushed | The next machine gets nothing. Say "N commits ahead, not pushed" and why.                                                                                      |
+| Pushing the companion without re-checking its visibility    | A repo flipped public turns the push into a disclosure. `gh repo view … --json visibility` first.                                                              |
+| Deleting `supabase/.temp/` as CLI scratch                   | It holds the link state; every `--linked` command then fails until `npx supabase link`, which needs the database password. Only `pgdelta/` inside it is cache. |
+| Leaving the local Supabase stack running                    | `npm run test:rls:down` if this session brought it up.                                                                                                         |
+| Editing public docs after the branch merged                 | File an issue; a docs-only PR is the maintainer's call.                                                                                                        |
+| Ending without a "next thing I would pick up" line          | That line is the whole point of closing out cleanly.                                                                                                           |

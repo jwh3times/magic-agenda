@@ -13,6 +13,13 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 
 Infer the repo from `git remote -v` — `gh` does this automatically when run inside a clone.
 
+## Required human actions after agent work
+
+Follow [Required human follow-up](human-follow-up.md) whenever completed agent work leaves a
+human dependency. The follow-up belongs in the private repository, on its private board, with
+`ready-for-human` and cross-linked step-by-step private wiki instructions. Check existing records
+before creating another issue; verify publication before reporting completion.
+
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_
