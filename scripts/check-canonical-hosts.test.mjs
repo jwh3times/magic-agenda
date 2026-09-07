@@ -31,7 +31,7 @@ test('rejects dropped auth queries', async () => {
 test('rejects a wildcard rule that redirects preview deployments', async () => {
   await expect(
     checkCanonicalHosts(preview, async (url, options) =>
-      url.startsWith(preview)
+      new URL(url).origin === preview
         ? new Response(null, { status: 301, headers: { location: 'https://magicagenda.app/' } })
         : correct(url, options),
     ),
