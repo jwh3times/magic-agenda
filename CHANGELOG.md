@@ -12,6 +12,21 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.59] - 2026-09-09
+
+### Security
+
+- Require TLS for production database and pooler connections, and document a verified TLS
+  connection check for restores (#301).
+- Force text output in the Supabase config preview so the CLI reads declined prompts instead of
+  accepting defaults in machine-readable mode.
+
+## [1.8.58] - 2026-09-08
+
+### Internal
+
+- Upgrade Playwright from 1.62.1 to 1.63.0 (#321).
+
 ## [1.8.57] - 2026-09-07
 
 ### Internal
@@ -2784,7 +2799,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.57...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.59...HEAD
+[1.8.59]: https://github.com/jwh3times/magic-agenda/compare/v1.8.58...v1.8.59
+[1.8.58]: https://github.com/jwh3times/magic-agenda/compare/v1.8.57...v1.8.58
 [1.8.57]: https://github.com/jwh3times/magic-agenda/compare/v1.8.56...v1.8.57
 [1.8.56]: https://github.com/jwh3times/magic-agenda/compare/v1.8.55...v1.8.56
 [1.8.55]: https://github.com/jwh3times/magic-agenda/compare/v1.8.54...v1.8.55
