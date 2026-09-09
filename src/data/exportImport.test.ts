@@ -23,7 +23,7 @@ function task(over: Partial<TaskDraft> = {}): Task {
     checklist: [],
     status: 'todo',
     completedAt: null,
-    reopenStatus: null,
+    reopenStatus: 'todo',
     archivedAt: null,
     day: '2026-07-10',
     order: 0,
@@ -140,18 +140,33 @@ test('v3 serialization fails closed when split reads observed a dangling Label a
   ).toThrow('A task references a Label that is missing from this export.')
 })
 
-test('v2 done imports as canonical Completed without fabricating historical Completion state', () => {
+test('v2 done imports as canonical Completed without fabricating a Completion instant', () => {
   const parsed = parseExport(v2Export([v2Task({ status: 'done', done: true })]))
   if (!parsed.ok) throw new Error(parsed.error)
 
   expect(parsed.data.sourceVersion).toBe(2)
+  // The file records no instant and this parser has no clock, so Completed At stays null here and
+  // the database's lifecycle trigger stamps the write. The remembered active status is the one
+  // ADR-0003 gives a legacy Completed Task: To Do.
   expect(parsed.data.tasks[0]).toMatchObject({
     status: 'completed',
     completedAt: null,
-    reopenStatus: null,
+    reopenStatus: 'todo',
     archivedAt: null,
   })
   expect('done' in parsed.data.tasks[0]).toBe(false)
+})
+
+test('a v3 file written before the lifecycle backfill reopens its Tasks to To Do', () => {
+  // v3 shipped while `reopen_status` was still nullable, so files already on disk can carry null.
+  const file = JSON.parse(serializeExport([task()], [], labels, 'x')) as {
+    tasks: Array<Record<string, unknown>>
+  }
+  file.tasks[0].reopenStatus = null
+  const parsed = parseExport(JSON.stringify(file))
+  if (!parsed.ok) throw new Error(parsed.error)
+
+  expect(parsed.data.tasks[0].reopenStatus).toBe('todo')
 })
 
 test('v3 import planning preserves Completion and Archive persistence in destination rows', () => {

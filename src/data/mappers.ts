@@ -53,7 +53,7 @@ export function rowToTask(row: TaskRow): Task {
     checklist: parseChecklist(row.checklist),
     status: workflowStatusFromStorage(row.status),
     completedAt: row.completed_at,
-    reopenStatus: row.reopen_status as ActiveWorkflowStatus | null,
+    reopenStatus: row.reopen_status as ActiveWorkflowStatus,
     archivedAt: row.archived_at,
     day: row.day ?? INBOX,
     atTime: row.at_time ? row.at_time.slice(0, 5) : null,

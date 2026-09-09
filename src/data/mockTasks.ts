@@ -4,6 +4,13 @@ import { addDays, ymd } from '../lib/dates'
 let seq = 1000
 const uid = (p: string) => `${p}${seq++}`
 
+/**
+ * Fixed so a Completed mock satisfies the same lifecycle invariants the database enforces:
+ * Completed At is present exactly when the Workflow Status is Completed. A wall-clock value would
+ * make these fixtures non-deterministic for no gain -- nothing here renders the instant.
+ */
+const MOCK_COMPLETED_AT = '2026-01-01T12:00:00.000Z'
+
 interface MkInput {
   t: string
   d?: string
@@ -26,8 +33,8 @@ function mk(o: MkInput): Task {
     color: o.k,
     checklist: (o.l ?? []).map((x) => ({ id: uid('c'), text: x.t, done: !!x.d })),
     status,
-    completedAt: null,
-    reopenStatus: status === 'completed' ? null : status,
+    completedAt: status === 'completed' ? MOCK_COMPLETED_AT : null,
+    reopenStatus: status === 'completed' ? 'todo' : status,
     archivedAt: null,
     day: o.day,
     atTime: null,

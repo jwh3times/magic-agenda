@@ -17,7 +17,7 @@ function task(overrides: Partial<TaskDraft> = {}): Task {
     checklist: [],
     status: 'todo',
     completedAt: null,
-    reopenStatus: null,
+    reopenStatus: 'todo',
     archivedAt: null,
     day: 'inbox',
     atTime: null,

@@ -36,7 +36,7 @@ const ASSIGNED_TASK = asTask({
   checklist: [],
   status: 'todo',
   completedAt: null,
-  reopenStatus: null,
+  reopenStatus: 'todo',
   archivedAt: null,
   day: '2026-08-21',
   order: 0,

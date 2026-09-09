@@ -6,7 +6,7 @@ const completedAt = '2026-09-03T14:15:00.000Z'
 test('Completing remembers In Progress and establishes Completed At', () => {
   expect(
     completionDecision(
-      { status: 'doing', completedAt: null, reopenStatus: null, archivedAt: null },
+      { status: 'doing', completedAt: null, reopenStatus: 'todo', archivedAt: null },
       'toggle',
       completedAt,
     ),
@@ -36,16 +36,6 @@ test('quick Reopen returns to the remembered active status and clears Completion
     reopenStatus: 'doing',
     archivedAt: null,
   })
-})
-
-test('quick Reopen falls back to To Do when a legacy Completed Task has no memory', () => {
-  expect(
-    completionDecision(
-      { status: 'completed', completedAt: null, reopenStatus: null, archivedAt: null },
-      'toggle',
-      completedAt,
-    ).status,
-  ).toBe('todo')
 })
 
 test.each(['todo', 'doing'] as const)(

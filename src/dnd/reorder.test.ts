@@ -14,7 +14,7 @@ function t(id: string, over: Partial<TaskDraft> = {}): Task {
     checklist: [],
     status: 'todo',
     completedAt: null,
-    reopenStatus: null,
+    reopenStatus: 'todo',
     archivedAt: null,
     day: 'inbox',
     atTime: null,

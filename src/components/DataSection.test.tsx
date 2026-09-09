@@ -77,7 +77,7 @@ function task(over: Partial<TaskDraft> = {}): Task {
     checklist: [],
     status: 'todo',
     completedAt: null,
-    reopenStatus: null,
+    reopenStatus: 'todo',
     archivedAt: null,
     day: '2026-07-10',
     order: 0,
@@ -134,7 +134,7 @@ function taskRow(over: Partial<TaskRow> = {}): TaskRow {
     checklist: [],
     status: 'todo',
     completed_at: null,
-    reopen_status: null,
+    reopen_status: 'todo',
     archived_at: null,
     day: null,
     at_time: null,
@@ -268,7 +268,7 @@ test('export downloads v3 with Board Labels and Completion fields, not settings 
   expect(exported.tasks[0]).toMatchObject({
     status: 'todo',
     completedAt: null,
-    reopenStatus: null,
+    reopenStatus: 'todo',
     archivedAt: null,
   })
   expect(exported.tasks[0]).not.toHaveProperty('done')

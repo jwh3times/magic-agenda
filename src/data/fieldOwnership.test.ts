@@ -19,7 +19,7 @@ const sample: Task = {
   checklist: [],
   status: 'todo',
   completedAt: null,
-  reopenStatus: null,
+  reopenStatus: 'todo',
   archivedAt: null,
   day: '2026-07-08',
   atTime: null,
