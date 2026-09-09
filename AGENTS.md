@@ -1644,15 +1644,20 @@ workflow's actual verification shell with both INSERT and COPY fixtures. Older e
 still contain the auth state captured when they were made; this change does not rewrite them.
 
 It also asserts the three Board tables are in `data.sql` and that `schema.sql` defines
-`handle_new_user`, `handle_account_deletion`, and `create_board` — the last of which replaced
-`tasks_infer_board_id` in that list when Board creation dropped it, since a dump assertion naming a
-function that no longer exists fails every night. Both additions guard the
-same failure: a bundle that verifies clean and restores into a broken database. Without the Board
+`handle_new_user`, `handle_account_deletion`, `create_board`,
+`enforce_task_completion_lifecycle`, and `stamp_task_attribution` — `create_board` replaced
+`tasks_infer_board_id` in that list when Board creation dropped it (a dump assertion naming a
+function that no longer exists fails every night), and the two `tasks` triggers joined it for #241
+and #291 respectively, once each existed to lose. These additions guard two shapes of the same
+failure: a bundle that verifies clean and restores into a broken database. Without the Board
 tables, every restored task carries a `board_id` pointing at nothing — and because `data.sql` sets
 `session_replication_role = replica` on its own first line, the foreign key does not stop it, so the
-restore _succeeds_ into a database where no task belongs to any reachable board. Without the
-functions, the restored schema has policies and constraints whose lifecycle triggers are missing,
-which shows up first as `Database error deleting user`. The function check matters most because
+restore _succeeds_ into a database where no task belongs to any reachable board. Without
+`handle_new_user`/`handle_account_deletion`/`create_board`, the restored schema has policies and
+constraints whose account/board lifecycle triggers are missing, which shows up first as `Database
+error deleting user`. Without the two `tasks` triggers the failure is quieter: the CHECK constraints
+they normalize ahead of are still there, so a write a live database accepts starts being refused
+outright, and attribution silently stops being stamped at all. The function check matters most because
 `supabase db dump` takes **no `--schema` flag** here, so what it captures is a vendor default this
 repo does not control. `has_function()` normalises quotes the same way `has_table()` already did,
 learned the hard way: the v1.2.76 version matched raw `pg_dump`'s unquoted `FUNCTION public.$fn`,

@@ -12,6 +12,32 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.61] - 2026-09-09
+
+### Changed
+
+- The database, not the client, now owns Completion and Archive. Completing a Task remembers the
+  status it left, stamps the Completion, and preserves that instant through ordinary edits;
+  Reopening clears Completion and Archive; and Archive records only its first transition. A client
+  from before v1.8.58 that knows only the Workflow Status can no longer leave a Task in a
+  contradictory state (#241).
+- Importing a Completed Task from a v1 or v2 backup now dates its Completion to the import. Those
+  formats never recorded an instant, and a Completed Task must have one.
+
+### Fixed
+
+- Backfill Tasks left without Completion history by the compatibility window: an already-Completed
+  Task takes its last-updated time as the closest surviving record, and an active Task loses any
+  stray Completion or Archive value. A backfilled Task reopens to To Do, its earlier status being
+  unrecoverable.
+
+### Internal
+
+- Enforce the lifecycle with named constraints as well as the trigger, so a restore -- which loads
+  with triggers disabled -- still cannot introduce a contradictory row.
+- Assert the two `tasks` triggers survive the nightly dump; a backup missing them verifies clean
+  and restores into a database that silently stops normalizing writes and stamping attribution.
+
 ## [1.8.60] - 2026-09-09
 
 ### Internal
@@ -2811,7 +2837,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.60...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.61...HEAD
+[1.8.61]: https://github.com/jwh3times/magic-agenda/compare/v1.8.60...v1.8.61
 [1.8.60]: https://github.com/jwh3times/magic-agenda/compare/v1.8.59...v1.8.60
 [1.8.59]: https://github.com/jwh3times/magic-agenda/compare/v1.8.58...v1.8.59
 [1.8.58]: https://github.com/jwh3times/magic-agenda/compare/v1.8.57...v1.8.58
