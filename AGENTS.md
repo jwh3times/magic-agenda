@@ -278,10 +278,10 @@ authenticated`. It carries an abuse ceiling of 100 current Memberships per accou
   the escalation surface above, so the duplication is deliberate. What keeps them from drifting is
   a test, not a comment: `board_creation.test.ts` asserts a created Board and a signup Board have
   identical vocabularies.
-- **No `app_private` schema yet, deliberately.** Only the _co-member_ clause on `board_memberships`
-  needs a `security definer` helper, because it subqueries its own table and raises `infinite
-recursion detected in policy for relation`. That clause is a sharing feature with nothing to do
-  while every Board has one Membership. Everything shipped is self-scoped or crosses relations.
+- **`app_private` holds policy helpers.** Account-level administration introduced
+  `app_private.is_admin()` for feature-flag writes. Board policies remain Membership-scoped;
+  administration grants no additional access to Board content. A future _co-member_ clause on
+  `board_memberships` will also need a helper because it subqueries its own table and recurses.
   Measured, not assumed: a policy calling a function in a private schema requires the **calling**
   role to hold `USAGE` and `EXECUTE` or the query dies with `permission denied for function`, so
   such a helper can never be hidden from `authenticated` — only from `anon`. What actually keeps a
@@ -343,6 +343,22 @@ upserts, and exclude attribution and database timestamps. **Leave `author_id` un
 UPDATE trigger:** the grant prevents client forgery, while the foreign key must still be able to
 SET NULL when an author deletes their account. `tests/rls/task_attribution.test.ts` covers canonical
 writes and upserts, protected-column forgery, account deletion, and concurrent revision increments.
+
+### Account administration and feature flags
+
+`user_roles` is Account-scoped; an `admin` row is assigned and revoked through SQL only. Even
+admins have no Data API write grant on this table. Users read only their own row. The
+`app_private.is_admin()` policy helper takes no account parameter, uses an empty `search_path`,
+and checks the live role rather than JWT claims. Revocation therefore applies to the next flag
+write without waiting for token refresh. Both its ACL and schema reachability are pinned in
+`tests/rls/baseline.test.ts`.
+
+Authenticated users read `feature_flags`; admins create, update, and delete definitions. Flags
+control UI rollout only: every protected operation still needs its own RLS policy. Neither table
+joins the realtime publication or offline snapshots. `src/access/useRole.ts` and `useFlags.ts`
+provide session-scoped hints, refreshing on focus, reconnection, session change, and every minute.
+Signed-out, offline, failed, and missing reads default to no admin role and disabled flags. See
+[the administration runbook](docs/runbooks/roles-and-feature-flags.md) for SQL seeding and usage.
 
 ### Labels: optional classification, legacy bridge retired
 

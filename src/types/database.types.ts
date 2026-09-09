@@ -117,6 +117,24 @@ export type Database = {
         }
         Relationships: []
       }
+      feature_flags: {
+        Row: {
+          description: string
+          enabled: boolean
+          key: string
+        }
+        Insert: {
+          description?: string
+          enabled?: boolean
+          key: string
+        }
+        Update: {
+          description?: string
+          enabled?: boolean
+          key?: string
+        }
+        Relationships: []
+      }
       labels: {
         Row: {
           board_id: string
@@ -269,6 +287,21 @@ export type Database = {
             referencedColumns: ['board_id', 'id']
           },
         ]
+      }
+      user_roles: {
+        Row: {
+          role: string
+          user_id: string
+        }
+        Insert: {
+          role: string
+          user_id: string
+        }
+        Update: {
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_settings: {
         Row: {

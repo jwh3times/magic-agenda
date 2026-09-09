@@ -65,10 +65,16 @@ import { withPg } from './helpers'
  * This distinction was added with `create_board`; the single-case version of the rule above it
  * would have flagged a correct function as an error.
  */
-const PUBLIC_FUNCTIONS: Record<
+const REVIEWED_FUNCTIONS: Record<
   string,
   { secdef: boolean; config: string; explicitAcl: boolean; executeGrantees: string }
 > = {
+  'app_private.is_admin()': {
+    secdef: true,
+    config: 'search_path=""',
+    explicitAcl: true,
+    executeGrantees: 'authenticated',
+  },
   'create_board(text)': {
     secdef: true,
     config: 'search_path=""',
@@ -101,7 +107,7 @@ const PUBLIC_FUNCTIONS: Record<
   },
 }
 
-test('the security posture of every function in public is the reviewed one', async () => {
+test('the security posture of every application function is the reviewed one', async () => {
   const rows = await withPg(async (pg) => {
     const res = await pg.query<{
       signature: string
@@ -129,7 +135,7 @@ test('the security posture of every function in public is the reviewed one', asy
               ) as execute_grantees
          from pg_proc p
          join pg_namespace n on n.oid = p.pronamespace
-        where n.nspname = 'public'
+        where n.nspname in ('public', 'app_private')
         order by 1`,
     )
     return res.rows
@@ -146,7 +152,7 @@ test('the security posture of every function in public is the reviewed one', asy
       },
     ]),
   )
-  expect(actual).toEqual(PUBLIC_FUNCTIONS)
+  expect(actual).toEqual(REVIEWED_FUNCTIONS)
 })
 
 /**
@@ -168,11 +174,8 @@ test('the security posture of every function in public is the reviewed one', asy
  * reach a schema it does not reach today**, and any new schema — including one added by a platform
  * upgrade — should be looked at by a human rather than absorbed silently.
  *
- * `app_private` does not exist yet, deliberately. The only predicate that needs a definer helper is
- * the co-member clause on `board_memberships`, which recurses (`infinite recursion detected in
- * policy for relation`) and is a sharing feature; every predicate shipped so far is self-scoped or
- * crosses to another relation. When it does arrive, expect this list to gain `app_private` for
- * `authenticated` — that is the correct update, not a regression.
+ * `app_private` holds the account-role helper used by feature-flag write policies. Only
+ * `authenticated` gains USAGE, and PostgREST still refuses this unlisted schema.
  *
  * `net` left this list with Supabase CLI 2.115: a fresh local stack no longer enables the opt-in
  * `pg_net` extension, and Magic Agenda does not use it. Keep the smaller surface rather than
@@ -193,8 +196,10 @@ const REACHABLE_SCHEMAS = [
 
 test('only the reviewed schemas are reachable by the Data API roles', async () => {
   const rows = await withPg(async (pg) => {
-    const res = await pg.query<{ nspname: string }>(
-      `select n.nspname
+    const res = await pg.query<{ nspname: string; anon: boolean; authenticated: boolean }>(
+      `select n.nspname,
+              has_schema_privilege('anon', n.oid, 'usage') as anon,
+              has_schema_privilege('authenticated', n.oid, 'usage') as authenticated
          from pg_namespace n
         where n.nspname not like 'pg\\_%'
           and n.nspname <> 'information_schema'
@@ -205,7 +210,11 @@ test('only the reviewed schemas are reachable by the Data API roles', async () =
     return res.rows
   })
 
-  expect(rows.map((r) => r.nspname)).toEqual(REACHABLE_SCHEMAS)
+  expect(rows.filter((r) => r.anon).map((r) => r.nspname)).toEqual(REACHABLE_SCHEMAS)
+  expect(rows.filter((r) => r.authenticated).map((r) => r.nspname)).toEqual([
+    'app_private',
+    ...REACHABLE_SCHEMAS,
+  ])
 })
 
 /**
