@@ -1437,14 +1437,16 @@ use full commit SHAs with version comments, updated through Dependabot’s `gith
 
 `supabase/config.toml`'s `[auth]` tree describes **production** exactly (site URL, redirect
 allow-list, password policy, OTP settings, rate limits, the Resend SMTP block, the Google OAuth
-block, TOTP MFA), and `[api].auto_expose_new_tables = false` keeps automatic Data API grants off.
+block, TOTP MFA), `[api].auto_expose_new_tables = false` keeps automatic Data API grants off,
+and `[db.ssl_enforcement].enabled = true` requires TLS for database and pooler connections.
 Every edit is a production change, not local scaffolding. Changes to
 `supabase/config.toml` or `supabase/templates/**` **auto-apply to production on merge to `main`**
 via the `Deploy Auth Config` workflow (`.github/workflows/deploy-auth-config.yml`, which runs
 `supabase config push --yes`). The `Config` CI job previews the pending push on PRs that touch
-those paths — it declines every confirmation prompt (`yes n |`) so it can never apply: the CLI has
-no `--dry-run`, and its prompts default to **yes** on EOF, so a naive non-interactive run would
-silently push to production. Secrets referenced via `env(...)` in the file (`RESEND_API_KEY`,
+those paths using `yes n | SUPABASE_YES=false supabase config push --agent no --output-format text`
+to decline confirmation prompts. Keep the explicit text mode: machine-readable output skips prompts
+and accepts their defaults even with `yes n` on stdin. The CLI has no `--dry-run`, and prompts also
+default to **yes** on EOF. Secrets referenced via `env(...)` in the file (`RESEND_API_KEY`,
 `GOOGLE_OAUTH_CLIENT_SECRET`) exist only as repository secrets, used by both the `Config` and
 `Deploy Auth Config` jobs; `deploy-migrations.yml` and `deploy-functions.yml` also carry them so
 the CLI's config.toml parsing on every command can't fail on a missing var. **Never run

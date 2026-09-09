@@ -131,7 +131,7 @@ and add a Google Cloud OAuth client whose redirect URI is
 > the live project exactly and deploy on merge to `main`. Change them by editing those files in a PR
 > — a dashboard edit drifts until the next push overwrites it. **Never run `supabase config push`
 > locally**: it applies straight to production, skipping the PR preview. See
-> [AGENTS.md](./AGENTS.md#when-changing-auth-config).
+> [AGENTS.md](./AGENTS.md#when-changing-supabase-config).
 
 ### 5. Run
 
@@ -226,8 +226,9 @@ tier has no automated backups of its own. To restore, follow
 Database migrations apply to production automatically: merging a change under `supabase/migrations/` to
 `main` triggers the **Deploy Migrations** workflow (`supabase db push`). Supabase configuration does
 the same: merging a change to `supabase/config.toml` or `supabase/templates/` triggers **Deploy Auth
-Config** (`supabase config push`), so Data API defaults, the auth redirect allow‑list and password
-policy, and the two auth email templates all live in the repo rather than the dashboard.
+Config** (`supabase config push`), so database TLS enforcement, Data API defaults, the auth redirect
+allow‑list and password policy, and the two auth email templates all live in the repo rather than
+the dashboard.
 
 `main` is **protected** — it's PR‑only (no direct pushes), and a PR must satisfy the
 [required checks and merge rules](./AGENTS.md#required-checks-and-releases) before merging.
