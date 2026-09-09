@@ -167,7 +167,9 @@ jobs:
         run: |
           # Never add shell: bash to this job: that turns on pipefail, and yes(1) dying of SIGPIPE would misreport config push's exit code (141) and corrupt the no-op classification.
           set +e
-          out=$(yes n | supabase config push 2>&1)
+          # Machine-readable output skips prompts and accepts their defaults,
+          # even with `yes n` on stdin. Force text mode so declines are read.
+          out=$(yes n | SUPABASE_YES=false supabase config push --agent no --output-format text 2>&1)
           code=$?
           set -e
           {

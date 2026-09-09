@@ -149,12 +149,29 @@ Use the **Session pooler** string, which is IPv4-reachable. Note that the userna
 project ref:
 
 ```bash
-export PGURI='postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres'
+export PGURI='postgresql://postgres.<ref>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=verify-full'
+export PGSSLROOTCERT='/path/to/prod-ca-2021.crt'
 ```
 
 Copy the exact host from the dashboard (Project Settings → Database → Connection string → Session
 pooler). The region and the `aws-0`/`aws-1` prefix vary per project, and a wrong one fails with
 `FATAL: (ENOTFOUND) tenant/user postgres.<ref> not found`.
+
+Download the CA certificate from Database Settings → SSL Configuration. Supply the database
+password through 1Password to the consuming process (for example, inject `PGPASSWORD`); keep it out
+of the URI and shell history. With Docker, mount the certificate and pass `PGSSLROOTCERT` using its
+container path, along with the injected `PGPASSWORD`.
+
+Production requires TLS through `[db.ssl_enforcement]` in `supabase/config.toml`, applied by
+`supabase config push`. Changing that setting briefly restarts the database. Before loading any
+data, verify the Session pooler connection:
+
+```bash
+psql "$PGURI" -X -v ON_ERROR_STOP=1 -c '\conninfo' -c 'select 1 as connected;'
+```
+
+Expect an SSL connection and `connected = 1`. `verify-full` also checks the CA and hostname;
+resolve certificate errors before continuing. See [Supabase SSL enforcement](https://supabase.com/docs/guides/platform/ssl-enforcement).
 
 **It must be the Session pooler on 5432, not the Transaction pooler on 6543.**
 `session_replication_role` is a session-level setting and the load runs as a single transaction; the
@@ -403,6 +420,14 @@ foreign keys into `auth.users` and therefore cannot be restored into a bare data
 needs a project that provisions `auth` itself, which is exactly why step 1 says to create one.
 
 ### Rehearsal log
+
+- **2026-09-09** — connection-only verification after enabling production SSL enforcement (#301).
+  The Management API reported enforcement applied successfully. The Session pooler accepted
+  `postgres:17 psql` with `sslmode=verify-full`, reported an SSL connection, and returned
+  `connected = 1`. A separate verified TLS session accepted `BEGIN`,
+  `SET LOCAL session_replication_role = replica`, and `ROLLBACK`; no data was written. A plaintext
+  connection using a dummy password was rejected with an SSL-required error. This did not exercise
+  artifact download, decryption, or a data restore.
 
 - **2026-09-06 — auth-data exclusion check (#289), synthetic local data only.** Executed the
   pinned Supabase CLI's generated data-dump script against a disposable Postgres database with
