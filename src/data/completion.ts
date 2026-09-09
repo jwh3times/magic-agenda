@@ -3,7 +3,7 @@ import type { ActiveWorkflowStatus, WorkflowStatus } from '../types/task'
 export interface CompletionState {
   status: WorkflowStatus
   completedAt: string | null
-  reopenStatus: ActiveWorkflowStatus | null
+  reopenStatus: ActiveWorkflowStatus
   archivedAt: string | null
 }
 
@@ -24,7 +24,7 @@ export function completionDecision(
   const target =
     request === 'toggle'
       ? current.status === 'completed'
-        ? (current.reopenStatus ?? 'todo')
+        ? current.reopenStatus
         : 'completed'
       : request
 
@@ -38,8 +38,7 @@ export function completionDecision(
   }
 
   if (target === 'completed') {
-    const reopenStatus =
-      current.status === 'completed' ? (current.reopenStatus ?? 'todo') : current.status
+    const reopenStatus = current.status === 'completed' ? current.reopenStatus : current.status
     return {
       status: 'completed',
       completedAt: now,

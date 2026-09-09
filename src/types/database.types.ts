@@ -198,7 +198,7 @@ export type Database = {
           recur_parent_id: string | null
           recur_skip: Json
           recur_until: string | null
-          reopen_status: string | null
+          reopen_status: string
           revision: number
           status: string
           title: string
@@ -228,7 +228,7 @@ export type Database = {
           recur_parent_id?: string | null
           recur_skip?: Json
           recur_until?: string | null
-          reopen_status?: string | null
+          reopen_status?: string
           revision?: number
           status?: string
           title?: string
@@ -258,7 +258,7 @@ export type Database = {
           recur_parent_id?: string | null
           recur_skip?: Json
           recur_until?: string | null
-          reopen_status?: string | null
+          reopen_status?: string
           revision?: number
           status?: string
           title?: string

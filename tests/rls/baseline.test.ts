@@ -81,6 +81,12 @@ const REVIEWED_FUNCTIONS: Record<
     explicitAcl: true,
     executeGrantees: 'authenticated',
   },
+  'enforce_task_completion_lifecycle()': {
+    secdef: false,
+    config: 'search_path=""',
+    explicitAcl: true,
+    executeGrantees: '(owner only)',
+  },
   'handle_account_deletion()': {
     secdef: true,
     config: 'search_path=""',

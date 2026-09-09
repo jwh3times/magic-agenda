@@ -19,7 +19,7 @@ function mkInstance(over: Partial<TaskDraft> = {}): Task {
     checklist: [],
     status: 'todo',
     completedAt: null,
-    reopenStatus: null,
+    reopenStatus: 'todo',
     archivedAt: null,
     day: '2026-07-10',
     atTime: null,

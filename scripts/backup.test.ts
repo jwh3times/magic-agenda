@@ -48,9 +48,13 @@ function check(tables: string[], syntax: 'COPY' | 'INSERT INTO' = 'INSERT INTO')
       join(dir, 'backup', 'schema.sql'),
       [
         'CREATE TABLE "public"."tasks" (id integer);',
-        ...['handle_new_user', 'handle_account_deletion', 'create_board'].map(
-          (name) => `CREATE OR REPLACE FUNCTION "public"."${name}"() RETURNS void;`,
-        ),
+        ...[
+          'handle_new_user',
+          'handle_account_deletion',
+          'create_board',
+          'enforce_task_completion_lifecycle',
+          'stamp_task_attribution',
+        ].map((name) => `CREATE OR REPLACE FUNCTION "public"."${name}"() RETURNS void;`),
         ...Array.from({ length: 12 }, (_, i) => `CREATE POLICY p${i} ON public.tasks;`),
       ].join('\n'),
     )

@@ -1,6 +1,7 @@
 import {
   asTask,
   isTemplate,
+  type ActiveWorkflowStatus,
   type ChecklistItem,
   type Task,
   type WorkflowStatus,
@@ -43,9 +44,15 @@ export type LegacyCategory = (typeof LEGACY_CATEGORIES)[number]
  * compatibility contract with files this app no longer controls, and the app domain has to be free
  * to rename without breaking them.
  */
-export type ExportTask = Omit<Task, 'occurrenceDate' | 'excludedDates'> & {
+export type ExportTask = Omit<Task, 'occurrenceDate' | 'excludedDates' | 'reopenStatus'> & {
   recurOriginDay: string | null
   recurSkip: string[]
+  /**
+   * Nullable here and non-nullable in `Task`, for the same reason the two recurrence names above
+   * differ: v3 shipped before the lifecycle backfill, so files already written can carry null for
+   * a Task whose remembered active status was never recorded. Parsing reopens those to To Do.
+   */
+  reopenStatus: ActiveWorkflowStatus | null
 }
 
 /** Frozen v1/v2 shape: stored `done` vocabulary plus the now-removed redundant boolean. */
@@ -64,10 +71,15 @@ function toExportTask({ occurrenceDate, excludedDates, ...rest }: Task): ExportT
   return { ...rest, recurOriginDay: occurrenceDate, recurSkip: excludedDates }
 }
 
-function fromExportTask({ recurOriginDay, recurSkip, ...rest }: ExportTask): Task {
+function fromExportTask({ recurOriginDay, recurSkip, reopenStatus, ...rest }: ExportTask): Task {
   // `asTask`, not a bare object: the file format is flat, so which of the three shapes a row is
   // has to be recovered here rather than trusted from disk.
-  return asTask({ ...rest, occurrenceDate: recurOriginDay, excludedDates: recurSkip })
+  return asTask({
+    ...rest,
+    reopenStatus: reopenStatus ?? 'todo',
+    occurrenceDate: recurOriginDay,
+    excludedDates: recurSkip,
+  })
 }
 
 function fromPreV3Task({
@@ -81,7 +93,7 @@ function fromPreV3Task({
     ...rest,
     status: workflowStatusFromStorage(status),
     completedAt: null,
-    reopenStatus: null,
+    reopenStatus: 'todo',
     archivedAt: null,
     occurrenceDate: recurOriginDay,
     excludedDates: recurSkip,

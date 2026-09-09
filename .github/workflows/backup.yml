@@ -188,7 +188,11 @@ jobs:
           # replaces it and matters more: it is the only way a Board and its Owner Membership are
           # created together, so a restore without it leaves an account able to read Boards and
           # unable to make one.
-          for fn in handle_new_user handle_account_deletion create_board; do
+          # The two `tasks` triggers are here for a quieter version of the same failure. Their
+          # absence restores a database that still carries the CHECK constraints they normalize
+          # ahead of, so writes a live database accepts start being refused outright -- and
+          # attribution silently stops being stamped at all.
+          for fn in handle_new_user handle_account_deletion create_board enforce_task_completion_lifecycle stamp_task_attribution; do
             has_function backup/schema.sql "public.$fn" \
               || fail "schema.sql does not define public.$fn — the authorization/lifecycle layer was not captured"
           done

@@ -26,10 +26,21 @@ export interface TaskBase {
   color: Color
   checklist: ChecklistItem[]
   status: WorkflowStatus
-  /** Time of the current Completion. Null for active and pre-v3 legacy Tasks. */
+  /**
+   * Time of the current Completion. Null exactly when the Workflow Status is active -- the
+   * database enforces that pairing. A Task parsed from a pre-v3 file is the one exception the
+   * type still admits: the file records no instant, so the write itself supplies one.
+   */
   completedAt: string | null
-  /** Active Workflow Status restored by quick Reopen. Null on legacy Tasks until backfill. */
-  reopenStatus: ActiveWorkflowStatus | null
+  /**
+   * Active Workflow Status restored by quick Reopen.
+   *
+   * Non-nullable since the lifecycle backfill: the column is NOT NULL and a database trigger
+   * establishes the value on every write, so a Task with no remembered active status is a state
+   * the domain no longer has. The nulls that legacy files still carry are normalized to To Do
+   * where they enter, in `exportImport.ts`, exactly as ADR-0003 describes a legacy Reopen.
+   */
+  reopenStatus: ActiveWorkflowStatus
   /** Time this Completed Task entered Archive. Archive controls ship after this model cutover. */
   archivedAt: string | null
   /**

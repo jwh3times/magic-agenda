@@ -52,7 +52,7 @@ const task = (id: string): Task => ({
   checklist: [],
   status: 'todo',
   completedAt: null,
-  reopenStatus: null,
+  reopenStatus: 'todo',
   archivedAt: null,
   day: '2026-08-14',
   atTime: null,
