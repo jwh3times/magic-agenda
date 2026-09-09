@@ -12,6 +12,18 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.60] - 2026-09-09
+
+### Internal
+
+- Add Account administration and feature-flag foundations: SQL-only admin assignment,
+  authenticated flag reads, and live-role authorization for flag writes without granting access
+  to other Accounts' Board content (#273).
+- Add session-scoped `useRole()` and `useFlags()` hooks that clear access hints on sign-out,
+  account changes, offline transitions, and failed reads. No feature is enabled by this change.
+- Cover role isolation, immediate revocation, private helper access, and hook lifecycle behavior;
+  document role seeding and flag consumption in an administration runbook.
+
 ## [1.8.59] - 2026-09-09
 
 ### Security
@@ -2799,7 +2811,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.59...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.60...HEAD
+[1.8.60]: https://github.com/jwh3times/magic-agenda/compare/v1.8.59...v1.8.60
 [1.8.59]: https://github.com/jwh3times/magic-agenda/compare/v1.8.58...v1.8.59
 [1.8.58]: https://github.com/jwh3times/magic-agenda/compare/v1.8.57...v1.8.58
 [1.8.57]: https://github.com/jwh3times/magic-agenda/compare/v1.8.56...v1.8.57

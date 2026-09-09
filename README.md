@@ -170,6 +170,7 @@ npm run dev      # start the dev server at http://localhost:5173
 
 ```
 src/
+├─ access/       session-scoped account role and feature-flag hooks
 ├─ auth/         AuthProvider + ProtectedRoute + the auth gateway (only module calling supabase.auth)
 ├─ board/        Board directory/selection/creation/rename/deletion, role capabilities,
 │                BoardDirectoryProvider
@@ -193,6 +194,9 @@ design/                the original prototype (reference only — not built)
 - **RLS is the only authorization boundary** — `user_settings` scopes to `auth.uid() = user_id`;
   `tasks` scopes through Board membership (`boards`, `board_memberships`, `account_profiles`) —
   see [AGENTS.md](./AGENTS.md).
+- **Account roles and feature flags** — SQL-assigned administrators manage rollout flags;
+  Board permissions remain Membership-scoped. See the [administration runbook](./docs/runbooks/roles-and-feature-flags.md)
+  for role assignment, flag management, and React hook usage.
 - **`'inbox'` ↔ `NULL`** — unscheduled tasks use the `'inbox'` sentinel in app/DnD logic and map to a
   `NULL` `day` only at the database boundary.
 - **Recurrence** stores a Recurring Series as a hidden definition row plus one materialized row per
