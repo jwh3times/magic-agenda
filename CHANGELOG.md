@@ -16,10 +16,16 @@ No unreleased changes.
 
 ### Security
 
-- Disable Storage, the S3 protocol, and vector buckets in `supabase/config.toml`. Nothing uses
-  them: no bucket exists, `storage.objects` carries Supabase's own RLS, and the S3 protocol needs
-  access keys that were never created — so this removes surface rather than capability. Task
-  attachments (#278) is the first consumer and will re-enable exactly what it needs (#300).
+- Disable the S3 protocol and vector buckets in `supabase/config.toml`. Nothing uses either: the
+  S3 protocol needs access keys that were never created, and vector buckets are a Pro feature this
+  project cannot reach — so this removes surface rather than capability (#300).
+
+### Docs
+
+- Record that `[storage] enabled = false` does not disable Storage on the hosted project. It stops
+  the CLI managing Storage at all, so `config push` skips the section and its remote settings go
+  unchecked — which is why Storage stays enabled here rather than being turned off with the two
+  flags above.
 
 ## [1.8.65] - 2026-09-09
 

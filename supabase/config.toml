@@ -114,14 +114,15 @@ port = 54324
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Off until something uses it. #278 (task attachments) is the first consumer and will re-enable
-# exactly what it needs -- probably this block alone, since the S3 protocol and vector buckets
-# below are unrelated to it. Nothing is lost by waiting: no bucket exists, and `storage.objects`
-# carries Supabase's own RLS, so this is surface reduction rather than a change in what is
-# reachable. `config push` really does manage this remotely -- the Config job reports on
-# "Remote Storage config" -- so it is not a local-only switch.
+# Stays true, and NOT because Storage is wanted -- nothing uses it yet. `enabled = false` here does
+# not disable Storage on the hosted project; it tells the CLI not to manage Storage at all, so
+# `config push` skips the whole section, including the two flags below. Measured on #300's own
+# PR: with `false` the Config preview's "Remote Storage config is up to date" line disappears
+# entirely rather than reporting a pending change. Turning this off would leave production exactly
+# as it is while the file stopped describing it and CI stopped checking it -- strictly worse than
+# leaving it on. Disabling Storage itself is a dashboard action, not a config one.
 [storage]
-enabled = false
+enabled = true
 # The maximum file size allowed (e.g. "5MB", "500KB").
 file_size_limit = "50MiB"
 
