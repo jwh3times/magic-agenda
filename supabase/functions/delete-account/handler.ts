@@ -11,8 +11,20 @@ const json = (body: unknown, status = 200) =>
 /**
  * Deletes the CALLING user's auth account. The service-role client is created
  * only after the caller's JWT is verified, and only ever deletes the verified
- * caller's own id. Postgres `on delete cascade` (init.sql) removes the user's
- * tasks and settings rows.
+ * caller's own id.
+ *
+ * The content goes with it, but not by a foreign key from `auth.users` any more:
+ * `handle_account_deletion` (20260813210400_account_deletion.sql) runs before the
+ * delete, ends the account's Memberships and drops its Private Boards, and
+ * `tasks.board_id`'s own cascade takes the Tasks and Labels from there. The old
+ * `tasks.user_id` cascade named in this docstring stopped being the mechanism at
+ * the authorization cutover, and the column itself is gone.
+ *
+ * TODO(#279): that trigger raises `restrict_violation` when the account is the
+ * sole Owner of a Board somebody else is still a member of. No such Board can
+ * exist until sharing ships, so today it is unreachable -- but once it can
+ * happen, it surfaces here as a generic `Deletion failed` 500 telling the user
+ * nothing they could act on. Map it to its own message then.
  */
 export async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })

@@ -12,6 +12,21 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.64] - 2026-09-09
+
+### Removed
+
+- Remove the unused `hello` Edge Function. It was a JWT-verified endpoint that echoed the caller's
+  email and had no consumer anywhere in the app (#292).
+
+### Docs
+
+- Correct the `delete-account` docstring: an account's content now goes with it through
+  `handle_account_deletion` and the Board cascade, not the `tasks.user_id` foreign key it named,
+  which stopped being the mechanism at the authorization cutover.
+- Record that `supabase functions deploy` never prunes, so retiring an Edge Function takes a
+  deletion against the project as well as the merge.
+
 ## [1.8.63] - 2026-09-09
 
 ### Docs
@@ -2853,7 +2868,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.63...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.64...HEAD
+[1.8.64]: https://github.com/jwh3times/magic-agenda/compare/v1.8.63...v1.8.64
 [1.8.63]: https://github.com/jwh3times/magic-agenda/compare/v1.8.62...v1.8.63
 [1.8.62]: https://github.com/jwh3times/magic-agenda/compare/v1.8.61...v1.8.62
 [1.8.61]: https://github.com/jwh3times/magic-agenda/compare/v1.8.60...v1.8.61
