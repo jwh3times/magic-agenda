@@ -11,6 +11,7 @@ import type { Session, User } from '@supabase/supabase-js'
 import { supabaseAuthGateway, type AuthGateway, type RedeemType } from './authGateway'
 import type { AuthOutcome, SignUpOutcome } from './authOutcome'
 import { clearBoardView } from '../lib/viewStorage'
+import { clearRememberedBoard } from '../board/rememberedBoard'
 import { clearSnapshots } from '../data/snapshot'
 import { clearLastUserId, writeLastUserId } from '../lib/lastUser'
 
@@ -85,8 +86,11 @@ export function AuthProvider({
       if (event === 'SIGNED_OUT') {
         sessionStorage.removeItem(RECOVERY_FLAG_KEY)
         setPasswordRecovery(false)
-        // Next sign-in should land on the default view, not the signed-out user's last view.
+        // Next sign-in should land on the default view and the default Board, not the signed-out
+        // user's last ones. A Board id grants nothing by itself, but leaving it behind would make
+        // this block's promise conditional, and that promise is the whole justification below.
         clearBoardView()
+        clearRememberedBoard()
         // Task text at rest is acceptable only because it does not outlive an explicit sign-out
         // on this device — a session that simply vanishes (offline, expiry, a dropped refresh)
         // leaves the snapshot in place on purpose, since that's what the offline board reads.
