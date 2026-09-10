@@ -114,8 +114,14 @@ port = 54324
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
+# Off until something uses it. #278 (task attachments) is the first consumer and will re-enable
+# exactly what it needs -- probably this block alone, since the S3 protocol and vector buckets
+# below are unrelated to it. Nothing is lost by waiting: no bucket exists, and `storage.objects`
+# carries Supabase's own RLS, so this is surface reduction rather than a change in what is
+# reachable. `config push` really does manage this remotely -- the Config job reports on
+# "Remote Storage config" -- so it is not a local-only switch.
 [storage]
-enabled = true
+enabled = false
 # The maximum file size allowed (e.g. "5MB", "500KB").
 file_size_limit = "50MiB"
 
@@ -126,9 +132,11 @@ file_size_limit = "50MiB"
 # allowed_mime_types = ["image/png", "image/jpeg"]
 # objects_path = "./images"
 
-# Allow connections via S3 compatible clients
+# Allow connections via S3 compatible clients. Off: it is a second protocol onto the same
+# storage, unrelated to attachments, and reaching it needs S3 access keys that are created
+# explicitly in the dashboard and do not exist.
 [storage.s3_protocol]
-enabled = true
+enabled = false
 
 # Image transformation API is available to Supabase Pro plan.
 # [storage.image_transformation]
@@ -146,8 +154,11 @@ max_catalogs = 2
 # [storage.analytics.buckets.my-warehouse]
 
 # Store vector embeddings in S3 for large and durable datasets
+# Off, and it very likely never did anything here: the note below says Vector Buckets is a Pro
+# feature and this project is on Free. `[storage.analytics]` carries the same Pro note and was
+# already false, so the file disagreed with itself about which Pro-only defaults to leave on.
 [storage.vector]
-enabled = true
+enabled = false
 max_buckets = 10
 max_indexes = 5
 
