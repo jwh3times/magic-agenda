@@ -12,6 +12,27 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.68] - 2026-09-10
+
+### Internal
+
+- Drop `DirectorySnapshot.selectedBoardId`, which was written on every directory save and read
+  nowhere. The open Board has always been remembered per-device in `ma-selected-board` and resolved
+  by `resolveSelection`, so the selection was stored twice and only one copy was ever consulted.
+  Inert, but it sat inside a versioned envelope beside `boards`, which _is_ read, with nothing to
+  tell a later reader the two apart.
+- Bump the shared snapshot version to 8. A version 7 envelope would hydrate perfectly well without
+  the removed field, so this buys nothing at runtime; the constant is shared by all three envelopes
+  and a shape change that skips it leaves the version no longer describing the shape. Cached board,
+  Label and settings snapshots are dropped once, and the next successful load rewrites them.
+
+### Docs
+
+- Correct two claims the directory snapshot's own docstring made about itself, not one. It does not
+  record which Board was open, and it never supplied the purge's list of ids to compare against —
+  `purgeableBoardIds` takes those from `cachedBoardIds()`'s key-prefix scan. `AGENTS.md` repeated
+  the first of the two.
+
 ## [1.8.67] - 2026-09-10
 
 ### Internal
@@ -2914,7 +2935,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.67...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.68...HEAD
+[1.8.68]: https://github.com/jwh3times/magic-agenda/compare/v1.8.67...v1.8.68
 [1.8.67]: https://github.com/jwh3times/magic-agenda/compare/v1.8.66...v1.8.67
 [1.8.66]: https://github.com/jwh3times/magic-agenda/compare/v1.8.65...v1.8.66
 [1.8.65]: https://github.com/jwh3times/magic-agenda/compare/v1.8.64...v1.8.65

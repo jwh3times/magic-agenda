@@ -149,7 +149,7 @@ export function useBoardDirectory(userId: string, hasSession: boolean): UseBoard
         const selected = resolveSelection(next, readRememberedBoard())
         writeRememberedBoard(selected)
         setRemembered(selected)
-        writeDirectorySnapshot(userId, next, selected)
+        writeDirectorySnapshot(userId, next)
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)

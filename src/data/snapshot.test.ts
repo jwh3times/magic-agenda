@@ -99,7 +99,7 @@ test('refuses a payload whose shape is wrong', () => {
   // and never reach the shape check it exists to exercise.
   localStorage.setItem(
     'ma-snapshot-board.b1',
-    JSON.stringify({ v: 7, userId: 'u1', boardId: 'b1', tasks: 'nope' }),
+    JSON.stringify({ v: 8, userId: 'u1', boardId: 'b1', tasks: 'nope' }),
   )
   expect(readBoardSnapshot('u1', 'b1')).toBeNull()
 })
@@ -202,9 +202,11 @@ test('hasAnyBoardSnapshot answers the offline-boot question without knowing a bo
   expect(hasAnyBoardSnapshot('u2')).toBe(false)
 })
 
-test('the directory envelope round-trips and is user-scoped', () => {
-  writeDirectorySnapshot('u1', [{ id: 'b1', name: 'Mine' }], 'b1')
-  expect(readDirectorySnapshot('u1')?.selectedBoardId).toBe('b1')
+test('the directory envelope round-trips the Boards this device saw, and is user-scoped', () => {
+  // The Board list is the whole content of this envelope: it is what lets an offline boot render a
+  // Board switcher. It used to carry the selection too, which no reader ever consulted (#331).
+  writeDirectorySnapshot('u1', [{ id: 'b1', name: 'Mine' }])
+  expect(readDirectorySnapshot('u1')?.boards).toEqual([{ id: 'b1', name: 'Mine' }])
   expect(readDirectorySnapshot('u2')).toBeNull()
 })
 
@@ -229,7 +231,7 @@ test('clearing sweeps every board, including ones this session never opened', ()
   // never touched, and leaving any of them breaks the premise.
   writeBoardSnapshot('u1', 'b1', [task('a')], [])
   writeBoardSnapshot('u1', 'b2', [task('b')], [])
-  writeDirectorySnapshot('u1', [], 'b1')
+  writeDirectorySnapshot('u1', [])
   writeLabelSnapshot('u1', 'b1', [label('l1')])
   localStorage.setItem('ma-snapshot-board', JSON.stringify({ v: 2, userId: 'u1', tasks: [] }))
 
