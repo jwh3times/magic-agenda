@@ -12,6 +12,24 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.67] - 2026-09-10
+
+### Internal
+
+- Pin the default privileges future objects in `public` inherit, so the one part of the
+  authorization boundary no migration can reach is at least watched. A second test asserts that
+  altering `supabase_admin`'s defaults still fails with `42501`, which is what will announce the
+  day #283 becomes closable.
+
+### Docs
+
+- Correct the claim that CI builds a database whose default privileges are already restrictive. It
+  does not: a fresh stack carries the same permissive defaults, so
+  `20260729190000_revoke_permissive_default_privileges.sql` is load-bearing there too. Also record
+  two residuals wider than #283's summary — platform-created functions in `public` are
+  `EXECUTE`-able by `anon`, and `postgres`-created sequences grant `UPDATE`, which is enough for
+  `nextval()`.
+
 ## [1.8.66] - 2026-09-09
 
 ### Security
@@ -2896,7 +2914,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.66...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.67...HEAD
+[1.8.67]: https://github.com/jwh3times/magic-agenda/compare/v1.8.66...v1.8.67
 [1.8.66]: https://github.com/jwh3times/magic-agenda/compare/v1.8.65...v1.8.66
 [1.8.65]: https://github.com/jwh3times/magic-agenda/compare/v1.8.64...v1.8.65
 [1.8.64]: https://github.com/jwh3times/magic-agenda/compare/v1.8.63...v1.8.64
