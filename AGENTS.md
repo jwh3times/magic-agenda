@@ -1477,25 +1477,46 @@ reviewed grant from an inherited `anon` or `service_role` grant. Note `anon` is 
 RLS, not the grant, is what denies it, and `useSettings` depends on an unauthenticated select
 returning zero rows rather than an error.
 
-That fail-closed premise was **not** true in production until `20260729190000`. Production
-carried `pg_default_acl` entries granting `anon` and `authenticated` full DML on every future
-table in `public` — inherited from the legacy auto-expose era, and invisible to CI, which always
-builds a fresh database whose defaults are already restrictive. Any table shipped without
-`enable row level security` would have been world-readable and writable through the public anon
-key. That migration revokes them for the `postgres` role, which is what both migrations and the
-Studio table editor (pg-meta connects as `postgres`) create through. **`authenticated` is revoked
-for the same reason as `anon`, not as belt-and-braces**: signup is open, so `authenticated` is
-`anon` plus one free registration. `service_role` is deliberately left alone — the Edge Functions
-hold the service key precisely to cross this boundary.
+That fail-closed premise was **not** true until `20260729190000`. `pg_default_acl` in `public`
+granted `anon` and `authenticated` full DML on every future table, inherited from the legacy
+auto-expose era, so any table shipped without `enable row level security` would have been
+world-readable and writable through the public anon key. That migration revokes them for the
+`postgres` role, which is what both migrations and the Studio table editor (pg-meta connects as
+`postgres`) create through. **`authenticated` is revoked for the same reason as `anon`, not as
+belt-and-braces**: signup is open, so `authenticated` is `anon` plus one free registration.
+`service_role` is deliberately left alone — the Edge Functions hold the service key precisely to
+cross this boundary.
+
+**This paragraph used to call that a production-only problem, "invisible to CI, which always
+builds a fresh database whose defaults are already restrictive". That was wrong** (#283, measured
+2026-09-10). A freshly reset local stack carries the same permissive defaults, and the evidence is
+inside the baseline: `anon`'s entry for `postgres`-created tables is exactly
+`MAINTAIN,REFERENCES,TRIGGER,TRUNCATE`, the full set minus precisely the four privileges that
+migration revokes — and a `pg_default_acl` entry exists only because something altered it. So the
+migration is load-bearing in CI too, and the fifth structural test ("a newly created table is NOT
+reachable by the Data API roles by default") passes **because of it**, not because a fresh database
+is benign. The same mistaken claim still appears in that migration's own comment; it is left there
+because an applied migration is a record of what ran, not a place to correct after the fact.
 
 **One residual gap, by necessity:** `supabase_admin` carries the same permissive defaults and
-`postgres` is not a member of that role, so the migration's second statement raises
-`insufficient_privilege` and is skipped with a notice. Tables the Supabase platform itself
-creates in `public` as `supabase_admin` are still auto-granted. Closing that needs the dashboard
-or support, not a migration. The fifth structural test ("a newly created table is NOT reachable
-by the Data API roles by default") creates a real table and reads the privileges it landed with,
-so it guards the `postgres` path against regression — but it connects as `postgres` and cannot
-see the `supabase_admin` path.
+`postgres` is neither superuser nor a member of that role, so the migration's second statement
+raises `insufficient_privilege` and is skipped with a notice. Objects the Supabase platform itself
+creates in `public` as `supabase_admin` are still auto-granted — and it is wider than tables:
+sequences and functions are permissive too, so a platform-created function in `public` is
+`EXECUTE`-able by `anon` by default. Nothing this repository can run will change that; the refusal
+is structural rather than environmental.
+
+**It is now watched, which is the part that changed.** `baseline.test.ts` pins the whole
+`pg_default_acl` picture for `public` by strict equality, and separately asserts that the
+`supabase_admin` alter still fails with `42501`. The first fails the day Supabase tightens or
+loosens anything; the second fails the day `postgres` gains the membership that would make #283
+closable. The fifth structural test still connects as `postgres` and still cannot create a table as
+`supabase_admin` — that has not changed, and is why the baseline reads the ACL directly instead.
+
+One residual is wider than #283's own summary and worth knowing before adding a sequence:
+**`postgres`-created sequences still grant `UPDATE` to `anon`**, which is enough for `nextval()`.
+The migration revoked table DML only. Inert today — `public` holds no sequences, every key being a
+uuid — but a default ACL is a template, so it applies to the first one anybody adds.
 
 ## When changing Supabase config
 

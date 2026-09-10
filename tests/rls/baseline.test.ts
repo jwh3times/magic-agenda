@@ -263,3 +263,111 @@ test('no policy outside the legacy set applies to PUBLIC', async () => {
 
   expect(rows.map((r) => r.qualified)).toEqual(POLICIES_TARGETING_PUBLIC)
 })
+
+/**
+ * `pg_default_acl` in `public`: the template consulted every time an object is created there.
+ *
+ * This is the assumption the whole grants design rests on, and until #283 it was believed to be the
+ * one part of the boundary nothing in this repository could see. That turned out to be wrong, which
+ * is why this baseline exists.
+ *
+ * **Correction, measured 2026-09-10.** `AGENTS.md` and
+ * `20260729190000_revoke_permissive_default_privileges.sql` both say CI is safe here because a
+ * fresh stack's defaults are "already restrictive". They are not. A freshly reset local stack
+ * carries the same permissive Supabase defaults production does. The `postgres` table row below
+ * proves it from the inside: `anon` holds exactly `MAINTAIN,REFERENCES,TRIGGER,TRUNCATE`, which is
+ * the full set minus precisely the `select, insert, update, delete` that migration revokes -- an
+ * entry exists only because something altered it, and nothing else grants those four to `anon`. So
+ * that migration is load-bearing in CI too, and `structure.test.ts`'s "a newly created table is NOT
+ * reachable" test passes *because of it*, not because a fresh database is benign.
+ *
+ * **The `supabase_admin` rows are the open finding, and they are why this is a baseline rather than
+ * a catch-all.** `postgres` is not a superuser and not a member of `supabase_admin`, so
+ * `alter default privileges for role supabase_admin ...` fails with `42501` -- for us, everywhere,
+ * not just in one environment. Nothing this repository can run will change those lines. What this
+ * test buys is that they are now *watched*: it fails the day Supabase changes them, which is
+ * realistically the only way we would find out.
+ *
+ * Two residuals here are wider than #283's own summary, which talks only about tables:
+ *
+ * - **Sequences and functions are permissive for `supabase_admin` too.** A function the platform
+ *   creates in `public` is `EXECUTE`-able by `anon` by default.
+ * - **`postgres` sequences grant `UPDATE` to `anon`**, and `UPDATE` on a sequence is enough for
+ *   `nextval()`. The 20260729190000 migration revoked table DML only. Inert today -- `public` holds
+ *   no sequences at all, every key being a uuid -- but this is a template, so it applies to the
+ *   first one anybody adds.
+ *
+ * Both directions are failures, as everywhere else in this file. A line that vanished means
+ * Supabase tightened something and the smaller set must be committed.
+ */
+const DEFAULT_ACL = [
+  'postgres | S | anon | UPDATE',
+  'postgres | S | authenticated | UPDATE',
+  'postgres | S | postgres | SELECT,UPDATE,USAGE',
+  'postgres | S | service_role | UPDATE',
+  'postgres | f | postgres | EXECUTE',
+  'postgres | r | anon | MAINTAIN,REFERENCES,TRIGGER,TRUNCATE',
+  'postgres | r | authenticated | MAINTAIN,REFERENCES,TRIGGER,TRUNCATE',
+  'postgres | r | postgres | DELETE,INSERT,MAINTAIN,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE',
+  'postgres | r | service_role | MAINTAIN,REFERENCES,TRIGGER,TRUNCATE',
+  'supabase_admin | S | anon | SELECT,UPDATE,USAGE',
+  'supabase_admin | S | authenticated | SELECT,UPDATE,USAGE',
+  'supabase_admin | S | postgres | SELECT,UPDATE,USAGE',
+  'supabase_admin | S | service_role | SELECT,UPDATE,USAGE',
+  'supabase_admin | f | anon | EXECUTE',
+  'supabase_admin | f | authenticated | EXECUTE',
+  'supabase_admin | f | postgres | EXECUTE',
+  'supabase_admin | f | service_role | EXECUTE',
+  'supabase_admin | r | anon | DELETE,INSERT,MAINTAIN,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE',
+  'supabase_admin | r | authenticated | DELETE,INSERT,MAINTAIN,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE',
+  'supabase_admin | r | postgres | DELETE,INSERT,MAINTAIN,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE',
+  'supabase_admin | r | service_role | DELETE,INSERT,MAINTAIN,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE',
+]
+
+test('the default privileges future objects in public inherit are the reviewed ones', async () => {
+  const rows = await withPg(async (pg) => {
+    // aclexplode rather than casting the aclitem[] to text: the text form is positional and
+    // abbreviated (`anon=arwdDxtm/postgres`), so a diff on it reads as noise. One row per
+    // (creator, object type, grantee) with privileges named is a diff someone can review.
+    const res = await pg.query<{ line: string }>(
+      `select r.rolname || ' | ' || d.defaclobjtype::text || ' | ' || a.grantee_role
+                || ' | ' || a.privs as line
+         from pg_default_acl d
+         join pg_roles r on r.oid = d.defaclrole
+         join pg_namespace n on n.oid = d.defaclnamespace
+         cross join lateral (
+           select coalesce(g.grantee::regrole::text, 'PUBLIC') as grantee_role,
+                  string_agg(g.privilege_type, ',' order by g.privilege_type) as privs
+             from aclexplode(d.defaclacl) g
+            group by g.grantee
+         ) a
+        where n.nspname = 'public'
+        order by r.rolname, d.defaclobjtype, a.grantee_role`,
+    )
+    return res.rows
+  })
+
+  expect(rows.map((r) => r.line)).toEqual(DEFAULT_ACL)
+})
+
+test('postgres cannot alter supabase_admin default privileges, which is why #283 stays open', async () => {
+  // The refusal itself is the assertion. If this ever stops throwing, `postgres` has gained
+  // membership or superuser and the migration's skipped second statement becomes runnable --
+  // at which point #283 is closable and this test is the thing that says so.
+  const outcome = await withPg(async (pg) => {
+    await pg.query('begin')
+    try {
+      await pg.query(
+        `alter default privileges for role supabase_admin in schema public
+           revoke select on tables from anon`,
+      )
+      return 'allowed'
+    } catch (error) {
+      return (error as { code?: string }).code ?? 'unknown'
+    } finally {
+      await pg.query('rollback')
+    }
+  })
+
+  expect(outcome).toBe('42501')
+})
