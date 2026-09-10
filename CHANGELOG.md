@@ -12,6 +12,21 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.66] - 2026-09-09
+
+### Security
+
+- Turn off the Supabase S3 protocol, which nothing uses and which was reachable only with access
+  keys that were never created. This is the one change here that reaches production, confirmed
+  against the CLI's own pending diff rather than assumed (#300).
+
+### Docs
+
+- Record two things `supabase config push` does that are easy to get backwards: `[storage] enabled
+= false` does not disable Storage on the hosted project — it stops the CLI managing Storage at
+  all, so the section is skipped and its remote settings go unchecked — and `[storage.vector]` is
+  not part of the remote storage config for this project, so setting it is local consistency only.
+
 ## [1.8.65] - 2026-09-09
 
 ### Security
@@ -2881,7 +2896,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.65...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.66...HEAD
+[1.8.66]: https://github.com/jwh3times/magic-agenda/compare/v1.8.65...v1.8.66
 [1.8.65]: https://github.com/jwh3times/magic-agenda/compare/v1.8.64...v1.8.65
 [1.8.64]: https://github.com/jwh3times/magic-agenda/compare/v1.8.63...v1.8.64
 [1.8.63]: https://github.com/jwh3times/magic-agenda/compare/v1.8.62...v1.8.63

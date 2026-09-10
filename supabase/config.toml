@@ -114,6 +114,13 @@ port = 54324
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
+# Stays true, and NOT because Storage is wanted -- nothing uses it yet. `enabled = false` here does
+# not disable Storage on the hosted project; it tells the CLI not to manage Storage at all, so
+# `config push` skips the whole section, including the two flags below. Measured on #300's own
+# PR: with `false` the Config preview's "Remote Storage config is up to date" line disappears
+# entirely rather than reporting a pending change. Turning this off would leave production exactly
+# as it is while the file stopped describing it and CI stopped checking it -- strictly worse than
+# leaving it on. Disabling Storage itself is a dashboard action, not a config one.
 [storage]
 enabled = true
 # The maximum file size allowed (e.g. "5MB", "500KB").
@@ -126,9 +133,11 @@ file_size_limit = "50MiB"
 # allowed_mime_types = ["image/png", "image/jpeg"]
 # objects_path = "./images"
 
-# Allow connections via S3 compatible clients
+# Allow connections via S3 compatible clients. Off: it is a second protocol onto the same
+# storage, unrelated to attachments, and reaching it needs S3 access keys that are created
+# explicitly in the dashboard and do not exist.
 [storage.s3_protocol]
-enabled = true
+enabled = false
 
 # Image transformation API is available to Supabase Pro plan.
 # [storage.image_transformation]
@@ -146,8 +155,14 @@ max_catalogs = 2
 # [storage.analytics.buckets.my-warehouse]
 
 # Store vector embeddings in S3 for large and durable datasets
+# Off for local consistency only -- this one does not reach production. The CLI's pending diff for
+# this project's storage config contains `file_size_limit`, `s3_protocol` and `analytics` and **no
+# vector section at all**, so there is nothing remote for this flag to change. That fits the note
+# below: Vector Buckets is a Pro feature and this project is on Free. `[storage.analytics]` carries
+# the same note and was already false, so the file disagreed with itself about which Pro-only
+# defaults to leave on; this settles it.
 [storage.vector]
-enabled = true
+enabled = false
 max_buckets = 10
 max_indexes = 5
 
