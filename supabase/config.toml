@@ -155,9 +155,12 @@ max_catalogs = 2
 # [storage.analytics.buckets.my-warehouse]
 
 # Store vector embeddings in S3 for large and durable datasets
-# Off, and it very likely never did anything here: the note below says Vector Buckets is a Pro
-# feature and this project is on Free. `[storage.analytics]` carries the same Pro note and was
-# already false, so the file disagreed with itself about which Pro-only defaults to leave on.
+# Off for local consistency only -- this one does not reach production. The CLI's pending diff for
+# this project's storage config contains `file_size_limit`, `s3_protocol` and `analytics` and **no
+# vector section at all**, so there is nothing remote for this flag to change. That fits the note
+# below: Vector Buckets is a Pro feature and this project is on Free. `[storage.analytics]` carries
+# the same note and was already false, so the file disagreed with itself about which Pro-only
+# defaults to leave on; this settles it.
 [storage.vector]
 enabled = false
 max_buckets = 10
