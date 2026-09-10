@@ -12,6 +12,14 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.63] - 2026-09-09
+
+### Docs
+
+- Correct the restore runbook's `handle_new_user` citations, which pointed at the `init.sql`
+  version of the function rather than the current one, and name the five Labels the signup trigger
+  seeds onto the phantom Board a non-replica-mode load would create (#306).
+
 ## [1.8.62] - 2026-09-09
 
 ### Security
@@ -2845,7 +2853,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.62...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.63...HEAD
+[1.8.63]: https://github.com/jwh3times/magic-agenda/compare/v1.8.62...v1.8.63
 [1.8.62]: https://github.com/jwh3times/magic-agenda/compare/v1.8.61...v1.8.62
 [1.8.61]: https://github.com/jwh3times/magic-agenda/compare/v1.8.60...v1.8.61
 [1.8.60]: https://github.com/jwh3times/magic-agenda/compare/v1.8.59...v1.8.60
