@@ -1044,9 +1044,9 @@ Export v3 writes the canonical Workflow Status and preserves `completedAt`, `reo
 Completion instant, because the file never recorded one and `parseExport` has no clock — but the
 write now supplies one, so **importing a legacy Completed Task dates its Completion to the import**.
 That is forced rather than chosen: a Completed Task must have a Completed At, and import time is the
-only value in existence. Offline Task snapshots are version 7 for the same domain-shape break. No
-Archive affordance ships yet, so the Archive paths above are reachable only by import and by direct
-Data API writes.
+only value in existence. Offline Task snapshots went to version 7 for the same domain-shape break.
+No Archive affordance ships yet, so the Archive paths above are reachable only by import and by
+direct Data API writes.
 
 ### Drag-and-drop: every decision is pure; dnd-kit is an adapter
 
