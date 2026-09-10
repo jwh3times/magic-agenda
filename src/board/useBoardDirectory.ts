@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { checkBoardName, normalizeBoardName } from './boardName'
+import { readRememberedBoard, writeRememberedBoard } from './rememberedBoard'
 import {
   cachedBoardIds,
   purgeBoardSnapshots,
@@ -55,25 +56,6 @@ export interface UseBoardDirectory {
   renameBoard: (boardId: string, name: string) => Promise<string | null>
 }
 
-const REMEMBERED_KEY = 'ma-selected-board'
-
-function readRemembered(): string | null {
-  try {
-    return localStorage.getItem(REMEMBERED_KEY)
-  } catch {
-    return null
-  }
-}
-
-function writeRemembered(boardId: string | null): void {
-  try {
-    if (boardId) localStorage.setItem(REMEMBERED_KEY, boardId)
-    else localStorage.removeItem(REMEMBERED_KEY)
-  } catch {
-    // best-effort, like every other storage access here
-  }
-}
-
 /**
  * One membership row joined to its board, as the Data API returns it.
  *
@@ -106,7 +88,7 @@ function toSummary(row: MembershipRow): BoardSummary | null {
 
 export function useBoardDirectory(userId: string, hasSession: boolean): UseBoardDirectory {
   const [boards, setBoards] = useState<BoardSummary[]>([])
-  const [remembered, setRemembered] = useState<string | null>(() => readRemembered())
+  const [remembered, setRemembered] = useState<string | null>(() => readRememberedBoard())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [offline, setOffline] = useState(false)
@@ -164,8 +146,8 @@ export function useBoardDirectory(userId: string, hasSession: boolean): UseBoard
       // the data that path exists to show.
       if (hasSession) {
         purgeBoardSnapshots(purgeableBoardIds(cachedBoardIds(), next))
-        const selected = resolveSelection(next, readRemembered())
-        writeRemembered(selected)
+        const selected = resolveSelection(next, readRememberedBoard())
+        writeRememberedBoard(selected)
         setRemembered(selected)
         writeDirectorySnapshot(userId, next, selected)
       }
@@ -224,7 +206,7 @@ export function useBoardDirectory(userId: string, hasSession: boolean): UseBoard
   }, [userId, reload])
 
   const selectBoard = useCallback((boardId: string) => {
-    writeRemembered(boardId)
+    writeRememberedBoard(boardId)
     setRemembered(boardId)
   }, [])
 
@@ -253,7 +235,7 @@ export function useBoardDirectory(userId: string, hasSession: boolean): UseBoard
       // Remember before reloading: `reload` resolves the selection itself and writes the result, so
       // setting it first is what makes the new Board the one that opens rather than a Board the
       // user was already on.
-      writeRemembered(data)
+      writeRememberedBoard(data)
       setRemembered(data)
       await reload()
       return null

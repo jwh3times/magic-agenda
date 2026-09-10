@@ -1246,7 +1246,13 @@ in the settings and route tests too. A board snapshot's own `boardId`
 field guards against a hand-edited or collided key rendering one Board's tasks under another Board's
 name. **All three are cleared on `SIGNED_OUT`** (`AuthProvider`) — that clearing is the entire
 justification for storing task text at rest in `localStorage` in the first place; see the dated
-security review in `private/` before changing what gets persisted or when it's cleared. `useTasks`
+security review in `private/` before changing what gets persisted or when it's cleared. Two smaller
+keys are swept beside them from the same block and are the reason to state the rule as _everything_
+rather than _the snapshots_: `ma-last-user` (`lib/lastUser.ts`) and `ma-selected-board`
+(`board/rememberedBoard.ts`, shaped like `lib/viewStorage.ts` and cleared next to it). The second
+was the one exception until #298, harmless on its own — a Board id grants nothing and
+`resolveSelection` falls back when it names a Board the next account cannot see — which is exactly
+why it survived: a rule with a harmless exception is still a rule nobody can rely on. `useTasks`
 hydrates from the board snapshot only when a server load fails, and deliberately **skips
 `materialize()`** on that path — running recurrence materialization over snapshot state would insert
 duplicate instance rows and hit `tasks_recur_instance_uniq` (Postgres 23505) the moment connectivity

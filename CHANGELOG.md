@@ -12,6 +12,14 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.62] - 2026-09-09
+
+### Security
+
+- Clear the remembered Board on sign-out. A Board id grants nothing on its own, but sweeping every
+  key on sign-out is the justification for keeping anything at rest at all, and this one was the
+  exception (#298).
+
 ## [1.8.61] - 2026-09-09
 
 ### Changed
@@ -2837,7 +2845,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.61...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.62...HEAD
+[1.8.62]: https://github.com/jwh3times/magic-agenda/compare/v1.8.61...v1.8.62
 [1.8.61]: https://github.com/jwh3times/magic-agenda/compare/v1.8.60...v1.8.61
 [1.8.60]: https://github.com/jwh3times/magic-agenda/compare/v1.8.59...v1.8.60
 [1.8.59]: https://github.com/jwh3times/magic-agenda/compare/v1.8.58...v1.8.59
