@@ -47,13 +47,19 @@ only because it makes the requirement visible at the call site and costs nothing
 that you never _strip_ line 1.
 
 **What it is actually for: the `on_auth_user_created` trigger.** Inserting into `auth.users` fires
-`handle_new_user()` (`init.sql:95`), which creates a **default** `public.user_settings` row for that
+`handle_new_user()`, which creates a **default** `public.user_settings` row for that
 user. `data.sql` inserts `auth.users` well before `public.user_settings`, so the dump then tries to
 insert the user's _real_ settings row with the same primary key and fails on a duplicate. The
 trigger's own `on conflict do nothing` does not help — it guards the trigger's insert, not the
 restore's. Reproduced in the 2026-07-27 rehearsal: trigger present, replica mode off, and the load
 dies with `duplicate key value violates unique constraint "user_settings_pkey"`. This only bites
 when the target _has_ the trigger, which is a live question — see step 3.1.
+
+**Take the function from the newer migration, not from `init.sql`.** The trigger's DDL has not
+moved, but the function it calls has been replaced: the current body is
+`supabase/migrations/20260819100000_retire_compatibility_layer.sql:43`, while the `init.sql`
+version seeds `user_settings` alone. Copying the older one back would restore a trigger that
+silently stops creating everything below.
 
 Since v1.2.76 the same trigger seeds two more rows the same way (`account_profiles`, guarded by its
 own `on conflict do nothing`) plus two it cannot guard at all (`boards`, `board_memberships`,
@@ -67,6 +73,12 @@ empty, phantom board with its own current membership, and no constraint in the s
 because the unique index is scoped to `(board_id, account_id)`, not to "one current board per
 account". This is exactly the failure mode `session_replication_role = replica` on line 1 exists to
 prevent; it is one more reason never to strip that line, not a new step to take.
+
+Since the compatibility retirement the phantom Board arrives furnished: the same branch seeds **five
+`labels` rows** on it. Same mechanism and same mitigation — they hang off the phantom `boards` row
+and sit behind the same membership test, so replica mode stops all five together with it — but
+worth naming, because they are what the Label orphan check in step 4 would surface if it ever did
+not.
 
 **The circular foreign key on `tasks` is not a hazard here, despite the warning.** `pg_dump` warns
 on every run:
@@ -217,7 +229,11 @@ but it is still worth getting right the first time rather than discovering it mi
 
 `supabase/migrations/20260629120000_init.sql:109` is the source of truth for the first trigger's DDL;
 `supabase/migrations/20260813210400_account_deletion.sql` is the source of truth for the second.
-Copy from there if either has since changed. Step 4 asserts both triggers exist, because nothing else
+Copy from there if either has since changed. Note the split for the first one: the `create trigger`
+statement is still the `init.sql` line above, but its **function** has since been replaced and now
+lives in `20260819100000_retire_compatibility_layer.sql:43`. On this path `schema.sql` supplies the
+function, so only the trigger statements are yours to write — but if you ever recreate the function
+by hand, take it from the newer migration. Step 4 asserts both triggers exist, because nothing else
 surfaces this: the 2026-07-27 rehearsal found the first one missing only by inserting a probe user
 and checking whether settings appeared. Order does not matter — `data.sql` runs in replica mode, so
 both triggers are inert during the load whether they exist yet or not.
@@ -420,6 +436,15 @@ foreign keys into `auth.users` and therefore cannot be restored into a bare data
 needs a project that provisions `auth` itself, which is exactly why step 1 says to create one.
 
 ### Rehearsal log
+
+- **2026-09-09** — citation correction only, no procedure exercised (#306, from the 2026-09-04
+  security review).
+  Two references to `handle_new_user()` pointed at `init.sql`, whose version of the function seeds
+  `user_settings` alone; the current body has lived in
+  `20260819100000_retire_compatibility_layer.sql` since the compatibility retirement, and a
+  restorer copying from the cited line would have recreated the wrong function. The trigger
+  paragraph also gained the Board's five seeded Labels, which the same trigger has been creating
+  unmentioned. No step changed.
 
 - **2026-09-09** — connection-only verification after enabling production SSL enforcement (#301).
   The Management API reported enforcement applied successfully. The Session pooler accepted
