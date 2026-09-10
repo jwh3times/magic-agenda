@@ -21,7 +21,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:rls": "vitest run --config vitest.rls.config.ts",
-    "test:rls:up": "npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy",
+    "test:rls:up": "node scripts/rls-up.mjs",
     "test:rls:down": "npx supabase stop",
     "test:e2e": "playwright test",
     "lint": "oxlint .",

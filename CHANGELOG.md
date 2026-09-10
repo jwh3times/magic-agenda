@@ -12,6 +12,19 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.8.65] - 2026-09-09
+
+### Security
+
+- Start the local RLS stack with the same dummy secrets CI uses. `config.toml` wires
+  `RESEND_API_KEY` to `smtp.resend.com`, so a maintainer whose shell held the real key was
+  starting a local GoTrue that could send real email from a test stack (#296).
+
+### Internal
+
+- Keep the local and CI stacks in step with a test that parses the workflow and compares them,
+  rather than a note asking someone to remember.
+
 ## [1.8.64] - 2026-09-09
 
 ### Removed
@@ -2868,7 +2881,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.64...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.65...HEAD
+[1.8.65]: https://github.com/jwh3times/magic-agenda/compare/v1.8.64...v1.8.65
 [1.8.64]: https://github.com/jwh3times/magic-agenda/compare/v1.8.63...v1.8.64
 [1.8.63]: https://github.com/jwh3times/magic-agenda/compare/v1.8.62...v1.8.63
 [1.8.62]: https://github.com/jwh3times/magic-agenda/compare/v1.8.61...v1.8.62
