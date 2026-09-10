@@ -1230,9 +1230,11 @@ into `script-src`.
 Offline read uses three versioned `localStorage` envelopes, all in `src/data/snapshot.ts` and all
 keyed to the signed-in user id: a board snapshot **per Board** (`ma-snapshot-board.<boardId>`;
 tasks, the hidden recurrence templates, and a `savedAt` timestamp), a directory snapshot (which
-Boards this device last saw and which one was open), and a settings snapshot. One account can hold
-several board snapshots at once, so the board key is namespaced rather than singular — that is also
-what makes purging one Board's snapshot possible without clearing every cached Board to do it.
+Boards this device last saw — and only that; it carried the open Board's id until #331, which
+nothing ever read back, the live selection coming from `ma-selected-board` instead), and a settings
+snapshot. One account can hold several board snapshots at once, so the board key is namespaced
+rather than singular — that is also what makes purging one Board's snapshot possible without
+clearing every cached Board to do it.
 `useTasks` treats visible Tasks and hidden Series definitions as independent debounce triggers for
 rewriting that Board envelope; watching only the visible `tasks` state leaves a template-only
 realtime edit stale offline even though the snapshot persists both collections.

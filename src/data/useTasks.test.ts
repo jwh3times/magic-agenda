@@ -619,7 +619,7 @@ test('a failed load hydrates from the snapshot and materializes nothing', async 
   localStorage.setItem(
     'ma-snapshot-board.b1',
     JSON.stringify({
-      v: 7,
+      v: 8,
       userId: 'u1',
       boardId: 'b1',
       savedAt: 1_770_000_000_000,
@@ -651,7 +651,7 @@ test('an authentication failure keeps the snapshot but is not relabelled as offl
   localStorage.setItem(
     'ma-snapshot-board.b1',
     JSON.stringify({
-      v: 7,
+      v: 8,
       userId: 'u1',
       boardId: 'b1',
       savedAt: 1_770_000_000_000,
@@ -736,7 +736,7 @@ test('a template-only realtime change refreshes the offline snapshot (#249)', as
 test('reconnecting clears offline mode', async () => {
   localStorage.setItem(
     'ma-snapshot-board.b1',
-    JSON.stringify({ v: 7, userId: 'u1', boardId: 'b1', savedAt: 1, tasks: [], templates: [] }),
+    JSON.stringify({ v: 8, userId: 'u1', boardId: 'b1', savedAt: 1, tasks: [], templates: [] }),
   )
   h.capture.selectError = { message: 'FetchError: Failed to fetch' }
   h.capture.selectStatus = 0
@@ -762,7 +762,7 @@ test('reconnecting clears offline mode', async () => {
 // nothing under an "Offline" banner instead of the last-known tasks.
 test('reconnecting while sessionless does not poison the board snapshot with an empty board', async () => {
   const existing = {
-    v: 7,
+    v: 8,
     userId: 'u1',
     boardId: 'b1',
     savedAt: 1,

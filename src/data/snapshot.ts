@@ -38,7 +38,13 @@ const DIRECTORY_KEY = 'ma-snapshot-directory'
 // v7: Workflow Status uses the canonical `completed` token, the redundant Task `done` member is
 // gone, and Completion/Archive persistence joins the Task shape. A v6 snapshot can carry neither
 // those fields nor the new token, so it is dropped instead of asserted into an impossible Task.
-const V = 7
+//
+// v8: the directory envelope no longer carries `selectedBoardId` (#331). It was written on every
+// directory save and read nowhere — the live selection has always come from the device-scoped
+// `ma-selected-board` key instead. A v7 envelope would hydrate perfectly well without it, so the
+// bump buys nothing at runtime; it is here because the constant is shared and a shape change that
+// skips it leaves the version no longer describing the shape.
+const V = 8
 
 const boardKey = (boardId: string) => `${BOARD_KEY_PREFIX}${boardId}`
 const labelKey = (boardId: string) => `${LABEL_KEY_PREFIX}${boardId}`
@@ -53,18 +59,21 @@ export interface BoardSnapshot {
 }
 
 /**
- * The per-Account envelope: which Boards this device last saw, and which one was open.
+ * The per-Account envelope: which Boards this device last saw.
  *
  * Separate from the board snapshots because it answers a different question. A board snapshot says
  * "here is what was on board X"; this says "these are the boards that existed" — which is what lets
- * an offline boot render a Board switcher at all, and what gives the purge a list of ids to compare
- * against when the server's answer comes back shorter than expected.
+ * an offline boot render a Board switcher at all.
+ *
+ * It deliberately does **not** record which Board was open. It did until #331, and nothing ever read
+ * it back: the selection is device-scoped, kept in `ma-selected-board` (`board/rememberedBoard.ts`)
+ * and resolved by `resolveSelection`. Storing it here as well would give one device two answers for
+ * two accounts, which is a different behaviour nobody asked for — not a cache of the same answer.
  */
 export interface DirectorySnapshot {
   v: typeof V
   userId: string
   boards: unknown[]
-  selectedBoardId: string | null
 }
 
 export interface LabelSnapshot {
@@ -199,12 +208,8 @@ export function readDirectorySnapshot(userId: string): DirectorySnapshot | null 
   return env as unknown as DirectorySnapshot
 }
 
-export function writeDirectorySnapshot(
-  userId: string,
-  boards: unknown[],
-  selectedBoardId: string | null,
-): void {
-  write(DIRECTORY_KEY, userId, { boards, selectedBoardId })
+export function writeDirectorySnapshot(userId: string, boards: unknown[]): void {
+  write(DIRECTORY_KEY, userId, { boards })
 }
 
 export function readSettingsSnapshot(userId: string): SettingsSnapshot | null {
