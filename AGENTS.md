@@ -1509,6 +1509,16 @@ default to **yes** on EOF. Secrets referenced via `env(...)` in the file (`RESEN
 `Deploy Auth Config` jobs; `deploy-migrations.yml` and `deploy-functions.yml` also carry them so
 the CLI's config.toml parsing on every command can't fail on a missing var. **Never run
 `supabase config push` locally** — it deploys straight to production, bypassing the PR preview.
+
+**Deleting an Edge Function from this repository does not delete it from production.**
+`supabase functions deploy` with no name deploys every function under `supabase/functions/`; it
+does not prune, and a directory that is gone is simply one it no longer has a source for. So
+removing a function here leaves the last-deployed copy live and serving, on whatever `verify_jwt`
+it was deployed with, and with no source in the repository to review it against. Retiring one is
+therefore two acts, and the second is not something a merge can do: a
+`supabase functions delete <name> --project-ref <ref>` run by someone holding the access token,
+which lives only as a repository secret. Plan both halves together — the merge on its own is the
+half that looks finished.
 The two auth email templates the app sends (confirm-signup, reset-password) live in
 `supabase/templates/{confirmation,recovery}.html` and deploy the same way — edit the HTML files,
 never the dashboard, which is no longer the source of truth for them. Three constraints on those
