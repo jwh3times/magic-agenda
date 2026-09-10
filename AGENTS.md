@@ -1315,6 +1315,16 @@ where the authorization boundary is actually exercised: RLS is the only thing st
 one user's rows and another's, and every unit test mocks it away. Its tests come in two kinds,
 split across two files, and the distinction matters when adding one.
 
+**`test:rls:up` goes through `scripts/rls-up.mjs` rather than calling the CLI directly, and the
+reason is `RESEND_API_KEY`.** `config.toml` enables SMTP against `smtp.resend.com` through
+`env(RESEND_API_KEY)`, so a local GoTrue started by a shell holding the real key can send real
+email from a test stack — and the documented way a maintainer holds production credentials is
+`op run` with the production-operations template, which is exactly that shell. The script injects
+the same dummy values CI's stack step does, **over** the ambient environment rather than under it:
+`{ ...DUMMY_ENV, ...env }` would read as a sensible default and would hand the real key straight
+back. The two sets are kept identical by `scripts/rls-up.test.mjs`, which parses the workflow and
+compares them, rather than by a note here asking someone to remember (#296).
+
 `structure.test.ts` holds **catch-alls** that need no knowledge of any particular table and hold
 forever: RLS enabled everywhere, every RLS-enabled table has a policy, no security-definer views,
 every table reachable by the Data API roles, a newly created table reachable by _none_ of them, and
