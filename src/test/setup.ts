@@ -39,6 +39,21 @@ if (typeof globalThis.localStorage === 'undefined') {
   })
 }
 
+// jsdom implements no scrolling at all, so `Element.prototype.scrollIntoView` is simply absent.
+// dnd-kit's KeyboardSensor calls it the moment a keyboard drag starts, which surfaces as an
+// uncaught TypeError from inside an event handler rather than a failed assertion — the test still
+// passes, and the run reports a stray error beside it. A no-op is the whole fix: nothing here
+// asserts on scroll position, and a layout-free environment has nothing to scroll.
+//
+// `typeof Element` first, and that guard is load-bearing rather than cautious: this file is setup
+// for BOTH vitest projects, and the `scripts/**` tests run under the node environment where
+// `Element` does not exist at all. Dereferencing it there is a ReferenceError at import time, which
+// fails those files as a suite-level load error rather than an assertion — exactly why the
+// `localStorage` polyfill above is written the same way.
+if (typeof Element !== 'undefined' && typeof Element.prototype.scrollIntoView !== 'function') {
+  Element.prototype.scrollIntoView = function scrollIntoView() {}
+}
+
 // Isolate tests from persisted browser state (board view, auth recovery flag),
 // so a view switch in one test can't change another test's initial view.
 afterEach(() => {
