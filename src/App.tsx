@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { ProtectedRoute } from './auth/ProtectedRoute'
+import { MfaChallenge } from './auth/MfaChallenge'
 import { SettingsProvider } from './data/SettingsProvider'
 import { BoardDirectoryProvider } from './board/BoardDirectoryProvider'
 import { LabelDirectoryProvider } from './labels/LabelDirectoryProvider'
@@ -30,7 +31,7 @@ const SettingsPage = lazy(() =>
  * `/` serves two audiences: signed-out visitors get the marketing page, signed-in users get their
  * board at the same URL (no URL migration, no broken bookmarks).
  *
- * This deliberately does NOT use `ProtectedRoute`, but it must mirror TWO of that component's
+ * This deliberately does NOT use `ProtectedRoute`, but it must mirror THREE of that component's
  * guards, in the same relative order, or this becomes a second copy that silently drifts:
  *
  * 1. Password recovery: a session created by a recovery link has to set a new password before
@@ -40,13 +41,18 @@ const SettingsPage = lazy(() =>
  *    render the board read-only instead of the marketing page (see `ProtectedRoute`'s comment for
  *    why). Gated on `!passwordRecovery` too, so a lingering recovery flag from an interrupted
  *    flow can't ride this branch past the guard above.
+ * 3. Two-factor step-up: a session holding a verified TOTP factor owes a code before the board
+ *    renders. This is the guard the drift warning above was written for — #272 added it to
+ *    `ProtectedRoute` first, which covers `/settings` and **not the board**, because the board
+ *    lives here. A gate on the settings page and not on the tasks would have been worse than no
+ *    gate at all: it would read as protection while protecting nothing.
  *
- * `HomeRoute.test.tsx` pins both.
+ * `HomeRoute.test.tsx` pins all three.
  *
  * `loading` resolves from localStorage with no network round trip, so the spinner is imperceptible.
  */
 function HomeRoute() {
-  const { session, loading, passwordRecovery } = useAuth()
+  const { session, loading, passwordRecovery, stepUpRequired } = useAuth()
   const online = useOnline()
   if (loading) return <Spinner />
   if (!session) {
@@ -60,6 +66,8 @@ function HomeRoute() {
     return <Landing />
   }
   if (passwordRecovery) return <Navigate to="/auth/reset" replace />
+  if (stepUpRequired === null) return <Spinner />
+  if (stepUpRequired) return <MfaChallenge />
   return (
     <Suspense fallback={<Spinner label="Loading…" />}>
       <BoardPage />

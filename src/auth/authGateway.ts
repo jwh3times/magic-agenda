@@ -1,6 +1,7 @@
-import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
+import type { AuthChangeEvent, Factor, Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
-import { failed, type AuthOutcome, type SignUpOutcome } from './authOutcome'
+import { failed, type AuthOutcome, type AuthResult, type SignUpOutcome } from './authOutcome'
+import type { AssuranceLevels, TotpEnrollment, TotpFactor } from './mfa'
 
 /** The two emailed-link types this app redeems. `email_change` and `invite` are not used here. */
 export type RedeemType = 'recovery' | 'signup'
@@ -38,6 +39,36 @@ export interface AuthGateway {
   /** Redeems an emailed `token_hash`. Single-use: a second call with the same token fails. */
   redeemToken(tokenHash: string, type: RedeemType): Promise<AuthOutcome>
   signOut(): Promise<void>
+
+  // ——— two-factor (TOTP) ———
+  // Production has allowed TOTP enrollment since the `[auth.mfa.totp]` block was written; until
+  // #272 nothing in `src/` called it. These five methods are the whole of the app's reach into it.
+
+  /**
+   * Creates an **unverified** factor and returns its secret. It grants nothing until
+   * `verifyTotp` succeeds, but it already counts against `max_enrolled_factors` — so an
+   * enrollment the user abandons must be removed with `unenrollFactor`, not just forgotten.
+   */
+  enrollTotp(friendlyName: string): Promise<AuthResult<TotpEnrollment>>
+  /**
+   * Proves possession of a factor with a six-digit code, raising the session to `aal2` and
+   * marking the factor verified if it was not already.
+   *
+   * This is one call rather than `challenge` then `verify` deliberately. A challenge expires, so
+   * issuing one when a form opens and spending it when the user finishes typing races the clock
+   * for no benefit — the two are always wanted together here, and pairing them inside the seam
+   * means no component has to hold a `challengeId` whose freshness it cannot reason about.
+   */
+  verifyTotp(factorId: string, code: string): Promise<AuthOutcome>
+  /** Every TOTP factor on the account, verified or not. */
+  listTotpFactors(): Promise<AuthResult<TotpFactor[]>>
+  /** Removes a factor. The last one leaving drops the account back to single-factor sign-in. */
+  unenrollFactor(factorId: string): Promise<AuthOutcome>
+  /**
+   * This session's assurance levels. Reads the stored session and decodes its JWT — **no network**
+   * — so it answers offline and costs nothing to call on every session change.
+   */
+  getAssuranceLevel(): Promise<AuthResult<AssuranceLevels>>
 }
 
 /**
@@ -148,6 +179,70 @@ export const supabaseAuthGateway: AuthGateway = {
     }
   },
 
+  async enrollTotp(friendlyName) {
+    try {
+      const { data, error } = await supabase.auth.mfa.enroll({
+        factorType: 'totp',
+        friendlyName,
+      })
+      if (error) return failed(error)
+      return {
+        ok: true,
+        data: {
+          factorId: data.id,
+          qrCodeSvg: data.totp.qr_code,
+          secret: data.totp.secret,
+          uri: data.totp.uri,
+        },
+      }
+    } catch (e) {
+      return failed(e)
+    }
+  },
+
+  async verifyTotp(factorId, code) {
+    try {
+      const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code })
+      if (error) return failed(error)
+      return { ok: true }
+    } catch (e) {
+      return failed(e)
+    }
+  },
+
+  async listTotpFactors() {
+    try {
+      const { data, error } = await supabase.auth.mfa.listFactors()
+      if (error) return failed(error)
+      // `all` rather than `totp`: the latter is verified-only, and an abandoned enrollment is
+      // exactly the factor a user needs to see in order to clear it.
+      const totp = data.all.filter((f: Factor) => f.factor_type === 'totp')
+      return { ok: true, data: totp.map(toTotpFactor) }
+    } catch (e) {
+      return failed(e)
+    }
+  },
+
+  async unenrollFactor(factorId) {
+    try {
+      const { error } = await supabase.auth.mfa.unenroll({ factorId })
+      if (error) return failed(error)
+      return { ok: true }
+    } catch (e) {
+      return failed(e)
+    }
+  },
+
+  async getAssuranceLevel() {
+    try {
+      const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+      if (error) return failed(error)
+      return { ok: true, data: { current: data.currentLevel, next: data.nextLevel } }
+    } catch (e) {
+      return failed(e)
+    }
+  },
+
   async signOut() {
     try {
       await supabase.auth.signOut()
@@ -157,4 +252,14 @@ export const supabaseAuthGateway: AuthGateway = {
       // and auth-js clears local storage before it calls the endpoint.
     }
   },
+}
+
+/** The one place a vendor `Factor` becomes the app's own shape. */
+function toTotpFactor(factor: Factor): TotpFactor {
+  return {
+    id: factor.id,
+    name: factor.friendly_name ?? null,
+    verified: factor.status === 'verified',
+    createdAt: factor.created_at,
+  }
 }

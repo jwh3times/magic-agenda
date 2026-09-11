@@ -12,6 +12,48 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.9.0] - 2026-09-11
+
+### Added
+
+- Two-factor authentication. A new **Two-factor authentication** section on Settings enrolls an
+  authenticator app: scan the QR code or type the key in by hand, confirm with a six-digit code,
+  and every later sign-in asks for one. Enrolled apps are listed and can be removed behind a
+  confirmation. Production has permitted TOTP enrollment since the `[auth.mfa.totp]` block was
+  written and nothing in the app could reach it, so this closes a live gap rather than adding a
+  capability — no configuration change was needed.
+- A step-up prompt at sign-in for accounts with an authenticator enrolled. It renders in place of
+  the board rather than at a URL of its own, so there is no address that steps around it, and it
+  offers Sign out — with no backup codes to fall back on, that is the only way off the screen the
+  app can offer. When more than one app is enrolled they are named, because a code is only valid
+  for the app that generated it.
+
+### Security
+
+- The step-up gate covers the board as well as Settings. The board is served at `/`, which does
+  not pass through `ProtectedRoute`, so gating only there would have guarded the settings page
+  while leaving every task one password away — protection in appearance only.
+- An assurance-level read that fails leaves the session ungated rather than blocking it. Two-factor
+  is not the authorization boundary here — the database's row-level policies key on the account id
+  and grant identical rows either way — while Supabase issues no backup codes, so a user held
+  behind a prompt they cannot see would have no route back into their own account.
+- Abandoning an enrollment removes the factor it created. Starting enrollment writes a real,
+  unverified factor immediately; it grants nothing, but it occupies one of the account's ten slots,
+  so cancelling without removing it would eventually refuse every further enrollment with nothing
+  on screen explaining why. Unfinished factors are listed for the same reason — one left behind by
+  a closed tab has to be visible to be removable.
+
+### Internal
+
+- `src/auth/mfa.ts` holds the app's own two-factor vocabulary and every decision taken over it as
+  pure functions, so the step-up rule, factor naming and QR encoding are testable without a GoTrue
+  client, a JWT or a network.
+- The auth seam gains five methods, keeping `supabase.auth.mfa.*` out of the pages; both of its
+  invariants hold for all five, including a fourth failure vocabulary entry set for wrong codes,
+  expired challenges, the factor limit and name conflicts.
+- Verification issues and spends its challenge in a single call, so no component holds a challenge
+  id racing its own expiry.
+
 ## [1.8.68] - 2026-09-10
 
 ### Internal
@@ -2935,7 +2977,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.8.68...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/jwh3times/magic-agenda/compare/v1.8.68...v1.9.0
 [1.8.68]: https://github.com/jwh3times/magic-agenda/compare/v1.8.67...v1.8.68
 [1.8.67]: https://github.com/jwh3times/magic-agenda/compare/v1.8.66...v1.8.67
 [1.8.66]: https://github.com/jwh3times/magic-agenda/compare/v1.8.65...v1.8.66

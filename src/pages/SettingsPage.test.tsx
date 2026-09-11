@@ -21,6 +21,12 @@ const h = vi.hoisted(() => {
     session: {} as unknown,
     loading: false,
     signOut: vi.fn(),
+    // The Two-factor section loads its factor list on mount. Only the read is stubbed here —
+    // the write paths are exercised in TwoFactorSection.test.tsx against the real provider.
+    listTotpFactors: vi.fn(() => Promise.resolve({ ok: true, data: [] })),
+    enrollTotp: vi.fn(),
+    verifyTotp: vi.fn(),
+    unenrollFactor: vi.fn(),
   }
   const setDefaultView = vi.fn(() => Promise.resolve())
   return { upsert, maybeSingle, channel, auth, setDefaultView }

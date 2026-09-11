@@ -24,6 +24,10 @@ export type AuthFailureReason =
   | 'expired-link'
   | 'rate-limited'
   | 'offline'
+  | 'invalid-code'
+  | 'challenge-expired'
+  | 'too-many-factors'
+  | 'factor-name-taken'
   | 'unknown'
 
 export interface AuthFailure {
@@ -33,6 +37,16 @@ export interface AuthFailure {
 }
 
 export type AuthOutcome = { ok: true } | { ok: false; failure: AuthFailure }
+
+/**
+ * The same bargain for an action that has something to hand back — an enrollment secret, a list of
+ * factors, a session's assurance levels. `AuthOutcome` is `AuthResult<void>` in spirit but is kept
+ * as its own type so the eight existing call sites keep reading `outcome.ok` with no `.data`.
+ *
+ * Failure stays identical, which is the point: a caller branches on `ok` once and gets either its
+ * payload or the same `AuthFailure` vocabulary every other action answers in.
+ */
+export type AuthResult<T> = { ok: true; data: T } | { ok: false; failure: AuthFailure }
 
 /**
  * Sign-up needs one extra bit: whether Supabase returned a session immediately or is waiting on
@@ -58,6 +72,12 @@ const MESSAGES: Record<Exclude<AuthFailureReason, 'unknown'>, string> = {
   'expired-link': 'This link is invalid or has expired.',
   'rate-limited': 'Too many attempts. Wait a minute and try again.',
   offline: 'Couldn’t reach the server. Check your connection and try again.',
+  'invalid-code':
+    'That code isn’t right. Check your authenticator app and enter the current six digits.',
+  'challenge-expired': 'That code took too long to arrive. Enter the current one and try again.',
+  'too-many-factors':
+    'You’ve reached the limit of authenticator apps for this account. Remove one first.',
+  'factor-name-taken': 'An authenticator app with that name is already enrolled.',
 }
 
 /**
@@ -79,6 +99,14 @@ const CODE_REASONS: Record<string, AuthFailureReason> = {
   over_email_send_rate_limit: 'rate-limited',
   over_request_rate_limit: 'rate-limited',
   over_sms_send_rate_limit: 'rate-limited',
+  // TOTP. `mfa_verification_rejected` is deliberately absent: it means an auth hook refused a
+  // code that was otherwise correct, so telling the user to check their authenticator would send
+  // them round a loop that cannot terminate. It falls through to `unknown` and keeps GoTrue's own
+  // text, which is the only thing that can explain it.
+  mfa_verification_failed: 'invalid-code',
+  mfa_challenge_expired: 'challenge-expired',
+  too_many_enrolled_mfa_factors: 'too-many-factors',
+  mfa_factor_name_conflict: 'factor-name-taken',
 }
 
 /** Builds a failure from a reason, using our copy. */

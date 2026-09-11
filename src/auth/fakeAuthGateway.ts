@@ -1,6 +1,7 @@
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 import type { AuthGateway, RedeemType } from './authGateway'
-import type { AuthOutcome, SignUpOutcome } from './authOutcome'
+import type { AuthOutcome, AuthResult, SignUpOutcome } from './authOutcome'
+import type { AssuranceLevels, TotpEnrollment, TotpFactor } from './mfa'
 
 /**
  * The second adapter at the auth seam — the one that makes it a real seam rather than a
@@ -46,6 +47,11 @@ export interface FakeAuth {
     setPassword: string[]
     redeemToken: Array<[tokenHash: string, type: RedeemType]>
     signOut: number
+    enrollTotp: string[]
+    verifyTotp: Array<[factorId: string, code: string]>
+    listTotpFactors: number
+    unenrollFactor: string[]
+    getAssuranceLevel: number
   }
   /** What each action returns next. Mutate before triggering the call. */
   next: {
@@ -55,6 +61,15 @@ export interface FakeAuth {
     startGoogleSignIn: Pending<AuthOutcome>
     setPassword: Pending<AuthOutcome>
     redeemToken: Pending<AuthOutcome>
+    enrollTotp: Pending<AuthResult<TotpEnrollment>>
+    verifyTotp: Pending<AuthOutcome>
+    listTotpFactors: Pending<AuthResult<TotpFactor[]>>
+    unenrollFactor: Pending<AuthOutcome>
+    /**
+     * What the gate reads. Default `aal1`/`aal1` — a user with no factor — so every existing test
+     * that renders a signed-in route keeps rendering it.
+     */
+    getAssuranceLevel: Pending<AuthResult<AssuranceLevels>>
   }
   /** Push an auth state change to subscribers, exactly as GoTrue would. */
   emit(event: AuthChangeEvent, session: Session | null): void
@@ -75,6 +90,11 @@ export function fakeAuthGateway(options?: { session?: Session | null }): FakeAut
     setPassword: [],
     redeemToken: [],
     signOut: 0,
+    enrollTotp: [],
+    verifyTotp: [],
+    listTotpFactors: 0,
+    unenrollFactor: [],
+    getAssuranceLevel: 0,
   }
 
   const next: FakeAuth['next'] = {
@@ -84,6 +104,19 @@ export function fakeAuthGateway(options?: { session?: Session | null }): FakeAut
     startGoogleSignIn: { ok: true },
     setPassword: { ok: true },
     redeemToken: { ok: true },
+    enrollTotp: {
+      ok: true,
+      data: {
+        factorId: 'factor-1',
+        qrCodeSvg: '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+        secret: 'JBSWY3DPEHPK3PXP',
+        uri: 'otpauth://totp/Magic%20Agenda:u1@example.test?secret=JBSWY3DPEHPK3PXP',
+      },
+    },
+    verifyTotp: { ok: true },
+    listTotpFactors: { ok: true, data: [] },
+    unenrollFactor: { ok: true },
+    getAssuranceLevel: { ok: true, data: { current: 'aal1', next: 'aal1' } },
   }
 
   const gateway: AuthGateway = {
@@ -122,6 +155,26 @@ export function fakeAuthGateway(options?: { session?: Session | null }): FakeAut
     signOut() {
       calls.signOut += 1
       return Promise.resolve()
+    },
+    async enrollTotp(friendlyName) {
+      calls.enrollTotp.push(friendlyName)
+      return next.enrollTotp
+    },
+    async verifyTotp(factorId, code) {
+      calls.verifyTotp.push([factorId, code])
+      return next.verifyTotp
+    },
+    async listTotpFactors() {
+      calls.listTotpFactors += 1
+      return next.listTotpFactors
+    },
+    async unenrollFactor(factorId) {
+      calls.unenrollFactor.push(factorId)
+      return next.unenrollFactor
+    },
+    async getAssuranceLevel() {
+      calls.getAssuranceLevel += 1
+      return next.getAssuranceLevel
     },
   }
 

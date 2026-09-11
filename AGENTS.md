@@ -203,6 +203,86 @@ carries no vitest import and nothing in the app imports it, so it never reaches 
 lived in `src/lib/` with no module behind it; `redeemToken` is now its owner, which is why the
 "do not defer this call" warning sits in that method's body.
 
+**The seam grew by five methods for two-factor (TOTP) in #272** — `enrollTotp`, `verifyTotp`,
+`listTotpFactors`, `unenrollFactor`, `getAssuranceLevel` — and both invariants above hold for all
+five without exception. `verifyTotp` deliberately calls GoTrue's `challengeAndVerify` rather than
+exposing `challenge` and `verify` as two gateway methods: a challenge expires, so issuing one when
+a form opens and spending it only when the user finishes typing a six-digit code races the clock
+for a benefit nothing here needs, and pairing them inside the seam means no component ever holds a
+`challengeId` whose freshness it cannot reason about. Four `AuthFailureReason`s were added
+(`invalid-code`, `challenge-expired`, `too-many-factors`, `factor-name-taken`); GoTrue's
+`mfa_verification_rejected` is deliberately left unmapped — it means an auth hook refused an
+otherwise-correct code, so telling the user to recheck their authenticator app would send them
+around a loop that cannot terminate, and it falls through to `unknown` and keeps GoTrue's own text
+instead. A new `AuthResult<T>` sits beside `AuthOutcome` for the three methods that hand back data
+(an enrollment secret, a factor list, a session's assurance levels); `AuthOutcome` itself is
+unchanged so the existing call sites keep reading `outcome.ok` with no `.data`. `fakeAuthGateway`
+carries all five, and its `next.getAssuranceLevel` defaults to `aal1`/`aal1` — a user who owes no
+code — specifically so every pre-existing signed-in test keeps rendering the route it always did
+without being told about two-factor at all.
+
+`src/auth/mfa.ts` is this feature's pure half, holding the same shape of split as `redemption.ts`
+and `sw/policy.ts`: no I/O, no vendor import, so the questions worth testing are testable without a
+GoTrue client. `stepUpRequired(levels)` is GoTrue's own rule restated as a total function —
+`next === 'aal2' && current !== 'aal2'` rather than `current === 'aal1'` — because
+`AuthenticatorAssuranceLevels` is an open union (`'aal1' | 'aal2' | (string & {})`, since GoTrue
+reserves the right to add levels); testing for the level actually wanted is total, while testing
+for the one that isn't would silently stop gating the day a new level appears. `nextFactorName`
+exists because GoTrue rejects a duplicate `friendly_name`, so the settings UI has no name field at
+all — a generated, collision-free name is cheaper than asking the user for one they don't care
+about. `qrDataUri` percent-encodes GoTrue's raw SVG rather than following its docstring's
+`data:image/svg+xml;utf-8,` shorthand literally: a `#` in the SVG (a fill colour) starts a URL
+fragment and truncates the image, and `;utf-8` is not a media-type parameter the data-URL grammar
+defines. `public/_headers`' `img-src 'self' data:` already admits the result; no CSP change was
+needed.
+
+**`AuthProvider` publishes `stepUpRequired: boolean | null`, keyed by user id rather than held as a
+bare boolean, and the keying is what makes two awkward cases fall out for free.** A token refresh
+(roughly hourly) replaces the session object; clearing the answer first would blink a spinner over
+the board on every refresh, so the previous answer is kept while `getAssuranceLevel()` re-reads the
+new one. But a _different_ user's answer must never be inherited — signing out of an `aal2` session
+and into a freshly gated one must not paint the board for a frame first — so a user id that no
+longer matches the current session reads as `null` ("undetermined") with no explicit reset needed.
+`getAssuranceLevel()` is local: it decodes the stored JWT and reads the session's own factor list,
+so it costs no network round trip and answers correctly offline.
+
+**A failed assurance read fails OPEN, and this is the most important non-obvious call in the whole
+feature.** Two-factor is not the authorization boundary here — RLS keys on `auth.uid()` alone, so
+the database grants identical rows whether or not the session cleared `aal2` — and Supabase issues
+no backup codes, so a user held behind a gate they cannot pass would have no way back into their
+own account. Blocking on a failed read would be unrecoverable for a security property the database
+was never going to enforce anyway.
+
+**The gate is rendered in place in BOTH `ProtectedRoute` and `HomeRoute`, and that duplication is
+required rather than accidental.** The board lives at `/`, served by `HomeRoute` in `App.tsx`, which
+deliberately does **not** use `ProtectedRoute` — so `/settings` is the only route that component
+actually reaches. `HomeRoute`'s own docstring has warned since it was written that a guard added
+to one and not the other becomes a second copy that silently drifts, and this is the guard it was
+warning about. #272 added the step-up check to
+`ProtectedRoute` first, which covers `/settings` but not a single task; gating only `/settings`
+would have been worse than shipping no gate at all, because it reads as protection while leaving
+every task on the board one password away. `HomeRoute` now mirrors three guards from
+`ProtectedRoute` in the same relative order — password recovery, offline fallback, two-factor
+step-up — and `HomeRoute.test.tsx` pins all three. Unlike the recovery gate, the step-up gate is
+rendered **in place** rather than navigated to: there is no route that corresponds to "you owe a
+code", so there is no URL a user could type to step around it.
+
+`src/auth/MfaChallenge.tsx` is that in-place screen. It offers Sign out and nothing else as an
+escape hatch, because with no backup codes that is the only way off the screen the client can
+offer; it names a factor with a picker only when more than one is enrolled, since a code is valid
+only for the factor that generated it; and it explains itself rather than leaving a permanently
+disabled button when the gate says a code is owed but the account's factor list comes back empty
+(the last one was removed from another device between sign-in and this render).
+
+`src/components/TwoFactorSection.tsx` is enrollment, mounted on `SettingsPage` as `security` /
+"Two-factor authentication" between `data` and `danger`. Two rules there are easy to get backwards:
+**an abandoned enrollment must be unenrolled, not merely forgotten** — `enrollTotp` writes a real,
+unverified factor immediately, and while it grants nothing it does count against
+`max_enrolled_factors = 10`, so a user who opens and cancels the form ten times would lock the
+account out of ever enrolling again with nothing on screen explaining why — and **the factor list
+deliberately does not filter to verified-only**, because a factor abandoned by a closed tab has to
+be visible in order to be removable at all.
+
 ### Board ownership: containment IS the authorization boundary
 
 `account_profiles`, `boards`, and `board_memberships` exist in production, every Account has exactly

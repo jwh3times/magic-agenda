@@ -9,7 +9,8 @@ import {
 } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabaseAuthGateway, type AuthGateway, type RedeemType } from './authGateway'
-import type { AuthOutcome, SignUpOutcome } from './authOutcome'
+import type { AuthOutcome, AuthResult, SignUpOutcome } from './authOutcome'
+import { stepUpRequired, type TotpEnrollment, type TotpFactor } from './mfa'
 import { clearBoardView } from '../lib/viewStorage'
 import { clearRememberedBoard } from '../board/rememberedBoard'
 import { clearSnapshots } from '../data/snapshot'
@@ -38,6 +39,12 @@ interface AuthContextValue {
   /** True while the session came from a password-recovery link and hasn't set a new password. */
   passwordRecovery: boolean
   clearPasswordRecovery: () => void
+  /**
+   * Whether this session still owes a TOTP code — `null` until it has been determined for the
+   * current user, which is a state `ProtectedRoute` must wait out rather than treat as "no".
+   * `false` whenever there is no session, since there is then nothing to gate.
+   */
+  stepUpRequired: boolean | null
   signIn: (email: string, password: string) => Promise<AuthOutcome>
   signUp: (email: string, password: string) => Promise<SignUpOutcome>
   sendPasswordReset: (email: string) => Promise<AuthOutcome>
@@ -45,6 +52,10 @@ interface AuthContextValue {
   setPassword: (password: string) => Promise<AuthOutcome>
   redeemToken: (tokenHash: string, type: RedeemType) => Promise<AuthOutcome>
   signOut: () => Promise<void>
+  enrollTotp: (friendlyName: string) => Promise<AuthResult<TotpEnrollment>>
+  verifyTotp: (factorId: string, code: string) => Promise<AuthOutcome>
+  listTotpFactors: () => Promise<AuthResult<TotpFactor[]>>
+  unenrollFactor: (factorId: string) => Promise<AuthOutcome>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -66,6 +77,13 @@ export function AuthProvider({
   const [passwordRecovery, setPasswordRecovery] = useState(
     () => sessionStorage.getItem(RECOVERY_FLAG_KEY) === '1',
   )
+  // Keyed by user id rather than held as a bare boolean, and that is what makes the two awkward
+  // cases fall out for free. A token refresh replaces the session object roughly hourly; clearing
+  // the answer first would blink a spinner over the board every time, so the previous one is kept
+  // while the new one is read. But a *different* user's answer must never be inherited — signing
+  // out of an aal2 session and into a gated one would otherwise render the board first — and an
+  // id that no longer matches reads as "undetermined" without any explicit reset.
+  const [assurance, setAssurance] = useState<{ userId: string; required: boolean } | null>(null)
 
   useEffect(() => {
     let active = true
@@ -105,6 +123,25 @@ export function AuthProvider({
     }
   }, [gateway])
 
+  // Local: `getAssuranceLevel` decodes the stored JWT and reads the session's own factor list,
+  // so this costs no network and answers offline.
+  useEffect(() => {
+    if (!session) return
+    const userId = session.user.id
+    let active = true
+    void gateway.getAssuranceLevel().then((result) => {
+      if (!active) return
+      // Fail OPEN. A failed read means we cannot tell whether a code is owed, and blocking is the
+      // worse answer of the two: two-factor is not the authorization boundary here — RLS keys on
+      // `auth.uid()`, so the database grants identical rows either way — while Supabase issues no
+      // backup codes, so a user held behind a gate they cannot see has no way back in at all.
+      setAssurance({ userId, required: result.ok ? stepUpRequired(result.data) : false })
+    })
+    return () => {
+      active = false
+    }
+  }, [gateway, session])
+
   const clearPasswordRecovery = useCallback(() => {
     sessionStorage.removeItem(RECOVERY_FLAG_KEY)
     setPasswordRecovery(false)
@@ -121,6 +158,10 @@ export function AuthProvider({
       setPassword: (password: string) => gateway.setPassword(password),
       redeemToken: (tokenHash: string, type: RedeemType) => gateway.redeemToken(tokenHash, type),
       signOut: () => gateway.signOut(),
+      enrollTotp: (friendlyName: string) => gateway.enrollTotp(friendlyName),
+      verifyTotp: (factorId: string, code: string) => gateway.verifyTotp(factorId, code),
+      listTotpFactors: () => gateway.listTotpFactors(),
+      unenrollFactor: (factorId: string) => gateway.unenrollFactor(factorId),
     }),
     [gateway],
   )
@@ -132,9 +173,14 @@ export function AuthProvider({
       loading,
       passwordRecovery,
       clearPasswordRecovery,
+      stepUpRequired: session
+        ? assurance?.userId === session.user.id
+          ? assurance.required
+          : null
+        : false,
       ...actions,
     }),
-    [session, loading, passwordRecovery, clearPasswordRecovery, actions],
+    [session, loading, passwordRecovery, clearPasswordRecovery, assurance, actions],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

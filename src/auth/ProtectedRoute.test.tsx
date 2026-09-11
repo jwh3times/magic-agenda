@@ -7,6 +7,10 @@ interface MockAuth {
   user: unknown
   loading: boolean
   passwordRecovery: boolean
+  // Stated rather than left undefined: `undefined` reads as "no step-up needed" by accident,
+  // which would make every test below pass without exercising the decision at all. The gate's
+  // own behaviour is covered in mfaGate.test.tsx against the real provider.
+  stepUpRequired: boolean | null
   clearPasswordRecovery: ReturnType<typeof vi.fn>
   signOut: ReturnType<typeof vi.fn>
 }
@@ -17,6 +21,7 @@ const auth = vi.hoisted<{ current: MockAuth }>(() => ({
     user: { id: 'u1' },
     loading: false,
     passwordRecovery: false,
+    stepUpRequired: false,
     clearPasswordRecovery: vi.fn(),
     signOut: vi.fn(),
   },
@@ -34,6 +39,7 @@ afterEach(() => {
   setOnLine(true)
   auth.current.session = { user: { id: 'u1' } }
   auth.current.passwordRecovery = false
+  auth.current.stepUpRequired = false
 })
 
 function renderAt(path: string) {
