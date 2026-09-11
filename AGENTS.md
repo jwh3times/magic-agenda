@@ -120,8 +120,12 @@ load-bearing and ask before changing them — **its absence never authorizes wea
 The companion's rules, in brief (`private/OPERATING-POLICY.md` is authoritative once it is
 present): `private/.git` existing is the test for "installed", not the directory existing; pull it
 `--ff-only` at the start of a session before trusting its index; never force-push it or
-auto-resolve a divergence; and nothing in it — content, remote URL, commit SHA — may enter this
-repository, an issue, a PR, a log, or a chat transcript. Its durable records stay Markdown.
+auto-resolve a divergence; and nothing in it — content, remote URL — may enter this repository, an
+issue, a PR, a log, or a chat transcript. **The one exception is the commit SHA of a push you just
+made**, which the operating policy requires you to report so the maintainer can confirm the push
+landed; a bare SHA of a repository they alone can read discloses nothing. Its staged diff is
+likewise **inspected, not printed** — describe what changed and hand over the command, and the
+maintainer reads it locally. Its durable records stay Markdown.
 **1Password is the credential authority**, reached through the `op` CLI: `op://` secret
 _references_ may cross into the companion's `onepassword/*.env.tpl` templates, but resolved values
 may not appear in either repository. `private/` is `.prettierignore`d and outside every lint and

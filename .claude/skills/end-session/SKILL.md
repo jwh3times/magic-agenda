@@ -155,8 +155,11 @@ Its layout:
 **Then synchronize the companion.** This is the one push this skill is allowed to make, and it
 is gated four ways, in order:
 
-1. Stage only the intended private files and show `git -C private diff --cached` — the diff
-   itself, not a summary. Do not resolve any `op://` reference while doing so.
+1. Stage only the intended private files and **inspect** `git -C private diff --cached` yourself.
+   Do not print it — private content must not reach a transcript, per `AGENTS.md` and the
+   companion's own operating policy. Describe what changed, file by file, in enough detail that the
+   maintainer knows what they are approving, and give them the command so they can read the diff
+   locally first. Do not resolve any `op://` reference while doing so.
 2. Scan the staged content for values: private-key headers, `ghp_`/`sbp_`/`eyJ…` token shapes,
    passwords, passphrases, connection strings, and `KEY=value` environment assignments. An
    `op://` reference is fine; a resolved value is an incident even here — stop and say so.
@@ -166,7 +169,9 @@ is gated four ways, in order:
 4. Ask the maintainer for explicit approval to commit and push. Then commit, and
    `git -C private push origin main` — plain, never `--force`.
 
-Report the resulting commit SHA and re-run the ahead/behind count; **zero/zero is
+Report the resulting commit SHA — the deliberate exception to keeping the companion out of the
+transcript, because it is what lets the maintainer verify the push landed — and re-run the
+ahead/behind count; **zero/zero is
 synchronized, anything else is not**, and the report must say so rather than claim success.
 If the approval is declined or the session ends first, say plainly that private changes remain
 local — the next machine will not have them.
