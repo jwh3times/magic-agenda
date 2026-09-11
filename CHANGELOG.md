@@ -12,6 +12,32 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.9.3] - 2026-09-11
+
+### Internal
+
+- **A Supabase CLI update is no longer born failing.** CI installs the CLI in five workflows, and
+  each one used to repeat the version as a literal copied from `package.json`. The test that keeps
+  those in step then failed every automated CLI bump on arrival, and stayed failing until someone
+  edited five files by hand — which the bot that opened the update cannot do, so a dependency
+  update nobody had time to nurse could sit indefinitely. Each workflow now reads the version out
+  of `package.json` when it runs.
+- The test that guarded the old duplication now asserts the wiring instead, checking that the step
+  producing the version exists as well as the input consuming it: an expression naming a step that
+  does not exist resolves to an empty string, which the install action would quietly read as
+  "latest". Its check that the pinned dependency is an exact version rather than a range became
+  load-bearing in the process, because that value is now passed through verbatim.
+- Pinned action references are untouched and remain full commit SHAs; only the version input
+  changed.
+
+## [1.9.2] - 2026-09-11
+
+### Internal
+
+- Dependency updates: `@supabase/supabase-js` 2.116.0, `@types/node` 26.5.0, `oxlint` 1.82.0, and
+  the Supabase CLI 2.117.0. The CLI bump also required the five `supabase/setup-cli` version inputs
+  in the workflows to be realigned by hand — the toil that [1.9.3] removes.
+
 ## [1.9.1] - 2026-09-11
 
 ### Fixed
@@ -3012,7 +3038,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.9.1...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.9.3...HEAD
+[1.9.3]: https://github.com/jwh3times/magic-agenda/compare/v1.9.2...v1.9.3
+[1.9.2]: https://github.com/jwh3times/magic-agenda/compare/v1.9.1...v1.9.2
 [1.9.1]: https://github.com/jwh3times/magic-agenda/compare/v1.9.0...v1.9.1
 [1.9.0]: https://github.com/jwh3times/magic-agenda/compare/v1.8.68...v1.9.0
 [1.8.68]: https://github.com/jwh3times/magic-agenda/compare/v1.8.67...v1.8.68
