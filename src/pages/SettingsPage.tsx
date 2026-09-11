@@ -8,6 +8,7 @@ import { DataSection } from '../components/DataSection'
 import { BoardsSection } from '../components/BoardsSection'
 import { DatesSection } from '../components/DatesSection'
 import { LabelsSection } from '../components/LabelsSection'
+import { TwoFactorSection } from '../components/TwoFactorSection'
 import { Spinner } from '../components/Spinner'
 import { useSettingsContext } from '../data/SettingsProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
@@ -33,6 +34,7 @@ const SECTIONS: SettingsSection[] = [
   { id: 'boards', title: 'Boards', render: () => <BoardsSection /> },
   { id: 'labels', title: 'Labels', render: () => <LabelsSection /> },
   { id: 'data', title: 'Data', render: () => <DataSection /> },
+  { id: 'security', title: 'Two-factor authentication', render: () => <TwoFactorSection /> },
   { id: 'danger', title: 'Danger zone', render: () => <DangerZone /> },
 ]
 

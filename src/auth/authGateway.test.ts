@@ -13,14 +13,36 @@ const h = vi.hoisted(() => ({
   updateUser: vi.fn(),
   verifyOtp: vi.fn(),
   signOut: vi.fn(),
+  mfa: {
+    enroll: vi.fn(),
+    challengeAndVerify: vi.fn(),
+    listFactors: vi.fn(),
+    unenroll: vi.fn(),
+    getAuthenticatorAssuranceLevel: vi.fn(),
+  },
 }))
 
 vi.mock('../lib/supabase', () => ({ supabase: { auth: h } }))
 
 import { supabaseAuthGateway as gw } from './authGateway'
 
+const ENROLLED = {
+  id: 'factor-1',
+  type: 'totp',
+  totp: { qr_code: '<svg/>', secret: 'JBSWY3DPEHPK3PXP', uri: 'otpauth://totp/x' },
+}
+
 beforeEach(() => {
-  for (const fn of Object.values(h)) fn.mockReset()
+  for (const fn of Object.values(h)) if (typeof fn === 'function') fn.mockReset()
+  for (const fn of Object.values(h.mfa)) fn.mockReset()
+  h.mfa.enroll.mockResolvedValue({ data: ENROLLED, error: null })
+  h.mfa.challengeAndVerify.mockResolvedValue({ data: {}, error: null })
+  h.mfa.listFactors.mockResolvedValue({ data: { all: [], totp: [] }, error: null })
+  h.mfa.unenroll.mockResolvedValue({ data: { id: 'factor-1' }, error: null })
+  h.mfa.getAuthenticatorAssuranceLevel.mockResolvedValue({
+    data: { currentLevel: 'aal1', nextLevel: 'aal1', currentAuthenticationMethods: [] },
+    error: null,
+  })
   h.getSession.mockResolvedValue({ data: { session: null }, error: null })
   h.onAuthStateChange.mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } })
   h.signInWithPassword.mockResolvedValue(ok)
@@ -139,4 +161,105 @@ test('onAuthStateChange returns an unsubscribe that reaches the vendor subscript
   expect(unsubscribe).not.toHaveBeenCalled()
   stop()
   expect(unsubscribe).toHaveBeenCalledTimes(1)
+})
+
+// ——— two-factor ———
+
+test('enrollTotp asks for a TOTP factor and flattens the secret out of the vendor shape', async () => {
+  const result = await gw.enrollTotp('Authenticator')
+  expect(h.mfa.enroll).toHaveBeenCalledWith({ factorType: 'totp', friendlyName: 'Authenticator' })
+  expect(result).toEqual({
+    ok: true,
+    data: {
+      factorId: 'factor-1',
+      qrCodeSvg: '<svg/>',
+      secret: 'JBSWY3DPEHPK3PXP',
+      uri: 'otpauth://totp/x',
+    },
+  })
+})
+
+test('verifyTotp issues the challenge and spends it in one call', async () => {
+  // Separate challenge/verify would mean holding a challengeId across however long the user takes
+  // to read a code, which is a race against its expiry for no benefit — the two are never wanted
+  // apart here.
+  await gw.verifyTotp('factor-1', '123456')
+  expect(h.mfa.challengeAndVerify).toHaveBeenCalledWith({ factorId: 'factor-1', code: '123456' })
+})
+
+test('listTotpFactors returns unverified factors too, and only TOTP ones', async () => {
+  // `all` rather than `totp`, which is verified-only: an abandoned enrollment still occupies one
+  // of the account's slots, so the UI has to be able to show it. A phone factor is not ours.
+  h.mfa.listFactors.mockResolvedValue({
+    data: {
+      all: [
+        {
+          id: 'a',
+          friendly_name: 'Authenticator',
+          factor_type: 'totp',
+          status: 'verified',
+          created_at: 't',
+          updated_at: 't',
+        },
+        { id: 'b', factor_type: 'totp', status: 'unverified', created_at: 't', updated_at: 't' },
+        {
+          id: 'c',
+          friendly_name: 'Phone',
+          factor_type: 'phone',
+          status: 'verified',
+          created_at: 't',
+          updated_at: 't',
+        },
+      ],
+      totp: [],
+    },
+    error: null,
+  })
+  expect(await gw.listTotpFactors()).toEqual({
+    ok: true,
+    data: [
+      { id: 'a', name: 'Authenticator', verified: true, createdAt: 't' },
+      { id: 'b', name: null, verified: false, createdAt: 't' },
+    ],
+  })
+})
+
+test('getAssuranceLevel renames the vendor fields and keeps both nullable', async () => {
+  h.mfa.getAuthenticatorAssuranceLevel.mockResolvedValue({
+    data: { currentLevel: 'aal1', nextLevel: null, currentAuthenticationMethods: [] },
+    error: null,
+  })
+  expect(await gw.getAssuranceLevel()).toEqual({ ok: true, data: { current: 'aal1', next: null } })
+})
+
+test('a wrong code becomes this app’s own reason, not GoTrue’s prose', async () => {
+  h.mfa.challengeAndVerify.mockResolvedValue({
+    data: null,
+    error: new AuthApiError('Invalid TOTP code entered', 422, 'mfa_verification_failed'),
+  })
+  const outcome = await gw.verifyTotp('factor-1', '000000')
+  expect(outcome.ok).toBe(false)
+  if (!outcome.ok) expect(outcome.failure.reason).toBe('invalid-code')
+})
+
+test('the two-factor actions resolve failures instead of rejecting, like every other one', async () => {
+  const boom = new TypeError('Failed to fetch')
+  h.mfa.enroll.mockRejectedValue(boom)
+  h.mfa.challengeAndVerify.mockRejectedValue(boom)
+  h.mfa.listFactors.mockRejectedValue(boom)
+  h.mfa.unenroll.mockRejectedValue(boom)
+  h.mfa.getAuthenticatorAssuranceLevel.mockRejectedValue(boom)
+
+  const outcomes = await Promise.all([
+    gw.enrollTotp('Authenticator'),
+    gw.verifyTotp('factor-1', '123456'),
+    gw.listTotpFactors(),
+    gw.unenrollFactor('factor-1'),
+    gw.getAssuranceLevel(),
+  ])
+
+  for (const outcome of outcomes) {
+    expect(outcome.ok).toBe(false)
+    if (!outcome.ok) expect(outcome.failure.reason).toBe('offline')
+  }
 })

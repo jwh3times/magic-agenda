@@ -1,13 +1,14 @@
 import type { ReactNode } from 'react'
 import { Navigate } from 'react-router'
 import { useAuth } from './AuthProvider'
+import { MfaChallenge } from './MfaChallenge'
 import { Spinner } from '../components/Spinner'
 import { useOnline } from '../lib/useOnline'
 import { hasAnyBoardSnapshot } from '../data/snapshot'
 import { readLastUserId } from '../lib/lastUser'
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { session, loading, passwordRecovery } = useAuth()
+  const { session, loading, passwordRecovery, stepUpRequired } = useAuth()
   const online = useOnline()
   if (loading) return <Spinner />
   if (!session) {
@@ -21,5 +22,12 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   }
   // A recovery-link session must set a new password before reaching the board.
   if (passwordRecovery) return <Navigate to="/auth/reset" replace />
+  // A session holding a verified TOTP factor owes a code before anything behind this route
+  // renders. `null` is "not determined yet", and waiting it out is what keeps a gated sign-in
+  // from painting the board for a frame before replacing it — see AuthProvider's `assurance`.
+  if (stepUpRequired === null) return <Spinner />
+  // Rendered here rather than redirected to, unlike the recovery gate above: there is no route
+  // for it, so there is no URL a user can type to step around it.
+  if (stepUpRequired) return <MfaChallenge />
   return <>{children}</>
 }

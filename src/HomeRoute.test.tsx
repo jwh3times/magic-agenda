@@ -12,9 +12,14 @@ interface MockAuth {
   session: unknown
   loading: boolean
   passwordRecovery: boolean
+  // Stated rather than left off: `undefined` is falsy, so omitting it would let every test below
+  // render the board while asserting nothing about the two-factor gate at all.
+  stepUpRequired: boolean | null
   user: unknown
   clearPasswordRecovery: ReturnType<typeof vi.fn>
   signOut: ReturnType<typeof vi.fn>
+  listTotpFactors: ReturnType<typeof vi.fn>
+  verifyTotp: ReturnType<typeof vi.fn>
 }
 
 const h = vi.hoisted<{ auth: MockAuth }>(() => ({
@@ -22,9 +27,17 @@ const h = vi.hoisted<{ auth: MockAuth }>(() => ({
     session: null,
     loading: false,
     passwordRecovery: false,
+    stepUpRequired: false,
     user: null,
     clearPasswordRecovery: vi.fn(),
     signOut: vi.fn(),
+    listTotpFactors: vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        data: [{ id: 'factor-1', name: 'Authenticator', verified: true, createdAt: '2026-01-01' }],
+      }),
+    ),
+    verifyTotp: vi.fn(() => Promise.resolve({ ok: true })),
   },
 }))
 
@@ -46,6 +59,7 @@ beforeEach(() => {
   h.auth.session = null
   h.auth.loading = false
   h.auth.passwordRecovery = false
+  h.auth.stepUpRequired = false
   window.history.pushState({}, '', '/')
   setOnLine(true)
 })
@@ -130,5 +144,28 @@ test('a lingering recovery flag blocks the offline fallback at / too', async () 
   expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent(
     'Your week, on sticky notes.',
   )
+  expect(screen.queryByText('BOARD')).not.toBeInTheDocument()
+})
+
+// ——— two-factor step-up ———
+// The board lives at `/`, which is this component and NOT ProtectedRoute. #272 put the gate in
+// ProtectedRoute first, which reaches /settings and nothing else — so without these two the
+// feature would have shipped protecting the settings page while leaving every task on the board
+// one password away.
+
+test('a session that owes a TOTP code gets the prompt at / instead of the board', async () => {
+  h.auth.session = {}
+  h.auth.stepUpRequired = true
+  render(<App />)
+  expect(await screen.findByLabelText('Six-digit code')).toBeInTheDocument()
+  expect(screen.queryByText('BOARD')).not.toBeInTheDocument()
+  expect(window.location.pathname).toBe('/')
+})
+
+test('the board does not paint at / while the assurance level is still unknown', async () => {
+  h.auth.session = {}
+  h.auth.stepUpRequired = null
+  render(<App />)
+  expect(await screen.findByText('Loading…')).toBeInTheDocument()
   expect(screen.queryByText('BOARD')).not.toBeInTheDocument()
 })
