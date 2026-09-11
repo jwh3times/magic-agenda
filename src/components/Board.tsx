@@ -1,5 +1,5 @@
 import { useContext, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react'
-import { DndContext, DragOverlay } from '@dnd-kit/core'
+import { DndContext, DragOverlay, type ScreenReaderInstructions } from '@dnd-kit/core'
 import { useTheme } from '../theme/ThemeProvider'
 import { DragDisabledContext } from '../dnd/dragContext'
 import { OfflineContext } from '../data/offlineContext'
@@ -55,6 +55,23 @@ export interface BoardProps {
   onOpenSettings?: () => void
   /** Whether this Board membership may assign Labels to Tasks. */
   canAssignLabels?: boolean
+}
+
+/**
+ * Replaces dnd-kit's default instructions, which describe only the drag half.
+ *
+ * Since #281 a card answers two keys — Space picks it up, Enter opens it — and the default text
+ * says nothing about the second. A screen-reader user told only about dragging has no way to
+ * discover that the editor is reachable at all, which is the same functional gap the key split
+ * fixes, just spoken instead of typed. Keep these in step with `KEYBOARD_CODES` in
+ * `useBoardDnd.ts`: the sensor and the sentence describing it are one decision in two places.
+ */
+const DND_INSTRUCTIONS: ScreenReaderInstructions = {
+  draggable: `
+    To open a task, press Enter.
+    To pick a task up and move it, press the space bar, then use the arrow keys.
+    Press space again to drop it in its new position, or press escape to cancel.
+  `,
 }
 
 const VIEWS: ViewOption[] = [
@@ -227,6 +244,7 @@ export function Board({
         <SearchFilterBar query={filter} onChange={setFilter} />
 
         <DndContext
+          accessibility={{ screenReaderInstructions: DND_INSTRUCTIONS }}
           sensors={dnd.sensors}
           collisionDetection={dnd.collisionDetection}
           onDragStart={dnd.onDragStart}

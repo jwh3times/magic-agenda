@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import {
+  KeyboardCode,
   KeyboardSensor,
   MouseSensor,
   TouchSensor,
@@ -21,6 +22,26 @@ import {
   type DragSession,
   type DropInput,
 } from './resolveDrop'
+
+/**
+ * Space picks a card up; Enter does not. That single subtraction is what makes a card openable
+ * from the keyboard at all (#281) — dnd-kit's default `start` is `[Space, Enter]`, so Enter was
+ * consumed by the sensor before it could ever reach the card, and a keyboard user had no way to
+ * open the editor.
+ *
+ * It costs nothing to give up, because Enter was never announced: dnd-kit's own screen-reader
+ * instructions say "To pick up a draggable item, press the space bar" and mention no second key.
+ * The binding removed here is the one nobody was told about, and the app's spoken contract is now
+ * the one the code actually implements.
+ *
+ * `end` deliberately keeps Enter alongside Space. Mid-drag there is no card to open, so the
+ * conflict does not exist, and a user who reached for Enter to drop should not have it ignored.
+ */
+const KEYBOARD_CODES = {
+  start: [KeyboardCode.Space],
+  cancel: [KeyboardCode.Esc],
+  end: [KeyboardCode.Space, KeyboardCode.Enter, KeyboardCode.Tab],
+}
 
 export interface BoardDnd {
   sensors: ReturnType<typeof useSensors>
@@ -75,7 +96,10 @@ export function useBoardDnd(
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+      keyboardCodes: KEYBOARD_CODES,
+    }),
   )
 
   const mode = modeForView(view)
