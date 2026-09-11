@@ -158,7 +158,7 @@ jobs:
       - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3
         if: steps.paths.outputs.changed == 'true'
         with:
-          version: 2.116.0
+          version: 2.117.0
       - name: Link project
         if: steps.paths.outputs.changed == 'true'
         run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
