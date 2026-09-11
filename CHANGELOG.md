@@ -12,6 +12,34 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.9.3] - 2026-09-11
+
+### Docs
+
+- **There is now a procedure behind "contact support".** Two-factor shipped in 1.9.0 against a
+  provider that issues no backup codes, so a user who loses their authenticator cannot recover
+  alone and both the sign-in gate and the settings page tell them to ask for help. Nothing
+  documented what happens next, which left the person answering that request working it out under
+  time pressure with someone already locked out of their account. The new runbook was rehearsed end
+  to end rather than reasoned about.
+- Two of its findings would not have been guessed. Removing the factor must go through the auth
+  provider's admin API rather than deleting the row directly — both work, but the direct delete
+  strands a record the admin path cleans up. And removing it does **not** release a user who is
+  already sitting on the code prompt: their session keeps its own copy of the answer until they
+  sign out or it refreshes, so telling them to sign in again is part of the fix rather than an
+  afterthought.
+- The runbook is explicit about the one step it could not establish by rehearsal — how to confirm
+  the requester really is the account holder, which is a policy judgement rather than a measurable
+  fact, and is the step most likely to be skipped in a hurry.
+
+## [1.9.2] - 2026-09-11
+
+### Internal
+
+- Dependency updates: `@supabase/supabase-js` 2.116.0, `@types/node` 26.5.0, `oxlint` 1.82.0, and
+  the Supabase CLI 2.117.0. The CLI bump also required the five `supabase/setup-cli` version inputs
+  in the workflows to be realigned by hand.
+
 ## [1.9.1] - 2026-09-11
 
 ### Fixed
@@ -3012,7 +3040,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.9.1...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.9.3...HEAD
+[1.9.3]: https://github.com/jwh3times/magic-agenda/compare/v1.9.2...v1.9.3
+[1.9.2]: https://github.com/jwh3times/magic-agenda/compare/v1.9.1...v1.9.2
 [1.9.1]: https://github.com/jwh3times/magic-agenda/compare/v1.9.0...v1.9.1
 [1.9.0]: https://github.com/jwh3times/magic-agenda/compare/v1.8.68...v1.9.0
 [1.8.68]: https://github.com/jwh3times/magic-agenda/compare/v1.8.67...v1.8.68
