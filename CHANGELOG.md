@@ -12,6 +12,41 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.9.1] - 2026-09-11
+
+### Fixed
+
+- **Keyboard users can open a task.** Pressing Enter on a focused card now opens the editor, which
+  is what clicking it has always done. Before this the editor was unreachable without a pointer:
+  the drag sensor claimed both Space and Enter, so a card's only tab stop had no key left for its
+  own action, and someone working from the keyboard could reorder the whole board without ever
+  opening a single task.
+- Enter aimed at a card's pin or completion button now does only that button's job. Those controls
+  sit inside the focusable card, so one keystroke would otherwise have fired two actions — the
+  button's, and the editor on top of it.
+
+### Changed
+
+- **Keyboard drag starts on Space only; Enter no longer picks a card up.** Space was always the
+  documented key — the instructions read out to screen-reader users have only ever said "press the
+  space bar" — so what went away is an alias nobody was told about, and the app now behaves the way
+  it describes itself. Enter still _drops_ a card that is already in flight, where there is no
+  editor to open and nothing to collide with.
+- Screen-reader instructions for the board now describe opening a task as well as moving one. The
+  previous text covered only dragging, which left the editor undiscoverable to anyone relying on it.
+- A focused card draws a focus ring in each theme's own colour, and only for keyboard focus — a
+  mouse click does not light it.
+
+### Internal
+
+- The focus ring is a new per-theme token rather than a reuse of the accent colour: it sits on a
+  card, so the note papers are the only backgrounds it has to stay visible against, and the glass
+  accent on a dark card is the one pairing that disappears. Accessibility tooling does not evaluate
+  focus indicators, so a new theme's value is a deliberate choice rather than a number a check
+  provides.
+- Tests polyfill `scrollIntoView`, which jsdom does not implement and the keyboard drag sensor
+  calls as soon as a drag begins.
+
 ## [1.9.0] - 2026-09-11
 
 ### Added
@@ -2977,7 +3012,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.9.1...HEAD
+[1.9.1]: https://github.com/jwh3times/magic-agenda/compare/v1.9.0...v1.9.1
 [1.9.0]: https://github.com/jwh3times/magic-agenda/compare/v1.8.68...v1.9.0
 [1.8.68]: https://github.com/jwh3times/magic-agenda/compare/v1.8.67...v1.8.68
 [1.8.67]: https://github.com/jwh3times/magic-agenda/compare/v1.8.66...v1.8.67

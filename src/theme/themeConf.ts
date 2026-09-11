@@ -37,6 +37,19 @@ export interface ThemeConf {
   weekendBg: string
   /** Scrollbar thumb. Standard `scrollbar-color`, so Firefox honours it too. */
   scrollThumb: string
+  /**
+   * The keyboard focus ring on a card (#281).
+   *
+   * Its own token rather than a reuse of `accent`, for the same reason `numTodayFg` is not
+   * `accent`: the ring sits on a CARD, so the six paper colours are the only backgrounds it ever
+   * has to beat. Cork and brutal papers are light, so their rings are near-black; glass cards are
+   * dark translucent with light ink, so its ring is near-white. The accent would have put glass's
+   * #7452ff on a dark card, which is the one combination that disappears.
+   *
+   * Not covered by the a11y suite — axe does not evaluate focus indicators — so a new theme's
+   * value is a judgement call to make deliberately, not a number a check will hand you.
+   */
+  focusRing: string
 }
 
 const CORK: ThemeConf = {
@@ -71,6 +84,7 @@ const CORK: ThemeConf = {
   numTodayFg: '#b8472e',
   weekendBg: 'rgba(120,90,55,.06)',
   scrollThumb: 'rgba(74,50,22,.38)',
+  focusRing: '#2f1d0c',
 }
 
 const BRUTAL: ThemeConf = {
@@ -106,6 +120,7 @@ const BRUTAL: ThemeConf = {
   numTodayFg: '#E10000',
   weekendBg: '#FBF7E4',
   scrollThumb: 'rgba(17,17,17,.55)',
+  focusRing: '#111111',
 }
 
 const GLASS: ThemeConf = {
@@ -140,6 +155,7 @@ const GLASS: ThemeConf = {
   numTodayFg: '#9379FF',
   weekendBg: 'rgba(255,255,255,.02)',
   scrollThumb: 'rgba(234,240,255,.28)',
+  focusRing: '#eaf0ff',
 }
 
 const CONF: Record<ThemeName, ThemeConf> = { cork: CORK, brutal: BRUTAL, glass: GLASS }

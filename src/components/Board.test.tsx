@@ -203,6 +203,72 @@ test('clicking a card opens the editor prefilled', async () => {
   expect(screen.getByText('Edit task')).toBeInTheDocument()
 })
 
+// ——— keyboard access to the editor (#281) ———
+// Before this, a card's only tab stop answered Space AND Enter, both claimed by dnd-kit's
+// KeyboardSensor — so a keyboard user could reorder the whole board and never open a task. The
+// pointer path is TaskCard's onClick, which a keyboard never reaches.
+
+const cardFor = (title: string) => screen.getByText(title).closest('[role="button"]') as HTMLElement
+
+test('Enter on a focused card opens the editor', async () => {
+  const user = userEvent.setup()
+  renderBoard()
+
+  cardFor('Finish Q3 deck').focus()
+  await user.keyboard('{Enter}')
+
+  expect(screen.getByDisplayValue('Finish Q3 deck')).toBeInTheDocument()
+  expect(screen.getByText('Edit task')).toBeInTheDocument()
+})
+
+test('Space is left to the drag sensor and does not open the editor', async () => {
+  // The two actions share one tab stop, so the split only works if each key keeps its own job.
+  const user = userEvent.setup()
+  renderBoard()
+
+  cardFor('Finish Q3 deck').focus()
+  await user.keyboard('[Space]')
+
+  expect(screen.queryByText('Edit task')).not.toBeInTheDocument()
+})
+
+test('Enter aimed at a nested card control does not also open the editor', async () => {
+  // The pin and completion buttons sit inside the focusable card, so their keydown bubbles to it.
+  // Without the target guard, every Enter on a nested control would fire two actions at once — the
+  // button's own, and the editor on top of it.
+  //
+  // Asserted as "the editor stayed shut" rather than "the task got pinned" on purpose: jsdom does
+  // not synthesise the click a real browser fires for Enter on a <button>, so the pin half is not
+  // observable here. The bubbling half — the part the guard exists for — is, because keydown
+  // bubbles either way.
+  const user = userEvent.setup()
+  renderBoard()
+
+  for (const name of ['Pin', 'Complete']) {
+    within(cardFor('Finish Q3 deck')).getByRole('button', { name }).focus()
+    await user.keyboard('{Enter}')
+    expect(screen.queryByText('Edit task')).not.toBeInTheDocument()
+  }
+})
+
+test('Enter dropping a card mid-drag does not also open the editor', async () => {
+  // Enter is still a DROP key (KEYBOARD_CODES.end), so dropping a card must not also open it.
+  //
+  // This asserts the OUTCOME, not the mechanism, and the distinction is worth stating: under jsdom
+  // the drop Enter never reaches SortableCard's handler at all, because starting a keyboard drag
+  // moves focus away from the card. The `isDragging` clause that would catch it otherwise is
+  // therefore NOT exercised here — removing it leaves this test green. It stays in the source
+  // because jsdom's focus behaviour is not a promise about real browsers.
+  const user = userEvent.setup()
+  renderBoard()
+
+  cardFor('Finish Q3 deck').focus()
+  await user.keyboard('[Space]')
+  await user.keyboard('{Enter}')
+
+  expect(screen.queryByText('Edit task')).not.toBeInTheDocument()
+})
+
 test('search hides non-matching tasks live', async () => {
   const user = userEvent.setup()
   renderBoard()
