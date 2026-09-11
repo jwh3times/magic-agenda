@@ -51,8 +51,9 @@ of three hand‑built themes.
   an incomplete read reports an error rather than exporting a partial backup.
 - **A public front door** — signed out, `magicagenda.app` is a landing page with a live, themed
   preview of the real board (rendered, not screenshotted); signed in, the same URL is your board.
-- **Accounts & sync** — email/password and Google sign‑in; every task is private to you via Postgres
-  Row‑Level Security; optimistic updates with rollback.
+- **Accounts & sync** — email/password and Google sign‑in, with optional two‑factor authentication
+  (TOTP authenticator apps) from Settings → Two‑factor authentication; every task is private to you
+  via Postgres Row‑Level Security; optimistic updates with rollback.
 - **Multiple Boards** — every account starts with one private Board; create more and switch between
   them from the Board switcher in the Toolbar. Each Board has its own Tasks, Series, and Labels.
   Rename a Board you own from Settings → Boards, or delete it there behind a
