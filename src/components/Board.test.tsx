@@ -251,6 +251,24 @@ test('Enter aimed at a nested card control does not also open the editor', async
   }
 })
 
+test('Enter dropping a card mid-drag does not also open the editor', async () => {
+  // Enter is still a DROP key (KEYBOARD_CODES.end), so dropping a card must not also open it.
+  //
+  // This asserts the OUTCOME, not the mechanism, and the distinction is worth stating: under jsdom
+  // the drop Enter never reaches SortableCard's handler at all, because starting a keyboard drag
+  // moves focus away from the card. The `isDragging` clause that would catch it otherwise is
+  // therefore NOT exercised here — removing it leaves this test green. It stays in the source
+  // because jsdom's focus behaviour is not a promise about real browsers.
+  const user = userEvent.setup()
+  renderBoard()
+
+  cardFor('Finish Q3 deck').focus()
+  await user.keyboard('[Space]')
+  await user.keyboard('{Enter}')
+
+  expect(screen.queryByText('Edit task')).not.toBeInTheDocument()
+})
+
 test('search hides non-matching tasks live', async () => {
   const user = userEvent.setup()
   renderBoard()

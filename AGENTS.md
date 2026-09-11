@@ -1165,6 +1165,42 @@ touch drags require a **250ms long-press** and cards use `touchAction: 'manipula
 that's what lets a plain swipe over a card scroll the board on phones. Do not collapse these back
 into a `PointerSensor` or set `touchAction: 'none'`.
 
+**`SortableCard` is the card's only tab stop, and it now answers two keys, not one (#281).**
+dnd-kit's default `KeyboardSensor` `start` codes are `[Space, Enter]`, so Enter was consumed by the
+sensor before it could ever reach the card — a keyboard user could reorder the entire board but had
+no way to open a single task, because the pointer path to the editor is `TaskCard`'s `onClick`,
+which a keyboard never fires. `KEYBOARD_CODES` in `useBoardDnd.ts` restricts `start` to `[Space]`;
+`end` deliberately keeps `[Space, Enter, Tab]`, since mid-drag there is no card to open and a user
+reaching for Enter to drop should not be ignored. Reclaiming Enter cost nothing observable: dnd-kit's
+own default screen-reader instructions say "press the space bar" and never mention a second key, so
+the binding removed was the one nobody was told about. `Board.tsx`'s `DND_INSTRUCTIONS` replaces
+those defaults with a sentence that describes both keys — **keep it in step with `KEYBOARD_CODES`;
+the sensor and the sentence describing it are one decision in two places.**
+
+`SortableCard` composes its own `onKeyDown` in front of dnd-kit's: it calls
+`listeners?.onKeyDown?.(e)` first — dnd-kit owns Space, and while a drag is live it owns the arrows,
+Escape, and the drop keys too — and opens the editor only if `!e.defaultPrevented && e.key ===
+'Enter'`. Reading `defaultPrevented` (which dnd-kit sets whenever it acts) is most of what lets this stay
+ignorant of which drag phase the sensor is in, rather than duplicating that state machine. It is not
+all of it: Enter is still a **drop** key, and dnd-kit listens for the drop on the ownerDocument while
+React dispatches from the root container, so on that ordering this handler runs first with
+`defaultPrevented` still false — hence the `isDragging` clause beside it. That clause is
+deliberately untested and says so at the call site: once a keyboard drag starts, the drop Enter never
+reaches the handler under jsdom, because the sensor moves focus. The test there asserts the outcome
+through that path, not the guard, so removing the guard leaves it green. A second
+guard, `e.target !== e.currentTarget`, exists because the pin and completion buttons sit _inside_
+this focusable wrapper: their keydown bubbles up to it, so without the guard every Enter on a nested
+control would fire two actions — the button's own, plus the editor on top of it. Enter on the card
+itself deliberately does exactly what a click already does, including offline, where `onOpen` is
+ungated and the editor opens read-only.
+
+This intentionally leaves the pre-existing `nested-interactive` a11y-baseline entries (3 per theme)
+unchanged: the wrapper still carries `role="button"` and still contains the pin/completion buttons,
+but that role is now _more_ accurate than before, since the wrapper genuinely does something on
+Enter rather than only dragging. Switching it to `role="group"` would clear the rule at the cost of
+a less truthful role — see the 2026-07-31 acceptance this leaves standing. Assistive tech may still
+not reach the nested pin/completion buttons; that is unchanged by this fix.
+
 The pinned `@dnd-kit/*` 0.5 packages in `devDependencies` belong only to the successor-API prototype
 under `src/dnd/dndKitNext.*`; production still uses `@dnd-kit/core` / `sortable`. The prototype
 proved that the successor can feed the existing pure drop seam on desktop, but its single
@@ -1249,6 +1285,25 @@ render a bulky grey platform scrollbar. Add `scrollbars(conf)` to any new scroll
 do not try to make the `index.css` rules theme-aware: pseudo-elements cannot read inline styles,
 and reaching for CSS variables to bridge that is the refactor the paragraph above forbids.
 `theme.test.ts` asserts every container in `chrome.ts` that sets `overflow: auto` also carries it.
+
+**`focusRing` (#281) is a per-theme token, not a reuse of `accent`, and the reason is the same as
+`numTodayFg` not being `accent`: the ring sits on a card, so the six paper colours are the only
+backgrounds it ever has to beat.** Cork and brutal papers are light, so their rings are near-black
+(`#2f1d0c`, `#111111`); glass cards are dark translucent with light ink, so its ring is near-white
+(`#eaf0ff`). `accent` would put glass's `#7452ff` on a dark card — the one combination that
+disappears. axe does not evaluate focus indicators, so a new theme's value is a deliberate judgement
+call, not a number a check hands you.
+
+The ring itself is the sharpest example yet of the inline-style-object / pseudo-class tension this
+section already warns about: `:focus-visible` cannot be expressed as an inline style, so
+`SortableCard` tracks focus in React state instead, set from `onFocus` by reading
+`e.currentTarget.matches(':focus-visible')` — that match, not raw focus, is what keeps a mouse click
+from lighting the ring. **Measured, not assumed: jsdom implements the `:focus-visible` selector well
+enough not to throw, but always returns `false`,** so this state can never become `true` under
+`vitest` and a unit test asserting the ring would pass for the wrong reason. Verifying it needs a
+real browser; #280's per-theme visual regression is where that lands. Do not add a jsdom test for
+this ring — the code comment at the call site exists specifically so nobody writes one later
+believing it proves something.
 
 ### Installable PWA and offline read: authored worker, network-first navigation
 

@@ -35,7 +35,18 @@ export function SortableCard({ task, variant }: SortableCardProps) {
     // drop keys too. It calls preventDefault whenever it acts, which is what `defaultPrevented`
     // below reads — so this never has to know which phase the sensor is in.
     listeners?.onKeyDown?.(e)
-    if (e.defaultPrevented || e.key !== 'Enter') return
+    // `isDragging` is checked as well as `defaultPrevented`, and it is deliberately defensive.
+    // Enter is still a DROP key (`KEYBOARD_CODES.end`), and dnd-kit listens for the drop on the
+    // ownerDocument while React dispatches this from the root container — so on that ordering this
+    // handler runs FIRST, with `defaultPrevented` still false, and only the drag state itself
+    // separates "Enter, to open this card" from "Enter, to drop the card I am carrying".
+    //
+    // **No test covers this clause, and one cannot.** Measured: once a keyboard drag starts, the
+    // Enter that ends it never reaches this handler under jsdom at all — the sensor moves focus,
+    // so the keypress is dispatched elsewhere. `Board.test.tsx` asserts the outcome (the editor
+    // stays shut) but passes through that path, not this guard. Keep the clause: whether focus
+    // moves the same way in every real browser is not something this suite can answer.
+    if (isDragging || e.defaultPrevented || e.key !== 'Enter') return
     // Enter on the pin or completion button bubbles up here as well. Those are separate controls
     // with their own actions, and opening the editor on top of one would be a second, unasked-for
     // action per keystroke — so only a keypress aimed at the card itself counts.
