@@ -12,6 +12,29 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.11.0] - 2026-09-12
+
+### Added
+
+- **Completed tasks can be archived.** Archiving clears a finished task off every board view — calendar,
+  week, agenda, and kanban — and out of search, without deleting it. Only a completed task can be
+  archived. Unarchiving puts it back on the board still completed, with its completion date
+  unchanged. Archiving never touches a repeating task's future occurrences and never counts as
+  deleting the occurrence, so an archived one is not recreated.
+- **Settings → History lists what's been done on the selected board**, grouped by the week each task
+  was completed, newest first, with each task marked Completed or Archived. From there an Owner or
+  Editor can Archive, Unarchive, or Reopen; a Viewer sees the list read-only. Reopening an archived
+  task also unarchives it and returns it to the status it had before it was completed.
+- **A completion streak and eight weeks of throughput.** The streak counts consecutive days with at
+  least one completion, and doesn't reset just because nothing is finished yet today — it only
+  breaks after a whole day with nothing completed. Throughput shows how many tasks were completed
+  in each of the last eight weeks, including quiet ones. Each occurrence of a repeating task counts
+  on its own, checklist steps never count, and archived tasks still count.
+- History is current state rather than a log: reopening or deleting a task removes it from History
+  and from the numbers, and completing it again counts it only in the week of the new completion.
+  Days and weeks follow your own timezone and week start, so two members of a shared board can see
+  the same completion in different weeks.
+
 ## [1.10.1] - 2026-09-12
 
 ### Docs
@@ -3150,7 +3173,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.10.1...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/jwh3times/magic-agenda/compare/v1.10.1...v1.11.0
 [1.10.1]: https://github.com/jwh3times/magic-agenda/compare/v1.10.0...v1.10.1
 [1.10.0]: https://github.com/jwh3times/magic-agenda/compare/v1.9.6...v1.10.0
 [1.9.6]: https://github.com/jwh3times/magic-agenda/compare/v1.9.5...v1.9.6

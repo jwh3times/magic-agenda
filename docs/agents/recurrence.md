@@ -122,7 +122,11 @@ cut)`, which counts by Occurrence Date and requires `state.tasks` to be the whol
   today only because `reload()` selects with no date window and an offline board is read-only; a
   windowed load would turn this from tidiness into deleting rows the user can still see. Definitions
   already orphaned in existing accounts are deliberately left alone (triaged as fix-new plus
-  document-old, not a sweep).
+  document-old, not a sweep). This is also why Archive (#242,
+  [Completion](completion.md)) is excluded only at `Board.tsx`'s view seam rather than from
+  `useTasks` state: an Archived Occurrence still occupies its Occurrence Date and must go on
+  counting as a survivor here, or trimming a Series with an Archived Occurrence in it would delete a
+  definition the board is still relying on.
 - **A single-Occurrence delete asks a different question, and reusing `noOccurrenceSurvives` for it
   is the trap.** Deleting the last Occurrence of an already-capped Series reached the same orphaned
   shape by a path the trim fix did not touch, because `planDeleteOccurrence` recorded the Excluded

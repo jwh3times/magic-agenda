@@ -39,6 +39,11 @@ of three hand‑built themes.
   card.
 - **Overdue handling** — unfinished past‑due tasks get a red accent, a count badge on the Today
   button, and an Agenda "Overdue" group with one‑click "Move all to today".
+- **Completion history & Archive** — Settings → History lists every currently Completed task by the
+  week it was completed, alongside a weekly throughput chart and your current completion streak.
+  Archive a Completed task to keep it out of the board without losing it, Unarchive it back, or
+  Reopen it straight from history. History reflects current state, not a log: Reopening or deleting
+  a task changes its past statistics too.
 - **Week start & timezone** — pick which day your week starts on (Sunday, Monday, or Saturday) and
   set your timezone from the full IANA list, or leave it "Automatic" to follow the browser, in
   Settings → Dates. The timezone decides which day counts as "today" for the board's today‑highlight,

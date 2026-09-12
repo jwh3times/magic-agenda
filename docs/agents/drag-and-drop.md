@@ -26,7 +26,11 @@ optimistic move the dragged card sits under the cursor as its own drop target), 
 Passing the filtered list would corrupt data rather than merely narrow the drag: `persistReorder`
 writes back every task in a touched lane, so the visible tasks would get contiguous `0..n-1`
 indices while hidden tasks in the same lane kept theirs. Dragging under an active filter is
-prevented one level up.
+prevented one level up. Archived Tasks (#242, [Completion](completion.md)) are the same shape of
+exception: `Board.tsx` excludes them from `visibleTasks` at its own view seam, ahead of the user's
+filter, but still passes the unfiltered `tasks` — Archived rows included — into `useBoardDnd` for
+exactly this reason. An Archived card is never rendered, so it is never a drop target either way,
+but its slot in the lane's indices has to stay real.
 
 While a search filter is active, drag is disabled via `DragDisabledContext` (consumed by
 `SortableCard`'s `useSortable({ disabled })`); this keeps the `DndContext` sensors array a constant
