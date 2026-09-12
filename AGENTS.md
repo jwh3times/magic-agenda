@@ -274,6 +274,16 @@ only for the factor that generated it; and it explains itself rather than leavin
 disabled button when the gate says a code is owed but the account's factor list comes back empty
 (the last one was removed from another device between sign-in and this render).
 
+Its copy tells a locked-out user to contact support, and
+[the two-factor lockout runbook](docs/runbooks/two-factor-lockout.md) is what support then does —
+rehearsed against a local stack rather than reasoned about. Two findings there are not guessable
+from this code: removal must go through GoTrue's admin API rather than a `delete` from
+`auth.mfa_factors`, because `auth.mfa_amr_claims` has **no** foreign key to that table and the raw
+delete strands the `totp` claim (`auth.mfa_challenges` does cascade, so it is clean either way);
+and removing the factor **does not release a user already sitting on this screen**, because
+`getAssuranceLevel()` reads the stored JWT rather than the server — they stay gated until they sign
+out or their token refreshes.
+
 `src/components/TwoFactorSection.tsx` is enrollment, mounted on `SettingsPage` as `security` /
 "Two-factor authentication" between `data` and `danger`. Two rules there are easy to get backwards:
 **an abandoned enrollment must be unenrolled, not merely forgotten** — `enrollTotp` writes a real,
