@@ -12,6 +12,23 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.9.5] - 2026-09-11
+
+### Docs
+
+- **Two canonical agent documents gave opposite instructions and now agree.** One forbade anything
+  from the maintainer's private companion repository — content, remote URL, commit hash — from
+  reaching this repository, an issue, a pull request, a log, or a chat transcript. The other, the
+  session-closing skill, required an agent to display the staged private diff in full and report
+  the commit hash afterwards. Which rule an agent followed depended on which document it weighed
+  more heavily, which is the definition of an instruction that gets followed inconsistently.
+- The companion's own operating policy is authoritative and already settled this, so the public
+  documents were the ones out of step. Both now say the same thing: the staged diff is **inspected**
+  rather than printed, and the commit hash reported after a push is a deliberate, named exception
+  because it is what lets the maintainer confirm the push landed.
+- The approval gate is unchanged in substance. The maintainer still cannot approve a push they have
+  not seen — they now read the diff locally rather than in a transcript.
+
 ## [1.9.4] - 2026-09-11
 
 ### Docs
@@ -3058,7 +3075,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.9.4...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.9.5...HEAD
+[1.9.5]: https://github.com/jwh3times/magic-agenda/compare/v1.9.4...v1.9.5
 [1.9.4]: https://github.com/jwh3times/magic-agenda/compare/v1.9.3...v1.9.4
 [1.9.3]: https://github.com/jwh3times/magic-agenda/compare/v1.9.2...v1.9.3
 [1.9.2]: https://github.com/jwh3times/magic-agenda/compare/v1.9.1...v1.9.2
