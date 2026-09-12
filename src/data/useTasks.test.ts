@@ -987,3 +987,66 @@ test('a later load page failure publishes no partial Board and materializes noth
   expect(h.insert).not.toHaveBeenCalled()
   expect(h.upsert).not.toHaveBeenCalled()
 })
+
+// #351: Archived Tasks are hidden only at the Board's view seam (#242). useTasks must keep them in
+// state, in the snapshot, and through realtime — filtering them here would make materialization
+// re-create an Archived Occurrence (23505) and let a trim delete a Series still in use.
+const ARCHIVED = {
+  status: 'done',
+  completed_at: '2026-07-01T12:00:00.000Z',
+  archived_at: '2026-07-02T12:00:00.000Z',
+}
+
+test('an Archived Occurrence stays on the board state and is not re-inserted on load (#351)', async () => {
+  const today = ymd(new Date())
+  // The companion of the non-Archived test above: the lone occurrence is covered by an Archived i1.
+  h.capture.rows = [
+    serverRow({ id: 'tpl1', recur_freq: 'daily', day: today, recur_until: today }),
+    serverRow({
+      id: 'i1',
+      recur_parent_id: 'tpl1',
+      recur_origin_day: today,
+      day: today,
+      ...ARCHIVED,
+    }),
+  ]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  expect(h.insert).not.toHaveBeenCalled()
+  expect(result.current.tasks.map((t) => t.id)).toEqual(['i1'])
+  expect(result.current.tasks[0].archivedAt).not.toBeNull()
+  expect(result.current.getTemplate('tpl1')?.excludedDates).toEqual([])
+})
+
+test('a realtime Archive keeps the row in board state (#351)', async () => {
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  act(() => {
+    h.capture.handler!({ eventType: 'UPDATE', new: serverRow(ARCHIVED), old: { id: 't1' } })
+  })
+
+  expect(result.current.tasks.map((t) => t.id)).toEqual(['t1'])
+  expect(result.current.tasks[0].archivedAt).toBe(ARCHIVED.archived_at)
+})
+
+test('the offline snapshot keeps Archived Tasks, both written and hydrated (#351)', async () => {
+  h.capture.rows = [serverRow({ id: 'active' }), serverRow({ id: 'archived', ...ARCHIVED })]
+  const first = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(first.result.current.loading).toBe(false))
+  await waitFor(
+    () =>
+      expect(readBoardSnapshot('u1', 'b1')?.tasks.map((t) => t.id)).toEqual(['active', 'archived']),
+    { timeout: 2000 },
+  )
+  first.unmount()
+
+  h.capture.selectError = { message: 'FetchError: Failed to fetch' }
+  h.capture.selectStatus = 0
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  expect(result.current.offline).toBe(true)
+  expect(result.current.tasks.map((t) => t.id)).toEqual(['active', 'archived'])
+  expect(result.current.tasks[1].archivedAt).toBe(ARCHIVED.archived_at)
+})
