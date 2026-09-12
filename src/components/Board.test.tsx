@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { render, screen, within } from '@testing-library/react'
-import { afterEach, vi } from 'vitest'
+import { afterEach, describe, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { ThemeProvider } from '../theme/ThemeProvider'
 import { Board } from './Board'
 import { applyToggleCompletion } from '../data/selectors'
 import { makeMockTasks } from '../data/mockTasks'
+import { ymd } from '../lib/dates'
 import { OfflineContext } from '../data/offlineContext'
 import { TodayContext } from '../data/todayContext'
 import { TaskBoardContext, type TaskBoard } from '../data/taskBoardContext'
@@ -21,12 +22,14 @@ function Harness({
   weekStart,
   initialView,
   canAssignLabels,
+  seed,
 }: {
   weekStart?: number
   initialView?: ViewName
   canAssignLabels?: boolean
+  seed?: Task[]
 }) {
-  const [tasks, setTasks] = useState<Task[]>(makeMockTasks)
+  const [tasks, setTasks] = useState<Task[]>(() => seed ?? makeMockTasks())
   const taskBoard: TaskBoard = {
     tasks,
     previewReorder: setTasks,
@@ -402,4 +405,45 @@ test('the board exposes the landmarks a screen reader navigates by', () => {
   expect(container.querySelector('search')).not.toBeNull()
   expect(screen.getByRole('main')).toBeInTheDocument()
   expect(screen.getByRole('complementary', { name: 'Inbox' })).toBeInTheDocument()
+})
+
+describe('Archived Tasks are absent from every ordinary Board view', () => {
+  // Scheduled today so the card falls inside every view's window — calendar month, week, agenda,
+  // and the Completed kanban column — which is what makes the positive control below meaningful.
+  const completedToday = (archivedAt: string | null): Task[] => [
+    ...makeMockTasks(),
+    asTask({
+      ...makeMockTasks()[0],
+      id: 'archive-probe',
+      title: 'Archived chore',
+      day: ymd(new Date()),
+      status: 'completed',
+      completedAt: '2026-09-03T15:00:00.000Z',
+      reopenStatus: 'todo',
+      archivedAt,
+      recurFreq: 'none',
+      recurUntil: null,
+      recurParentId: null,
+      occurrenceDate: null,
+    }),
+  ]
+  const views: ViewName[] = ['calendar', 'week', 'agenda', 'kanban']
+
+  test.each(views)('%s view shows a Completed Task but hides it once Archived', (view) => {
+    // Positive control first: without it, a view that never rendered Completed cards at all
+    // would make the absence assertion pass for the wrong reason.
+    const { unmount } = render(<Harness initialView={view} seed={completedToday(null)} />)
+    expect(screen.getByText('Archived chore')).toBeInTheDocument()
+    unmount()
+
+    render(<Harness initialView={view} seed={completedToday('2026-09-04T08:00:00.000Z')} />)
+    expect(screen.queryByText('Archived chore')).not.toBeInTheDocument()
+  })
+
+  test('search never surfaces an Archived Task', async () => {
+    const user = userEvent.setup()
+    render(<Harness seed={completedToday('2026-09-04T08:00:00.000Z')} />)
+    await user.type(screen.getByPlaceholderText('Search tasks…'), 'Archived chore')
+    expect(screen.queryByText('Archived chore')).not.toBeInTheDocument()
+  })
 })

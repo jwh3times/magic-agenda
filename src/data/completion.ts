@@ -54,3 +54,38 @@ export function completionDecision(
     archivedAt: null,
   }
 }
+
+export type ArchiveRequest = 'archive' | 'unarchive'
+
+/**
+ * Decide the archive/unarchive half of a Task mutation.
+ *
+ * Separate from `completionDecision` because Archive is its own transition rather than a Workflow
+ * Status change (ADR-0003): Unarchiving returns a Task to the active Board *still Completed*, with
+ * its Completed At untouched, so routing it through the completion seam would have to invent a
+ * "change nothing about Completion" request. Reopening an Archived Task is the one operation that
+ * spans both, and it stays a `completionDecision` — that function already clears Archive.
+ *
+ * Archiving a Task that is not Completed returns the state unchanged. The database refuses it
+ * outright via `tasks_archived_at_requires_completed`, so this is the affordance layer agreeing
+ * with the boundary rather than enforcing anything; callers gate the control as well.
+ *
+ * The supplied `now` is a guess in the same sense the Completion timestamp is: the lifecycle
+ * trigger stamps the *first* Archive itself and preserves it across later writes, so a caller that
+ * needs the authoritative value reads back the returned row.
+ */
+export function archiveDecision(
+  current: CompletionState,
+  request: ArchiveRequest,
+  now: string,
+): CompletionState {
+  if (request === 'unarchive') return { ...current, archivedAt: null }
+  if (current.status !== 'completed') return { ...current }
+  // An already-Archived Task keeps its original instant, matching what the trigger would do.
+  return { ...current, archivedAt: current.archivedAt ?? now }
+}
+
+/** Whether a Task is currently Archived, and so absent from every ordinary Board view. */
+export function isArchived(task: Pick<CompletionState, 'archivedAt'>): boolean {
+  return task.archivedAt !== null
+}

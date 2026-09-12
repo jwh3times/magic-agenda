@@ -125,7 +125,8 @@ the area it covers; do not rely on this page's summaries for it.
   the pure planners in `src/data/series.ts`, the `Task` union, and the Rule fields (weekdays, count,
   Excluded Dates).
 - [**Completion**](docs/agents/completion.md) — the Workflow Status vocabulary,
-  `completionDecision()`, and the database lifecycle trigger that is the record.
+  `completionDecision()`, the database lifecycle trigger that is the record, and durable Archive
+  plus Completion History (Settings → History).
 - [**Drag-and-drop**](docs/agents/drag-and-drop.md) — the pure decision modules, dnd-kit as an
   adapter, the keyboard bindings, and why the unfiltered board must be the one passed in.
 - [**UI: responsive layout, dates, and theming**](docs/agents/ui.md) — `useIsMobile()` branching

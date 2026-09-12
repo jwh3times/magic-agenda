@@ -58,5 +58,51 @@ Completion instant, because the file never recorded one and `parseExport` has no
 write now supplies one, so **importing a legacy Completed Task dates its Completion to the import**.
 That is forced rather than chosen: a Completed Task must have a Completed At, and import time is the
 only value in existence. Offline Task snapshots went to version 7 for the same domain-shape break.
-No Archive affordance ships yet, so the Archive paths above are reachable only by import and by
-direct Data API writes.
+
+### Archive is durable Board state, not a filter (#242)
+
+Archive has an affordance now: Settings → History. `src/data/completion.ts`'s `archiveDecision(current,
+'archive' | 'unarchive', now)` is `completionDecision`'s sibling rather than a branch of it, for the
+reason ADR-0003 gives — Unarchiving keeps the Task Completed with its instant untouched, so folding
+it into the Workflow Status seam would need a "change nothing about Completion" request. Archiving a
+Task that is not Completed returns state unchanged (the database's own
+`tasks_archived_at_requires_completed` is the real boundary; this just agrees with it), and
+Archiving an already-Archived Task keeps its original instant rather than overwriting it, matching
+what the lifecycle trigger would do. Reopening an Archived Task stays exactly `completionDecision` —
+that seam already clears Archive alongside Completion. `isArchived(task)` is `archivedAt !== null`.
+
+**Archived is a Board-view exclusion, not a narrower load.** `Board.tsx` derives `activeTasks =
+tasks.filter((task) => !isArchived(task))` and feeds that — never `tasks` directly — to
+`applyFilters`/the views/search, ahead of the user's own filter so clearing it can never reveal an
+Archived card. `useTasks` state, the offline board snapshot, and the realtime channel are all
+unchanged: Archived rows stay in every one of them, and only the Board's view seam removes them from
+what renders. That is load-bearing rather than incidental — see
+[Drag-and-drop](drag-and-drop.md) for why `useBoardDnd` still needs the unfiltered list, and
+[Recurrence](recurrence.md) for why the planners need Archived Occurrences present.
+
+`src/data/history.ts` is Completion History and its statistics, and it is explicitly **not** backed
+by an event ledger (ADR-0003): `historyEntries` folds over whichever Tasks are Completed _right
+now_, so Reopening or deleting one changes the past as well as the present. Every function takes the
+viewer's `timezone` and `weekStart` explicitly rather than reading a context, because the Completion
+instant is shared Board content while the calendar day/week it falls in is the _reader's_
+interpretation — two members of one Board may bucket the same instant into different days.
+`throughputWeeks` always returns exactly `THROUGHPUT_WEEKS` (8) buckets, oldest first, including
+empty ones, so an intermittent Board doesn't read as a steadier one with the quiet weeks compressed
+out. `completionStreak` counts the _current_ run with a one-day grace — it counts back from today if
+today already has a Completion, otherwise from yesterday, and only breaks after a whole day passes
+with nothing Completed — a deliberate product call over "the run must include today" and "the
+longest run ever seen." Archived Tasks count toward all three; Reopened and deleted Tasks don't;
+Checklist Step completion never does. A row whose `completedAt` doesn't parse is dropped rather than
+bucketed into a nonsense day — cheap insurance against a direct Data API write or a restored backup
+corrupting a streak, since the type no longer admits a Completed Task with no instant.
+
+`src/components/HistorySection.tsx` (Settings → History, after Labels) reads the selected Board
+through `loadBoardTasks` rather than borrowing `useTasks`, which is deliberately not hoisted above
+`<Routes>` (it would drag dnd-kit and the board data layer into the Settings entry chunk); its load
+state is keyed by the Board id it was read for, so switching Boards can't show a slow read from the
+old one under the new one's name. Owner/Editor (`can.editContent`) get Archive/Unarchive/Reopen
+controls; a Viewer sees history read-only. Every write `.select()`s and keeps the row the database
+returns rather than the optimistic guess, because the lifecycle trigger — not the client — stamps
+the first Archive's instant. Reopen from History goes through `applyToggleCompletion`, the same
+selector the board's own quick action uses, so the Task lands at the bottom of its destination
+Kanban column instead of at a stale position from whenever it was completed.

@@ -41,7 +41,11 @@ export interface TaskBase {
    * where they enter, in `exportImport.ts`, exactly as ADR-0003 describes a legacy Reopen.
    */
   reopenStatus: ActiveWorkflowStatus
-  /** Time this Completed Task entered Archive. Archive controls ship after this model cutover. */
+  /**
+   * Time this Completed Task entered Archive; null when it is on the active Board. Archived Tasks
+   * stay in `useTasks` state and are excluded only at the Board's view seam (see `Board.tsx`), and
+   * Settings → History is where they are listed, Unarchived, and Reopened.
+   */
   archivedAt: string | null
   /**
    * App-level day sentinel: the literal 'inbox' (unscheduled) or a 'YYYY-MM-DD' date.

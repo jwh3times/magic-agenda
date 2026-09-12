@@ -28,6 +28,7 @@ import { KanbanView } from './KanbanView'
 import { TaskEditor } from './TaskEditor'
 import { SearchFilterBar } from './SearchFilterBar'
 import { applyFilters, isFilterActive, EMPTY_FILTER, type FilterQuery } from '../data/filters'
+import { isArchived } from '../data/completion'
 import { overdueTasks } from '../data/selectors'
 import type { ViewOption } from './ViewSwitcher'
 import { BoardActionContext, type BoardActions } from './boardActionContext'
@@ -128,7 +129,17 @@ export function Board({
   const popTimer = useRef<number | undefined>(undefined)
 
   const filterActive = isFilterActive(filter)
-  const visibleTasks = useMemo(() => applyFilters(tasks, filter), [tasks, filter])
+  // Archive is durable Board state (ADR-0003), so it is excluded here, ahead of every view's own
+  // day/status bucketing and ahead of search — never through `filter`, which the user can clear.
+  //
+  // Only the *views* see this narrowed list. `useBoardDnd` below still gets the whole board, and
+  // that is load-bearing twice over: `previewReorder` replaces state with whatever the drag
+  // produces, so a narrowed input would silently drop every Archived row from `useTasks` (and from
+  // the offline snapshot it writes); and the recurrence planners need Archived Occurrences present
+  // to know an Occurrence Date is still occupied. An Archived card is never rendered, so it can
+  // never be a drop target, and the lane arithmetic places visible cards correctly around it.
+  const activeTasks = useMemo(() => tasks.filter((task) => !isArchived(task)), [tasks])
+  const visibleTasks = useMemo(() => applyFilters(activeTasks, filter), [activeTasks, filter])
   const visibleOverdue = useMemo(() => overdueTasks(visibleTasks, today), [visibleTasks, today])
   const overdueCount = visibleOverdue.length
 
