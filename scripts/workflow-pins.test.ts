@@ -26,17 +26,36 @@ test('every external action is pinned to a full commit SHA', () => {
   expect(actions).toBeGreaterThan(0)
 })
 
-test('every setup-cli install uses the same exact CLI version as local and RLS tests', () => {
-  const version = manifest.devDependencies.supabase
-  expect(version).toMatch(/^\d+\.\d+\.\d+$/)
+// The version used to be written out as a literal in all five workflows, which made every
+// Dependabot bump of the CLI red on arrival: the bot cannot edit the workflows, so the PR stayed
+// failing until a human aligned them by hand (#335, then #338). Each workflow now derives it from
+// package.json at run time, so what is worth asserting is that the wiring is present -- an equality
+// against the literal would now be trivially true.
+//
+// The format check is the load-bearing half rather than a leftover: setup-cli takes a bare version
+// string, so a range like ^2.117.0 in devDependencies would be passed straight through and fail at
+// install time. Nothing else in the repo requires that pin to be exact.
+test('every setup-cli install derives its version from the exact package.json pin', () => {
+  expect(manifest.devDependencies.supabase).toMatch(/^\d+\.\d+\.\d+$/)
+  const derived = '${{ steps.cli.outputs.version }}'
   let installs = 0
   for (const { name, source } of workflows) {
     // Each setup action is a step; stop at the next step to avoid borrowing its inputs.
     const steps = source.split(/^\s*- (?=uses:|name:|run:|id:)/m)
-    for (const step of steps) {
-      if (!/(?:^|\n)\s*uses: supabase\/setup-cli@/.test(step)) continue
-      const installed = step.match(/^\s+version:\s*([^\s#]+)/m)?.[1]
-      expect({ workflow: name, version: installed }).toEqual({ workflow: name, version })
+    const cliSteps = steps.filter((step) => /(?:^|\n)\s*uses: supabase\/setup-cli@/.test(step))
+    if (cliSteps.length === 0) continue
+    // A version expression referencing a step that does not exist resolves to the empty string,
+    // which setup-cli would silently read as "latest" -- so check the producer, not just the input.
+    const produces = steps.some(
+      (step) => /(?:^|\n)\s*id: cli(?:\s|$)/.test(step) && /devDependencies\.supabase/.test(step),
+    )
+    expect({ workflow: name, derivesTheVersion: produces }).toEqual({
+      workflow: name,
+      derivesTheVersion: true,
+    })
+    for (const step of cliSteps) {
+      const installed = step.match(/^\s+version:\s*(\S.*?)\s*$/m)?.[1]
+      expect({ workflow: name, version: installed }).toEqual({ workflow: name, version: derived })
       installs++
     }
   }
