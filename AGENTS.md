@@ -432,10 +432,14 @@ Administrative writes without an authenticated user stamp a null editor. Existin
 not backfilled: Board containment cannot establish historical authorship. Revision records writes;
 the client does not yet enforce compare-and-swap checks to reject stale edits.
 
-Authenticated INSERT/UPDATE grants match the `taskToRow` payload, including `id` for PostgREST
-upserts, and exclude attribution and database timestamps. **Leave `author_id` untouched in the
-UPDATE trigger:** the grant prevents client forgery, while the foreign key must still be able to
-SET NULL when an author deletes their account. `tests/rls/task_attribution.test.ts` covers canonical
+Authenticated INSERT/UPDATE grants matched the `taskToRow` payload exactly, including `id` for
+PostgREST upserts and excluding attribution and database timestamps — until `recur_weekdays` and
+`recur_count` joined them a release ahead of the client that will populate them (see the
+recurrence section below). Grants can run ahead of the payload; they must never fall behind it — a
+column the payload names and the grant omits is a `403` on every write, which is the whole reason
+the grant half of a column-half-only migration cannot be deferred to the client's release.
+**Leave `author_id` untouched in the UPDATE trigger:** the grant prevents client forgery, while the
+foreign key must still be able to SET NULL when an author deletes their account. `tests/rls/task_attribution.test.ts` covers canonical
 writes and upserts, protected-column forgery, account deletion, and concurrent revision increments.
 
 ### Account administration and feature flags
