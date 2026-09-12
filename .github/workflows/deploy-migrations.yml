@@ -39,8 +39,11 @@ jobs:
       GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      # Derived from the exact `supabase` devDependency so a CLI bump needs no workflow edit (#338).
+      - id: cli
+        run: echo "version=$(node -p "require('./package.json').devDependencies.supabase")" >> "$GITHUB_OUTPUT"
       - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3
         with:
-          version: 2.117.0
+          version: ${{ steps.cli.outputs.version }}
       - run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
       - run: supabase db push
