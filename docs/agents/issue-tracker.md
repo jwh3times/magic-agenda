@@ -50,3 +50,36 @@ Used by `/wayfinder`. The **map** is a single issue with **child** issues as tic
 - **Frontier query**: list the map's open children (`gh issue list --state open`, scoped to the map's sub-issues / task list), drop any with an open blocker (`issue_dependencies_summary.blocked_by > 0`, or an open issue in the `Blocked by` line) or an assignee; first in map order wins.
 - **Claim**: `gh issue edit <n> --add-assignee @me` — the session's first write.
 - **Resolve**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far.
+
+## This repository in practice
+
+**Every unbuilt item is an open issue, including the ones that are years out.** There is no Markdown
+backlog to consult alongside it — `ROADMAP.md` is a pointer, and the per-item implementation
+sketches that used to live there are now issue bodies. The
+[project board](https://github.com/users/jwh3times/projects/5) carries `Phase` / `Priority` / `Size`
+/ `Status` as fields, and ordering is expressed with GitHub's native **blocked-by** dependency
+edges rather than prose, so a blocked item shows its open blockers in the UI. The board is private
+because it also holds maintainer-only items; the public issues on it stay public regardless, since
+a private project cannot make a public issue's body private.
+
+**The automation covers less than it looks like it does, in two specific ways.** A new _public_
+issue lands on the board by itself (`Auto-add to project`, filter `is:issue`) and gets
+`Status: Todo` (`Item added to project` — that workflow sets status when something is added; it
+does not add anything). But **no workflow sets `Phase`, `Priority`, or `Size`**, so a freshly filed
+issue sits on the board unfielded until someone sets them. And a **private-repo** issue is never
+auto-added at all: auto-add is per-repository, GitHub Free permits exactly one workflow, and that
+one is spent on the public repo. Adding it is a manual `gh project item-add`. Both gaps are quiet —
+nothing errors — which is why the `end-session` skill names them as steps.
+
+The dividing line is worth stating because it is what stopped the old file drifting: **state goes in
+GitHub, reasoning stays in files.** An issue has a closed state and a dependency graph; a Markdown
+checkbox has neither. Things that are never "done" — the domain glossary, an architecture decision,
+an accepted risk with a revisit trigger, an operational procedure — stay in `CONTEXT.md`,
+`docs/adr/`, `docs/runbooks/`, and (for confidential ones) the private companion. Do not reintroduce
+a status list, a shipped-items list, or a build-order table into any Markdown file; each is a second
+copy of something GitHub already answers authoritatively, and each drifted before.
+
+Work whose **issue body itself** would disclose something the public code does not — an undefended
+surface, an unclosable production weakness, provider or credential metadata — goes in the private
+companion's tracker instead. Note that GitHub cannot transfer a private-repository issue to a public
+one, so misfiling in that direction is the harder mistake to undo.
