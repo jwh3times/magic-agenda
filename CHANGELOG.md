@@ -12,6 +12,33 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.10.1] - 2026-09-12
+
+### Docs
+
+- **`AGENTS.md` was 2,013 lines and is now 272.** It had grown into the whole architecture manual,
+  so every session paid for every subsystem, and the rules that apply to every change sat among the
+  ones that apply to a single file. The detail moved into fourteen area guides under
+  `docs/agents/` — auth, boards and membership, labels and the file format, client state and
+  realtime sync, recurrence, completion, drag-and-drop, UI, PWA and offline read, testing and lint
+  policy, Supabase config, agent tooling, backups, and the release rules. Each guide is now the
+  canonical account of its area rather than a summary of one.
+- **What stayed in `AGENTS.md` is what bears on every change**: the commands, the release and
+  required-check rules in brief, the RLS-is-the-only-authorization-boundary summary, the private
+  companion's rules, the app/DB boundary conventions, the schema-change rules, and a pointer list
+  naming which guide covers what.
+- **Nothing was deleted.** Every sentence is either still in `AGENTS.md` or in the guide that now
+  owns it. The only rewrites are headings promoted one level, relative links repointed from their
+  new directory, and the handful of "see below" references that now name the file they mean.
+- The repository-specific issue-tracker notes — the board's fields, the two gaps in its automation,
+  and the state-in-GitHub / reasoning-in-files rule — moved into `docs/agents/issue-tracker.md`
+  beside the tracker conventions they qualify.
+- `CONTRIBUTING.md`, `SECURITY.md`, `docs/README.md`, and the `docs-updater` and `code-reviewer`
+  subagents were updated to match, so every cross-link still resolves and the agent that maintains these documents
+  knows an area's detail belongs in its guide rather than back in `AGENTS.md`.
+
+Documentation only — no code, schema, or behaviour changes.
+
 ## [1.10.0] - 2026-09-12
 
 ### Added
@@ -3123,7 +3150,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.10.1...HEAD
+[1.10.1]: https://github.com/jwh3times/magic-agenda/compare/v1.10.0...v1.10.1
 [1.10.0]: https://github.com/jwh3times/magic-agenda/compare/v1.9.6...v1.10.0
 [1.9.6]: https://github.com/jwh3times/magic-agenda/compare/v1.9.5...v1.9.6
 [1.9.5]: https://github.com/jwh3times/magic-agenda/compare/v1.9.4...v1.9.5

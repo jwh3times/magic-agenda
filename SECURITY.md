@@ -23,8 +23,8 @@ few days and will coordinate a fix and disclosure timeline with you.
   rename/delete Boards. Settings and account profiles are self-scoped; Membership rows are visible
   only to the account they belong to. Column grants restrict which fields clients can change, and
   Board creation creates its Owner Membership atomically through an RPC. See
-  [Board ownership](AGENTS.md#board-ownership-containment-is-the-authorization-boundary) for the
-  policy, grant, and containment constraints.
+  [Boards, membership, and account administration](docs/agents/boards.md) for the policy, grant,
+  and containment constraints.
 - **The anon key is public by design.** It ships in the browser bundle and is safe _only because_ RLS
   default‑denies. This is expected.
 - **Keep the service-role key server-side.** It bypasses RLS, so it must never appear in client

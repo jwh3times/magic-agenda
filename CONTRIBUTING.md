@@ -57,7 +57,7 @@ npm run dev
    npm run test:rls:down # stop it when you're done
    ```
 
-   The `RLS` suite is a required CI check. See [Testing layers](./AGENTS.md#testing-layers)
+   The `RLS` suite is a required CI check. See [Testing layers](./docs/agents/testing.md)
    for what it covers and how the separate required `E2E` check exercises the deployed preview.
 
 5. Open a Pull Request against `main` and fill in the template. Satisfy the
@@ -120,7 +120,7 @@ npm run codex:check     # what the required "Agents" check runs
 
 Never hand-edit the generated trees — the script owns them, and the check fails on any file that is
 missing, edited, or left over from a deleted source. See
-[AGENTS.md](./AGENTS.md#two-authored-trees-two-generated-trees--opposite-directions-on-purpose) for the mapping.
+[Agents, skills, and docs automation](./docs/agents/tooling.md) for the mapping.
 
 ## Standards
 
@@ -169,7 +169,7 @@ Node tooling deliberately ignores this directory (the Oxlint config ignores it;
 Vitest `test.exclude`) — Deno code doesn't parse under the Node toolchain. That same
 `test.exclude` (in `vite.config.ts`) also carves out `tests/**`, which is not Deno code but a
 second, non-hermetic Vitest project (`tests/rls/`, run separately via `npm run test:rls`) — see
-above and [Testing layers](./AGENTS.md#testing-layers) in AGENTS.md.
+above and [Testing layers](./docs/agents/testing.md).
 
 ## Project layout
 
