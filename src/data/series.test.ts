@@ -986,3 +986,144 @@ describe('planEndSeriesAt (#220)', () => {
     expect(plan.upserts.filter((task) => task.id === 'tmpl')).toEqual(plan.state.templates)
   })
 })
+
+describe('trimming a Series that ends by count', () => {
+  /** The same weekly Series as `series()`, but ending after four Occurrences instead of never. */
+  function counted() {
+    const s = series()
+    return {
+      ...s,
+      templates: [{ ...s.templates[0], recurCount: 4 }] as SeriesDefinition[],
+    }
+  }
+
+  it('converts the count to a recurUntil when the Series is cut short', () => {
+    // Leaving the count in place would mean the Rule carries two ends that disagree: the cap says
+    // four Occurrences and the date says two. The date is the one the trim established, so the
+    // count goes rather than being left to be reinterpreted against a shorter window.
+    const plan = planDeleteSeriesFrom(counted(), counted().tasks[1])
+
+    expect(plan.state.templates[0].recurUntil).toBe('2026-07-07')
+    expect(plan.state.templates[0].recurCount).toBeNull()
+  })
+
+  it('converts the count to a recurUntil when the Rule is removed at an Occurrence', () => {
+    // planEndSeriesAt caps the Rule exactly as the trim does, so it owes the same conversion.
+    const s = counted()
+    const instance = s.tasks[1] as TaskDraft
+    const plan = planEndSeriesAt(s, instance, { ...instance, recurFreq: 'none', recurUntil: null })
+
+    expect(plan.state.templates[0].recurUntil).toBe('2026-07-07')
+    expect(plan.state.templates[0].recurCount).toBeNull()
+  })
+
+  it('retires a Series whose count is spent by the last deletion', () => {
+    // A count-bounded Rule is bounded, so ruleIsSpent must reach it. Reading recurUntil alone --
+    // which is what that predicate did before counts existed -- leaves the definition behind as a
+    // hidden row that owns nothing and can never produce anything again (#231).
+    const tmpl = def('one', { day: '2026-07-01', recurInterval: 1, recurCount: 1 })
+    const only = t('occ', {
+      day: '2026-07-01',
+      occurrenceDate: '2026-07-01',
+      recurParentId: 'one',
+    })
+    const plan = planDeleteOccurrence({ tasks: [only], templates: [tmpl] }, only)
+
+    expect(plan.state.templates).toEqual([])
+    expect(plan.deletions).toEqual([
+      { target: { by: 'id', id: 'one' }, onFailure: { abort: false, recover: 'reload' } },
+    ])
+  })
+
+  it('keeps a Series whose count still has Occurrences left to produce', () => {
+    const tmpl = def('many', { day: '2026-07-01', recurInterval: 1, recurCount: 3 })
+    const only = t('occ', {
+      day: '2026-07-01',
+      occurrenceDate: '2026-07-01',
+      recurParentId: 'many',
+    })
+    const plan = planDeleteOccurrence({ tasks: [only], templates: [tmpl] }, only)
+
+    expect(plan.state.templates).toHaveLength(1)
+    expect(plan.state.templates[0].excludedDates).toEqual(['2026-07-01'])
+  })
+})
+
+describe('Rule parameters never reach an Occurrence', () => {
+  // Board.openTask merges the Series' Rule onto the draft so the Repeat controls have something to
+  // edit. Every path that turns such a draft into an Occurrence has to strip it again, and only
+  // recurFreq/recurUntil are caught by the type -- a weekday set riding the spread is a row the
+  // database refuses outright (tasks_recur_weekdays_weekly_only).
+  const ruleBearingDraft = (over: Partial<TaskDraft> = {}): TaskDraft => ({
+    ...(t('d1', {
+      day: '2026-07-01',
+      recurFreq: 'weekly',
+      recurInterval: 2,
+      ...over,
+    }) as TaskDraft),
+    recurWeekdays: [1, 5],
+    recurCount: 9,
+    recurInterval: 2,
+  })
+
+  it('strips them when saving one Occurrence of a Series', () => {
+    const orig: TaskDraft = {
+      ...ruleBearingDraft(),
+      recurParentId: 'tmpl',
+      occurrenceDate: '2026-07-08',
+    }
+    const op = resolveSave(orig, { ...orig, title: 'renamed' }, false, 'this')
+
+    expect(op.kind).toBe('update-occurrence')
+    if (op.kind !== 'update-occurrence') throw new Error('wrong op')
+    expect(op.task.recurWeekdays).toEqual([])
+    expect(op.task.recurCount).toBeNull()
+    expect(op.task.recurInterval).toBe(1)
+  })
+
+  it("strips them from a promoted Task's first Occurrence but keeps them on the definition", () => {
+    const draft = ruleBearingDraft()
+    const plan = planPromoteToSeries({ tasks: [t('d1')], templates: [] }, draft, () => 'new-tmpl')
+    if (!plan) throw new Error('promotion produced no plan')
+
+    const definition = plan.state.templates[0]
+    expect(definition.recurWeekdays).toEqual([1, 5])
+    expect(definition.recurCount).toBe(9)
+
+    const first = plan.state.tasks[0]
+    expect(first.recurParentId).toBe('new-tmpl')
+    expect(first.recurWeekdays).toEqual([])
+    expect(first.recurCount).toBeNull()
+  })
+
+  it('strips them from every materialized Occurrence', () => {
+    const tmpl = def('tmpl', { day: '2026-07-01', recurWeekdays: [1, 5], recurCount: 9 })
+    const made = makeInstance(tmpl, '2026-07-03', () => 'i9')
+
+    expect(made.recurWeekdays).toEqual([])
+    expect(made.recurCount).toBeNull()
+  })
+
+  it('strips them from the Task a removed Rule leaves behind', () => {
+    const s = series()
+    const withRule = {
+      ...s,
+      templates: [
+        { ...s.templates[0], recurWeekdays: [1, 5], recurCount: 9 },
+      ] as SeriesDefinition[],
+    }
+    const instance = withRule.tasks[1] as TaskDraft
+    const plan = planEndSeriesAt(withRule, instance, {
+      ...instance,
+      recurFreq: 'none',
+      recurUntil: null,
+      recurWeekdays: [1, 5],
+      recurCount: 9,
+    })
+
+    const detached = plan.state.tasks.find((task) => task.id === instance.id)!
+    expect(detached.recurFreq).toBe('none')
+    expect(detached.recurWeekdays).toEqual([])
+    expect(detached.recurCount).toBeNull()
+  })
+})

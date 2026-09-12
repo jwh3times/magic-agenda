@@ -283,6 +283,8 @@ describe('applyRollForward + missingInstances (regression)', () => {
       recurFreq: 'weekly',
       recurInterval: 2,
       recurUntil: null,
+      recurCount: null,
+      recurWeekdays: [],
       excludedDates: [],
     }
     const instance = t('inst', {

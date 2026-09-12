@@ -30,8 +30,9 @@ of three hand‑built themes.
   Deleting a Label leaves its tasks in place and Unlabeled.
 - **Search & filter** — by text, Label (including Unlabeled), status, and a "📌 Pinned" quick filter; non‑matching
   cards hide live.
-- **Recurring tasks** — daily / weekly / monthly with an interval and end date, materialized over a
-  rolling 90‑day horizon, with **this‑occurrence vs. all‑future** edit and delete semantics.
+- **Recurring tasks** — daily / weekly / monthly with an interval, specific weekdays for a weekly
+  repeat, and an end that is either a date or a number of repeats. Materialized over a rolling
+  90‑day horizon, with **this‑occurrence vs. all‑future** edit and delete semantics.
 - **Due times & priority pins** — give a task an optional time of day (shown as a card chip and
   sorted first in the Agenda) and pin the notes that matter most, with a themed visual on every
   card.

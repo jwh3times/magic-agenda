@@ -6,6 +6,8 @@ export const TASK_LIMITS = {
   checklistItems: 200,
   checklistBytes: 65_536,
   recurInterval: 366,
+  /** Shares MAX_OCCURRENCES: a Rule may not name more Occurrences than a walk will produce. */
+  recurCount: 1000,
 } as const
 
 /** Match jsonb::text spacing for the three fields persisted by cleanDraft. Key order changes
@@ -35,5 +37,12 @@ export function taskLimitError(task: TaskDraft): string | null {
     task.recurInterval > TASK_LIMITS.recurInterval
   )
     return 'Use a repeat interval from 1 to 366.'
+  if (
+    task.recurCount !== null &&
+    (!Number.isInteger(task.recurCount) ||
+      task.recurCount < 1 ||
+      task.recurCount > TASK_LIMITS.recurCount)
+  )
+    return 'Use a number of repeats from 1 to 1,000.'
   return null
 }

@@ -37,3 +37,19 @@ test.each([0, -1, 367, 1.5, Infinity, NaN])(
     })
   },
 )
+test.each([0, -1, 1001, 1.5, Infinity, NaN])(
+  'invalid repeat count %s cannot save even with a chosen scope',
+  (recurCount) => {
+    const draft = { ...base, recurCount }
+    expect(taskLimitError(draft)).toMatch(/repeats/)
+    expect(intendSave(base, draft, false, '2026-09-06T00:00:00Z', 'future')).toEqual({
+      kind: 'blocked',
+    })
+  },
+)
+test('a repeat count accepts both ends of its range, and null for a Rule that does not end', () => {
+  // 1000 is MAX_OCCURRENCES: a Rule may not name more Occurrences than the walker will produce.
+  expect(taskLimitError({ ...base, recurCount: 1 })).toBeNull()
+  expect(taskLimitError({ ...base, recurCount: 1000 })).toBeNull()
+  expect(taskLimitError({ ...base, recurCount: null })).toBeNull()
+})

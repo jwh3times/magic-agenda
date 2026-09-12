@@ -245,7 +245,7 @@ test('v1 Categories use the same mapping UI and may map to Unlabeled without wri
   expect(row).not.toHaveProperty('category')
 })
 
-test('export downloads v3 with Board Labels and Completion fields, not settings or Category', async () => {
+test('export downloads v4 with Board Labels, Completion fields and Rule parameters', async () => {
   h.selectTasks.mockResolvedValue({ data: [taskRow()], error: null })
   h.selectLabels.mockResolvedValue({
     data: [{ id: 'l-work', board_id: 'b1', name: 'Work', dot_color: '#2563eb', position: 0 }],
@@ -262,7 +262,7 @@ test('export downloads v3 with Board Labels and Completion fields, not settings 
     tasks: Array<Record<string, unknown>>
     settings?: unknown
   }
-  expect(exported.version).toBe(3)
+  expect(exported.version).toBe(4)
   expect(exported.labels).toEqual([
     { id: 'l-work', name: 'Work', dotColor: '#2563eb', position: 0 },
   ])
@@ -272,6 +272,8 @@ test('export downloads v3 with Board Labels and Completion fields, not settings 
     completedAt: null,
     reopenStatus: 'todo',
     archivedAt: null,
+    recurWeekdays: [],
+    recurCount: null,
   })
   expect(exported.tasks[0]).not.toHaveProperty('done')
   expect(exported.tasks[0]).not.toHaveProperty('category')
