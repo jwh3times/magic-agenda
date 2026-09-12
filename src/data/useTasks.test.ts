@@ -128,6 +128,8 @@ const serverRow = (over: Record<string, unknown> = {}) => ({
   recur_parent_id: null,
   recur_skip: [],
   recur_origin_day: null,
+  recur_weekdays: [],
+  recur_count: null,
   // Board containment, attribution, and the compare-and-swap token are present on every row. The
   // app maps Label ownership but intentionally keeps the remaining storage metadata outside Task.
   board_id: 'b1',

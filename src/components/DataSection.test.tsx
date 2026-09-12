@@ -147,6 +147,8 @@ function taskRow(over: Partial<TaskRow> = {}): TaskRow {
     recur_parent_id: null,
     recur_skip: [],
     recur_origin_day: null,
+    recur_weekdays: [],
+    recur_count: null,
     author_id: null,
     last_editor_id: null,
     author_kind: 'author',

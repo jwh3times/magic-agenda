@@ -432,10 +432,14 @@ Administrative writes without an authenticated user stamp a null editor. Existin
 not backfilled: Board containment cannot establish historical authorship. Revision records writes;
 the client does not yet enforce compare-and-swap checks to reject stale edits.
 
-Authenticated INSERT/UPDATE grants match the `taskToRow` payload, including `id` for PostgREST
-upserts, and exclude attribution and database timestamps. **Leave `author_id` untouched in the
-UPDATE trigger:** the grant prevents client forgery, while the foreign key must still be able to
-SET NULL when an author deletes their account. `tests/rls/task_attribution.test.ts` covers canonical
+Authenticated INSERT/UPDATE grants matched the `taskToRow` payload exactly, including `id` for
+PostgREST upserts and excluding attribution and database timestamps — until `recur_weekdays` and
+`recur_count` joined them a release ahead of the client that will populate them (see the
+recurrence section below). Grants can run ahead of the payload; they must never fall behind it — a
+column the payload names and the grant omits is a `403` on every write, which is the whole reason
+the grant half of a column-half-only migration cannot be deferred to the client's release.
+**Leave `author_id` untouched in the UPDATE trigger:** the grant prevents client forgery, while the
+foreign key must still be able to SET NULL when an author deletes their account. `tests/rls/task_attribution.test.ts` covers canonical
 writes and upserts, protected-column forgery, account deletion, and concurrent revision increments.
 
 ### Account administration and feature flags
@@ -1079,6 +1083,30 @@ The edited Occurrence is the exception to reconciliation: it takes `draft.checkl
 ticks included, because reconciling it against its own stored row would hand back the completion
 the user just changed in the editor.
 
+**`tasks.recur_weekdays` and `tasks.recur_count` exist and nothing reads them yet** (#268,
+`20260911190000`). They are the schema half of specific-weekday and end-after-N-Occurrences Rules,
+landed one release ahead of the client for the reason the Labels section above spells out in the
+other direction: `Deploy Migrations` and the Cloudflare Pages build race on every merge, so a
+client that _starts_ sending a column can reach users before the column exists and PostgREST
+answers every task write with `400 PGRST204`. E2E would catch it rather than production — the smoke
+spec creates a task through the app against the **production** database — so the combined change
+cannot go green either way. Both columns carry defaults, which is what keeps the
+currently-deployed client writing valid rows across the window.
+
+Four things about that schema are decided and should not be re-litigated when the client half
+lands. `recur_weekdays` is **0=Sunday..6=Saturday**, matching `Date.getDay()`, because
+`occurrenceDates` is the only consumer and a second numbering buys nothing. An **empty array means
+"the anchor's own weekday"**, which is what a weekly Rule has always meant, so no backfill was
+needed. `recur_count` and `recur_until` are **not** mutually exclusive in the data — the editor
+offers one or the other, but a file or an API write may carry both and the earlier end wins — and
+its ceiling is 1000 because that is `MAX_OCCURRENCES`, the backstop every walk in `recurrence.ts`
+shares: a Rule may not name more Occurrences than the walker will ever produce. And both columns
+are **coupled to `recur_freq` by CHECK constraints**, which is not decoration:
+`resolveSave`'s this-occurrence path spreads the editor draft, and a draft carries the Series' Rule
+so the Repeat controls have something to edit, so an Occurrence row would inherit its Series'
+weekdays unless the client resets them. The constraint is what makes that reset load-bearing rather
+than a convention.
+
 ### Completion: Workflow Status is the app-domain source of truth
 
 `Task.status` uses the app-owned tokens `todo`, `doing`, and `completed`; there is no Task-level
@@ -1443,6 +1471,15 @@ DELETE events are fanned out to every subscriber without an owner check (Postgre
 to an already-deleted row), and **never `disable row level security`** on one — that is the single
 change that would escalate the leak from primary keys to full deleted rows. See the header comment on
 `supabase/migrations/20260704090000_realtime_tasks.sql`.
+
+**A `not null default` does not protect a multi-row insert, and the reason is PostgREST rather than
+Postgres.** PostgREST unions the keys across the rows of one batch and sends an explicit `NULL` for
+every row that omits one, so a batch where _some_ rows name a column is refused on that column's
+NOT NULL rather than taking its default. The app never meets this — `taskToRow` names every column
+on every row, and the generated `Insert` type is what keeps it honest — but a test fixture or a
+one-off script that varies its payload per row will, and the failure names the column rather than
+the batch. Measured while adding `recur_weekdays`; `tests/rls/recurrence_rule_columns.test.ts`
+inserts one row per case for exactly this reason and says so.
 
 ## Testing layers
 
