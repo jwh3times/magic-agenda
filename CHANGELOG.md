@@ -12,6 +12,19 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.11.1] - 2026-09-12
+
+### Internal
+
+- **Tests now pin how Archive interacts with repeating tasks, sync, and offline use** (#351). In
+  1.11.0 these held only because of where archived tasks are hidden — at the board's views, while
+  the data layer keeps them — and nothing would have caught a change that moved that filter.
+  Archived occurrences are now checked never to be recreated, never to add an excluded date, and
+  still to count when a repeating task is shortened, so ending a series cannot delete one along
+  with it. Archived tasks are also checked to survive loading, a change arriving from another
+  device, and the offline copy of the board. Filtering archived tasks out of the data layer now
+  fails these tests. No behavior changed.
+
 ## [1.11.0] - 2026-09-12
 
 ### Added
@@ -3173,7 +3186,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.11.0...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.11.1...HEAD
+[1.11.1]: https://github.com/jwh3times/magic-agenda/compare/v1.11.0...v1.11.1
 [1.11.0]: https://github.com/jwh3times/magic-agenda/compare/v1.10.1...v1.11.0
 [1.10.1]: https://github.com/jwh3times/magic-agenda/compare/v1.10.0...v1.10.1
 [1.10.0]: https://github.com/jwh3times/magic-agenda/compare/v1.9.6...v1.10.0
