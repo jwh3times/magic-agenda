@@ -79,7 +79,13 @@ describe('derived scope lists', () => {
   it('rule fields an edit may carry exclude excludedDates', () => {
     // The trap: a draft is an Occurrence, whose excludedDates is always empty. Copying it onto the
     // Series would erase every Excluded Date and resurrect every deleted Occurrence.
-    expect(sorted(RULE_EDITABLE_FIELDS)).toEqual(['recurFreq', 'recurInterval', 'recurUntil'])
+    expect(sorted(RULE_EDITABLE_FIELDS)).toEqual([
+      'recurCount',
+      'recurFreq',
+      'recurInterval',
+      'recurUntil',
+      'recurWeekdays',
+    ])
     expect(sorted(RULE_UNEDITABLE)).toEqual(['excludedDates'])
   })
 

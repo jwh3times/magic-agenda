@@ -58,6 +58,24 @@ export interface TaskBase {
   korder: number
   /** The Recurrence Rule's interval. Only meaningful on a `SeriesDefinition`. */
   recurInterval: number
+  /**
+   * The weekdays a weekly Recurrence Rule repeats on, `0` = Sunday .. `6` = Saturday, matching
+   * `Date.getDay()`. Only meaningful on a weekly `SeriesDefinition`.
+   *
+   * **Empty means "the anchor's own weekday"**, which is what a weekly Rule has always meant — so
+   * every Series that predates this field keeps its behaviour with no backfill. A non-empty set is
+   * read as a set: duplicates and order carry no meaning, and the anchor's weekday is always part
+   * of it whether or not it is listed (see `effectiveWeekdays`).
+   */
+  recurWeekdays: number[]
+  /**
+   * The Recurrence Rule's other way of ending: stop after this many Occurrence Dates, counted from
+   * the Series' first one. Null when the Rule does not end this way.
+   *
+   * Not mutually exclusive with `recurUntil` in the data. The editor offers one or the other, but a
+   * file or a direct API write may carry both, and whichever ends first wins.
+   */
+  recurCount: number | null
   /** Excluded Dates (YYYY-MM-DD). Only meaningful on a `SeriesDefinition`. */
   excludedDates: string[]
 }
@@ -130,18 +148,38 @@ export type TaskDraft = TaskBase & {
 /** The sentinel used throughout app + dnd logic for an unscheduled task. */
 export const INBOX = 'inbox'
 
+/**
+ * The Recurrence Rule parameters that belong to a Series and never to one of its Occurrences.
+ *
+ * Reset wherever an editor draft becomes an Occurrence — `makeInstance`, `resolveSave`'s
+ * this-occurrence path, and the first Occurrence `planPromoteToSeries` keeps. One constant rather
+ * than three object literals, so a fourth Rule parameter cannot be added to two of them. `Board.openTask` merges the
+ * Series' Rule onto a draft so the Repeat controls have something to edit, so a draft spread
+ * straight onto an Occurrence carries its Series' rhythm with it. Only `recurFreq`/`recurUntil` are
+ * caught by the type system there (they discriminate the union); these four are not, and before
+ * `recurWeekdays` and `recurCount` existed only `recurInterval` and `excludedDates` were reset —
+ * by hand, at each site.
+ */
+export const NO_RULE_PARAMS = {
+  recurInterval: 1,
+  recurWeekdays: [] as number[],
+  recurCount: null,
+  excludedDates: [] as string[],
+} satisfies Pick<StandaloneTask, 'recurInterval' | 'recurWeekdays' | 'recurCount' | 'excludedDates'>
+
 /** Default (non-recurring) recurrence fields — spread into task constructors. */
 export const NO_RECUR = {
+  ...NO_RULE_PARAMS,
   recurFreq: 'none',
-  recurInterval: 1,
   recurUntil: null,
   recurParentId: null,
-  excludedDates: [] as string[],
   occurrenceDate: null,
 } satisfies Pick<
   StandaloneTask,
   | 'recurFreq'
   | 'recurInterval'
+  | 'recurWeekdays'
+  | 'recurCount'
   | 'recurUntil'
   | 'recurParentId'
   | 'excludedDates'
@@ -200,6 +238,11 @@ export function asTask(input: TaskDraft): Task {
   if (input.recurFreq !== 'none') {
     return { ...input, ...asSeriesDefinition(input.recurFreq, input.recurUntil) }
   }
+  // `recurWeekdays` and `recurCount` are deliberately *not* restored from the input the way
+  // `recurInterval` and `excludedDates` are, and the asymmetry is load-bearing rather than an
+  // omission: those two are coupled to `recur_freq` by CHECK constraints, so a standalone Task
+  // carrying a weekday set or a count is a row the database refuses. Letting `NO_RECUR` clear them
+  // is what makes demoting a Series back to a plain Task produce a writable row.
   return {
     ...input,
     ...NO_RECUR,

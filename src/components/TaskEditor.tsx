@@ -6,7 +6,7 @@ import { useTheme } from '../theme/ThemeProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { COLORS, PAPER, STATUS } from '../theme/constants'
 import { newId } from '../lib/id'
-import { isScheduled } from '../lib/dates'
+import { isScheduled, parseDay, WEEKDAYS_LONG, WEEKDAYS_SHORT } from '../lib/dates'
 import { editorChrome } from './editorChrome'
 import { ScopePrompt } from './ScopePrompt'
 import type { RecurFreq, TaskDraft } from '../types/task'
@@ -117,6 +117,47 @@ export function TaskEditor({
 
   const recurUnit =
     draft.recurFreq === 'daily' ? 'day(s)' : draft.recurFreq === 'weekly' ? 'week(s)' : 'month(s)'
+
+  /**
+   * The Scheduled Day's weekday, which a weekly Rule always repeats on whether or not the user
+   * ticks it. Its chip is shown on and locked rather than merely defaulted on: the Series' first
+   * Occurrence *is* this row, so a Rule that omitted its own start day would leave that Occurrence
+   * Date unfilled forever. `effectiveWeekdays` enforces the same thing for imports and API writes,
+   * so the lock is a truthful picture of the Rule rather than a UI-only convention.
+   */
+  const anchorDow = isScheduled(draft.day) ? parseDay(draft.day).getDay() : null
+
+  // The anchor's chip is `disabled`, which is the whole guard: a disabled button fires no click,
+  // and it is the only caller. An `if (dow === anchorDow) return` here as well read as belt and
+  // braces but was unreachable — no test could make it fail, which is how it was found.
+  const toggleWeekday = (dow: number) => {
+    const on = draft.recurWeekdays.includes(dow)
+    patch({
+      recurWeekdays: on
+        ? draft.recurWeekdays.filter((d) => d !== dow)
+        : [...draft.recurWeekdays, dow].sort((a, b) => a - b),
+    })
+  }
+
+  /**
+   * Which way the Rule ends, held in state rather than derived on every render.
+   *
+   * Derived, it would flip back to Never the moment a user chose On and cleared the date field --
+   * the radio would move under their cursor while they were still typing. The draft stays the
+   * source of truth for what is *saved*; this only remembers which control the user is aiming at.
+   * The data permits both ends at once (a file may carry them); this picks one, and every write
+   * below clears the other, which is what keeps the editor offering a genuine choice.
+   */
+  const [endsMode, setEndsMode] = useState<'never' | 'on' | 'after'>(
+    initial.recurCount !== null ? 'after' : initial.recurUntil !== null ? 'on' : 'never',
+  )
+
+  const chooseEndsMode = (mode: 'never' | 'on' | 'after') => {
+    setEndsMode(mode)
+    if (mode === 'never') patch({ recurUntil: null, recurCount: null })
+    if (mode === 'on') patch({ recurCount: null })
+    if (mode === 'after') patch({ recurUntil: null, recurCount: draft.recurCount ?? 10 })
+  }
 
   return (
     <>
@@ -555,7 +596,18 @@ export function TaskEditor({
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <select
               value={draft.recurFreq}
-              onChange={(e) => patch({ recurFreq: e.target.value as RecurFreq })}
+              onChange={(e) => {
+                const recurFreq = e.target.value as RecurFreq
+                // A weekday set is legal only on a weekly Rule and a count only on a Rule at all —
+                // both are CHECK constraints, so carrying either across a frequency change would
+                // produce a row the database refuses on save rather than a field that is merely
+                // ignored. Cleared here, where the user can see it happen.
+                patch({
+                  recurFreq,
+                  recurWeekdays: recurFreq === 'weekly' ? draft.recurWeekdays : [],
+                  ...(recurFreq === 'none' ? { recurUntil: null, recurCount: null } : {}),
+                })
+              }}
               disabled={readOnly}
               style={{
                 padding: '9px 12px',
@@ -582,6 +634,7 @@ export function TaskEditor({
                   min={1}
                   max={TASK_LIMITS.recurInterval}
                   step={1}
+                  aria-label="Repeat interval"
                   value={draft.recurInterval}
                   onChange={(e) =>
                     patch({
@@ -595,12 +648,99 @@ export function TaskEditor({
                   style={{ ...inputBase, width: 60, padding: '8px 10px' }}
                 />
                 <span style={{ fontSize: 13, color: sub }}>{recurUnit}</span>
-                <span style={{ fontSize: 13, color: sub }}>until</span>
+              </>
+            )}
+          </div>
+
+          {draft.recurFreq === 'weekly' && (
+            <div style={{ marginTop: 10 }}>
+              <div
+                role="group"
+                aria-label="Repeat on"
+                style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}
+              >
+                {WEEKDAYS_SHORT.map((label, dow) => {
+                  const isAnchor = dow === anchorDow
+                  const on = isAnchor || draft.recurWeekdays.includes(dow)
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      aria-pressed={on}
+                      aria-label={
+                        isAnchor
+                          ? `${WEEKDAYS_LONG[dow]} — the start day, always included`
+                          : WEEKDAYS_LONG[dow]
+                      }
+                      onClick={() => toggleWeekday(dow)}
+                      disabled={readOnly || isAnchor}
+                      style={{
+                        minWidth: 44,
+                        padding: '8px 6px',
+                        borderRadius: 9,
+                        border: `1px solid ${on ? conf.accent : border}`,
+                        background: on ? `${conf.accent}22` : 'transparent',
+                        color: on ? fg : sub,
+                        fontFamily: conf.ui,
+                        fontSize: 13,
+                        fontWeight: 700,
+                        cursor: readOnly || isAnchor ? 'default' : 'pointer',
+                      }}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+              <div style={{ fontSize: 12, color: sub, marginTop: 6 }}>
+                {anchorDow === null
+                  ? 'Pick a start date above to choose which days it repeats on.'
+                  : `Always repeats on its start day (${WEEKDAYS_LONG[anchorDow]}). Add any others.`}
+              </div>
+            </div>
+          )}
+
+          {draft.recurFreq !== 'none' && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ ...fieldLabel, marginTop: 0 }}>Ends</div>
+              <div
+                role="radiogroup"
+                aria-label="Ends"
+                style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}
+              >
+                <label
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: fg }}
+                >
+                  <input
+                    type="radio"
+                    name="repeat-ends"
+                    checked={endsMode === 'never'}
+                    onChange={() => chooseEndsMode('never')}
+                    disabled={readOnly}
+                  />
+                  Never
+                </label>
+                <label
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: fg }}
+                >
+                  <input
+                    type="radio"
+                    name="repeat-ends"
+                    checked={endsMode === 'on'}
+                    onChange={() => chooseEndsMode('on')}
+                    disabled={readOnly}
+                  />
+                  On
+                </label>
                 <input
                   type="date"
+                  aria-label="Repeat until"
                   value={draft.recurUntil ?? ''}
-                  onChange={(e) => patch({ recurUntil: e.target.value || null })}
-                  disabled={readOnly}
+                  onChange={(e) => {
+                    setEndsMode('on')
+                    patch({ recurUntil: e.target.value || null, recurCount: null })
+                  }}
+                  disabled={readOnly || endsMode !== 'on'}
                   style={{
                     padding: '9px 12px',
                     borderRadius: '9px',
@@ -611,11 +751,51 @@ export function TaskEditor({
                     fontSize: ctlFont,
                     fontWeight: 600,
                     colorScheme: dark ? 'dark' : 'light',
+                    opacity: endsMode === 'on' ? 1 : 0.5,
                   }}
                 />
-              </>
-            )}
-          </div>
+                <label
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: fg }}
+                >
+                  <input
+                    type="radio"
+                    name="repeat-ends"
+                    checked={endsMode === 'after'}
+                    onChange={() => chooseEndsMode('after')}
+                    disabled={readOnly}
+                  />
+                  After
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={TASK_LIMITS.recurCount}
+                  step={1}
+                  aria-label="Number of repeats"
+                  value={draft.recurCount ?? ''}
+                  onChange={(e) => {
+                    setEndsMode('after')
+                    patch({
+                      recurCount: Math.min(
+                        TASK_LIMITS.recurCount,
+                        Math.max(1, Math.trunc(Number(e.target.value)) || 1),
+                      ),
+                      recurUntil: null,
+                    })
+                  }}
+                  disabled={readOnly || endsMode !== 'after'}
+                  style={{
+                    ...inputBase,
+                    width: 76,
+                    padding: '8px 10px',
+                    opacity: endsMode === 'after' ? 1 : 0.5,
+                  }}
+                />
+                <span style={{ fontSize: 13, color: sub }}>times</span>
+              </div>
+            </div>
+          )}
+
           {draft.recurFreq !== 'none' && !isScheduled(draft.day) && (
             <div style={{ fontSize: 12, color: '#d98c3a', marginTop: 8 }}>
               Pick a start date above — repeats need a scheduled day to generate occurrences.

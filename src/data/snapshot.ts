@@ -44,7 +44,13 @@ const DIRECTORY_KEY = 'ma-snapshot-directory'
 // `ma-selected-board` key instead. A v7 envelope would hydrate perfectly well without it, so the
 // bump buys nothing at runtime; it is here because the constant is shared and a shape change that
 // skips it leaves the version no longer describing the shape.
-const V = 8
+//
+// v9: the Recurrence Rule gained a weekday set and a repeat count (#268). Unlike v8's bump this
+// one is not bookkeeping: the envelope is asserted rather than validated, so a v8 Series
+// definition hydrates with `recurWeekdays` undefined — and the walk calls `.length` on it while
+// choosing which shape to take, so the board would throw rather than merely render stale. Dropping
+// costs one reload, which the next successful load performs anyway.
+const V = 9
 
 const boardKey = (boardId: string) => `${BOARD_KEY_PREFIX}${boardId}`
 const labelKey = (boardId: string) => `${LABEL_KEY_PREFIX}${boardId}`

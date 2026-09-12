@@ -432,10 +432,10 @@ Administrative writes without an authenticated user stamp a null editor. Existin
 not backfilled: Board containment cannot establish historical authorship. Revision records writes;
 the client does not yet enforce compare-and-swap checks to reject stale edits.
 
-Authenticated INSERT/UPDATE grants matched the `taskToRow` payload exactly, including `id` for
-PostgREST upserts and excluding attribution and database timestamps — until `recur_weekdays` and
-`recur_count` joined them a release ahead of the client that will populate them (see the
-recurrence section below). Grants can run ahead of the payload; they must never fall behind it — a
+Authenticated INSERT/UPDATE grants match the `taskToRow` payload exactly, including `id` for
+PostgREST upserts and excluding attribution and database timestamps. `recur_weekdays` and
+`recur_count` joined the grant a release ahead of the client — see the recurrence section below for
+what `taskToRow` now sends. Grants can run ahead of the payload; they must never fall behind it — a
 column the payload names and the grant omits is a `403` on every write, which is the whole reason
 the grant half of a column-half-only migration cannot be deferred to the client's release.
 **Leave `author_id` untouched in the UPDATE trigger:** the grant prevents client forgery, while the
@@ -533,8 +533,9 @@ attribution lives in `author_id` / `last_editor_id`.
 
 **`src/data/exportImport.ts` is the complete file-format and import-planning module.** V2 is a
 one-Board format containing Label definitions plus nullable Task/Series Label references; Account
-Preferences are excluded, and v1 settings are discarded on parse. `parseExport()` validates v1 or
-v2 into one `ImportBundle`; `referencedSourceLabels()` exposes only definitions that need choices;
+Preferences are excluded, and v1 settings are discarded on parse. `parseExport()` validates any
+supported version (v1 through v4) into one `ImportBundle`; `referencedSourceLabels()` exposes only
+definitions that need choices;
 and `prepareImport()` requires every one to map explicitly to an existing destination Label or
 Unlabeled before it freshens ids and produces destination-scoped rows. It never matches by name or
 creates Label definitions. `DataSection` owns only file/download and Supabase I/O, keeps the
@@ -639,7 +640,7 @@ Memberships joined to their Boards, resolves which one is open (`resolveSelectio
 caller of `src/board/role.ts`'s capabilities. `useTasks` takes a `boardId` and loads/writes
 `.eq('board_id', boardId)`; `taskToRow(task, boardId)` sends only `board_id` (`user_id` stopped
 being written in #199 — see the Labels section above); offline board snapshots are keyed per
-Board; realtime filters on `board_id`; and `DataSection`'s v3 import/export is scoped the same way.
+Board; realtime filters on `board_id`; and `DataSection`'s import/export is scoped the same way.
 
 **Client-side scoping is still not the boundary — it just no longer disagrees with it.** Everything
 above narrows what the client _asks_ for; RLS narrows what the server _allows_, and since the
@@ -1083,29 +1084,65 @@ The edited Occurrence is the exception to reconciliation: it takes `draft.checkl
 ticks included, because reconciling it against its own stored row would hand back the completion
 the user just changed in the editor.
 
-**`tasks.recur_weekdays` and `tasks.recur_count` exist and nothing reads them yet** (#268,
-`20260911190000`). They are the schema half of specific-weekday and end-after-N-Occurrences Rules,
-landed one release ahead of the client for the reason the Labels section above spells out in the
-other direction: `Deploy Migrations` and the Cloudflare Pages build race on every merge, so a
-client that _starts_ sending a column can reach users before the column exists and PostgREST
-answers every task write with `400 PGRST204`. E2E would catch it rather than production — the smoke
-spec creates a task through the app against the **production** database — so the combined change
-cannot go green either way. Both columns carry defaults, which is what keeps the
-currently-deployed client writing valid rows across the window.
+**A weekly Rule can name weekdays, and any Rule can end after N Occurrences** (#268,
+`tasks.recur_weekdays` / `tasks.recur_count`, schema in `20260911190000` one release ahead of the
+client for the `PGRST204` reason the Labels section gives in the other direction). Five decisions
+here are load-bearing and none is recoverable from the code alone.
 
-Four things about that schema are decided and should not be re-litigated when the client half
-lands. `recur_weekdays` is **0=Sunday..6=Saturday**, matching `Date.getDay()`, because
-`occurrenceDates` is the only consumer and a second numbering buys nothing. An **empty array means
-"the anchor's own weekday"**, which is what a weekly Rule has always meant, so no backfill was
-needed. `recur_count` and `recur_until` are **not** mutually exclusive in the data — the editor
-offers one or the other, but a file or an API write may carry both and the earlier end wins — and
-its ceiling is 1000 because that is `MAX_OCCURRENCES`, the backstop every walk in `recurrence.ts`
-shares: a Rule may not name more Occurrences than the walker will ever produce. And both columns
-are **coupled to `recur_freq` by CHECK constraints**, which is not decoration:
-`resolveSave`'s this-occurrence path spreads the editor draft, and a draft carries the Series' Rule
-so the Repeat controls have something to edit, so an Occurrence row would inherit its Series'
-weekdays unless the client resets them. The constraint is what makes that reset load-bearing rather
-than a convention.
+- **`occurrenceDates` takes the Rule as an object**, with `from` and `horizonEnd` left outside it as
+  required positional arguments. That split is the #210 lesson kept alive: the window bounds are the
+  two parameters that must never acquire a default, and a Rule-shaped bag is exactly where such a
+  default would hide.
+- **An empty weekday set means "the Start Day's weekday"**, and a non-empty one **always includes it
+  anyway** (`effectiveWeekdays`). Strict filtering is the obvious alternative and it breaks
+  `planPromoteToSeries`, which turns the promoted row into the Series' _first Occurrence_ at its own
+  day (#206) — a Rule that did not yield its own Start Day would leave that Occurrence Date unfilled
+  forever. Forcing it in the pure walk rather than only in the editor is what makes the guarantee
+  hold for imports and Data API writes. The editor shows that chip on and disabled; the `disabled`
+  attribute is the entire guard, since a disabled button fires no click.
+- **Week blocks are anchored on the Start Day, not on a Sunday or the user's week start.** Block
+  _k_ spans `[day + 7·interval·k, +6]` and covers each weekday exactly once, so "every other week on
+  Mon and Fri" means something without consulting `weekStart` — which would otherwise drag an
+  Account Preference into a pure function and make one Series render differently for two members of
+  the same Board.
+- **The count is measured from the Series' first Occurrence, and Excluded Dates spend it.** Two
+  independent traps. The window's lower bound is today (#210) while the count's is the Start Day, so
+  a count tallied over the window silently lengthens every Rule whose Series began earlier — the
+  `generated` counter exists to keep those apart, and the fast-forward is **disabled** whenever a
+  count is present because a jump skips exactly the Occurrences it would have counted. Nothing is
+  lost by walking: a count is capped at `MAX_OCCURRENCES`, which bounds the walk by itself, and that
+  shared ceiling is why the cap is 1000 rather than a rounder product number. Exclusions then remove
+  from the generated set rather than extending it (RFC 5545's COUNT/EXDATE reading), so deleting one
+  Occurrence of a Series of five leaves four.
+- **`allOccurrenceDates(rule: BoundedRule)` is what lets `ruleIsSpent` see a counted Rule.** Bounded
+  now means by date **or** by count; reading `recurUntil !== null`, which is what that predicate did
+  before, would leave every counted Series unable to retire (#231's bug, reintroduced). The type is
+  load-bearing exactly as the old `horizonEnd: string` was: deleting the guard is a compile error,
+  not a test failure.
+
+Three smaller consequences worth not rediscovering. `NO_RULE_PARAMS` exists because **three** places
+turn an editor draft into an Occurrence — `makeInstance`, `resolveSave`'s this-occurrence path, and
+`planPromoteToSeries`'s first Occurrence — and only `recurFreq`/`recurUntil` are caught by the type
+there; a weekday set riding the spread is a row `tasks_recur_weekdays_weekly_only` refuses outright.
+`cappedAt()` is the same argument one level up: both trimming planners clear the count when they set
+an end date, because a Rule carrying two ends that disagree would have its count reinterpreted
+against the shortened window. And `asTask`'s standalone branch restores `recurInterval` and
+`excludedDates` from its input but deliberately **not** these two, since both are coupled to
+`recur_freq` by CHECK constraints — letting `NO_RECUR` clear them is what makes demoting a Series
+back to a plain Task produce a writable row.
+
+The walk's `isScheduled(rule.day)` guard is **defence that no test reaches**, and it says so at the
+call site: two accidents of string comparison against the `'inbox'` sentinel already produce the
+same answer (`'NaN-NaN-NaN'` sorts after every real date, and before `'inbox'`). Measured by
+deleting it and finding the suite still green. Do not add a test for it — it would pass either way.
+
+**Export went to v4 and the offline snapshot to v9.** `ExportTaskV3` is the frozen v3 shape and v3
+files still parse, with both parameters taking their unlisted meaning. Extending v3 in place was
+rejected because an older client's validator ignores unknown keys, so it would import a weekly
+Series and silently drop the weekdays it repeats on — a version it refuses outright is the better
+failure. `isV4Task` validates against the **database's** constraints rather than looser ones,
+because an import writes straight through `taskToRow`: a file this parser accepted and the database
+then refused would fail part-way through a batch, after earlier rows had landed.
 
 ### Completion: Workflow Status is the app-domain source of truth
 
@@ -1161,8 +1198,8 @@ the true instant does not exist. And it runs with `tasks_set_updated_at` and `ta
 column the proxy reads, and the second would bump `revision` on every row and stamp a null
 `last_editor_id`, rewriting the attribution #291 deliberately declined to backfill.
 
-Export v3 writes the canonical Workflow Status and preserves `completedAt`, `reopenStatus`, and
-`archivedAt`. The v1/v2 formats remain frozen with the `done` token and still parse without a
+Export (v3 onward) writes the canonical Workflow Status and preserves `completedAt`, `reopenStatus`,
+and `archivedAt`. The v1/v2 formats remain frozen with the `done` token and still parse without a
 Completion instant, because the file never recorded one and `parseExport` has no clock — but the
 write now supplies one, so **importing a legacy Completed Task dates its Completion to the import**.
 That is forced rather than chosen: a Completed Task must have a Completed At, and import time is the

@@ -101,7 +101,7 @@ const instance = task({
 })
 const plain = task({ id: 'plain-1', labelId: null, atTime: '09:30', pinned: true })
 
-test('v3 serialize → parse preserves Completion, Archive, Labels, and canonical vocabulary', () => {
+test('v4 serialize → parse preserves Completion, Archive, Labels, and canonical vocabulary', () => {
   const completed = task({
     id: 'completed-1',
     status: 'completed',
@@ -116,13 +116,13 @@ test('v3 serialize → parse preserves Completion, Archive, Labels, and canonica
     '2026-07-10T00:00:00Z',
   )
   const raw = JSON.parse(json) as Record<string, unknown>
-  expect(raw.version).toBe(3)
+  expect(raw.version).toBe(4)
   expect(raw).not.toHaveProperty('settings')
   expect((raw.tasks as Array<Record<string, unknown>>)[2]).not.toHaveProperty('done')
 
   const parsed = parseExport(json)
   if (!parsed.ok) throw new Error(parsed.error)
-  expect(parsed.data.sourceVersion).toBe(3)
+  expect(parsed.data.sourceVersion).toBe(4)
   expect(parsed.data.labels).toEqual(labels)
   expect(parsed.data.tasks.map((item) => item.labelId)).toEqual([null, 'source-work', null])
   expect(parsed.data.templates[0].labelId).toBe('source-custom')
@@ -467,4 +467,103 @@ test('a v2 file written before #204 still imports', () => {
   expect(parsed.data.tasks[0].status).toBe('completed')
   expect(parsed.data.tasks[0].completedAt).toBeNull()
   expect(parsed.data.templates[0].excludedDates).toEqual(['2026-07-11'])
+})
+
+test('v4 writes the two Rule parameters and reads them back', () => {
+  const weekly = task({
+    id: 'weekly-1',
+    day: '2026-07-01',
+    recurFreq: 'weekly',
+    recurInterval: 2,
+    recurWeekdays: [1, 5],
+    recurCount: 12,
+  })
+  const json = serializeExport([], [weekly], labels, '2026-07-10T00:00:00Z')
+  const raw = JSON.parse(json) as { templates: Array<Record<string, unknown>> }
+  expect(raw.templates[0]).toMatchObject({ recurWeekdays: [1, 5], recurCount: 12 })
+
+  const parsed = parseExport(json)
+  if (!parsed.ok) throw new Error(parsed.error)
+  expect(parsed.data.templates[0]).toMatchObject({ recurWeekdays: [1, 5], recurCount: 12 })
+})
+
+test('a v3 file still parses, with both Rule parameters taking their unlisted meaning', () => {
+  // Hand-written rather than produced by an older serializer, for the same reason the pre-#204
+  // fixture below is: this app cannot generate a v3 file any more, and the compatibility claim is
+  // about files other people already hold.
+  const v3 = {
+    version: 3,
+    exportedAt: '2026-07-10T00:00:00Z',
+    labels,
+    tasks: [],
+    templates: [
+      {
+        id: 'legacy-weekly',
+        title: 'Weekly standup',
+        description: '',
+        labelId: null,
+        color: 'yellow',
+        checklist: [],
+        status: 'todo',
+        completedAt: null,
+        reopenStatus: 'todo',
+        archivedAt: null,
+        day: '2026-07-01',
+        atTime: null,
+        pinned: false,
+        order: 0,
+        korder: 0,
+        recurFreq: 'weekly',
+        recurInterval: 1,
+        recurUntil: null,
+        recurParentId: null,
+        recurSkip: [],
+        recurOriginDay: null,
+      },
+    ],
+  }
+  const parsed = parseExport(JSON.stringify(v3))
+  if (!parsed.ok) throw new Error(parsed.error)
+  expect(parsed.data.sourceVersion).toBe(3)
+  expect(parsed.data.templates[0]).toMatchObject({
+    recurFreq: 'weekly',
+    // Empty is the anchor's own weekday and null is "does not end by count" -- exactly what this
+    // Series meant when it was written, so no v3 file changes behaviour by being re-imported.
+    recurWeekdays: [],
+    recurCount: null,
+  })
+})
+
+test('v4 refuses Rule parameters the database would refuse, before anything is written', () => {
+  const bad = (over: Record<string, unknown>) =>
+    JSON.stringify({
+      version: 4,
+      exportedAt: '2026-07-10T00:00:00Z',
+      labels,
+      tasks: [],
+      templates: [
+        {
+          ...(
+            JSON.parse(
+              serializeExport(
+                [],
+                [task({ id: 'w', day: '2026-07-01', recurFreq: 'weekly' })],
+                labels,
+                '2026-07-10T00:00:00Z',
+              ),
+            ) as { templates: Array<Record<string, unknown>> }
+          ).templates[0],
+          ...over,
+        },
+      ],
+    })
+
+  // Each mirrors one CHECK constraint: the domain, the size cap, the weekly-only coupling, the
+  // count range, and the count's own coupling to a Rule existing at all.
+  expect(parseExport(bad({ recurWeekdays: [7] })).ok).toBe(false)
+  expect(parseExport(bad({ recurWeekdays: [0, 1, 2, 3, 4, 5, 6, 0] })).ok).toBe(false)
+  expect(parseExport(bad({ recurFreq: 'daily', recurWeekdays: [1] })).ok).toBe(false)
+  expect(parseExport(bad({ recurCount: 0 })).ok).toBe(false)
+  expect(parseExport(bad({ recurCount: 1001 })).ok).toBe(false)
+  expect(parseExport(bad({ recurWeekdays: [1, 5], recurCount: 12 })).ok).toBe(true)
 })

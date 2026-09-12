@@ -5,16 +5,18 @@ import {
   isSeriesDefinition,
   isTemplate,
   NO_RECUR,
+  NO_RULE_PARAMS,
   type Occurrence,
   type SeriesDefinition,
   type Task,
   type TaskDraft,
 } from '../types/task'
 import {
-  occurrenceDateOf,
+  allOccurrenceDates,
+  isBoundedRule,
   isFromOccurrenceOnward,
   missingInstances,
-  occurrenceDates,
+  occurrenceDateOf,
 } from './recurrence'
 import { reconcileSteps } from './checklistSteps'
 import {
@@ -102,8 +104,7 @@ export function makeInstance(tmpl: Task, day: string, nextId: () => string): Occ
     pinned: false,
     order: 5000,
     korder: 5000,
-    recurInterval: 1,
-    excludedDates: [],
+    ...NO_RULE_PARAMS,
     ...asOccurrence(tmpl.id, day),
   }
 }
@@ -221,7 +222,11 @@ export function resolveSave(
     kind: 'update-occurrence',
     task: {
       ...draft,
-      recurInterval: 1,
+      // The draft carries the Series' Rule — `Board.openTask` merges it on so the Repeat controls
+      // have something to edit — and this Occurrence must carry none of it. Only `recurFreq` and
+      // `recurUntil` are caught by the type; the rest ride the spread, and `recur_weekdays` doing
+      // so is a row the database refuses outright (`tasks_recur_weekdays_weekly_only`).
+      ...NO_RULE_PARAMS,
       ...asOccurrence(orig.recurParentId, occurrenceDateOf(orig)),
     },
   }
@@ -531,19 +536,22 @@ function noOccurrenceSurvives(
  *
  * That question has a **clock-free** answer, which is what lets it live in a planner that takes no
  * `today`: an unbounded Rule always produces more, so the Rule is spent only when it is bounded and
- * its whole window is excluded. Walking `[day, recurUntil]` is therefore the entire test. The
- * unbounded early return is load-bearing and cannot be dropped silently: `recurUntil` is
- * `string | null` and `occurrenceDates`' `horizonEnd` is `string`, so removing it is a type error
- * rather than a test failure.
+ * every date it will ever yield is excluded. `allOccurrenceDates` is therefore the entire test.
+ * The unbounded early return is load-bearing and cannot be dropped silently: that function takes a
+ * `BoundedRule`, so removing the guard is a type error rather than a test failure. Bounded means
+ * by date **or** by count — a Rule that ends after N Occurrences ends just as definitely as one
+ * that ends on a date, and reading `recurUntil !== null` as the test (which it was, until counts
+ * existed) would leave every counted Series unable to retire.
  *
  * The cost is **asymmetric**, and only the `true` side is bounded by the exclusions: returning
  * `true` means every date the walk visited was excluded, so it cannot outrun `excludedDates.length`.
- * `false` gets no matching shortcut — `occurrenceDates` collects the whole set rather than stopping
- * at the first unexcluded date, so an unspent Rule walks its entire window, capped only by the
+ * `false` gets no matching shortcut — the walk collects the whole set rather than stopping at the
+ * first unexcluded date, so an unspent Rule walks its entire window, capped only by the
  * `MAX_OCCURRENCES` ceiling every caller shares (a weekly Rule bounded a year out walks 52; a daily
- * one bounded six years out stops at 1000). Cheap for the Rules users actually write, which is why
- * there is no short-circuit here: adding one means a second walk or an `occurrenceDates` variant,
- * and duplicating that module's fast-forward and monthly-overflow rules to save microseconds is the
+ * one bounded six years out stops at 1000; a counted Rule walks exactly its count, which is why the
+ * count shares that ceiling). Cheap for the Rules users actually write, which is why there is no
+ * short-circuit here: adding one means a second walk or an `occurrenceDates` variant, and
+ * duplicating that module's fast-forward and monthly-overflow rules to save microseconds is the
  * worse trade.
  *
  * **Deliberately partial.** A Rule dead by *clock* rather than by exclusion — capped in the past,
@@ -552,25 +560,29 @@ function noOccurrenceSurvives(
  * predicate one to catch a case that is narrow in practice (a Series that merely expires keeps its
  * past Occurrence rows, so it still owns something) is a bad trade for the property above.
  *
- * An unscheduled anchor with a bound reports `true`. It terminates at once — `parseDay('inbox')` is
- * an invalid date whose `ymd` sorts past any end — and deleting such a definition is right anyway:
- * it yields no Occurrence Dates at all (`missingInstanceDates` returns `[]` for one, and
- * `TaskEditor` has refused to save one since #209). It is also unreachable from the one caller,
- * which needs an Occurrence to delete and such a Series has none. Documented rather than guarded.
+ * An unscheduled anchor with a bound reports `true`, and deleting such a definition is right: it
+ * yields no Occurrence Dates at all (`missingInstanceDates` returns `[]` for one, and `TaskEditor`
+ * has refused to save one since #209). The walk now says so outright rather than terminating by
+ * accident on `ymd`'s 'NaN-NaN-NaN' sorting past every real date — an accident that did not
+ * survive counts, which terminate on a tally instead of a date. It is unreachable from the one
+ * caller either way, which needs an Occurrence to delete and such a Series has none.
  */
 function ruleIsSpent(template: SeriesDefinition): boolean {
-  if (template.recurUntil === null) return false
-  return (
-    occurrenceDates(
-      template.recurFreq,
-      template.recurInterval,
-      template.day,
-      template.recurUntil,
-      template.day,
-      template.recurUntil,
-      template.excludedDates,
-    ).length === 0
-  )
+  if (!isBoundedRule(template)) return false
+  return allOccurrenceDates(template).length === 0
+}
+
+/**
+ * The Rule fields that end a Series on `lastDay` — both of them, because a Rule has two ends.
+ *
+ * Capping the date without clearing the count leaves a Rule whose two ends disagree: the cap says
+ * "until the 7th" and the count still says "four Occurrences", and the count would then be
+ * reinterpreted against the shortened window. Converting the count to the date is the simplest
+ * correct reading — the trim is what established the end, so the date is the end — and it is why
+ * both trimming planners go through here rather than each spreading `recurUntil` on its own.
+ */
+function cappedAt(lastDay: string): Pick<SeriesDefinition, 'recurUntil' | 'recurCount'> {
+  return { recurUntil: lastDay, recurCount: null }
 }
 
 /**
@@ -617,7 +629,7 @@ export function planDeleteSeriesFrom(state: SeriesState, instance: Task): Series
 
   const nextTemplate: SeriesDefinition = {
     ...template,
-    recurUntil: ymd(addDays(parseDay(cut), -1)),
+    ...cappedAt(ymd(addDays(parseDay(cut), -1))),
   }
   const doomed = state.tasks.filter(
     (t) => t.recurParentId === template.id && isFromOccurrenceOnward(t, cut),
@@ -718,7 +730,7 @@ export function planEndSeriesAt(
   const later = (t: Task) => ofSeries(t) && occurrenceDateOf(t) > cut
   const nextTemplate: SeriesDefinition = {
     ...template,
-    recurUntil: ymd(addDays(parseDay(cut), -1)),
+    ...cappedAt(ymd(addDays(parseDay(cut), -1))),
   }
 
   return {
@@ -788,8 +800,9 @@ export function planPromoteToSeries(
 
   const first: Occurrence = {
     ...draft,
-    recurInterval: 1,
-    excludedDates: [],
+    // Same spread, same hazard: the draft is the Rule the user just wrote, and this row is its
+    // first Occurrence rather than its definition.
+    ...NO_RULE_PARAMS,
     ...asOccurrence(template.id, draft.day),
   }
 

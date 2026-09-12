@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
+  allOccurrenceDates,
+  isBoundedRule,
   occurrenceDates,
   missingInstanceDates,
   missingInstances,
@@ -11,11 +13,11 @@ import { addDays, parseDay, ymd } from '../lib/dates'
 
 describe('occurrenceDates', () => {
   it('returns nothing for freq none', () => {
-    expect(occurrenceDates('none', 1, '2026-07-01', null, '2026-07-01', '2026-12-31')).toEqual([])
+    expect(occurrenceDates(rule({ recurFreq: 'none' }), '2026-07-01', '2026-12-31')).toEqual([])
   })
 
   it('weekly steps by 7 days up to the horizon (inclusive)', () => {
-    expect(occurrenceDates('weekly', 1, '2026-07-01', null, '2026-07-01', '2026-07-29')).toEqual([
+    expect(occurrenceDates(rule(), '2026-07-01', '2026-07-29')).toEqual([
       '2026-07-01',
       '2026-07-08',
       '2026-07-15',
@@ -25,38 +27,37 @@ describe('occurrenceDates', () => {
   })
 
   it('honours the interval for daily', () => {
-    expect(occurrenceDates('daily', 2, '2026-07-01', null, '2026-07-01', '2026-07-07')).toEqual([
-      '2026-07-01',
-      '2026-07-03',
-      '2026-07-05',
-      '2026-07-07',
-    ])
+    expect(
+      occurrenceDates(rule({ recurFreq: 'daily', recurInterval: 2 }), '2026-07-01', '2026-07-07'),
+    ).toEqual(['2026-07-01', '2026-07-03', '2026-07-05', '2026-07-07'])
   })
 
   it('steps monthly', () => {
-    expect(occurrenceDates('monthly', 1, '2026-07-15', null, '2026-07-15', '2026-09-30')).toEqual([
-      '2026-07-15',
-      '2026-08-15',
-      '2026-09-15',
-    ])
+    expect(
+      occurrenceDates(
+        rule({ recurFreq: 'monthly', day: '2026-07-15' }),
+        '2026-07-15',
+        '2026-09-30',
+      ),
+    ).toEqual(['2026-07-15', '2026-08-15', '2026-09-15'])
   })
 
   it('stops at recur_until', () => {
-    expect(
-      occurrenceDates('weekly', 1, '2026-07-01', '2026-07-15', '2026-07-01', '2026-07-29'),
-    ).toEqual(['2026-07-01', '2026-07-08', '2026-07-15'])
+    expect(occurrenceDates(rule({ recurUntil: '2026-07-15' }), '2026-07-01', '2026-07-29')).toEqual(
+      ['2026-07-01', '2026-07-08', '2026-07-15'],
+    )
   })
 
   it('omits skipped dates', () => {
     expect(
-      occurrenceDates('weekly', 1, '2026-07-01', null, '2026-07-01', '2026-07-22', ['2026-07-08']),
+      occurrenceDates(rule({ excludedDates: ['2026-07-08'] }), '2026-07-01', '2026-07-22'),
     ).toEqual(['2026-07-01', '2026-07-15', '2026-07-22'])
   })
 
   it('emits nothing before `from`, keeping the anchor as the phase (#210)', () => {
     // Anchor 07-01 weekly lands on 01, 08, 15, 22, 29. `from` filters that set; it does not
     // re-anchor the rule, which is why the first result is 07-22 rather than 07-20.
-    expect(occurrenceDates('weekly', 1, '2026-07-01', null, '2026-07-20', '2026-08-05')).toEqual([
+    expect(occurrenceDates(rule(), '2026-07-20', '2026-08-05')).toEqual([
       '2026-07-22',
       '2026-07-29',
       '2026-08-05',
@@ -66,36 +67,34 @@ describe('occurrenceDates', () => {
   it('keeps interval phase when `from` falls between two occurrences', () => {
     // Every 3 days from 07-01: 01, 04, 07, 10, 13, 16, 19, 22. A `from` that re-anchored the rule
     // would answer 07-20 and 07-23 instead.
-    expect(occurrenceDates('daily', 3, '2026-07-01', null, '2026-07-20', '2026-07-25')).toEqual([
-      '2026-07-22',
-      '2026-07-25',
-    ])
+    expect(
+      occurrenceDates(rule({ recurFreq: 'daily', recurInterval: 3 }), '2026-07-20', '2026-07-25'),
+    ).toEqual(['2026-07-22', '2026-07-25'])
   })
 
   it('reaches the window from a years-old anchor instead of truncating (#210)', () => {
     // ~1,277 daily steps separate the anchor from the window. The old iteration ceiling stopped
     // the walk at 1,000 — still in 2025 — so this window came back empty, with nothing reported.
-    expect(occurrenceDates('daily', 1, '2023-01-01', null, '2026-07-01', '2026-07-04')).toEqual([
-      '2026-07-01',
-      '2026-07-02',
-      '2026-07-03',
-      '2026-07-04',
-    ])
+    expect(
+      occurrenceDates(rule({ recurFreq: 'daily', day: '2023-01-01' }), '2026-07-01', '2026-07-04'),
+    ).toEqual(['2026-07-01', '2026-07-02', '2026-07-03', '2026-07-04'])
   })
 
   it('does not re-phase a monthly rule whose anchor overflows a short month', () => {
     // `addMonths` overflows rather than clamps, so a walk from Jan 31 reaches Mar 3 (not Feb 28)
     // and carries that drift onward. Jumping n months in one go would answer the 31st instead —
     // which is why the monthly walk is never fast-forwarded.
-    expect(occurrenceDates('monthly', 1, '2026-01-31', null, '2026-05-01', '2026-07-31')).toEqual([
-      '2026-05-03',
-      '2026-06-03',
-      '2026-07-03',
-    ])
+    expect(
+      occurrenceDates(
+        rule({ recurFreq: 'monthly', day: '2026-01-31' }),
+        '2026-05-01',
+        '2026-07-31',
+      ),
+    ).toEqual(['2026-05-03', '2026-06-03', '2026-07-03'])
   })
 
   it('ignores a `from` that precedes the anchor', () => {
-    expect(occurrenceDates('weekly', 1, '2026-07-01', null, '2026-01-01', '2026-07-15')).toEqual([
+    expect(occurrenceDates(rule(), '2026-01-01', '2026-07-15')).toEqual([
       '2026-07-01',
       '2026-07-08',
       '2026-07-15',
@@ -127,10 +126,218 @@ describe('occurrenceDates', () => {
       ['weekly', 2, '2023-01-01', '2026-07-01', '2026-09-01'],
     ]
     for (const [freq, interval, anchor, from, to] of cases) {
-      expect(occurrenceDates(freq, interval, anchor, null, from, to)).toEqual(
-        naive(freq, interval, anchor, from, to),
-      )
+      expect(
+        occurrenceDates(rule({ recurFreq: freq, recurInterval: interval, day: anchor }), from, to),
+      ).toEqual(naive(freq, interval, anchor, from, to))
     }
+  })
+})
+
+// 2026-07-01 is a Wednesday; 07-06 and 07-13 are Mondays, 07-03 and 07-10 Fridays. Every
+// expectation below is a literal, so a change to the walk shows up as a diff of dates.
+describe('occurrenceDates with a weekday set', () => {
+  const weekly = (over: Partial<RecurRule> = {}) => rule({ recurFreq: 'weekly', ...over })
+
+  it('lands on every chosen weekday within each week block', () => {
+    expect(occurrenceDates(weekly({ recurWeekdays: [1, 5] }), '2026-07-01', '2026-07-14')).toEqual([
+      '2026-07-01',
+      '2026-07-03',
+      '2026-07-06',
+      '2026-07-08',
+      '2026-07-10',
+      '2026-07-13',
+    ])
+  })
+
+  it("always includes the anchor's own weekday, listed or not", () => {
+    // Mondays only, from a Wednesday anchor. Wednesday is still produced: the Series' first
+    // Occurrence is its anchor (planPromoteToSeries keeps that very row), so a Rule that skipped
+    // it would leave that Occurrence Date unfilled forever. See effectiveWeekdays.
+    expect(occurrenceDates(weekly({ recurWeekdays: [1] }), '2026-07-01', '2026-07-14')).toEqual([
+      '2026-07-01',
+      '2026-07-06',
+      '2026-07-08',
+      '2026-07-13',
+    ])
+  })
+
+  it('counts the interval in week blocks measured from the anchor', () => {
+    // Every other week on Fri, anchored Wed 07-01. Block 0 is 07-01..07-07 and block 1 is
+    // 07-15..07-21, so the whole of 07-08..07-14 is off — including its Wednesday and Friday.
+    expect(
+      occurrenceDates(weekly({ recurInterval: 2, recurWeekdays: [5] }), '2026-07-01', '2026-07-21'),
+    ).toEqual(['2026-07-01', '2026-07-03', '2026-07-15', '2026-07-17'])
+  })
+
+  it('reads the weekday list as a set, so duplicates and order change nothing', () => {
+    expect(
+      occurrenceDates(weekly({ recurWeekdays: [5, 1, 5, 1] }), '2026-07-01', '2026-07-14'),
+    ).toEqual(occurrenceDates(weekly({ recurWeekdays: [1, 5] }), '2026-07-01', '2026-07-14'))
+  })
+
+  it('filters by the window without re-phasing the blocks', () => {
+    // Same Rule as the first case; only the window moves. A window that re-anchored the blocks
+    // would start counting weeks at 07-07 and answer 07-07/07-09/07-12 instead.
+    expect(occurrenceDates(weekly({ recurWeekdays: [1, 5] }), '2026-07-07', '2026-07-14')).toEqual([
+      '2026-07-08',
+      '2026-07-10',
+      '2026-07-13',
+    ])
+  })
+
+  it('drops Excluded Dates and stops at recurUntil like any other Rule', () => {
+    expect(
+      occurrenceDates(
+        weekly({ recurWeekdays: [1, 5], recurUntil: '2026-07-10', excludedDates: ['2026-07-03'] }),
+        '2026-07-01',
+        '2026-07-31',
+      ),
+    ).toEqual(['2026-07-01', '2026-07-06', '2026-07-08', '2026-07-10'])
+  })
+
+  it('is ignored on a daily Rule, which has no week block', () => {
+    // The database refuses this combination outright; the walk answers coherently rather than
+    // depending on it to.
+    expect(
+      occurrenceDates(
+        rule({ recurFreq: 'daily', recurWeekdays: [1, 5] }),
+        '2026-07-01',
+        '2026-07-04',
+      ),
+    ).toEqual(['2026-07-01', '2026-07-02', '2026-07-03', '2026-07-04'])
+  })
+})
+
+describe('occurrenceDates with a count', () => {
+  const daily = (over: Partial<RecurRule> = {}) => rule({ recurFreq: 'daily', ...over })
+
+  it('stops after the given number of Occurrence Dates', () => {
+    expect(occurrenceDates(daily({ recurCount: 3 }), '2026-07-01', '2026-12-31')).toEqual([
+      '2026-07-01',
+      '2026-07-02',
+      '2026-07-03',
+    ])
+  })
+
+  it("counts from the Series' first Occurrence, not from the start of the window", () => {
+    // The count and the materialization window are anchored differently on purpose — #210 moved
+    // the window's lower bound to today. Counting from `from` would answer three dates here, and
+    // would silently lengthen every Rule whose Series began before the window.
+    expect(occurrenceDates(daily({ recurCount: 3 }), '2026-07-03', '2026-12-31')).toEqual([
+      '2026-07-03',
+    ])
+  })
+
+  it('is spent by Excluded Dates rather than extended past them', () => {
+    // The count bounds what the Rule generates; exclusions then remove from that set. Deleting one
+    // Occurrence of a five-Occurrence Series leaves four, not five.
+    expect(
+      occurrenceDates(
+        daily({ recurCount: 5, excludedDates: ['2026-07-02'] }),
+        '2026-07-01',
+        '2026-12-31',
+      ),
+    ).toEqual(['2026-07-01', '2026-07-03', '2026-07-04', '2026-07-05'])
+  })
+
+  it('yields to recurUntil when the date comes first', () => {
+    expect(
+      occurrenceDates(
+        daily({ recurCount: 10, recurUntil: '2026-07-03' }),
+        '2026-07-01',
+        '2026-12-31',
+      ),
+    ).toEqual(['2026-07-01', '2026-07-02', '2026-07-03'])
+  })
+
+  it('wins over recurUntil when the count comes first', () => {
+    expect(
+      occurrenceDates(
+        daily({ recurCount: 2, recurUntil: '2026-07-31' }),
+        '2026-07-01',
+        '2026-12-31',
+      ),
+    ).toEqual(['2026-07-01', '2026-07-02'])
+  })
+
+  it('counts each chosen weekday, not each week', () => {
+    // Two weekdays a week, so a count of 5 spans two blocks and stops part-way through the second.
+    expect(
+      occurrenceDates(
+        rule({ recurFreq: 'weekly', recurWeekdays: [1, 5], recurCount: 5 }),
+        '2026-07-01',
+        '2026-12-31',
+      ),
+    ).toEqual(['2026-07-01', '2026-07-03', '2026-07-06', '2026-07-08', '2026-07-10'])
+  })
+
+  it('counts weekday Occurrences from the anchor even when the window starts later', () => {
+    // The blocked walk has its own tally, and this is the case that separates it from a tally
+    // kept over the window: counting in-window would reach 07-17 instead of stopping at 07-10.
+    expect(
+      occurrenceDates(
+        rule({ recurFreq: 'weekly', recurWeekdays: [1, 5], recurCount: 5 }),
+        '2026-07-07',
+        '2026-12-31',
+      ),
+    ).toEqual(['2026-07-08', '2026-07-10'])
+  })
+
+  it('yields nothing for an unscheduled anchor rather than NaN dates', () => {
+    // A behavioural assertion, not a test of the guard inside the walk: two accidents of string
+    // comparison against the 'inbox' sentinel produce this same answer, so removing that guard
+    // leaves this green. Pinned anyway because the answer itself matters — an unscheduled Series
+    // has been unsavable since #209, and a Rule that yielded dates for one would materialize them.
+    expect(
+      occurrenceDates(rule({ day: 'inbox', recurCount: 3 }), '2026-07-01', '2026-12-31'),
+    ).toEqual([])
+  })
+  it('still honours the horizon, which truncates the answer without spending the Rule', () => {
+    expect(occurrenceDates(daily({ recurCount: 100 }), '2026-07-01', '2026-07-03')).toEqual([
+      '2026-07-01',
+      '2026-07-02',
+      '2026-07-03',
+    ])
+  })
+})
+
+describe('allOccurrenceDates', () => {
+  it('is every date a date-bounded Rule will ever yield', () => {
+    const r = rule({ recurUntil: '2026-07-22' })
+    expect(isBoundedRule(r)).toBe(true)
+    expect(isBoundedRule(r) && allOccurrenceDates(r)).toEqual([
+      '2026-07-01',
+      '2026-07-08',
+      '2026-07-15',
+      '2026-07-22',
+    ])
+  })
+
+  it('is every date a count-bounded Rule will ever yield, with no end date at all', () => {
+    // The case a recurUntil-shaped horizon cannot express, and the reason this exists beside
+    // occurrenceDates rather than being folded into it.
+    const r = rule({ recurCount: 3, recurUntil: null })
+    expect(isBoundedRule(r) && allOccurrenceDates(r)).toEqual([
+      '2026-07-01',
+      '2026-07-08',
+      '2026-07-15',
+    ])
+  })
+
+  it('is empty when every date the Rule yields is excluded', () => {
+    // What ruleIsSpent reads: a Rule that can produce nothing more.
+    const r = rule({ recurCount: 2, excludedDates: ['2026-07-01', '2026-07-08'] })
+    expect(isBoundedRule(r) && allOccurrenceDates(r)).toEqual([])
+  })
+
+  it('is empty for an unscheduled anchor, which yields no Occurrence Dates at all', () => {
+    const r = rule({ day: 'inbox', recurCount: 5 })
+    expect(isBoundedRule(r) && allOccurrenceDates(r)).toEqual([])
+  })
+
+  it('reports an unbounded Rule as unbounded', () => {
+    expect(isBoundedRule(rule())).toBe(false)
+    expect(isBoundedRule(rule({ recurUntil: null, recurCount: null }))).toBe(false)
   })
 })
 
@@ -140,6 +347,8 @@ function rule(over: Partial<RecurRule> = {}): RecurRule {
     recurFreq: 'weekly',
     recurInterval: 1,
     recurUntil: null,
+    recurCount: null,
+    recurWeekdays: [],
     excludedDates: [],
     ...over,
   }
@@ -186,6 +395,42 @@ describe('missingInstanceDates', () => {
     ).toEqual(['2026-06-30', '2026-07-01', '2026-07-02'])
   })
 
+  it('counts a bounded Rule from its anchor, not from the start of the horizon', () => {
+    // Daily from 06-28 ending after 10 Occurrences: 06-28 through 07-07. Today is 07-01, so the
+    // window opens at 06-30 (one grace day). Counting from the window instead would reach 07-09
+    // and hand the user two Occurrences the Rule never had -- the trap the issue names, because
+    // #210 anchored the window at today while the count stayed anchored at the Series.
+    expect(
+      missingInstanceDates(
+        rule({ day: '2026-06-28', recurFreq: 'daily', recurCount: 10 }),
+        [],
+        '2026-07-01',
+        14,
+      ),
+    ).toEqual([
+      '2026-06-30',
+      '2026-07-01',
+      '2026-07-02',
+      '2026-07-03',
+      '2026-07-04',
+      '2026-07-05',
+      '2026-07-06',
+      '2026-07-07',
+    ])
+  })
+
+  it('materializes only the chosen weekdays', () => {
+    // today 07-01 (Wed), horizon 14 -> window 06-30..07-15. Anchor 07-01 with Mon and Fri added.
+    expect(missingInstanceDates(rule({ recurWeekdays: [1, 5] }), [], '2026-07-01', 14)).toEqual([
+      '2026-07-01',
+      '2026-07-03',
+      '2026-07-06',
+      '2026-07-08',
+      '2026-07-10',
+      '2026-07-13',
+      '2026-07-15',
+    ])
+  })
   it('is empty for a non-recurring or unscheduled template', () => {
     expect(missingInstanceDates(rule({ recurFreq: 'none' }), [], '2026-07-01', 90)).toEqual([])
     expect(missingInstanceDates(rule({ day: 'inbox' }), [], '2026-07-01', 90)).toEqual([])

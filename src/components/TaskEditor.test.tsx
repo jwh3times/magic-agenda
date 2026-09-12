@@ -510,3 +510,162 @@ test('editor character limits allow full emoji titles and trim pasted excess by 
     expect.objectContaining({ title: '🎉'.repeat(500), description: '🎉'.repeat(20000) }),
   )
 })
+
+/** A standalone Task, so a Rule change saves directly instead of raising the scope prompt. */
+function standalone(over: Partial<TaskDraft> = {}): TaskDraft {
+  return { ...mkInstance({ recurParentId: null, occurrenceDate: null }), ...over }
+}
+
+// The fixture day, 2026-07-10, is a Friday — so Friday is the anchor weekday throughout.
+test('weekday chips appear only for a weekly Rule', async () => {
+  const user = userEvent.setup()
+  renderEditor(standalone({ recurFreq: 'weekly' }))
+  expect(screen.getByRole('group', { name: 'Repeat on' })).toBeInTheDocument()
+
+  await user.selectOptions(screen.getByRole('combobox', { name: '' }), 'monthly')
+  expect(screen.queryByRole('group', { name: 'Repeat on' })).not.toBeInTheDocument()
+})
+
+test("the anchor's own weekday is shown on and cannot be switched off", async () => {
+  const user = userEvent.setup()
+  const { onSave } = renderEditor(standalone({ recurFreq: 'weekly' }))
+
+  const friday = screen.getByRole('button', { name: /^Friday/ })
+  expect(friday).toHaveAttribute('aria-pressed', 'true')
+  expect(friday).toBeDisabled()
+
+  await user.click(friday)
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  // Still empty, not [5]: an empty set already means "the anchor's weekday", and storing it would
+  // make the Rule's meaning depend on which day it happened to be created on.
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ recurWeekdays: [] }))
+})
+
+test('ticking other weekdays saves them in a stable order', async () => {
+  const user = userEvent.setup()
+  const { onSave } = renderEditor(standalone({ recurFreq: 'weekly' }))
+
+  await user.click(screen.getByRole('button', { name: 'Wednesday' }))
+  await user.click(screen.getByRole('button', { name: 'Monday' }))
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+
+  // Sorted, not click-ordered: changedTaskKeys compares arrays by content, so an unstable order
+  // would make re-ticking the same days look like an edit.
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ recurWeekdays: [1, 3] }))
+})
+
+test('a weekday can be unticked again', async () => {
+  const user = userEvent.setup()
+  const { onSave } = renderEditor(standalone({ recurFreq: 'weekly', recurWeekdays: [1, 3] }))
+
+  await user.click(screen.getByRole('button', { name: 'Monday' }))
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ recurWeekdays: [3] }))
+})
+
+test('changing away from weekly clears the weekday set rather than carrying it', async () => {
+  const user = userEvent.setup()
+  const { onSave } = renderEditor(standalone({ recurFreq: 'weekly', recurWeekdays: [1, 3] }))
+
+  await user.selectOptions(screen.getByRole('combobox', { name: '' }), 'daily')
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  // tasks_recur_weekdays_weekly_only refuses the row otherwise: this is a save that fails, not a
+  // field that is quietly ignored.
+  expect(onSave).toHaveBeenCalledWith(
+    expect.objectContaining({ recurFreq: 'daily', recurWeekdays: [] }),
+  )
+})
+
+test('the two ways a Rule can end are offered as a choice, never both at once', async () => {
+  const user = userEvent.setup()
+  const { onSave } = renderEditor(standalone({ recurFreq: 'weekly', recurUntil: '2026-12-31' }))
+
+  expect(screen.getByRole('radio', { name: 'On' })).toBeChecked()
+  expect(screen.getByLabelText('Number of repeats')).toBeDisabled()
+
+  await user.click(screen.getByRole('radio', { name: 'After' }))
+  expect(screen.getByLabelText('Repeat until')).toBeDisabled()
+
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ recurCount: 10, recurUntil: null }))
+})
+
+test('choosing an end date clears a count that was already set', async () => {
+  const user = userEvent.setup()
+  const { onSave } = renderEditor(standalone({ recurFreq: 'weekly', recurCount: 12 }))
+
+  expect(screen.getByRole('radio', { name: 'After' })).toBeChecked()
+  await user.click(screen.getByRole('radio', { name: 'On' }))
+  fireEvent.change(screen.getByLabelText('Repeat until'), { target: { value: '2026-12-31' } })
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+
+  expect(onSave).toHaveBeenCalledWith(
+    expect.objectContaining({ recurCount: null, recurUntil: '2026-12-31' }),
+  )
+})
+
+test('switching to an end date clears the count even before a date is chosen', async () => {
+  const user = userEvent.setup()
+  const { onSave } = renderEditor(standalone({ recurFreq: 'weekly', recurCount: 12 }))
+
+  await user.click(screen.getByRole('radio', { name: 'On' }))
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  // Without this the radio would say On while the saved Rule still ended after 12 repeats. The
+  // date field clears the count too, but only once it is touched -- a user who picks On and stops
+  // there would otherwise save a Rule that disagrees with the control they last used.
+  expect(onSave).toHaveBeenCalledWith(
+    expect.objectContaining({ recurCount: null, recurUntil: null }),
+  )
+})
+test('Never clears both ends', async () => {
+  const user = userEvent.setup()
+  const { onSave } = renderEditor(
+    standalone({ recurFreq: 'weekly', recurCount: 12, recurUntil: '2026-12-31' }),
+  )
+
+  await user.click(screen.getByRole('radio', { name: 'Never' }))
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  expect(onSave).toHaveBeenCalledWith(
+    expect.objectContaining({ recurCount: null, recurUntil: null }),
+  )
+})
+
+test('a count past the ceiling cannot be entered, so Save is never blocked by one', async () => {
+  const user = userEvent.setup()
+  const { onSave } = renderEditor(standalone({ recurFreq: 'weekly', recurCount: 5 }))
+
+  fireEvent.change(screen.getByLabelText('Number of repeats'), { target: { value: '99999' } })
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  // Clamped to MAX_OCCURRENCES on the way in, matching how the interval field already behaves --
+  // taskLimitError is the backstop for drafts that never went through this control.
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ recurCount: 1000 }))
+})
+
+test('editing an Occurrence Rule still asks about scope before saving', async () => {
+  const user = userEvent.setup()
+  const { onSave } = renderEditor(editing())
+
+  await user.click(screen.getByRole('button', { name: 'Wednesday' }))
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  await user.click(screen.getByRole('button', { name: 'This and all future' }))
+
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ recurWeekdays: [3] }), 'future')
+})
+
+test('the new Repeat controls are inert when the board is read-only', () => {
+  render(
+    <TestProviders>
+      <TaskEditor
+        initial={standalone({ recurFreq: 'weekly', recurCount: 5 })}
+        isNew={false}
+        onSave={vi.fn()}
+        onDelete={vi.fn()}
+        onClose={vi.fn()}
+        readOnly
+      />
+    </TestProviders>,
+  )
+  expect(screen.getByRole('button', { name: 'Monday' })).toBeDisabled()
+  expect(screen.getByRole('radio', { name: 'Never' })).toBeDisabled()
+  expect(screen.getByLabelText('Number of repeats')).toBeDisabled()
+})

@@ -8,11 +8,13 @@ import {
 } from '../types/task'
 import { newId } from '../lib/id'
 import { taskToRow, workflowStatusFromStorage } from './mappers'
+import { TASK_LIMITS } from './taskLimits'
 import type { Database } from '../types/database.types'
 
-export const EXPORT_VERSION = 3 as const
+export const EXPORT_VERSION = 4 as const
 const LEGACY_EXPORT_VERSION = 1 as const
 const LABEL_EXPORT_VERSION = 2 as const
+const LIFECYCLE_EXPORT_VERSION = 3 as const
 
 export interface ExportLabel {
   id: string
@@ -55,9 +57,20 @@ export type ExportTask = Omit<Task, 'occurrenceDate' | 'excludedDates' | 'reopen
   reopenStatus: ActiveWorkflowStatus | null
 }
 
+/**
+ * Frozen v3 shape: the Completion lifecycle, but no weekday set and no repeat count.
+ *
+ * v4 exists because those two fields change what a Task *is* on disk, and the alternative —
+ * writing them into a file still labelled v3 — would make one version number name two shapes. The
+ * cost of that is not theoretical: an older client's validator ignores unknown keys, so it would
+ * import a weekly Series and silently drop the weekdays it repeats on, producing a Series that
+ * looks right and repeats wrongly. A version it refuses outright is the better failure.
+ */
+export type ExportTaskV3 = Omit<ExportTask, 'recurWeekdays' | 'recurCount'>
+
 /** Frozen v1/v2 shape: stored `done` vocabulary plus the now-removed redundant boolean. */
 export type ExportTaskV2 = Omit<
-  ExportTask,
+  ExportTaskV3,
   'status' | 'completedAt' | 'reopenStatus' | 'archivedAt'
 > & {
   status: 'todo' | 'doing' | 'done'
@@ -82,6 +95,10 @@ function fromExportTask({ recurOriginDay, recurSkip, reopenStatus, ...rest }: Ex
   })
 }
 
+function fromV3Task(task: ExportTaskV3): Task {
+  return fromExportTask({ ...task, recurWeekdays: [], recurCount: null })
+}
+
 function fromPreV3Task({
   recurOriginDay,
   recurSkip,
@@ -95,6 +112,11 @@ function fromPreV3Task({
     completedAt: null,
     reopenStatus: 'todo',
     archivedAt: null,
+    // A pre-v3 file predates both Rule parameters, so it names neither. These are the values that
+    // mean "unlisted": no weekday set is the anchor's own weekday, and no count is a Rule that
+    // ends by date or not at all — which is what every v1 and v2 Series already meant.
+    recurWeekdays: [],
+    recurCount: null,
     occurrenceDate: recurOriginDay,
     excludedDates: recurSkip,
   })
@@ -117,6 +139,14 @@ export interface BoardExportV2 {
 }
 
 export interface BoardExportV3 {
+  version: typeof LIFECYCLE_EXPORT_VERSION
+  exportedAt: string
+  labels: ExportLabel[]
+  tasks: ExportTaskV3[]
+  templates: ExportTaskV3[]
+}
+
+export interface BoardExportV4 {
   version: typeof EXPORT_VERSION
   exportedAt: string
   labels: ExportLabel[]
@@ -130,7 +160,11 @@ export interface BoardExportV3 {
  * are ignored rather than interpreted as authority to overwrite destination Account Preferences.
  */
 export interface ImportBundle {
-  sourceVersion: typeof LEGACY_EXPORT_VERSION | typeof LABEL_EXPORT_VERSION | typeof EXPORT_VERSION
+  sourceVersion:
+    | typeof LEGACY_EXPORT_VERSION
+    | typeof LABEL_EXPORT_VERSION
+    | typeof LIFECYCLE_EXPORT_VERSION
+    | typeof EXPORT_VERSION
   exportedAt: string
   labels: ExportLabel[]
   tasks: Task[]
@@ -257,15 +291,41 @@ function isV2Task(value: unknown): value is ExportTaskV2 {
   )
 }
 
-function isV3Task(value: unknown): value is ExportTask {
+function isV3Task(value: unknown): value is ExportTaskV3 {
   if (!hasCommonTaskFields(value)) return false
-  const task = value as ExportTask
+  const task = value as ExportTaskV3
   return (
     hasLabelId(task) &&
     WORKFLOW_STATUSES.includes(task.status) &&
     (task.completedAt === null || typeof task.completedAt === 'string') &&
     (task.reopenStatus === null || task.reopenStatus === 'todo' || task.reopenStatus === 'doing') &&
     (task.archivedAt === null || typeof task.archivedAt === 'string')
+  )
+}
+
+/**
+ * v4 adds the two Rule parameters, validated against the **database's** constraints rather than
+ * looser ones.
+ *
+ * That is the point of checking them here at all. An import writes these rows straight through
+ * `taskToRow`, so a file this parser accepted and the database then refused would fail part-way
+ * through a batch — after `DataSection` has already written earlier ones. Mirroring
+ * `tasks_recur_weekdays_valid`, `tasks_recur_weekdays_weekly_only`, `tasks_recur_count_range` and
+ * `tasks_recur_count_requires_rule` turns that into a refusal before anything is written.
+ */
+function isV4Task(value: unknown): value is ExportTask {
+  if (!isV3Task(value)) return false
+  const task = value as ExportTask
+  return (
+    Array.isArray(task.recurWeekdays) &&
+    task.recurWeekdays.length <= 7 &&
+    task.recurWeekdays.every((day) => Number.isInteger(day) && day >= 0 && day <= 6) &&
+    (task.recurFreq === 'weekly' || task.recurWeekdays.length === 0) &&
+    (task.recurCount === null ||
+      (Number.isInteger(task.recurCount) &&
+        task.recurCount >= 1 &&
+        task.recurCount <= TASK_LIMITS.recurCount)) &&
+    (task.recurFreq !== 'none' || task.recurCount === null)
   )
 }
 
@@ -358,7 +418,17 @@ function parseV2(raw: BoardExportV2): ParseResult {
   }
 }
 
-function parseV3(raw: BoardExportV3): ParseResult {
+/**
+ * v3 and v4 differ only in the per-Task shape, so they share every envelope check. Keeping one
+ * body is what stops the two paths acquiring different Label or separation rules by accident --
+ * the pair of near-identical parsers is exactly how v1 and v2 drifted before.
+ */
+function parseLabelled<T>(
+  raw: BoardExportV3 | BoardExportV4,
+  sourceVersion: ImportBundle['sourceVersion'],
+  isTask: (value: unknown) => value is T,
+  toTask: (task: T) => Task,
+): ParseResult {
   if (typeof raw.exportedAt !== 'string') return { ok: false, error: 'Not a Magic Agenda export.' }
   if (!Array.isArray(raw.labels) || !Array.isArray(raw.tasks) || !Array.isArray(raw.templates)) {
     return { ok: false, error: 'Not a Magic Agenda export.' }
@@ -370,7 +440,7 @@ function parseV3(raw: BoardExportV3): ParseResult {
   if (labelIds.size !== raw.labels.length) {
     return { ok: false, error: 'The file contains duplicate Label definitions.' }
   }
-  if ([...raw.tasks, ...raw.templates].some((task) => !isV3Task(task))) {
+  if ([...raw.tasks, ...raw.templates].some((task) => !isTask(task))) {
     return { ok: false, error: 'The file contains a malformed task.' }
   }
   if (!arraysAreSeparated(raw.tasks, raw.templates)) {
@@ -386,11 +456,11 @@ function parseV3(raw: BoardExportV3): ParseResult {
   return {
     ok: true,
     data: {
-      sourceVersion: EXPORT_VERSION,
+      sourceVersion,
       exportedAt: raw.exportedAt,
       labels: raw.labels.map((label) => ({ ...label })),
-      tasks: raw.tasks.map(fromExportTask),
-      templates: raw.templates.map(fromExportTask),
+      tasks: (raw.tasks as T[]).map(toTask),
+      templates: (raw.templates as T[]).map(toTask),
     },
   }
 }
@@ -409,7 +479,12 @@ export function parseExport(json: string): ParseResult {
   const version = (raw as { version?: unknown }).version
   if (version === LEGACY_EXPORT_VERSION) return parseV1(raw as BoardExportV1)
   if (version === LABEL_EXPORT_VERSION) return parseV2(raw as BoardExportV2)
-  if (version === EXPORT_VERSION) return parseV3(raw as BoardExportV3)
+  if (version === LIFECYCLE_EXPORT_VERSION) {
+    return parseLabelled(raw as BoardExportV3, LIFECYCLE_EXPORT_VERSION, isV3Task, fromV3Task)
+  }
+  if (version === EXPORT_VERSION) {
+    return parseLabelled(raw as BoardExportV4, EXPORT_VERSION, isV4Task, fromExportTask)
+  }
   return { ok: false, error: 'Unsupported export version — export again from the current app.' }
 }
 

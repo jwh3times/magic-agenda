@@ -77,9 +77,16 @@ has already produced survive depends on the editing scope the removal was made u
 _Avoid_: template, parent task, repeating task
 
 **Recurrence Rule**:
-The schedule of a Recurring Series: how often it repeats, from which date, until when, and which
-dates are excluded.
+The schedule of a Recurring Series: how often it repeats, from which date, on which weekdays, until
+when or for how many Occurrences, and which dates are excluded. A Rule may end on a date, after a
+number of Occurrences, or not at all.
 _Avoid_: recurrence pattern, repeat config, schedule
+
+**Start Day**:
+The Scheduled Day of a Recurring Series' first Occurrence, which also fixes the Rule's phase — which
+dates an interval lands on, and where each week begins for a Rule that names weekdays. A weekly Rule
+always repeats on its Start Day's weekday, whether or not that weekday is among the ones named.
+_Avoid_: anchor, series start, first date
 
 **Occurrence**:
 A single Task that a Recurring Series produces for one Occurrence Date, edited, rescheduled,

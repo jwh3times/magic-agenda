@@ -35,6 +35,8 @@ export const FIELD_OWNER: { readonly [K in keyof Task]: FieldOwner } = {
 
   recurFreq: 'rule',
   recurInterval: 'rule',
+  recurWeekdays: 'rule',
+  recurCount: 'rule',
   recurUntil: 'rule',
   excludedDates: 'rule',
 
