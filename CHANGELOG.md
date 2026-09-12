@@ -12,6 +12,36 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.10.0] - 2026-09-12
+
+### Added
+
+- **A weekly repeat can pick its days.** "Every week on Monday, Wednesday and Friday" is now one
+  task instead of three, and it works with an interval too — every other week on Tuesday and
+  Thursday. The task's own start day is always one of them and its button is shown switched on and
+  locked, because the first occurrence of a repeating task _is_ the task you created: a repeat that
+  skipped its own start day would leave that date permanently empty.
+- **A repeat can end after a number of times instead of on a date.** "Repeat 10 times" no longer
+  needs you to work out which date that lands on. The editor offers Never, On a date, or After a
+  count as a single choice, so the two ways of ending can't quietly disagree.
+- Deleting one occurrence of a counted repeat leaves the rest alone rather than pushing the end
+  out — ask for ten and delete one, and nine remain. Shortening a counted repeat converts it to an
+  end date, so what you see afterwards is the end the trim actually created.
+
+### Changed
+
+- **Exported files are now version 4, and older files still import.** A file written before this
+  release imports exactly as it did, with both new settings taking the meaning they always had: no
+  chosen weekdays means "the day it starts on", and no count means "does not end after a number of
+  times". The version went up rather than quietly adding fields to version 3 — a file from this
+  release opened by an older copy of the app is refused outright instead of imported with its
+  weekdays silently dropped, which would have produced a task that looked right and repeated wrongly.
+- An import now refuses a file whose repeat settings the database would reject, before writing
+  anything, rather than failing part-way through with some tasks already saved.
+- The offline copy of a board is rebuilt on the next load after updating. Repeating tasks gained
+  two fields that an older cached copy cannot supply, so the stale copy is discarded rather than
+  loaded with them missing.
+
 ## [1.9.6] - 2026-09-11
 
 ### Internal
@@ -3093,7 +3123,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.9.6...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/jwh3times/magic-agenda/compare/v1.9.6...v1.10.0
 [1.9.6]: https://github.com/jwh3times/magic-agenda/compare/v1.9.5...v1.9.6
 [1.9.5]: https://github.com/jwh3times/magic-agenda/compare/v1.9.4...v1.9.5
 [1.9.4]: https://github.com/jwh3times/magic-agenda/compare/v1.9.3...v1.9.4

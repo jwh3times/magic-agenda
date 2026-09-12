@@ -432,10 +432,10 @@ Administrative writes without an authenticated user stamp a null editor. Existin
 not backfilled: Board containment cannot establish historical authorship. Revision records writes;
 the client does not yet enforce compare-and-swap checks to reject stale edits.
 
-Authenticated INSERT/UPDATE grants matched the `taskToRow` payload exactly, including `id` for
-PostgREST upserts and excluding attribution and database timestamps — until `recur_weekdays` and
-`recur_count` joined them a release ahead of the client that will populate them (see the
-recurrence section below). Grants can run ahead of the payload; they must never fall behind it — a
+Authenticated INSERT/UPDATE grants match the `taskToRow` payload exactly, including `id` for
+PostgREST upserts and excluding attribution and database timestamps. `recur_weekdays` and
+`recur_count` joined the grant a release ahead of the client — see the recurrence section below for
+what `taskToRow` now sends. Grants can run ahead of the payload; they must never fall behind it — a
 column the payload names and the grant omits is a `403` on every write, which is the whole reason
 the grant half of a column-half-only migration cannot be deferred to the client's release.
 **Leave `author_id` untouched in the UPDATE trigger:** the grant prevents client forgery, while the
@@ -533,8 +533,9 @@ attribution lives in `author_id` / `last_editor_id`.
 
 **`src/data/exportImport.ts` is the complete file-format and import-planning module.** V2 is a
 one-Board format containing Label definitions plus nullable Task/Series Label references; Account
-Preferences are excluded, and v1 settings are discarded on parse. `parseExport()` validates v1 or
-v2 into one `ImportBundle`; `referencedSourceLabels()` exposes only definitions that need choices;
+Preferences are excluded, and v1 settings are discarded on parse. `parseExport()` validates any
+supported version (v1 through v4) into one `ImportBundle`; `referencedSourceLabels()` exposes only
+definitions that need choices;
 and `prepareImport()` requires every one to map explicitly to an existing destination Label or
 Unlabeled before it freshens ids and produces destination-scoped rows. It never matches by name or
 creates Label definitions. `DataSection` owns only file/download and Supabase I/O, keeps the
@@ -639,7 +640,7 @@ Memberships joined to their Boards, resolves which one is open (`resolveSelectio
 caller of `src/board/role.ts`'s capabilities. `useTasks` takes a `boardId` and loads/writes
 `.eq('board_id', boardId)`; `taskToRow(task, boardId)` sends only `board_id` (`user_id` stopped
 being written in #199 — see the Labels section above); offline board snapshots are keyed per
-Board; realtime filters on `board_id`; and `DataSection`'s v3 import/export is scoped the same way.
+Board; realtime filters on `board_id`; and `DataSection`'s import/export is scoped the same way.
 
 **Client-side scoping is still not the boundary — it just no longer disagrees with it.** Everything
 above narrows what the client _asks_ for; RLS narrows what the server _allows_, and since the
@@ -1197,8 +1198,8 @@ the true instant does not exist. And it runs with `tasks_set_updated_at` and `ta
 column the proxy reads, and the second would bump `revision` on every row and stamp a null
 `last_editor_id`, rewriting the attribution #291 deliberately declined to backfill.
 
-Export v3 writes the canonical Workflow Status and preserves `completedAt`, `reopenStatus`, and
-`archivedAt`. The v1/v2 formats remain frozen with the `done` token and still parse without a
+Export (v3 onward) writes the canonical Workflow Status and preserves `completedAt`, `reopenStatus`,
+and `archivedAt`. The v1/v2 formats remain frozen with the `done` token and still parse without a
 Completion instant, because the file never recorded one and `parseExport` has no clock — but the
 write now supplies one, so **importing a legacy Completed Task dates its Completion to the import**.
 That is forced rather than chosen: a Completed Task must have a Completed At, and import time is the
