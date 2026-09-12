@@ -27,6 +27,8 @@ function row(over: Partial<TaskRow> = {}): TaskRow {
     recur_parent_id: null,
     recur_skip: [],
     recur_origin_day: null,
+    recur_weekdays: [],
+    recur_count: null,
     // Board containment, Label compatibility, attribution, and the compare-and-swap token.
     board_id: 'b1',
     label_id: null,

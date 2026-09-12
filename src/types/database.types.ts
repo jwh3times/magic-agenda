@@ -192,12 +192,14 @@ export type Database = {
           last_editor_id: string | null
           order_index: number
           pinned: boolean
+          recur_count: number | null
           recur_freq: string
           recur_interval: number
           recur_origin_day: string | null
           recur_parent_id: string | null
           recur_skip: Json
           recur_until: string | null
+          recur_weekdays: number[]
           reopen_status: string
           revision: number
           status: string
@@ -222,12 +224,14 @@ export type Database = {
           last_editor_id?: string | null
           order_index?: number
           pinned?: boolean
+          recur_count?: number | null
           recur_freq?: string
           recur_interval?: number
           recur_origin_day?: string | null
           recur_parent_id?: string | null
           recur_skip?: Json
           recur_until?: string | null
+          recur_weekdays?: number[]
           reopen_status?: string
           revision?: number
           status?: string
@@ -252,12 +256,14 @@ export type Database = {
           last_editor_id?: string | null
           order_index?: number
           pinned?: boolean
+          recur_count?: number | null
           recur_freq?: string
           recur_interval?: number
           recur_origin_day?: string | null
           recur_parent_id?: string | null
           recur_skip?: Json
           recur_until?: string | null
+          recur_weekdays?: number[]
           reopen_status?: string
           revision?: number
           status?: string

@@ -12,6 +12,24 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.9.6] - 2026-09-11
+
+### Internal
+
+- **Two Recurrence Rule columns land a release ahead of the feature that uses them.** Repeating
+  tasks can currently say daily, weekly, or monthly, with an interval and an optional end date.
+  Specific weekdays (Mon/Wed/Fri) and "end after N repeats" need somewhere to live first, so the
+  database gains a weekday set and a repeat count, plus the constraints that keep both honest.
+  Nothing in the app reads or writes them yet and nothing visible changes.
+- **The split is not tidiness — it is the only order that works.** Database migrations and the site
+  build are deployed by two workflows that race on every merge, so a version of the app that named
+  a column the database did not yet have would be refused on every save for however long the race
+  took to settle. The columns go first, with defaults chosen so the version running today keeps
+  writing valid rows across the whole window.
+- The constraints refuse the shapes a careless write would produce: a weekday set on a task that
+  does not repeat weekly, a repeat count on one that does not repeat at all, a count larger than
+  the number of occurrences the app will ever generate for it.
+
 ## [1.9.5] - 2026-09-11
 
 ### Docs
@@ -3075,7 +3093,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.9.5...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.9.6...HEAD
+[1.9.6]: https://github.com/jwh3times/magic-agenda/compare/v1.9.5...v1.9.6
 [1.9.5]: https://github.com/jwh3times/magic-agenda/compare/v1.9.4...v1.9.5
 [1.9.4]: https://github.com/jwh3times/magic-agenda/compare/v1.9.3...v1.9.4
 [1.9.3]: https://github.com/jwh3times/magic-agenda/compare/v1.9.2...v1.9.3
