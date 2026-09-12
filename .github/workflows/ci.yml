@@ -155,10 +155,13 @@ jobs:
             echo "No auth-config changes in this PR." | tee -a "$GITHUB_STEP_SUMMARY"
             echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
+      # Derived from the exact `supabase` devDependency so a CLI bump needs no workflow edit (#338).
+      - id: cli
+        run: echo "version=$(node -p "require('./package.json').devDependencies.supabase")" >> "$GITHUB_OUTPUT"
       - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3
         if: steps.paths.outputs.changed == 'true'
         with:
-          version: 2.117.0
+          version: ${{ steps.cli.outputs.version }}
       - name: Link project
         if: steps.paths.outputs.changed == 'true'
         run: supabase link --project-ref "$SUPABASE_PROJECT_ID"

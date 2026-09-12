@@ -278,6 +278,16 @@ only for the factor that generated it; and it explains itself rather than leavin
 disabled button when the gate says a code is owed but the account's factor list comes back empty
 (the last one was removed from another device between sign-in and this render).
 
+Its copy tells a locked-out user to contact support, and
+[the two-factor lockout runbook](docs/runbooks/two-factor-lockout.md) is what support then does —
+rehearsed against a local stack rather than reasoned about. Two findings there are not guessable
+from this code: removal must go through GoTrue's admin API rather than a `delete` from
+`auth.mfa_factors`, because `auth.mfa_amr_claims` has **no** foreign key to that table and the raw
+delete strands the `totp` claim (`auth.mfa_challenges` does cascade, so it is clean either way);
+and removing the factor **does not release a user already sitting on this screen**, because
+`getAssuranceLevel()` reads the stored JWT rather than the server — they stay gated until they sign
+out or their token refreshes.
+
 `src/components/TwoFactorSection.tsx` is enrollment, mounted on `SettingsPage` as `security` /
 "Two-factor authentication" between `data` and `danger`. Two rules there are easy to get backwards:
 **an abandoned enrollment must be unenrolled, not merely forgotten** — `enrollTotp` writes a real,
@@ -1661,9 +1671,19 @@ uuid — but a default ACL is a template, so it applies to the first one anybody
 
 ## When changing Supabase config
 
-Keep the five `supabase/setup-cli` version pins in `.github/workflows/` aligned with the exact
-`supabase` devDependency in `package.json`; `scripts/workflow-pins.test.ts` rejects drift. Actions
-use full commit SHAs with version comments, updated through Dependabot’s `github-actions` ecosystem.
+The five `supabase/setup-cli` steps in `.github/workflows/` **derive** their CLI version from the
+exact `supabase` devDependency at run time (an `id: cli` step reading `package.json` into
+`$GITHUB_OUTPUT`), so a Dependabot bump of the CLI needs no workflow edit. It used to be written out
+by hand in five places, which made every such bump red on arrival and stuck — the bot cannot edit
+workflows, so the PR stayed failing until someone aligned them (#335, fixed by #338). Two things
+follow. **The devDependency must stay an exact version**: setup-cli takes a bare version string, so
+a range would be passed straight through and fail at install time, and nothing else in the repo
+requires that pin to be exact — `scripts/workflow-pins.test.ts` is what does. And that test now
+asserts the **wiring** rather than a literal, checking the producer step as well as the input,
+because a version expression naming a step that does not exist resolves to the empty string, which
+setup-cli reads as "latest". Actions still use full commit SHAs with version comments, updated
+through Dependabot’s `github-actions` ecosystem; this changed the `version:` input only, never a
+`uses:` reference.
 
 `supabase/config.toml`'s `[auth]` tree describes **production** exactly (site URL, redirect
 allow-list, password policy, OTP settings, rate limits, the Resend SMTP block, the Google OAuth

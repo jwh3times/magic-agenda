@@ -12,7 +12,7 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
-## [1.9.3] - 2026-09-11
+## [1.9.5] - 2026-09-11
 
 ### Docs
 
@@ -29,13 +29,51 @@ No unreleased changes.
 - The approval gate is unchanged in substance. The maintainer still cannot approve a push they have
   not seen — they now read the diff locally rather than in a transcript.
 
+## [1.9.4] - 2026-09-11
+
+### Docs
+
+- **There is now a procedure behind "contact support".** Two-factor shipped in 1.9.0 against a
+  provider that issues no backup codes, so a user who loses their authenticator cannot recover
+  alone and both the sign-in gate and the settings page tell them to ask for help. Nothing
+  documented what happens next, which left the person answering that request working it out under
+  time pressure with someone already locked out of their account. The new runbook was rehearsed end
+  to end rather than reasoned about.
+- Two of its findings would not have been guessed. Removing the factor must go through the auth
+  provider's admin API rather than deleting the row directly — both work, but the direct delete
+  strands a record the admin path cleans up. And removing it does **not** release a user who is
+  already sitting on the code prompt: their session keeps its own copy of the answer until they
+  sign out or it refreshes, so telling them to sign in again is part of the fix rather than an
+  afterthought.
+- The runbook is explicit about the one step it could not establish by rehearsal — how to confirm
+  the requester really is the account holder, which is a policy judgement rather than a measurable
+  fact, and is the step most likely to be skipped in a hurry.
+
+## [1.9.3] - 2026-09-11
+
+### Internal
+
+- **A Supabase CLI update is no longer born failing.** CI installs the CLI in five workflows, and
+  each one used to repeat the version as a literal copied from `package.json`. The test that keeps
+  those in step then failed every automated CLI bump on arrival, and stayed failing until someone
+  edited five files by hand — which the bot that opened the update cannot do, so a dependency
+  update nobody had time to nurse could sit indefinitely. Each workflow now reads the version out
+  of `package.json` when it runs.
+- The test that guarded the old duplication now asserts the wiring instead, checking that the step
+  producing the version exists as well as the input consuming it: an expression naming a step that
+  does not exist resolves to an empty string, which the install action would quietly read as
+  "latest". Its check that the pinned dependency is an exact version rather than a range became
+  load-bearing in the process, because that value is now passed through verbatim.
+- Pinned action references are untouched and remain full commit SHAs; only the version input
+  changed.
+
 ## [1.9.2] - 2026-09-11
 
 ### Internal
 
 - Dependency updates: `@supabase/supabase-js` 2.116.0, `@types/node` 26.5.0, `oxlint` 1.82.0, and
   the Supabase CLI 2.117.0. The CLI bump also required the five `supabase/setup-cli` version inputs
-  in the workflows to be realigned by hand.
+  in the workflows to be realigned by hand — the toil that [1.9.3] removes.
 
 ## [1.9.1] - 2026-09-11
 
@@ -3037,7 +3075,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.9.3...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.9.5...HEAD
+[1.9.5]: https://github.com/jwh3times/magic-agenda/compare/v1.9.4...v1.9.5
+[1.9.4]: https://github.com/jwh3times/magic-agenda/compare/v1.9.3...v1.9.4
 [1.9.3]: https://github.com/jwh3times/magic-agenda/compare/v1.9.2...v1.9.3
 [1.9.2]: https://github.com/jwh3times/magic-agenda/compare/v1.9.1...v1.9.2
 [1.9.1]: https://github.com/jwh3times/magic-agenda/compare/v1.9.0...v1.9.1
