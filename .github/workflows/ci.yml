@@ -329,10 +329,10 @@ jobs:
       # Playwright writes NOTHING for a missing baseline -- no `-actual.png` -- so the first run of a
       # new canary produced no usable image (measured on #280's first run: ten failures, zero
       # candidates, only generic `test-failed-1.png` captures that are neither full-page nor taken
-      # with the screenshot options). `missing` writes a new baseline at its real path and never
-      # overwrites an existing one, so a changed baseline still fails and still yields `-actual.png`.
-      # The next step, not the test result, is what refuses to let a written-but-uncommitted
-      # baseline pass silently.
+      # with the screenshot options). Under `missing` the canary still FAILS ("writing actual") and
+      # Playwright writes the new baseline at its real path plus an identical `-actual.png` (measured
+      # on the second run); a committed baseline is never overwritten, so a changed one still fails
+      # and still yields `-actual.png` beside its `-expected.png` and `-diff.png`.
       - name: Run the visual regression canaries
         id: visual
         if: steps.gate.outputs.run == 'true'
@@ -346,7 +346,8 @@ jobs:
 
       # Two kinds of candidate, both copied at the path they belong at so the artifact mirrors the
       # repository: a baseline Playwright just WROTE (untracked under tests/e2e/__screenshots__/), and
-      # the `-actual.png` for a committed baseline that no longer matches.
+      # the `-actual.png` for a committed baseline that no longer matches. An `-actual.png` whose name
+      # matches a baseline written in this run is the same image, so it is neither copied nor counted.
       #
       # ONLY PNGs leave the runner. test-results-visual/ also holds a trace zip for every failed
       # canary, and a trace stores `authorization: Bearer <JWT>` verbatim (see the trace-encryption
@@ -362,18 +363,31 @@ jobs:
           mkdir -p visual-diff
           git ls-files --others --exclude-standard -- 'tests/e2e/__screenshots__/*.png' > new-baselines.txt
           new=$(wc -l < new-baselines.txt)
-          [ "$new" -gt 0 ] && xargs -a new-baselines.txt cp --parents -t visual-diff/
+          if [ "$new" -gt 0 ]; then
+            xargs -a new-baselines.txt cp --parents -t visual-diff/
+          fi
           changed=0
           if [ -d test-results-visual ]; then
-            find test-results-visual -type f \( -name '*-actual.png' -o -name '*-expected.png' -o -name '*-diff.png' \) \
-              -exec cp --parents {} visual-diff/ \;
-            changed=$(find visual-diff -type f -name '*-actual.png' | wc -l)
+            while IFS= read -r actual; do
+              name=$(basename "$actual" -actual.png)
+              if grep -qxF "tests/e2e/__screenshots__/${name}-linux.png" new-baselines.txt; then
+                continue
+              fi
+              dir=$(dirname "$actual")
+              cp --parents "$actual" visual-diff/
+              for extra in "$dir/${name}-expected.png" "$dir/${name}-diff.png"; do
+                if [ -f "$extra" ]; then cp --parents "$extra" visual-diff/; fi
+              done
+              echo "$name" >> changed.txt
+              changed=$((changed + 1))
+            done < <(find test-results-visual -type f -name '*-actual.png')
           fi
           if [ "$new" -eq 0 ] && [ "$changed" -eq 0 ]; then
             if [ "${{ steps.visual.outcome }}" = "failure" ]; then
               echo "::warning title=Visual regression::The canaries failed without producing any screenshot (a wait or a page error, not a pixel change). Read the step log."
             else
               echo "Every visual canary matched its committed baseline."
+              echo '## Visual regression: every canary matched its committed baseline' >> "$GITHUB_STEP_SUMMARY"
             fi
             echo "found=false" >> "$GITHUB_OUTPUT"
             exit 0
@@ -394,7 +408,7 @@ jobs:
             fi
             if [ "$changed" -gt 0 ]; then
               echo '### Changed'
-              find visual-diff -type f -name '*-actual.png' | sed 's#.*/##; s#-actual\.png$##; s/^/- /' | sort
+              sed 's/^/- /' changed.txt | sort
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 

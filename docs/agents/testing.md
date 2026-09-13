@@ -202,11 +202,13 @@ load-bearing:
   Playwright writes **nothing** for a missing baseline — no `-actual.png` — which #280's first CI
   run measured: ten failures and not one usable image, only generic `test-failed-1.png` captures
   that are neither full-page nor taken with the screenshot options, and so are not baselines. CI
-  therefore passes `--update-snapshots=missing`, which writes a new baseline at its real path and
-  never overwrites a committed one, so a changed baseline still fails and still yields
-  `-actual.png`. Because a written baseline can let that canary pass, the collect step — not the
-  test result — is what flags it: any untracked file under `tests/e2e/__screenshots__/` is reported
-  as a new baseline.
+  therefore passes `--update-snapshots=missing`. Under it the canary **still fails** ("writing
+  actual"), and Playwright writes the new baseline at its real path **plus an identical
+  `-actual.png`** — measured on the second run. A committed baseline is never overwritten, so a
+  changed one still fails and yields `-actual.png` beside `-expected.png` and `-diff.png`. The
+  collect step classifies both: an untracked file under `tests/e2e/__screenshots__/` is a new
+  baseline, and an `-actual.png` counts as a change only when no baseline of that name was just
+  written, so a new canary is not reported twice.
 - **Only PNGs leave the runner.** `test-results-visual/` also holds a trace zip for every failed
   canary, and a trace stores the Supabase `authorization: Bearer <JWT>` header verbatim — the reason
   the gated run's traces are GPG-encrypted. The collect step copies PNGs alone into the uploaded
