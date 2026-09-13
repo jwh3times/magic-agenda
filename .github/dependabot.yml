@@ -14,6 +14,13 @@ updates:
       time: "05:00"
       timezone: "America/New_York"
     open-pull-requests-limit: 10
+    # @playwright/test is pinned out of Dependabot's reach (#280). A Playwright bump changes the
+    # bundled Chromium and its font rasterization, which invalidates EVERY visual baseline under
+    # tests/e2e/__screenshots__/ — and the E2E job cannot run on a Dependabot PR (no secrets), so
+    # such a bump would merge green and break the next human PR. Upgrade it by hand, and refresh the
+    # baselines in the same PR (docs/agents/testing.md).
+    ignore:
+      - dependency-name: "@playwright/test"
     labels:
       - "dependencies"
       - "npm"
@@ -90,6 +97,9 @@ updates:
       #
       # axe-core is transitive under @axe-core/playwright and Dependabot does not open
       # indirect-only npm PRs, so naming the two direct packages captures the family.
+      #
+      # @playwright/test stays in the pattern but is ignored above (#280), so in practice this group
+      # now carries @axe-core/playwright alone.
       e2e-toolchain:
         patterns:
           - "@axe-core/playwright"

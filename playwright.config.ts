@@ -19,7 +19,21 @@ export default defineConfig({
 
   forbidOnly: !!process.env.CI,
   timeout: 60_000,
-  expect: { timeout: 15_000 },
+  expect: {
+    timeout: 15_000,
+    // Visual canaries (#280). A small tolerance absorbs sub-pixel antialiasing on the same runner
+    // image without hiding a real token change, which moves whole regions of a theme.
+    toHaveScreenshot: { maxDiffPixelRatio: 0.01, animations: 'disabled', caret: 'hide' },
+  },
+
+  // A missing baseline must FAIL, never be written silently. Playwright's default ('missing') would
+  // let a local Windows run mint platform-specific baselines and pass, and in CI it would hide the
+  // one signal the refresh flow depends on: the failing run's `-actual.png` files ARE the new
+  // baselines (docs/agents/testing.md). Pass `--update-snapshots` explicitly to override.
+  updateSnapshots: 'none',
+  // The platform is in the name so a baseline generated on the Linux CI runner cannot be mistaken
+  // for one on another OS: a local non-Linux run reports "missing" instead of a false mismatch.
+  snapshotPathTemplate: '{testDir}/__screenshots__/{arg}-{platform}{ext}',
   reporter: process.env.CI ? [['github'], ['list']] : [['list']],
 
   use: {
@@ -32,5 +46,23 @@ export default defineConfig({
   // Use the regular Chromium build's new headless mode. The legacy headless shell crashed with the
   // same SIGSEGV at different browser.newContext() calls on consecutive Ubuntu CI runs; selecting
   // this channel keeps retries at zero while replacing the unstable browser runtime.
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], channel: 'chromium' } }],
+  //
+  // Two projects over the same browser so CI can gate on one and not the other. `chromium` is the
+  // required smoke + a11y run; `visual` is the screenshot canaries, run as a separate
+  // continue-on-error step until they have proved stable. The visual project writes to its own
+  // output directory because Playwright clears `outputDir` at the start of every invocation --
+  // sharing it would let the visual step wipe the gated run's traces.
+  projects: [
+    {
+      name: 'chromium',
+      testIgnore: /visual.spec.ts/,
+      use: { ...devices['Desktop Chrome'], channel: 'chromium' },
+    },
+    {
+      name: 'visual',
+      testMatch: /visual.spec.ts/,
+      outputDir: 'test-results-visual',
+      use: { ...devices['Desktop Chrome'], channel: 'chromium' },
+    },
+  ],
 })
