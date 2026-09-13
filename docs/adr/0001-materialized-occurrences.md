@@ -16,7 +16,7 @@ that is per-Occurrence state that a computed view has nowhere to put.
 - **Deleting an Occurrence must be remembered.** With no row to represent absence, the Series
   carries a list of Excluded Dates instead; without it, the next materialization pass recreates
   what the user deleted.
-- **The horizon is finite.** A Series with no end date has real rows only 90 days out, so any
+- **The horizon is finite.** A Series with no end has real rows only 90 days out, so any
   query, export, or report that expects the full future of a Series is asking a question this model
   cannot answer.
 - **A Rule change rewrites rows.** Shortening a Series deletes the Occurrences past its new end
