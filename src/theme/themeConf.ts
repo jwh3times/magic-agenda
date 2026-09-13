@@ -53,14 +53,16 @@ export interface ThemeConf {
   /**
    * How far inside the card's own edge the focus ring is drawn, in px (#361). Applied as a negative
    * `outline-offset` on the rotated card element, so a 3px ring occupies `inset - 3`..`inset` px
-   * inside the edge — on the paper, where `focusRing` was chosen to contrast, and where no scrolling
-   * day cell can clip it. It was drawn 2px OUTSIDE the card until #361, and the calendar cell's
-   * unpadded `overflow: auto` container cut it off entirely in every theme.
+   * inside the edge — on the paper, where `focusRing` was chosen to contrast, and where no
+   * scrolling day cell can clip it. It was drawn 2px OUTSIDE the card until #361, and the calendar
+   * cell's unpadded `overflow: auto` container cut it off entirely in every theme.
    *
-   * Per theme because the card edges differ: cork has no border, so its ring sits flush on the paper;
-   * brutal's 2.5px `#111` border would swallow a near-black ring laid against it, so its ring sits
-   * 5–8px in, leaving a strip of paper between border and ring; glass clears its 1px edge. Every
-   * value stays short of the card's 10px minimum padding, so the ring never covers the title.
+   * Per theme because the card edges differ: cork has no border, so its ring sits flush on the
+   * paper (a focused card is straightened first, so its tilt never pushes that edge past an
+   * unpadded cell); brutal's 2.5px `#111` border would swallow a near-black ring laid against it,
+   * so its ring sits 5–8px in, leaving a strip of paper between border and ring; glass clears its
+   * 1px edge. Every value stays short of the card's 10px minimum padding, so the ring never covers
+   * the title.
    */
   focusRingInset: number
 }

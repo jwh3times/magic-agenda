@@ -78,21 +78,34 @@ export function SortableCard({ task, variant }: SortableCardProps) {
         //   wrapper is a straight rectangle that slides off a tilted card's corners.
         // - Inside the edge (a negative offset, per theme — see `focusRingInset` in themeConf),
         //   because the calendar cell's card container is `overflow: auto` with no padding. Drawn
-        //   outside the card, as it was until #361, the ring was clipped out of sight in every theme
-        //   — rendered, asserted, and invisible.
+        //   outside the card, as it was until #361, the ring was clipped out of sight in every
+        //   theme — rendered, asserted, and invisible.
+        // - Straight while focused, because a tilted card's corners poke past that same unpadded
+        //   container and cut the ring near them; the overhang grows with card width, so no inset
+        //   alone can clear it.
         //
         // Focus is still tracked in state rather than expressed as `:focus-visible`, because the
         // theming layer is inline style objects and a pseudo-class cannot reach them (see
-        // docs/agents/ui.md). The `:focus-visible` MATCH decides it, so a mouse click does not light
-        // the ring — only the keyboard focus it exists to serve.
+        // docs/agents/ui.md). The `:focus-visible` MATCH decides it, so a mouse click does not
+        // light the ring — only the keyboard focus it exists to serve.
         //
         // **This ring cannot be asserted in the unit suite.** jsdom implements the selector well
         // enough not to throw but always answers false — measured, not assumed — so `focused` never
-        // becomes true under vitest and any test of it would pass for the wrong reason. It is verified
-        // in a real browser by the visual canaries (#359).
+        // becomes true under vitest and any test of it would pass for the wrong reason. It is
+        // verified in a real browser by the visual canaries (#359).
         wrapStyle={
           focused
-            ? { outline: `3px solid ${conf.focusRing}`, outlineOffset: -conf.focusRingInset }
+            ? {
+                outline: `3px solid ${conf.focusRing}`,
+                outlineOffset: -conf.focusRingInset,
+                // Straightened while focused (#361). Cork tilts cards up to 3° and brutal 1°, and a
+                // tilted card's corners overhang the unpadded calendar cell by (width / 2) *
+                // sin(tilt) — ~2px on a narrow card, ~5.5px on a wide monitor's cell — which clips
+                // even an inset ring, and no fixed inset clears every width. Untilted, the card
+                // lines up with its container. The card's own `transform .12s` transition animates
+                // the change.
+                transform: 'none',
+              }
             : undefined
         }
       />

@@ -97,7 +97,7 @@ rendered, its computed style was right, and nobody could see it. The ring is now
 card element itself (passed through `TaskCard`'s `wrapStyle`), drawn **inside** the edge by a
 negative `outline-offset` taken from a per-theme `focusRingInset` token: flush on cork's borderless
 paper, 5–8px in on brutal so a strip of paper separates it from the 2.5px black border it would
-otherwise merge with, and just inside glass's 1px edge. On the card element it also rotates with the
+otherwise merge with, and just inside glass's 1px edge. **A keyboard-focused card is also straightened** (`transform: 'none'`): cork tilts cards up to 3° and brutal 1°, and a tilted card's corners poke past the unpadded cell by `(width ÷ 2) × sin(tilt)` — about 2px on a narrow card and 5.5px on a wide monitor's cell — which clipped even the inset ring on cork, and no single inset clears every width without crowding the title. The card's existing transform transition animates it, and it doubles as a 'selected' cue; mouse focus does not trigger it. On the card element it also rotates with the
 paper and follows each theme's radius. Two rules follow: **do not move the ring back outside the
 card**, and **do not put it back on the unrotated wrapper**, where a straight rectangle slides off a
 tilted card's corners.
