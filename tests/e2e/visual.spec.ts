@@ -175,6 +175,9 @@ test.describe('signed in', () => {
       await expect(card).toHaveCSS('outline-width', `${RING_WIDTH}px`)
       await expect(card).toHaveCSS('outline-color', ring.color)
       await expect(card).toHaveCSS('outline-offset', `-${ring.inset}px`)
+      // Straightened while focused (#361): a tilted card's corners overhang the unpadded calendar
+      // cell and cut the ring near them, so a focused card must carry no rotation at all.
+      await expect(card).toHaveCSS('transform', 'none')
 
       // The ring's outer edge sits (inset - width) px inside the card's box. Report every clipping
       // ancestor that cuts its top, left, or right edge; a 1px allowance absorbs the sub-pixel
