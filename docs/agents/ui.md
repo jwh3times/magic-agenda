@@ -96,7 +96,8 @@ section already warns about: `:focus-visible` cannot be expressed as an inline s
 from lighting the ring. **Measured, not assumed: jsdom implements the `:focus-visible` selector well
 enough not to throw, but always returns `false`,** so this state can never become `true` under
 `vitest` and a unit test asserting the ring would pass for the wrong reason. Verifying it needs a
-real browser; #280's per-theme visual regression is where that lands. Do not add a jsdom test for
+real browser, and the visual canaries (#280, `tests/e2e/visual.spec.ts`) do **not** cover it yet: none of
+them screenshots a keyboard-focused card, so a focused-card canary there is where that check belongs. Do not add a jsdom test for
 this ring — the code comment at the call site exists specifically so nobody writes one later
 believing it proves something.
 
