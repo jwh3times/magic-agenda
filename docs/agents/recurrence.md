@@ -333,7 +333,12 @@ an end date, because a Rule carrying two ends that disagree would have its count
 against the shortened window. And `asTask`'s standalone branch restores `recurInterval` and
 `excludedDates` from its input but deliberately **not** these two, since both are coupled to
 `recur_freq` by CHECK constraints — letting `NO_RECUR` clear them is what makes demoting a Series
-back to a plain Task produce a writable row.
+back to a plain Task produce a writable row. Since #345 the Occurrence branch clears the same two, for the same
+reason, while still leaving `recurInterval` and `excludedDates` from its input: those have no CHECK
+coupling (the interval has only a 1–366 range check), so a stored Occurrence may legally hold them,
+and resetting them there would make `taskToRow(rowToTask(row))` rewrite that row on its next write.
+This does **not** retire `NO_RULE_PARAMS` — `asTask` guarantees a row the database accepts, not a
+clean Occurrence, so the three draft-to-Occurrence sites above still apply it.
 
 The walk's `isScheduled(rule.day)` guard is **defence that no test reaches**, and it says so at the
 call site: two accidents of string comparison against the `'inbox'` sentinel already produce the

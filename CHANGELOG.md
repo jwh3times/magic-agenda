@@ -12,6 +12,18 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.11.3] - 2026-09-13
+
+### Internal
+
+- **A repeating task's weekday and count settings can no longer leak onto one of its occurrences**
+  (#345). The code that decides whether a task is a plain task, a repeating series, or one
+  occurrence of a series now clears those two settings whenever it produces an occurrence. Nothing
+  reaches that point with them set today, but a future path that did would have produced a save the
+  database refuses. The repeat interval and a series' excluded dates are deliberately left as they
+  are, because occurrences already saved may legitimately carry them, and clearing them would
+  quietly rewrite those tasks the next time they were saved. No behavior changed.
+
 ## [1.11.2] - 2026-09-12
 
 ### Docs
@@ -3198,7 +3210,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.11.2...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.11.3...HEAD
+[1.11.3]: https://github.com/jwh3times/magic-agenda/compare/v1.11.2...v1.11.3
 [1.11.2]: https://github.com/jwh3times/magic-agenda/compare/v1.11.1...v1.11.2
 [1.11.1]: https://github.com/jwh3times/magic-agenda/compare/v1.11.0...v1.11.1
 [1.11.0]: https://github.com/jwh3times/magic-agenda/compare/v1.10.1...v1.11.0
