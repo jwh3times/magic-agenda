@@ -25,6 +25,23 @@ import { PINNED_DAY, PINNED_TIME, settle } from './fixtures/determinism'
 
 const MOBILE = { width: 390, height: 844 }
 
+/**
+ * Each theme's `focusRing` token (src/theme/themeConf.ts), in the rgb form `getComputedStyle`
+ * reports. Duplicated rather than imported because `tests/**` imports nothing from `src/**`, and
+ * that duplication is the point: a token change should fail here and be looked at, not follow along.
+ */
+const FOCUS_RING: Record<Theme, string> = {
+  cork: 'rgb(47, 29, 12)', // #2f1d0c
+  brutal: 'rgb(17, 17, 17)', // #111111
+  glass: 'rgb(234, 240, 255)', // #eaf0ff
+}
+
+/** Enough to cross the board chrome and the day cells before the pinned day's first card. */
+const MAX_TABS = 100
+
+/** Pixels around the focused card in the clip: past the 2px outline offset and the 3px ring. */
+const RING_MARGIN = 16
+
 /** The board has painted every card this view is expected to show. */
 async function boardReady(page: Page, titles: readonly string[]): Promise<void> {
   await page.getByRole('button', { name: '+ New task' }).waitFor()
@@ -107,6 +124,56 @@ test.describe('signed in', () => {
     await settle(page)
     await expect(page).toHaveScreenshot('settings-cork.png', { fullPage: true })
   })
+
+  /**
+   * The per-theme keyboard focus ring (#359). jsdom always answers `:focus-visible` false, so this
+   * ring cannot be checked in the unit suite at all (docs/agents/ui.md) — a real browser is the only
+   * place it exists.
+   *
+   * Two things make or break it. **Focus must arrive by keyboard:** `SortableCard` lights the ring
+   * only when the wrapper matches `:focus-visible`, which a click or a scripted `.focus()` does not
+   * guarantee, so this presses Tab until the card holds focus. And **the outline is asserted before
+   * the screenshot** — a positive control, because a baseline captured without a visible ring would
+   * pin the very bug the canary exists to catch and then pass forever.
+   */
+  for (const [theme, ring] of Object.entries(FOCUS_RING) as [Theme, string][]) {
+    test(`focus ring (${theme})`, async ({ page }) => {
+      await openBoard(page, theme, 'calendar')
+      await boardReady(page, SEEDED_TITLES)
+      const card = page
+        .locator('[aria-roledescription="sortable"]')
+        .filter({ hasText: SEEDED_TITLES[0] })
+
+      // Bounded, so a tab order that no longer reaches the card fails here with a clear message
+      // instead of timing out somewhere less obvious.
+      let reached = false
+      for (let i = 0; i < MAX_TABS && !reached; i++) {
+        await page.keyboard.press('Tab')
+        reached = await card.evaluate((el) => el === document.activeElement)
+      }
+      expect(reached, `Tab did not reach "${SEEDED_TITLES[0]}" within ${MAX_TABS} presses`).toBe(
+        true,
+      )
+      await expect(card).toBeFocused()
+      await expect(card).toHaveCSS('outline-style', 'solid')
+      await expect(card).toHaveCSS('outline-width', '3px')
+      await expect(card).toHaveCSS('outline-color', ring)
+
+      await settle(page)
+      const box = await card.boundingBox()
+      if (!box) throw new Error('focused card has no bounding box')
+      // Clipped to the card plus a margin wider than the 2px offset and 3px ring, so the canary's
+      // diff area is the ring itself rather than the whole board.
+      await expect(page).toHaveScreenshot(`focus-ring-${theme}.png`, {
+        clip: {
+          x: box.x - RING_MARGIN,
+          y: box.y - RING_MARGIN,
+          width: box.width + RING_MARGIN * 2,
+          height: box.height + RING_MARGIN * 2,
+        },
+      })
+    })
+  }
 
   test.describe('mobile', () => {
     test.use({ viewport: MOBILE })

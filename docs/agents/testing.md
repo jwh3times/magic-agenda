@@ -176,9 +176,7 @@ is a deliberate tradeoff worth understanding before it costs one:
 
 ### Visual regression canaries
 
-`tests/e2e/visual.spec.ts` (#280) screenshots ten surfaces: landing on desktop and mobile, the
-calendar in each of the three themes, week and kanban in `cork`, the task editor, settings, and the
-mobile calendar. The visual layer is an inline-style-object model with per-theme branching, so there
+`tests/e2e/visual.spec.ts` (#280) screenshots thirteen surfaces: landing on desktop and mobile, the calendar in each of the three themes, week and kanban in `cork`, the task editor, settings, the mobile calendar, and (#359) a keyboard-focused card in each theme. The visual layer is an inline-style-object model with per-theme branching, so there
 is no stylesheet to review and no CSS tooling that applies — these screenshots are the only
 mechanical check that a token change did not wreck a theme. Six things about them are
 load-bearing:

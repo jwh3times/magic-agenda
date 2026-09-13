@@ -109,8 +109,7 @@ section already warns about: `:focus-visible` cannot be expressed as an inline s
 from lighting the ring. **Measured, not assumed: jsdom implements the `:focus-visible` selector well
 enough not to throw, but always returns `false`,** so this state can never become `true` under
 `vitest` and a unit test asserting the ring would pass for the wrong reason. Verifying it needs a
-real browser, and the visual canaries (#280, `tests/e2e/visual.spec.ts`) do **not** cover it yet: none of
-them screenshots a keyboard-focused card, so a focused-card canary there is where that check belongs. Do not add a jsdom test for
+real browser, which the `focus ring (<theme>)` visual canaries in `tests/e2e/visual.spec.ts` (#359) now provide: each gives a card focus with the **Tab key** — a click or `.focus()` would not match `:focus-visible` and would screenshot no ring — asserts the wrapper's computed outline is the theme's `focusRing`, and only then screenshots it. Do not add a jsdom test for
 this ring — the code comment at the call site exists specifically so nobody writes one later
 believing it proves something.
 
