@@ -12,6 +12,19 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.11.7] - 2026-09-13
+
+### Internal
+
+- **Screenshot tests now check that the selected card's outline is actually visible** (#359). The
+  outline a keyboard user sees when tabbing between cards could not be tested automatically before,
+  because the tool behind the regular test suite cannot tell when a card was reached by keyboard. Three new
+  screenshot tests — one per theme — press Tab until a card is selected, confirm the outline is drawn
+  and that nothing on the page hides any part of it but the bottom edge, and compare the result with
+  a saved image. Checking only that the outline was set up correctly would not have been enough:
+  that alone passed in every theme while the outline was completely hidden, which is how the fix in
+  1.11.6 was found.
+
 ## [1.11.6] - 2026-09-13
 
 ### Fixed
@@ -3254,7 +3267,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.11.6...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.11.7...HEAD
+[1.11.7]: https://github.com/jwh3times/magic-agenda/compare/v1.11.6...v1.11.7
 [1.11.6]: https://github.com/jwh3times/magic-agenda/compare/v1.11.5...v1.11.6
 [1.11.5]: https://github.com/jwh3times/magic-agenda/compare/v1.11.4...v1.11.5
 [1.11.4]: https://github.com/jwh3times/magic-agenda/compare/v1.11.3...v1.11.4
