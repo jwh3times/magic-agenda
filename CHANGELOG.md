@@ -12,6 +12,24 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.11.5] - 2026-09-13
+
+### Internal
+
+- **Screenshot tests now watch the look of all three themes** (#280). Ten screenshots — the landing
+  page on desktop and phone, the calendar in Cork, Neon and Aurora, the week and board views, the
+  task editor, the settings page, and the calendar on a phone — are compared on every pull request
+  against saved reference images. The themes are drawn entirely in code rather than a stylesheet,
+  so these are the only automatic check that a colour or styling change has not broken one of them.
+  A difference is flagged on the pull request with the new images attached, but does not block a
+  merge yet.
+- **The test board is now identical on every run.** Each note's tilt is worked out from its internal
+  id, and the test setup used to create fresh ids each time, so notes tilted differently from run to
+  run and two could swap places. The setup now uses fixed ids — which also means a screenshot can
+  catch a change as small as one note, rather than overlooking it.
+- The test tooling version is now pinned and kept out of automatic updates, because upgrading it
+  changes how pages render and would invalidate every saved reference image at once.
+
 ## [1.11.4] - 2026-09-13
 
 ### Docs
@@ -3224,7 +3242,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.11.4...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.11.5...HEAD
+[1.11.5]: https://github.com/jwh3times/magic-agenda/compare/v1.11.4...v1.11.5
 [1.11.4]: https://github.com/jwh3times/magic-agenda/compare/v1.11.3...v1.11.4
 [1.11.3]: https://github.com/jwh3times/magic-agenda/compare/v1.11.2...v1.11.3
 [1.11.2]: https://github.com/jwh3times/magic-agenda/compare/v1.11.1...v1.11.2

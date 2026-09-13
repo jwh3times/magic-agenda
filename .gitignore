@@ -42,5 +42,6 @@ private/
 
 # Playwright
 /test-results/
+/test-results-visual/
 /playwright-report/
 /tests/e2e/.auth/

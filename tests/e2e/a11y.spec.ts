@@ -3,6 +3,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { seedBoard, SEEDED_TITLES, type Theme } from './fixtures/seedBoard'
+import { PINNED_DAY, PINNED_TIME, settle } from './fixtures/determinism'
 import {
   baselineFor,
   EXPECTED_LABELS,
@@ -34,33 +35,6 @@ import {
 //
 // The baseline is JSON and takes no comments, which is why this note lives here.
 const BASELINE = path.join('tests', 'e2e', 'a11y-baseline.json')
-
-/**
- * page.clock does NOT freeze CSS animations — they run on the compositor's own timeline. The glass
- * theme's three blobs (src/theme/chrome.ts, @keyframes blobFloat in src/index.css) are therefore at
- * an arbitrary phase when axe runs, a function of how long seeding and the waits took on that runner.
- *
- * That moves a COUNT, not just a selector path. axe's getBackgroundColor walks elementsFromPoint and
- * bails to `bgColor: 'bgGradient'` the moment a background-image is in the stack, which makes the
- * node INCOMPLETE — and incompletes are not in results.violations. Glass is exactly where axe has to
- * walk deep, because every background above #0b0f1f is translucent, so a blob drifting over the
- * ViewSwitcher silently converts a color-contrast violation into an incomplete.
- *
- * The old ratchet keyed on {ruleId, target} and failed only on NEW pairs, so it tolerated that. This
- * one asserts counts by equality, so it does not. Do not remove this.
- */
-const FREEZE_ANIMATION = `*, *::before, *::after {
-  animation: none !important;
-  transition: none !important;
-}`
-
-/** Everything every surface needs between "content is on screen" and "scan it". */
-async function settle(page: Page): Promise<void> {
-  await page.addStyleTag({ content: FREEZE_ANIMATION })
-  await page.evaluate(async () => {
-    await document.fonts.ready
-  })
-}
 
 /**
  * No try/catch, on purpose.
@@ -175,22 +149,6 @@ test.describe('signed out', () => {
     await scanAndAssert(page, 'login')
   })
 })
-
-/**
- * The board's shape is a function of today's date, and it must not drift between runs. Pinning the
- * browser clock and seeding to the SAME day is what makes the calendar grid identical every time.
- *
- * This used to be justified by the baseline keying on axe's CSS target paths. It no longer keys on
- * paths — but the pinning is still load-bearing, for a different reason: `brutal` flags the trailing
- * OUT-OF-MONTH cells, and how many of those the fixed 42-cell grid carries is a function of the
- * month. Unpin the clock and the color-contrast count moves.
- *
- * The two must agree: `page.clock` moves only the browser, while `seedBoard` runs in the test
- * process in real time. Pinning the clock without passing the matching `anchor` puts the seeded rows
- * outside the rendered month -- see the header comment in fixtures/seedBoard.ts.
- */
-const PINNED_DAY = '2026-06-15'
-const PINNED_TIME = `${PINNED_DAY}T12:00:00Z`
 
 test.describe('signed in', () => {
   test('settings matches the a11y baseline', async ({ page }) => {

@@ -19,7 +19,28 @@ export default defineConfig({
 
   forbidOnly: !!process.env.CI,
   timeout: 60_000,
-  expect: { timeout: 15_000 },
+  expect: {
+    timeout: 15_000,
+    // Visual canaries (#280). An ABSOLUTE pixel cap, not a ratio. The first cut used
+    // maxDiffPixelRatio 0.01 -- about 9,200 pixels on a 1280x720 page -- and that was measured to be
+    // too loose to be a check: a seeded card changing its tilt between runs moved under 1% of a
+    // calendar page and passed, while the larger kanban cards crossed it (14,936 px) and failed. A
+    // tolerance that forgives a whole card rotating also forgives a real regression on a small
+    // element. Per-pixel colour noise is still absorbed by Playwright's default `threshold` (0.2);
+    // this cap only bounds how many pixels may exceed it.
+    toHaveScreenshot: { maxDiffPixels: 50, animations: 'disabled', caret: 'hide' },
+  },
+
+  // A local run must never write a baseline silently: Playwright's default ('missing') would let a
+  // Windows or macOS run mint platform-specific baselines and pass. CI overrides this with
+  // `--update-snapshots=missing` on purpose, because under 'none' Playwright writes NOTHING for a
+  // missing baseline -- not even an `-actual.png` -- so a new canary's first CI run would leave no
+  // image to accept (measured on #280's first run). The CI collect step reports any baseline written
+  // that way; see docs/agents/testing.md.
+  updateSnapshots: 'none',
+  // The platform is in the name so a baseline generated on the Linux CI runner cannot be mistaken
+  // for one on another OS: a local non-Linux run reports "missing" instead of a false mismatch.
+  snapshotPathTemplate: '{testDir}/__screenshots__/{arg}-{platform}{ext}',
   reporter: process.env.CI ? [['github'], ['list']] : [['list']],
 
   use: {
@@ -32,5 +53,23 @@ export default defineConfig({
   // Use the regular Chromium build's new headless mode. The legacy headless shell crashed with the
   // same SIGSEGV at different browser.newContext() calls on consecutive Ubuntu CI runs; selecting
   // this channel keeps retries at zero while replacing the unstable browser runtime.
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], channel: 'chromium' } }],
+  //
+  // Two projects over the same browser so CI can gate on one and not the other. `chromium` is the
+  // required smoke + a11y run; `visual` is the screenshot canaries, run as a separate
+  // continue-on-error step until they have proved stable. The visual project writes to its own
+  // output directory because Playwright clears `outputDir` at the start of every invocation --
+  // sharing it would let the visual step wipe the gated run's traces.
+  projects: [
+    {
+      name: 'chromium',
+      testIgnore: /visual.spec.ts/,
+      use: { ...devices['Desktop Chrome'], channel: 'chromium' },
+    },
+    {
+      name: 'visual',
+      testMatch: /visual.spec.ts/,
+      outputDir: 'test-results-visual',
+      use: { ...devices['Desktop Chrome'], channel: 'chromium' },
+    },
+  ],
 })
