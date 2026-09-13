@@ -14,15 +14,22 @@ and the checklist), and each gap was a silent data loss rather than an error.
 
 ## The partition
 
-| Owner                | Fields                                                                        |
-| -------------------- | ----------------------------------------------------------------------------- |
-| Recurrence Rule      | how often, from which date, until when, which dates are excluded              |
-| Series Content       | title, description, Label, Note Color, due time, Checklist (its Steps)        |
-| Occurrence State     | workflow status, Step Completion, pinned                                      |
-| Occurrence Placement | Scheduled Day, manual order within a day, manual order within a Kanban column |
-| Identity             | the Occurrence's own identity, its Series, and its Occurrence Date            |
+| Owner                | Covers                                                                                                                       |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Recurrence Rule      | the schedule: how often, on which weekdays, from which date, how it ends (by date or by count), and which dates are excluded |
+| Series Content       | what the work is: title, description, Label, Note Color, due time, and the Checklist's Steps                                 |
+| Occurrence State     | what a person has done to one Occurrence: its Workflow Status and completion lifecycle, Step Completion, and pin             |
+| Occurrence Placement | where one Occurrence sits: its Scheduled Day and its manual order within a day and within a Kanban column                    |
+| Identity             | the Occurrence's own identity, its Series, and its Occurrence Date                                                           |
 
 Identity is listed for completeness: it is not editable content, so no scope applies to it.
+
+The table describes what each owner covers rather than enumerating its members, so a field added
+later falls under the owner whose description fits it without this record going stale. The
+complete field-by-field list is `FIELD_OWNER` in `src/data/fieldOwnership.ts`, and adding a `Task`
+field without an owner there is a compile error. The row descriptions were widened in place (#347)
+to cover the Rule parameters and completion lifecycle fields added after this decision; the
+partition itself is unchanged.
 
 ## Considered options
 
