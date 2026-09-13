@@ -12,6 +12,20 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.11.4] - 2026-09-13
+
+### Docs
+
+- **The record of which task settings belong to a repeating series versus a single occurrence
+  can no longer fall behind the app** (#347). That decision record listed its settings one by one,
+  and had already missed two rounds of additions — the weekday and repeat-count options, and the
+  completion and archive fields. It now describes what each group covers (a series owns its
+  schedule, including which days it repeats on and how it ends; an occurrence owns what's been done
+  to it, including completion and archive) and points to the code's own complete list, which refuses
+  to build if a new setting isn't assigned to a group. The decision itself is unchanged. A related
+  note no longer assumes every repeating task ends on a date, since one can also end after a set
+  number of times.
+
 ## [1.11.3] - 2026-09-13
 
 ### Internal
@@ -3210,7 +3224,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.11.3...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.11.4...HEAD
+[1.11.4]: https://github.com/jwh3times/magic-agenda/compare/v1.11.3...v1.11.4
 [1.11.3]: https://github.com/jwh3times/magic-agenda/compare/v1.11.2...v1.11.3
 [1.11.2]: https://github.com/jwh3times/magic-agenda/compare/v1.11.1...v1.11.2
 [1.11.1]: https://github.com/jwh3times/magic-agenda/compare/v1.11.0...v1.11.1
