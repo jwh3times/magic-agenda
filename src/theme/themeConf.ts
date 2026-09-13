@@ -50,6 +50,21 @@ export interface ThemeConf {
    * value is a judgement call to make deliberately, not a number a check will hand you.
    */
   focusRing: string
+  /**
+   * How far inside the card's own edge the focus ring is drawn, in px (#361). Applied as a negative
+   * `outline-offset` on the rotated card element, so a 3px ring occupies `inset - 3`..`inset` px
+   * inside the edge — on the paper, where `focusRing` was chosen to contrast, and where no
+   * scrolling day cell can clip it. It was drawn 2px OUTSIDE the card until #361, and the calendar
+   * cell's unpadded `overflow: auto` container cut it off entirely in every theme.
+   *
+   * Per theme because the card edges differ: cork has no border, so its ring sits flush on the
+   * paper (a focused card is straightened first, so its tilt never pushes that edge past an
+   * unpadded cell); brutal's 2.5px `#111` border would swallow a near-black ring laid against it,
+   * so its ring sits 5–8px in, leaving a strip of paper between border and ring; glass clears its
+   * 1px edge. Every value stays short of the card's 10px minimum padding, so the ring never covers
+   * the title.
+   */
+  focusRingInset: number
 }
 
 const CORK: ThemeConf = {
@@ -85,6 +100,7 @@ const CORK: ThemeConf = {
   weekendBg: 'rgba(120,90,55,.06)',
   scrollThumb: 'rgba(74,50,22,.38)',
   focusRing: '#2f1d0c',
+  focusRingInset: 3,
 }
 
 const BRUTAL: ThemeConf = {
@@ -121,6 +137,7 @@ const BRUTAL: ThemeConf = {
   weekendBg: '#FBF7E4',
   scrollThumb: 'rgba(17,17,17,.55)',
   focusRing: '#111111',
+  focusRingInset: 8,
 }
 
 const GLASS: ThemeConf = {
@@ -156,6 +173,7 @@ const GLASS: ThemeConf = {
   weekendBg: 'rgba(255,255,255,.02)',
   scrollThumb: 'rgba(234,240,255,.28)',
   focusRing: '#eaf0ff',
+  focusRingInset: 4,
 }
 
 const CONF: Record<ThemeName, ThemeConf> = { cork: CORK, brutal: BRUTAL, glass: GLASS }

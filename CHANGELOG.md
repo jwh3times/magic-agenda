@@ -12,6 +12,18 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.11.6] - 2026-09-13
+
+### Fixed
+
+- **Keyboard users can now see which card is selected in the calendar** (#361). Pressing Tab moves
+  between cards and is meant to outline the selected one, but in the calendar — the default view —
+  that outline was drawn just outside the card, where the day cell cut it off completely, in all
+  three themes. It is now drawn just inside the card's edge, where it stays visible. A selected card
+  also straightens out of its tilt while it is selected, because a tilted card's corners stick out
+  of the day cell and would still hide part of the outline. Clicking a card with the mouse changes
+  nothing.
+
 ## [1.11.5] - 2026-09-13
 
 ### Internal
@@ -3242,7 +3254,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.11.5...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.11.6...HEAD
+[1.11.6]: https://github.com/jwh3times/magic-agenda/compare/v1.11.5...v1.11.6
 [1.11.5]: https://github.com/jwh3times/magic-agenda/compare/v1.11.4...v1.11.5
 [1.11.4]: https://github.com/jwh3times/magic-agenda/compare/v1.11.3...v1.11.4
 [1.11.3]: https://github.com/jwh3times/magic-agenda/compare/v1.11.2...v1.11.3
