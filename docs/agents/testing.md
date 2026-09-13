@@ -180,29 +180,38 @@ is a deliberate tradeoff worth understanding before it costs one:
 calendar in each of the three themes, week and kanban in `cork`, the task editor, settings, and the
 mobile calendar. The visual layer is an inline-style-object model with per-theme branching, so there
 is no stylesheet to review and no CSS tooling that applies — these screenshots are the only
-mechanical check that a token change did not wreck a theme. Five things about them are
+mechanical check that a token change did not wreck a theme. Six things about them are
 load-bearing:
 
 - **They are not a merge gate yet, and they do not get a job of their own.** `playwright.config.ts`
   splits the suite into two projects over the same browser: `chromium` (smoke + a11y) and `visual`.
   The `E2E` job runs `chromium` as the gated step and `visual` as a following `continue-on-error`
-  step, so a mismatch shows as a warning annotation, a job summary, and an artifact while the check
-  stays green. A separate job was rejected because every E2E run drives the same production
-  account: it would join the `e2e-prod-account` concurrency group, and since GitHub keeps one
-  pending run per group, a PR's second queued job could evict another PR's required E2E run.
-  The `visual` project writes to `test-results-visual/`, not `test-results/`, because Playwright
-  clears `outputDir` at the start of every invocation and the second step would otherwise wipe the
-  gated run's traces.
+  step, so a changed or missing baseline shows as a warning annotation, a job summary, and an
+  artifact while the check stays green. A separate job was rejected because every E2E run drives
+  the same production account: it would join the `e2e-prod-account` concurrency group, and since
+  GitHub keeps one pending run per group, a PR's second queued job could evict another PR's
+  required E2E run. The `visual` project writes to `test-results-visual/`, not `test-results/`,
+  because Playwright clears `outputDir` at the start of every invocation and the second step would
+  otherwise wipe the gated run's traces.
 - **Baselines are generated on the Linux CI runner only.** A baseline rendered on Windows or macOS
   bakes in that platform's font rasterization and turns every CI run into a diff.
   `snapshotPathTemplate` puts the platform in the filename (`tests/e2e/__screenshots__/<name>-linux.png`),
-  so a local run on another OS reports a missing baseline rather than a false mismatch, and
-  `updateSnapshots: 'none'` means a missing baseline fails instead of being written silently.
+  so a local run on another OS reports a missing baseline rather than a false mismatch.
+- **A missing baseline behaves differently locally and in CI, on purpose.** The config sets
+  `updateSnapshots: 'none'`, so a local run never writes a baseline silently. But under `'none'`
+  Playwright writes **nothing** for a missing baseline — no `-actual.png` — which #280's first CI
+  run measured: ten failures and not one usable image, only generic `test-failed-1.png` captures
+  that are neither full-page nor taken with the screenshot options, and so are not baselines. CI
+  therefore passes `--update-snapshots=missing`, which writes a new baseline at its real path and
+  never overwrites a committed one, so a changed baseline still fails and still yields
+  `-actual.png`. Because a written baseline can let that canary pass, the collect step — not the
+  test result — is what flags it: any untracked file under `tests/e2e/__screenshots__/` is reported
+  as a new baseline.
 - **Only PNGs leave the runner.** `test-results-visual/` also holds a trace zip for every failed
   canary, and a trace stores the Supabase `authorization: Bearer <JWT>` header verbatim — the reason
-  the gated run's traces are GPG-encrypted. The collection step copies `*.png` files alone into the
-  uploaded `visual-diffs-*` artifact. No surface renders the account email and the seeded board is
-  fixture text, but the artifact and the committed baselines are public, so inspect every image.
+  the gated run's traces are GPG-encrypted. The collect step copies PNGs alone into the uploaded
+  `visual-diffs-*` artifact. No surface renders the account email and the seeded board is fixture
+  text, but the artifact and the committed baselines are public, so inspect every image.
 - **Determinism is shared with the a11y scans, not duplicated.** `tests/e2e/fixtures/determinism.ts`
   holds `FREEZE_ANIMATION`, `settle()`, and the pinned clock day. Both specs assert something that
   moves when a page is not settled, so a second copy of those rules is how the two would drift into
@@ -216,19 +225,26 @@ load-bearing:
 
 #### Refreshing the visual baselines
 
-The failing run's `-actual.png` files **are** the new baselines, so no separate workflow is needed.
-(A `workflow_dispatch` that commits them with `GITHUB_TOKEN` was the original design and does not
-work: pushes made with that token trigger no workflows, so every required check on the new commit
-would sit waiting.)
+The CI run produces the candidate images, so no separate workflow is needed. (A `workflow_dispatch`
+that commits them with `GITHUB_TOKEN` was the original design and does not work: pushes made with
+that token trigger no workflows, so every required check on the new commit would sit waiting.)
 
-1. Push the change and let the PR's `E2E` job run. The visual step fails with a warning listing the
-   changed canaries.
-2. Download the artifact: `gh run download <run-id> -n visual-diffs-<run-id>-<attempt> -D visual-diff`.
-3. **Open every `*-actual.png` and confirm the change is the one intended** and that nothing sensitive
-   is on screen. This is the human-in-the-loop step the design keeps on purpose.
-4. Copy each accepted image to `tests/e2e/__screenshots__/<name>-linux.png`, where `<name>` is the
-   filename with `-actual.png` removed.
-5. Commit and push. The next `E2E` run's visual step should pass.
+1. Push the change and let the PR's `E2E` job run. When anything is new or changed, the job
+   summary lists it and a `visual-diffs-<run-id>-<attempt>` artifact is uploaded.
+2. Download it: `gh run download <run-id> -n visual-diffs-<run-id>-<attempt> -D visual-diff`. The
+   artifact mirrors repository paths.
+3. **Open every image and confirm it shows the intended surface and nothing sensitive.** This is the
+   human-in-the-loop step the design keeps on purpose.
+4. Accept them:
+   - a **new** baseline is already at `visual-diff/tests/e2e/__screenshots__/<name>-linux.png` —
+     copy it to the same path in the repository;
+   - a **changed** one is `visual-diff/test-results-visual/**/<name>-actual.png` — copy it to
+     `tests/e2e/__screenshots__/<name>-linux.png`, after comparing it with its `-expected.png` and
+     `-diff.png`.
+
+   Ignore any `test-failed-*.png`: those are Playwright's generic failure captures, not baselines.
+
+5. Commit and push. The next `E2E` run's summary should report every canary matching.
 
 **Data API grants are explicit, per table, full stop** (`20260729100000_explicit_data_api_grants.sql`)
 and must stay that way. `config.toml` sets `auto_expose_new_tables = false` explicitly, so new

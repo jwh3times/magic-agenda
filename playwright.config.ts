@@ -26,10 +26,12 @@ export default defineConfig({
     toHaveScreenshot: { maxDiffPixelRatio: 0.01, animations: 'disabled', caret: 'hide' },
   },
 
-  // A missing baseline must FAIL, never be written silently. Playwright's default ('missing') would
-  // let a local Windows run mint platform-specific baselines and pass, and in CI it would hide the
-  // one signal the refresh flow depends on: the failing run's `-actual.png` files ARE the new
-  // baselines (docs/agents/testing.md). Pass `--update-snapshots` explicitly to override.
+  // A local run must never write a baseline silently: Playwright's default ('missing') would let a
+  // Windows or macOS run mint platform-specific baselines and pass. CI overrides this with
+  // `--update-snapshots=missing` on purpose, because under 'none' Playwright writes NOTHING for a
+  // missing baseline -- not even an `-actual.png` -- so a new canary's first CI run would leave no
+  // image to accept (measured on #280's first run). The CI collect step reports any baseline written
+  // that way; see docs/agents/testing.md.
   updateSnapshots: 'none',
   // The platform is in the name so a baseline generated on the Linux CI runner cannot be mistaken
   // for one on another OS: a local non-Linux run reports "missing" instead of a false mismatch.

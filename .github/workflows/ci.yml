@@ -320,10 +320,19 @@ jobs:
       # their own because every E2E run drives the same production account: a second job would join
       # the e2e-prod-account concurrency group and, since GitHub keeps one pending run per group,
       # could evict another PR's queued required E2E run. `continue-on-error` keeps the check green;
-      # a mismatch surfaces as a warning, a job summary, and an artifact of the new screenshots.
+      # a changed or missing baseline surfaces as a warning, a job summary, and an artifact.
       #
       # It runs only after the gated suite succeeds (the default `success()` condition), so a failing
       # smoke/a11y run is never followed by a screenshot pass against the same broken preview.
+      #
+      # `--update-snapshots=missing` is deliberate and CI-only. Under the config's default ('none'),
+      # Playwright writes NOTHING for a missing baseline -- no `-actual.png` -- so the first run of a
+      # new canary produced no usable image (measured on #280's first run: ten failures, zero
+      # candidates, only generic `test-failed-1.png` captures that are neither full-page nor taken
+      # with the screenshot options). `missing` writes a new baseline at its real path and never
+      # overwrites an existing one, so a changed baseline still fails and still yields `-actual.png`.
+      # The next step, not the test result, is what refuses to let a written-but-uncommitted
+      # baseline pass silently.
       - name: Run the visual regression canaries
         id: visual
         if: steps.gate.outputs.run == 'true'
@@ -333,40 +342,72 @@ jobs:
           E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
           E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
           E2E_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
-        run: npm run test:e2e -- --project=visual
+        run: npm run test:e2e -- --project=visual --update-snapshots=missing
 
-      # ONLY the PNGs leave the runner. test-results-visual/ also holds a trace zip for every failed
+      # Two kinds of candidate, both copied at the path they belong at so the artifact mirrors the
+      # repository: a baseline Playwright just WROTE (untracked under tests/e2e/__screenshots__/), and
+      # the `-actual.png` for a committed baseline that no longer matches.
+      #
+      # ONLY PNGs leave the runner. test-results-visual/ also holds a trace zip for every failed
       # canary, and a trace stores `authorization: Bearer <JWT>` verbatim (see the trace-encryption
       # step below) -- a plain upload of that directory would publish a live credential. A
       # screenshot holds pixels only. The seeded board is fixture text and no surface renders the
       # account email, but treat the artifact as public anyway: it is.
       - name: Collect the visual differences
-        if: steps.gate.outputs.run == 'true' && steps.visual.outcome == 'failure'
+        id: visualdiff
+        if: steps.gate.outputs.run == 'true' && steps.visual.outcome != 'skipped'
+        # Diagnostics only: a bug in this step must never turn the REQUIRED E2E check red.
+        continue-on-error: true
         run: |
           mkdir -p visual-diff
+          git ls-files --others --exclude-standard -- 'tests/e2e/__screenshots__/*.png' > new-baselines.txt
+          new=$(wc -l < new-baselines.txt)
+          [ "$new" -gt 0 ] && xargs -a new-baselines.txt cp --parents -t visual-diff/
+          changed=0
           if [ -d test-results-visual ]; then
-            find test-results-visual -type f -name '*.png' -exec cp --parents {} visual-diff/ \;
+            find test-results-visual -type f \( -name '*-actual.png' -o -name '*-expected.png' -o -name '*-diff.png' \) \
+              -exec cp --parents {} visual-diff/ \;
+            changed=$(find visual-diff -type f -name '*-actual.png' | wc -l)
           fi
-          count=$(find visual-diff -type f -name '*-actual.png' | wc -l)
-          echo "::warning title=Visual regression::$count canary screenshot(s) differ from, or have no, committed baseline. Not a merge gate; see the job summary."
+          if [ "$new" -eq 0 ] && [ "$changed" -eq 0 ]; then
+            if [ "${{ steps.visual.outcome }}" = "failure" ]; then
+              echo "::warning title=Visual regression::The canaries failed without producing any screenshot (a wait or a page error, not a pixel change). Read the step log."
+            else
+              echo "Every visual canary matched its committed baseline."
+            fi
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          echo "::warning title=Visual regression::$new new baseline(s) and $changed changed screenshot(s). Not a merge gate; see the job summary."
           {
-            echo "## Visual regression: $count canary screenshot(s) changed or missing"
+            echo "## Visual regression: $new new baseline(s), $changed changed screenshot(s)"
             echo
-            echo 'Not a merge gate. If the change is intended, the `*-actual.png` files in the'
-            echo '`visual-diffs-*` artifact are the new baselines: see "Refreshing the visual baselines"'
-            echo 'in `docs/agents/testing.md`. Inspect every image before committing it, because this repository is public.'
+            echo 'Not a merge gate. The `visual-diffs-*` artifact mirrors repository paths: new baselines are already'
+            echo 'named `tests/e2e/__screenshots__/<name>-linux.png`, and a changed one has a `-actual.png` beside its'
+            echo '`-expected.png` and `-diff.png`. See "Refreshing the visual baselines" in `docs/agents/testing.md`.'
+            echo 'Inspect every image before committing it, because this repository is public.'
             echo
-            find visual-diff -type f -name '*-actual.png' | sed 's#.*/##; s#-actual\.png$##' | sort | sed 's/^/- /'
+            if [ "$new" -gt 0 ]; then
+              echo '### New baselines'
+              sed 's#.*/##; s#-linux\.png$##; s/^/- /' new-baselines.txt | sort
+            fi
+            if [ "$changed" -gt 0 ]; then
+              echo '### Changed'
+              find visual-diff -type f -name '*-actual.png' | sed 's#.*/##; s#-actual\.png$##; s/^/- /' | sort
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload the visual differences
-        if: steps.gate.outputs.run == 'true' && steps.visual.outcome == 'failure'
+        if: steps.visualdiff.outputs.found == 'true'
+        # Diagnostics only: a bug in this step must never turn the REQUIRED E2E check red.
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: visual-diffs-${{ github.run_id }}-${{ github.run_attempt }}
           path: visual-diff
           retention-days: 7
-          if-no-files-found: warn
+          if-no-files-found: error
 
       # Playwright traces are ENCRYPTED before upload, for the same reason backup.yml encrypts its
       # dump: this repository is public, and GitHub artifacts on public repos are downloadable by

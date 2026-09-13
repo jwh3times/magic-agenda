@@ -113,9 +113,9 @@ test.describe('signed in', () => {
 
     test('board calendar (cork, mobile)', async ({ page }) => {
       await openBoard(page, 'cork', 'calendar')
-      // The mobile Inbox is a collapsible panel docked under the board, so the unscheduled card is
-      // not rendered until it is opened. Wait only for the two dated cards.
-      await boardReady(page, SEEDED_TITLES.slice(0, 2))
+      // The mobile Inbox docks under the board expanded, so all three cards render here too
+      // (confirmed on #280's first CI run) and the wait covers every one, as on desktop.
+      await boardReady(page, SEEDED_TITLES)
       await expect(page).toHaveScreenshot('board-calendar-cork-mobile.png')
     })
   })
