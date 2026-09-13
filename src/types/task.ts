@@ -225,8 +225,15 @@ export function asSeriesDefinition(
  * Assemble a Task from loose recurrence fields, choosing the shape they describe.
  *
  * This is the **one place** the three shapes are recovered from input that is not already typed —
- * the database boundary (`rowToTask`), the file parser, and test factories all funnel through it,
- * so nothing else has to defend against an impossible combination.
+ * the database boundary (`rowToTask`), the file parser, and test factories all funnel through it.
+ *
+ * What it guarantees is narrower than "a clean row", and worth stating exactly: the union
+ * discriminants (`recurFreq`, `recurUntil`, `recurParentId`, `occurrenceDate`) always agree with the
+ * shape chosen, and the two Rule parameters the database couples to `recur_freq` —
+ * `recurWeekdays` and `recurCount` — are cleared on every shape that carries no Rule, so a narrowed
+ * Task can never be a row `tasks_recur_weekdays_weekly_only` or `tasks_recur_count_requires_rule`
+ * refuses. It does **not** normalize `recurInterval` or `excludedDates` on an Occurrence; callers
+ * building an Occurrence from an editor draft still apply `NO_RULE_PARAMS` themselves.
  *
  * A row naming a parent but carrying no Occurrence Date is read as a **standalone Task**, not as an
  * Occurrence with a missing date. That is not a new decision: `20260813210200` detached exactly
@@ -237,7 +244,18 @@ export function asSeriesDefinition(
  */
 export function asTask(input: TaskDraft): Task {
   if (input.recurParentId !== null && input.occurrenceDate !== null) {
-    return { ...input, ...asOccurrence(input.recurParentId, input.occurrenceDate) }
+    // Only the two CHECK-coupled Rule parameters are reset here (#345), and the asymmetry with
+    // `NO_RULE_PARAMS` is deliberate. An Occurrence row can never store a weekday set or a count, so
+    // clearing them changes nothing for a row `rowToTask` reads, while a draft that still carries its
+    // Series' values would otherwise narrow into a row the database refuses. `recurInterval` has no
+    // such coupling — only a range check — so a stored Occurrence may legally hold a non-1 value, and
+    // resetting it would make `taskToRow(rowToTask(row))` rewrite that row on its next write.
+    return {
+      ...input,
+      recurWeekdays: [],
+      recurCount: null,
+      ...asOccurrence(input.recurParentId, input.occurrenceDate),
+    }
   }
   if (input.recurFreq !== 'none') {
     return { ...input, ...asSeriesDefinition(input.recurFreq, input.recurUntil) }
