@@ -39,6 +39,31 @@ import { testBoardId, testClient, testUserId } from './supabase'
  */
 export const SEEDED_TITLES = ['Draft the launch note', 'Book the venue', 'Unscheduled idea']
 
+/**
+ * Fixed task ids, one per seeded row, in SEEDED_TITLES order.
+ *
+ * Deliberately NOT left to the database's `gen_random_uuid()` default, because two things the board
+ * renders are functions of a task's id, and both made the visual canaries (#280) nondeterministic:
+ *
+ *   - **Card tilt.** `rotOf(task.id)` (src/theme/cardStyles.ts) hashes the id into the rotation
+ *     cork and brutal apply to every card. A fresh UUID per seed meant a fresh tilt per run.
+ *   - **Tie order.** Two seeded rows share `order_index` and `korder` 0, and `loadBoardTasks` reads
+ *     in id order, so random ids could swap the two To Do cards in the kanban view.
+ *
+ * Measured, not assumed: the kanban canary matched its baseline on one run and differed by 14,936
+ * pixels on the next, with no app change between them. The other cork/brutal canaries drifted the
+ * same way and passed only because their cards are small enough to stay under the old 1% tolerance.
+ *
+ * Reusing the same ids every run is safe: the delete below clears this Board first, the INSERT grant
+ * includes `id` (it is part of the `taskToRow` payload for upserts), and a primary key here is
+ * fixture data, not a secret, which is what the realtime DELETE fan-out rule asks of a published table.
+ */
+export const SEEDED_IDS = [
+  '00000000-0000-4000-8000-00000000e2e1',
+  '00000000-0000-4000-8000-00000000e2e2',
+  '00000000-0000-4000-8000-00000000e2e3',
+]
+
 export type Theme = 'cork' | 'brutal' | 'glass'
 export type View = 'calendar' | 'week' | 'agenda' | 'kanban'
 
@@ -88,6 +113,7 @@ export async function seedBoard(options: SeedOptions = {}): Promise<void> {
 
   const { error: insertError } = await client.from('tasks').insert([
     {
+      id: SEEDED_IDS[0],
       board_id: boardId,
       title: SEEDED_TITLES[0],
       day: anchor,
@@ -96,6 +122,7 @@ export async function seedBoard(options: SeedOptions = {}): Promise<void> {
       color: 'yellow',
     },
     {
+      id: SEEDED_IDS[1],
       board_id: boardId,
       title: SEEDED_TITLES[1],
       // +2 days always stays inside the rendered grid: the 42 cells pad the anchor month to whole
@@ -106,6 +133,7 @@ export async function seedBoard(options: SeedOptions = {}): Promise<void> {
       color: 'blue',
     },
     {
+      id: SEEDED_IDS[2],
       board_id: boardId,
       title: SEEDED_TITLES[2],
       day: null,

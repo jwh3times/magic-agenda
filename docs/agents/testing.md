@@ -220,6 +220,16 @@ load-bearing:
   measuring different pages. Settings is the one surface with several independently loading
   sections; its canary waits for every `Loading…` placeholder to disappear and for History's empty
   state before it screenshots.
+- **Anything the board derives from a task's id must be fixed in the seed, and the tolerance
+  must be absolute.** Card tilt is `rotOf(task.id)` in cork and brutal, and ties in a lane are read
+  in id order, so a seed that let the database mint fresh UUIDs gave every run a different board.
+  `seedBoard` therefore inserts `SEEDED_IDS`. That was found the hard way: the kanban canary matched
+  on one run and differed by 14,936 pixels on the next. The other cork/brutal canaries drifted too
+  and passed only because the first cut's `maxDiffPixelRatio: 0.01` (≈9,200 px on a 1280×720 page)
+  forgave a small card rotating — which means it would have forgiven a real regression of the same
+  size. The cap is now `maxDiffPixels: 50`, with Playwright's per-pixel `threshold` still absorbing
+  colour noise. **One matching run proves nothing about stability**; a new or reseeded canary needs
+  two consecutive matching runs before it is trusted.
 - **`@playwright/test` is pinned to an exact version and ignored by Dependabot.** A Playwright bump
   changes the bundled Chromium, which invalidates every baseline — and the `E2E` job cannot run on a
   Dependabot PR, so such a bump would merge green and break the next human PR. Upgrade it by hand,

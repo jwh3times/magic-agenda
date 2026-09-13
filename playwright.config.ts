@@ -21,9 +21,14 @@ export default defineConfig({
   timeout: 60_000,
   expect: {
     timeout: 15_000,
-    // Visual canaries (#280). A small tolerance absorbs sub-pixel antialiasing on the same runner
-    // image without hiding a real token change, which moves whole regions of a theme.
-    toHaveScreenshot: { maxDiffPixelRatio: 0.01, animations: 'disabled', caret: 'hide' },
+    // Visual canaries (#280). An ABSOLUTE pixel cap, not a ratio. The first cut used
+    // maxDiffPixelRatio 0.01 -- about 9,200 pixels on a 1280x720 page -- and that was measured to be
+    // too loose to be a check: a seeded card changing its tilt between runs moved under 1% of a
+    // calendar page and passed, while the larger kanban cards crossed it (14,936 px) and failed. A
+    // tolerance that forgives a whole card rotating also forgives a real regression on a small
+    // element. Per-pixel colour noise is still absorbed by Playwright's default `threshold` (0.2);
+    // this cap only bounds how many pixels may exceed it.
+    toHaveScreenshot: { maxDiffPixels: 50, animations: 'disabled', caret: 'hide' },
   },
 
   // A local run must never write a baseline silently: Playwright's default ('missing') would let a
