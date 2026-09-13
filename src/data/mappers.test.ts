@@ -242,3 +242,25 @@ describe('round trip', () => {
     expect(back.checklist).toEqual([{ id: 'c1', text: 'x', done: true }])
   })
 })
+
+describe('an Occurrence row round-trips unchanged (#345)', () => {
+  it('keeps a stored non-1 interval and its Excluded Dates through rowToTask -> taskToRow', () => {
+    // `asTask` resets only the CHECK-coupled Rule parameters on an Occurrence. `recur_interval` has
+    // only a range check, so a stored Occurrence may legally hold 3 — and a reset here would make
+    // reading the row and writing it back silently rewrite it.
+    const stored = row({
+      id: 'occ',
+      day: '2026-07-06',
+      recur_parent_id: 'series',
+      recur_origin_day: '2026-07-06',
+      recur_interval: 3,
+      recur_skip: ['2026-07-13'],
+    })
+    const written = taskToRow(rowToTask(stored), 'b1')
+    expect(written.recur_interval).toBe(3)
+    expect(written.recur_skip).toEqual(['2026-07-13'])
+    expect(written.recur_weekdays).toEqual([])
+    expect(written.recur_count).toBeNull()
+    expect(written.recur_parent_id).toBe('series')
+  })
+})
