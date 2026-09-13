@@ -89,6 +89,19 @@ backgrounds it ever has to beat.** Cork and brutal papers are light, so their ri
 disappears. axe does not evaluate focus indicators, so a new theme's value is a deliberate judgement
 call, not a number a check hands you.
 
+**Where the ring is drawn is part of the design, and it was wrong until #361.** It used to be an
+outline 2px _outside_ the card on `SortableCard`'s wrapper, which put it on the board background
+rather than the paper its colours were chosen for — and the calendar cell's card container is
+`overflow: auto` with no padding, so that ring was clipped out of sight in every theme. It was
+rendered, its computed style was right, and nobody could see it. The ring is now an outline on the
+card element itself (passed through `TaskCard`'s `wrapStyle`), drawn **inside** the edge by a
+negative `outline-offset` taken from a per-theme `focusRingInset` token: flush on cork's borderless
+paper, 5–8px in on brutal so a strip of paper separates it from the 2.5px black border it would
+otherwise merge with, and just inside glass's 1px edge. On the card element it also rotates with the
+paper and follows each theme's radius. Two rules follow: **do not move the ring back outside the
+card**, and **do not put it back on the unrotated wrapper**, where a straight rectangle slides off a
+tilted card's corners.
+
 The ring itself is the sharpest example yet of the inline-style-object / pseudo-class tension this
 section already warns about: `:focus-visible` cannot be expressed as an inline style, so
 `SortableCard` tracks focus in React state instead, set from `onFocus` by reading
