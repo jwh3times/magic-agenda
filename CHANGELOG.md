@@ -12,6 +12,18 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.11.2] - 2026-09-12
+
+### Docs
+
+- **The lint policy no longer points at an Oxlint version the repository has moved past** (#349).
+  `docs/agents/testing.md` said to revisit two React rules, `react/config` and `react/gating`, "on
+  the next Oxlint upgrade" — and that upgrade had already happened, to 1.82, without anyone
+  noticing. Checking 1.82 shows it still does not provide either rule, so there is nothing to turn
+  on. The note now says so, and ties the reminder to the rules actually appearing rather than to
+  any upgrade, since a version-based reminder comes due on every automated dependency bump whether
+  or not anything changed. It also names the one-line check that answers the question.
+
 ## [1.11.1] - 2026-09-12
 
 ### Internal
@@ -3186,7 +3198,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.11.1...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.11.2...HEAD
+[1.11.2]: https://github.com/jwh3times/magic-agenda/compare/v1.11.1...v1.11.2
 [1.11.1]: https://github.com/jwh3times/magic-agenda/compare/v1.11.0...v1.11.1
 [1.11.0]: https://github.com/jwh3times/magic-agenda/compare/v1.10.1...v1.11.0
 [1.10.1]: https://github.com/jwh3times/magic-agenda/compare/v1.10.0...v1.10.1

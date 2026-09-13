@@ -229,12 +229,18 @@ uuid — but a default ACL is a template, so it applies to the first one anybody
 ## Lint policy
 
 `.oxlintrc.json` owns the entire lint policy. `options.typeAware` delegates semantic rules to
-`oxlint-tsgolint`, whose compiler engine is TypeScript 7, while Oxlint 1.79's category-specific
+`oxlint-tsgolint`, whose compiler engine is TypeScript 7, while Oxlint's category-specific
 `react/*` rules cover the React Compiler diagnostics. `react/invariant` and `react/todo` stay off:
 they report compiler bugs and skipped optimizations rather than app violations, and the removed
 `react/react-compiler` rule filtered both by default. `react/hooks` also stays off because
-`react/rules-of-hooks` already owns that check. Although 1.79's schema advertises `react/config` and
-`react/gating`, its binary does not register either rule; revisit them on the next Oxlint upgrade.
+`react/rules-of-hooks` already owns that check. `react/config` and `react/gating` are not enabled
+because the Oxlint binary does not register them: 1.79's schema advertised both while its binary
+rejected them, and 1.82 (checked 2026-09-12, #349) neither lists them in its schema nor registers
+them. **Revisit them when the binary registers them, not on every Oxlint upgrade** — a
+version-pinned trigger refires on each Dependabot bump whether or not anything changed, which is
+how the earlier wording went stale unnoticed. To check, enable one in a scratch config and run
+`npx oxlint -c <config> <file>`: an unregistered rule fails with
+`Rule 'config' not found in plugin 'react'`, exactly like a misspelled one.
 `options.reportUnusedDisableDirectives` makes stale inline suppressions errors, so every exception
 remains tied to a diagnostic it actually covers. A small explicit React correctness set covers
 invalid keys, props, and DOM children, while a test-file-only Vitest override rejects focused or
