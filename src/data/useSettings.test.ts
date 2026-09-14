@@ -83,6 +83,7 @@ test('saveTheme fires the upsert request so the theme persists across reloads', 
       theme: 'brutal',
       week_start: 0,
       timezone: null,
+      keyboard_shortcuts: true,
     },
     { onConflict: 'user_id' },
   )
@@ -103,6 +104,7 @@ test('a settings change from another device is applied', async () => {
     theme: 'glass',
     weekStart: 0,
     timezone: null,
+    keyboardShortcuts: true,
   })
 })
 
@@ -124,10 +126,13 @@ test('a remote settings event arriving right after a local save is suppressed', 
     theme: 'brutal',
     weekStart: 0,
     timezone: null,
+    keyboardShortcuts: true,
   })
 })
 
 test('a failed load falls back to the snapshot, not to DEFAULTS', async () => {
+  // This snapshot predates keyboardShortcuts (#269), exactly as one written by the previous release
+  // would, so it also pins that a missing field reads as the default (on) rather than undefined.
   localStorage.setItem(
     'ma-snapshot-settings',
     JSON.stringify({
@@ -143,6 +148,7 @@ test('a failed load falls back to the snapshot, not to DEFAULTS', async () => {
     theme: 'glass',
     weekStart: 1,
     timezone: 'Europe/London',
+    keyboardShortcuts: true,
   })
 })
 
@@ -154,6 +160,7 @@ test('a failed load with no snapshot falls back to DEFAULTS', async () => {
     theme: 'cork',
     weekStart: 0,
     timezone: null,
+    keyboardShortcuts: true,
   })
 })
 
@@ -165,6 +172,7 @@ test('a genuinely empty row still means DEFAULTS, and is snapshotted', async () 
     theme: 'cork',
     weekStart: 0,
     timezone: null,
+    keyboardShortcuts: true,
   })
   expect(readSettingsSnapshot('u1')?.settings.theme).toBe('cork')
 })
@@ -197,6 +205,7 @@ test('an empty row with no session does not overwrite the existing snapshot', as
     theme: 'cork',
     weekStart: 0,
     timezone: null,
+    keyboardShortcuts: true,
   })
   // ...but the on-disk snapshot, which the next offline boot reads, must be untouched.
   expect(readSettingsSnapshot('u1')?.settings).toEqual({
@@ -238,6 +247,7 @@ test('a row missing the new columns loads as the defaults', async () => {
     theme: 'brutal',
     weekStart: 0,
     timezone: null,
+    keyboardShortcuts: true,
   })
 })
 
@@ -312,4 +322,51 @@ test('a theme saved while offline still reaches the snapshot', async () => {
   act(() => result.current.saveTheme('brutal'))
 
   expect(readSettingsSnapshot('u-offline')?.settings.theme).toBe('brutal')
+})
+
+// ——— #269: the keyboard_shortcuts Account Preference ———
+
+test('a stored keyboard_shortcuts of false loads as off', async () => {
+  h.capture.result = {
+    data: { theme: 'cork', week_start: 0, timezone: null, keyboard_shortcuts: false },
+    error: null,
+  }
+  const { result } = renderHook(() => useSettings('user-1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  expect(result.current.settings?.keyboardShortcuts).toBe(false)
+})
+
+test('a row without the column loads with shortcuts on', async () => {
+  // The deploy window between the migration and this client.
+  h.capture.result = { data: { theme: 'cork', week_start: 0, timezone: null }, error: null }
+  const { result } = renderHook(() => useSettings('user-1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  expect(result.current.settings?.keyboardShortcuts).toBe(true)
+})
+
+test('saveKeyboardShortcuts persists the column and the snapshot', async () => {
+  const { result } = renderHook(() => useSettings('u-keys', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  act(() => result.current.saveKeyboardShortcuts(false))
+
+  await waitFor(() => expect(h.upsertThen).toHaveBeenCalled())
+  expect(h.upsert).toHaveBeenCalledWith(
+    expect.objectContaining({ user_id: 'u-keys', keyboard_shortcuts: false }),
+    { onConflict: 'user_id' },
+  )
+  expect(result.current.settings?.keyboardShortcuts).toBe(false)
+  expect(readSettingsSnapshot('u-keys')?.settings.keyboardShortcuts).toBe(false)
+})
+
+test('a realtime change carries keyboard_shortcuts to other devices', async () => {
+  const { result } = renderHook(() => useSettings('user-1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  act(() => {
+    h.capture.handler?.({
+      new: { theme: 'cork', week_start: 0, timezone: null, keyboard_shortcuts: false },
+    })
+  })
+  expect(result.current.settings?.keyboardShortcuts).toBe(false)
 })

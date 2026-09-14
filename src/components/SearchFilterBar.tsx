@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import type { CSSProperties, Ref } from 'react'
 import { useTheme } from '../theme/ThemeProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { STATUS } from '../theme/constants'
@@ -9,9 +9,11 @@ import { useLabelDirectoryContext } from '../labels/LabelDirectoryProvider'
 export interface SearchFilterBarProps {
   query: FilterQuery
   onChange: (q: FilterQuery) => void
+  /** Lets the board focus the search field from the `/` keyboard shortcut (#269). */
+  searchInputRef?: Ref<HTMLInputElement>
 }
 
-export function SearchFilterBar({ query, onChange }: SearchFilterBarProps) {
+export function SearchFilterBar({ query, onChange, searchInputRef }: SearchFilterBarProps) {
   const { theme, conf } = useTheme()
   const { labels } = useLabelDirectoryContext()
   const isMobile = useIsMobile()
@@ -44,6 +46,7 @@ export function SearchFilterBar({ query, onChange }: SearchFilterBarProps) {
       }}
     >
       <input
+        ref={searchInputRef}
         aria-label="Search tasks"
         value={query.text}
         onChange={(e) => onChange({ ...query, text: e.target.value })}

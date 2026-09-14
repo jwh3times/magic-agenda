@@ -9,6 +9,7 @@ import {
   MONTHS_LONG,
   addDays,
   addMonths,
+  formatAgendaDate,
   formatWeekRange,
   parseDay,
   startOfWeek,
@@ -27,6 +28,13 @@ import { Inbox } from './Inbox'
 import { KanbanView } from './KanbanView'
 import { TaskEditor } from './TaskEditor'
 import { SearchFilterBar } from './SearchFilterBar'
+import { CommandPalette, type PaletteCommand } from './CommandPalette'
+import { ShortcutHelp } from './ShortcutHelp'
+import { Toast } from './Toast'
+import { useKeyboardShortcuts } from '../lib/useKeyboardShortcuts'
+import type { ShortcutAction } from '../lib/keyboardShortcuts'
+import { dateOrderForLocale, parseQuickAdd } from '../data/quickAdd'
+import { taskLimitError } from '../data/taskLimits'
 import { applyFilters, isFilterActive, EMPTY_FILTER, type FilterQuery } from '../data/filters'
 import { isArchived } from '../data/completion'
 import { overdueTasks } from '../data/selectors'
@@ -34,9 +42,11 @@ import type { ViewOption } from './ViewSwitcher'
 import { BoardActionContext, type BoardActions } from './boardActionContext'
 import { useTaskBoard } from '../data/taskBoardContext'
 import {
+  INBOX,
   NO_RECUR,
   type Task,
   type TaskDraft,
+  type ThemeName,
   type ViewName,
   type WorkflowStatus,
 } from '../types/task'
@@ -56,6 +66,8 @@ export interface BoardProps {
   onOpenSettings?: () => void
   /** Whether this Board membership may assign Labels to Tasks. */
   canAssignLabels?: boolean
+  /** The account's single-letter keyboard shortcuts preference (#269). Ctrl/Cmd+K ignores it. */
+  keyboardShortcuts?: boolean
 }
 
 /**
@@ -80,6 +92,16 @@ const VIEWS: ViewOption[] = [
   { key: 'week', label: 'Week' },
   { key: 'agenda', label: 'Agenda' },
   { key: 'kanban', label: 'Board' },
+]
+
+/**
+ * Theme names as the command palette offers them. They must read exactly as ThemeSwitcher's
+ * labels do, which keeps its list private to that component; keep the two in step.
+ */
+const THEME_OPTIONS: { key: ThemeName; label: string }[] = [
+  { key: 'cork', label: 'Cork' },
+  { key: 'brutal', label: 'Neon' },
+  { key: 'glass', label: 'Aurora' },
 ]
 
 function newTaskTemplate(day: string, status: WorkflowStatus): Task {
@@ -113,10 +135,11 @@ export function Board({
   onSignOut,
   onOpenSettings,
   canAssignLabels = true,
+  keyboardShortcuts = true,
 }: BoardProps) {
   const taskBoard = useTaskBoard()
   const { tasks } = taskBoard
-  const { theme, conf } = useTheme()
+  const { theme, conf, setTheme } = useTheme()
   const isMobile = useIsMobile()
   const { readOnly, fallbackReason, savedAt, timezone } = useContext(OfflineContext)
   // A choice made in this tab wins over the account default; a new tab starts at initialView.
@@ -127,6 +150,12 @@ export function Board({
   const [editing, setEditing] = useState<Editing | null>(null)
   const [filter, setFilter] = useState<FilterQuery>(EMPTY_FILTER)
   const popTimer = useRef<number | undefined>(undefined)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
+  // Numeric quick-add dates ("3/4") follow the browser's locale, by the maintainer's decision.
+  const dateOrder = useMemo(() => dateOrderForLocale(), [])
 
   const filterActive = isFilterActive(filter)
   // Archive is durable Board state (ADR-0003), so it is excluded here, ahead of every view's own
@@ -223,6 +252,77 @@ export function Board({
   const onNext = () => setAnchor((a) => (view === 'week' ? addDays(a, 7) : addMonths(a, 1)))
   const onToday = () => setAnchor(parseDay(today))
 
+  const whenLabel = (day: string) => (day === INBOX ? 'Inbox' : formatAgendaDate(day))
+
+  // Quick-add creates the task straight away (the maintainer's decision), so it is refused wherever
+  // + New task is: on a read-only board, and for a title the editor itself would reject.
+  const quickAddPreview = (text: string) => {
+    if (readOnly) return null
+    const parsed = parseQuickAdd(text, today, dateOrder)
+    return parsed.title ? { title: parsed.title, when: whenLabel(parsed.day) } : null
+  }
+  const quickAdd = (text: string) => {
+    if (readOnly) return
+    const parsed = parseQuickAdd(text, today, dateOrder)
+    if (!parsed.title) return
+    const task: Task = { ...newTaskTemplate(parsed.day, 'todo'), title: parsed.title }
+    const problem = taskLimitError(task)
+    if (problem) {
+      setNotice(problem)
+      return
+    }
+    void taskBoard.saveTask(null, task, true)
+    setNotice(`Added “${parsed.title}” to ${whenLabel(parsed.day)}`)
+  }
+
+  const focusSearch = () => searchRef.current?.focus()
+  const paletteCommands: PaletteCommand[] = [
+    ...(readOnly ? [] : [{ id: 'new-task', label: 'New task', run: actions.onAddInbox }]),
+    { id: 'today', label: 'Go to today', run: onToday },
+    ...VIEWS.map((v) => ({
+      id: `view-${v.key}`,
+      label: `${v.label} view`,
+      run: () => changeView(v.key),
+    })),
+    ...THEME_OPTIONS.map((t) => ({
+      id: `theme-${t.key}`,
+      label: `Theme: ${t.label}`,
+      run: () => setTheme(t.key),
+    })),
+    { id: 'search', label: 'Search tasks', run: focusSearch },
+    { id: 'help', label: 'Keyboard shortcuts', run: () => setHelpOpen(true) },
+  ]
+
+  const onShortcut = (action: ShortcutAction) => {
+    switch (action.type) {
+      case 'palette':
+        setPaletteOpen(true)
+        break
+      case 'new-task':
+        if (!readOnly) actions.onAddInbox()
+        break
+      case 'today':
+        onToday()
+        break
+      case 'view':
+        changeView(action.view)
+        break
+      case 'search':
+        focusSearch()
+        break
+      case 'help':
+        setHelpOpen(true)
+        break
+    }
+  }
+  useKeyboardShortcuts({
+    characterShortcuts: keyboardShortcuts,
+    // A keyboard drag counts as blocking too: "t" mid-drag would move the calendar under the card
+    // being carried.
+    blocked: editing !== null || paletteOpen || helpOpen || dnd.activeTask !== null,
+    onAction: onShortcut,
+  })
+
   return (
     <BoardActionContext.Provider value={actions}>
       <div className="app-root" style={rootStyle(conf)}>
@@ -252,7 +352,7 @@ export function Board({
           />
         )}
 
-        <SearchFilterBar query={filter} onChange={setFilter} />
+        <SearchFilterBar query={filter} onChange={setFilter} searchInputRef={searchRef} />
 
         <DndContext
           accessibility={{ screenReaderInstructions: DND_INSTRUCTIONS }}
@@ -323,6 +423,23 @@ export function Board({
             canAssignLabels={canAssignLabels}
           />
         )}
+
+        {paletteOpen && (
+          <CommandPalette
+            commands={paletteCommands}
+            quickAddPreview={quickAddPreview}
+            onQuickAdd={quickAdd}
+            onClose={() => setPaletteOpen(false)}
+          />
+        )}
+        {helpOpen && (
+          <ShortcutHelp
+            characterShortcuts={keyboardShortcuts}
+            onClose={() => setHelpOpen(false)}
+            onOpenSettings={onOpenSettings}
+          />
+        )}
+        {notice && <Toast tone="info" message={notice} onDismiss={() => setNotice(null)} />}
       </div>
     </BoardActionContext.Provider>
   )

@@ -56,6 +56,19 @@ provider, `TaskCard` is deliberately decorative; the landing preview relies on t
 follow a write end-to-end, read the consuming card/cell -> `Board` -> `TaskBoardContext` ->
 `useTasks`.
 
+**`user_settings.keyboard_shortcuts` (#269) ships a release ahead of its client, and every reader
+defaults it on.** It is the WCAG 2.1.4 off switch for the board's single-letter shortcuts, an Account
+Preference by the maintainer's decision. Adding a column the client writes takes two releases here:
+`useSettings.persist` upserts every settings field it knows, so a client sending `keyboard_shortcuts`
+before the column existed would have **every** settings save refused with `400 PGRST204`. The
+migration (`20260913120000`, `boolean not null default true`) therefore ships alone, and
+`tests/rls/settings_keyboard_shortcuts.test.ts` pins that the then-deployed client's exact upsert
+still succeeds and does not reset a preference that is off. On the reading side **a missing value is
+on everywhere**: a row read in the deploy window (`data.keyboard_shortcuts ?? true`), a realtime
+payload, and an offline settings snapshot written before the field existed — the snapshot fallback
+spreads over `DEFAULTS` rather than trusting the stored shape, which is why the shared snapshot
+version did not need a bump.
+
 Settings are **session-scoped, not page-scoped**: `SettingsProvider` (`src/data/SettingsProvider.tsx`)
 owns the single `useSettings(userId, hasSession)` call above `<Routes>` in `App.tsx`, so navigating
 between `/` and `/settings` no longer refetches or rebuilds the realtime channel. It mounts for

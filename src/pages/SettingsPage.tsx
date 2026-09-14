@@ -7,6 +7,7 @@ import { DangerZone } from '../components/DangerZone'
 import { DataSection } from '../components/DataSection'
 import { BoardsSection } from '../components/BoardsSection'
 import { DatesSection } from '../components/DatesSection'
+import { KeyboardSection } from '../components/KeyboardSection'
 import { LabelsSection } from '../components/LabelsSection'
 import { HistorySection } from '../components/HistorySection'
 import { TwoFactorSection } from '../components/TwoFactorSection'
@@ -32,6 +33,7 @@ export interface SettingsSection {
 const SECTIONS: SettingsSection[] = [
   { id: 'appearance', title: 'Appearance', render: (ctx) => <AppearanceSection {...ctx} /> },
   { id: 'dates', title: 'Dates', render: () => <DatesSection /> },
+  { id: 'keyboard', title: 'Keyboard shortcuts', render: () => <KeyboardSection /> },
   { id: 'boards', title: 'Boards', render: () => <BoardsSection /> },
   { id: 'labels', title: 'Labels', render: () => <LabelsSection /> },
   { id: 'history', title: 'History', render: () => <HistorySection /> },

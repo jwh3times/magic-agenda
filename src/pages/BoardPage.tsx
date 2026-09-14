@@ -96,6 +96,7 @@ export function BoardPage() {
                 onSignOut={() => void signOut()}
                 onOpenSettings={() => void navigate('/settings')}
                 canAssignLabels={can.assignLabels}
+                keyboardShortcuts={settings.keyboardShortcuts}
               />
             </TaskBoardContext.Provider>
           </OfflineContext.Provider>

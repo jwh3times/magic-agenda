@@ -23,11 +23,13 @@ function Harness({
   initialView,
   canAssignLabels,
   seed,
+  keyboardShortcuts,
 }: {
   weekStart?: number
   initialView?: ViewName
   canAssignLabels?: boolean
   seed?: Task[]
+  keyboardShortcuts?: boolean
 }) {
   const [tasks, setTasks] = useState<Task[]>(() => seed ?? makeMockTasks())
   const taskBoard: TaskBoard = {
@@ -60,6 +62,7 @@ function Harness({
               weekStart={weekStart}
               initialView={initialView}
               canAssignLabels={canAssignLabels}
+              keyboardShortcuts={keyboardShortcuts}
             />
           </TaskBoardContext.Provider>
         </LabelDirectoryContext.Provider>
@@ -445,5 +448,96 @@ describe('Archived Tasks are absent from every ordinary Board view', () => {
     render(<Harness seed={completedToday('2026-09-04T08:00:00.000Z')} />)
     await user.type(screen.getByPlaceholderText('Search tasks…'), 'Archived chore')
     expect(screen.queryByText('Archived chore')).not.toBeInTheDocument()
+  })
+})
+
+describe('keyboard shortcuts and the command palette (#269)', () => {
+  const palette = () => screen.queryByRole('dialog', { name: 'Command palette' })
+  const editorTitle = () => screen.queryByPlaceholderText('Task title…')
+
+  test('Ctrl+K opens the command palette', async () => {
+    const user = userEvent.setup()
+    renderBoard()
+    expect(palette()).not.toBeInTheDocument()
+    await user.keyboard('{Control>}k{/Control}')
+    expect(palette()).toBeInTheDocument()
+  })
+
+  test('n opens a new task, but not while typing in the search field', async () => {
+    const user = userEvent.setup()
+    renderBoard()
+    await user.click(screen.getByPlaceholderText('Search tasks…'))
+    await user.keyboard('n')
+    expect(editorTitle()).not.toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Search tasks…')).toHaveValue('n')
+
+    await user.click(document.body)
+    await user.keyboard('n')
+    expect(editorTitle()).toBeInTheDocument()
+  })
+
+  test('with shortcuts turned off, letters do nothing but Ctrl+K still opens the palette', async () => {
+    const user = userEvent.setup()
+    render(<Harness keyboardShortcuts={false} />)
+    await user.keyboard('n?')
+    expect(editorTitle()).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Keyboard shortcuts' })).not.toBeInTheDocument()
+    await user.keyboard('{Control>}k{/Control}')
+    expect(palette()).toBeInTheDocument()
+  })
+
+  test('number keys switch views', async () => {
+    const user = userEvent.setup()
+    sessionStorage.removeItem('ma-board-view')
+    renderBoard()
+    await user.keyboard('2')
+    expect(sessionStorage.getItem('ma-board-view')).toBe('week')
+    await user.keyboard('4')
+    expect(screen.getByText('To Do', { selector: 'span' })).toBeInTheDocument()
+    sessionStorage.removeItem('ma-board-view')
+  })
+
+  test('/ focuses the search field without typing a slash into it', async () => {
+    const user = userEvent.setup()
+    renderBoard()
+    await user.keyboard('/')
+    const search = screen.getByPlaceholderText('Search tasks…')
+    expect(search).toHaveFocus()
+    expect(search).toHaveValue('')
+  })
+
+  test('? opens the keyboard shortcuts overlay', async () => {
+    const user = userEvent.setup()
+    renderBoard()
+    await user.keyboard('?')
+    expect(screen.getByRole('dialog', { name: 'Keyboard shortcuts' })).toBeInTheDocument()
+  })
+
+  test('quick-add from the palette creates the task immediately and says where it went', async () => {
+    const user = userEvent.setup()
+    renderBoard()
+    await user.keyboard('{Control>}k{/Control}')
+    await user.keyboard('Water the ferns tomorrow{Enter}')
+    expect(palette()).not.toBeInTheDocument()
+    expect(screen.getByText('Water the ferns')).toBeInTheDocument()
+    expect(screen.getByText(/^Added “Water the ferns” to /)).toBeInTheDocument()
+  })
+
+  test('no shortcut fires while the task editor is open, not even Ctrl+K', async () => {
+    const user = userEvent.setup()
+    renderBoard()
+    await user.keyboard('n')
+    expect(editorTitle()).toBeInTheDocument()
+    await user.keyboard('{Control>}k{/Control}')
+    expect(palette()).not.toBeInTheDocument()
+  })
+
+  test('a read-only board offers neither New task nor quick-add in the palette', async () => {
+    const user = userEvent.setup()
+    renderOffline()
+    await user.keyboard('{Control>}k{/Control}')
+    expect(screen.queryByRole('option', { name: 'New task' })).not.toBeInTheDocument()
+    await user.keyboard('groceries')
+    expect(screen.queryByRole('option', { name: /^Add task/ })).not.toBeInTheDocument()
   })
 })
