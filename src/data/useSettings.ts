@@ -19,12 +19,19 @@ export interface Settings {
   weekStart: number
   /** IANA id; null means "follow the browser". */
   timezone: string | null
+  /**
+   * Whether the board's single-letter keyboard shortcuts are on (#269). WCAG 2.1.4 requires that
+   * character-key shortcuts can be turned off, because they collide with screen-reader and speech
+   * commands. Ctrl/Cmd+K is not a character-key shortcut, so the command palette ignores this.
+   */
+  keyboardShortcuts: boolean
 }
 
 const DEFAULTS: Settings = {
   theme: 'cork',
   weekStart: 0,
   timezone: null,
+  keyboardShortcuts: true,
 }
 
 export interface UseSettings {
@@ -33,6 +40,7 @@ export interface UseSettings {
   saveTheme: (theme: ThemeName) => void
   saveWeekStart: (weekStart: number) => void
   saveTimezone: (timezone: string | null) => void
+  saveKeyboardShortcuts: (on: boolean) => void
 }
 
 /**
@@ -89,7 +97,10 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
           // rather than rejecting, so treating them alike would silently reset the user's theme
           // to DEFAULTS on every offline boot. Fall back to the last known settings instead, and
           // do not re-snapshot: nothing new was learned.
-          apply(readSettingsSnapshot(userId)?.settings ?? DEFAULTS, false)
+          // Spread over DEFAULTS rather than trusting the stored shape: a snapshot written before a
+          // field existed (keyboardShortcuts, #269) lacks it, and it must read as the default rather
+          // than as undefined.
+          apply({ ...DEFAULTS, ...readSettingsSnapshot(userId)?.settings }, false)
           setLoading(false)
           return
         }
@@ -115,6 +126,7 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
                 // and the Pages build, a row can come back without these columns at all.
                 weekStart: data.week_start ?? 0,
                 timezone: data.timezone ?? null,
+                keyboardShortcuts: data.keyboard_shortcuts ?? true,
               }
             : DEFAULTS,
           // `loadedFromServer: true` because reaching this branch *is* the server having answered
@@ -151,6 +163,7 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
         theme?: string
         week_start?: number
         timezone?: string | null
+        keyboard_shortcuts?: boolean
       } | null
       // `theme` alone gates this now. It used to also require `default_view`, which stopped being
       // a signal of a well-formed row when Default View moved to the Membership — a payload
@@ -160,13 +173,15 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
         theme: row.theme as ThemeName,
         weekStart: row.week_start ?? 0,
         timezone: row.timezone ?? null,
+        keyboardShortcuts: row.keyboard_shortcuts ?? true,
       }
       // Second line of defence behind the echo filter: an identical payload must not re-render
       // or re-snapshot. (useTasks' equivalent is `sameTask` inside the realtime reducer.)
       if (
         next.theme === ref.current.theme &&
         next.weekStart === ref.current.weekStart &&
-        next.timezone === ref.current.timezone
+        next.timezone === ref.current.timezone &&
+        next.keyboardShortcuts === ref.current.keyboardShortcuts
       )
         return
       apply(next)
@@ -201,6 +216,9 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
             theme: next.theme,
             week_start: next.weekStart,
             timezone: next.timezone,
+            // Requires 20260913120000, which ships a release ahead of this client: sending a column
+            // the database does not have answers every settings save with 400 PGRST204.
+            keyboard_shortcuts: next.keyboardShortcuts,
           },
           { onConflict: 'user_id' },
         )
@@ -224,5 +242,10 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
     [persist],
   )
 
-  return { settings, loading, saveTheme, saveWeekStart, saveTimezone }
+  const saveKeyboardShortcuts = useCallback(
+    (keyboardShortcuts: boolean) => persist({ ...ref.current, keyboardShortcuts }),
+    [persist],
+  )
+
+  return { settings, loading, saveTheme, saveWeekStart, saveTimezone, saveKeyboardShortcuts }
 }

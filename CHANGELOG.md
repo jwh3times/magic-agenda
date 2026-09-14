@@ -12,6 +12,24 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.12.0] - 2026-09-13
+
+### Added
+
+- **A command palette with quick-add.** Press Ctrl+K (⌘K on a Mac) and type something like
+  "groceries tomorrow": the task is added straight onto tomorrow and a message says where it went.
+  The palette also switches views and themes, jumps to today, starts a new task, opens search, and
+  lists the shortcuts. Quick-add understands today, tomorrow, weekday names, "Mar 4" or "4 March",
+  and numeric dates, which follow your browser's date format (so "3/4" is March 4 in the US and 3
+  April in the UK). It only reads a date at the end of what you type, and never guesses: if it can't
+  read the date, the whole text becomes the title and the task goes to the Inbox.
+- **Keyboard shortcuts on the board.** `n` starts a new task, `t` goes to today, `1`–`4` switch
+  between Calendar, Week, Agenda and Board, `/` jumps to search, and `?` lists every shortcut. They
+  never fire while you're typing in a field or have a task open.
+- **Settings → Keyboard shortcuts** turns the single-letter shortcuts off for your account on every
+  device — useful if they clash with a screen reader or voice control. Ctrl+K keeps working either
+  way.
+
 ## [1.11.8] - 2026-09-13
 
 ### Internal
@@ -3278,7 +3296,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.11.8...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.0...HEAD
+[1.12.0]: https://github.com/jwh3times/magic-agenda/compare/v1.11.8...v1.12.0
 [1.11.8]: https://github.com/jwh3times/magic-agenda/compare/v1.11.7...v1.11.8
 [1.11.7]: https://github.com/jwh3times/magic-agenda/compare/v1.11.6...v1.11.7
 [1.11.6]: https://github.com/jwh3times/magic-agenda/compare/v1.11.5...v1.11.6

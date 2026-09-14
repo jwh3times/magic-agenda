@@ -31,6 +31,11 @@ of three hand‑built themes.
   Deleting a Label leaves its tasks in place and Unlabeled.
 - **Search & filter** — by text, Label (including Unlabeled), status, and a "📌 Pinned" quick filter; non‑matching
   cards hide live.
+- **Command palette, quick-add & keyboard shortcuts** — press Ctrl+K (⌘K on a Mac) for a command
+  palette: type "groceries tomorrow" to add a task straight onto tomorrow, or switch views and themes
+  and jump to today. On the board, `n` starts a new task, `t` goes to today, `1`–`4` switch views,
+  `/` searches, and `?` lists every shortcut. Numeric dates follow your browser's date format, and
+  single-letter shortcuts can be turned off in Settings → Keyboard shortcuts.
 - **Recurring tasks** — daily / weekly / monthly with an interval, specific weekdays for a weekly
   repeat, and an end that is either a date or a number of repeats. Materialized over a rolling
   90‑day horizon, with **this‑occurrence vs. all‑future** edit and delete semantics.

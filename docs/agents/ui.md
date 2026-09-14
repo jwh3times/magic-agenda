@@ -113,6 +113,45 @@ real browser, which the `focus ring (<theme>)` visual canaries in `tests/e2e/vis
 this ring — the code comment at the call site exists specifically so nobody writes one later
 believing it proves something.
 
+## Keyboard shortcuts, the command palette, and quick-add
+
+#269 split this into layers with one job each, so every rule is testable without a DOM.
+
+- **`src/lib/keyboardShortcuts.ts` decides; `useKeyboardShortcuts` only listens.** `shortcutFor(key, state)`
+  is the whole policy: Ctrl/Cmd+K opens the palette, and `n`, `t`, `1`–`4`, `/`, `?` are the
+  single-character shortcuts. Three rules are easy to get backwards. **Ctrl/Cmd+K works inside a text
+  field and with shortcuts turned off**, because WCAG 2.1.4 (Character Key Shortcuts) covers only
+  single-key shortcuts — yet it is still blocked by an open dialog. **Single-character shortcuts never
+  fire in an editable field**, or typing "n" into search would open a new task. And **nothing fires
+  while a dialog or a keyboard drag is active** — the task editor, palette, and help overlay own their
+  keys, and `t` mid-drag would move the calendar under the card being carried. The hook attaches one
+  document listener and reads the latest state through `useEffectEvent`, so it never re-subscribes.
+- **The account's `keyboardShortcuts` preference is the WCAG 2.1.4 off switch** (Settings → Keyboard
+  shortcuts). It is an Account Preference by the maintainer's decision, so it follows the account to
+  every device; [Client state and realtime sync](state-and-sync.md) records how its column shipped.
+- **`CHARACTER_SHORTCUTS` is the one list** the `?` overlay renders, so the overlay cannot describe a
+  key that does nothing. `Board`'s `THEME_OPTIONS`, the palette's theme commands, must read exactly
+  as `ThemeSwitcher`'s labels do, which that component keeps private — keep the two in step.
+
+**Quick-add is `src/data/quickAdd.ts`, a pure token grammar with no natural-language dependency.** It
+recognizes one date phrase **at the end of the line only** — `today`, `tomorrow`, a weekday,
+`Mar 4` / `March 4` / `4 March`, or a numeric date, with an optional `on` before it — so a title
+that merely contains a date-like word is left alone. Four decisions shape it:
+
+- **Numeric dates follow the browser's locale** (the maintainer's decision). `dateOrderForLocale()`
+  reads month-first or day-first from `Intl`, once per board, and the parser takes the order as an
+  argument, so the parser itself reads neither a locale nor a clock. Year-first locales read as
+  month-before-day.
+- **It never guesses.** An unrecognized or impossible date ("2/30", "13/4") stays in the title and the
+  task goes to the Inbox. A line that is only a date ("tomorrow", "on friday") keeps the whole line as
+  its title rather than creating an untitled task.
+- **A weekday means the next one after today**, never today itself, because `today` exists for that.
+  A date without a year means the next one to come; Feb 29 skips to the next leap year.
+- **Quick-add creates the task immediately** (the maintainer's decision) and confirms with a toast
+  naming where it went. It is refused wherever **+ New task** is — a read-only board shows no "Add
+  task" row at all — and a title the editor would reject is refused with the same `taskLimitError`
+  message rather than written.
+
 ## `design/Task Board.dc.html` is the source of truth, reference-only
 
 The original 821-line vanilla-JS prototype. The visual layer and the reorder/recurrence logic were
