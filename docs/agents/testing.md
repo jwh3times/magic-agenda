@@ -217,7 +217,13 @@ load-bearing:
   moves when a page is not settled, so a second copy of those rules is how the two would drift into
   measuring different pages. Settings is the one surface with several independently loading
   sections; its canary waits for every `Loading…` placeholder to disappear and for History's empty
-  state before it screenshots.
+  state before it screenshots. **Every canary pins the clock, the signed-out ones included.** The
+  landing preview is not seeded, but `src/data/mockTasks.ts` dates its cards from `new Date()` and
+  the footer year reads the same clock, so the two landing canaries, which once skipped
+  `page.clock.setFixedTime`, matched on every run until the week moved past their baselines and then
+  failed on every PR by a few hundred pixels on the date labels (#365). No `seedBoard` runs there,
+  so no anchor has to agree with the pin. A diff confined to dates means an unpinned clock, not a
+  regression: fix the pin rather than refreshing the baseline, which would only hide it for a week.
 - **Anything the board derives from a task's id must be fixed in the seed, and the tolerance
   must be absolute.** Card tilt is `rotOf(task.id)` in cork and brutal, and ties in a lane are read
   in id order, so a seed that let the database mint fresh UUIDs gave every run a different board.
