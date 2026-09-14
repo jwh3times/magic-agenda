@@ -12,6 +12,17 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.11.8] - 2026-09-13
+
+### Internal
+
+- **The database now has a place to store whether single-letter keyboard shortcuts are on** (#269).
+  The next release adds keyboard shortcuts and a command palette, along with a setting to turn the
+  single-letter shortcuts off — which matters for people using a screen reader or voice control,
+  where those keys can clash. That setting is stored with the account so it follows you to every
+  device. This release only adds the storage, switched on for every account, because the app has to
+  be able to save the setting before it can offer the switch; nothing visible changes yet.
+
 ## [1.11.7] - 2026-09-13
 
 ### Internal
@@ -3267,7 +3278,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.11.7...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.11.8...HEAD
+[1.11.8]: https://github.com/jwh3times/magic-agenda/compare/v1.11.7...v1.11.8
 [1.11.7]: https://github.com/jwh3times/magic-agenda/compare/v1.11.6...v1.11.7
 [1.11.6]: https://github.com/jwh3times/magic-agenda/compare/v1.11.5...v1.11.6
 [1.11.5]: https://github.com/jwh3times/magic-agenda/compare/v1.11.4...v1.11.5
