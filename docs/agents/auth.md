@@ -17,6 +17,17 @@ old "confirm, then come back and sign in" round trip. Both pages refuse to redee
 session (the residual session-fixation guard). `ProtectedRoute` is unchanged —
 `verifyOtp({ type: 'recovery' })` still fires `PASSWORD_RECOVERY` itself.
 
+The blocking same-origin `/auth-token-bootstrap.js` is the first script in `<head>`. On
+`/auth/reset` and `/auth/confirm`, it copies `token_hash` into closure memory and immediately replaces
+the live URL with the bare pathname while preserving `history.state`; every other route is left
+alone. A classic blocking script is deliberate: the first module version still lost to a tiny
+deferred end-of-body probe while its dependency graph loaded. `useTokenRedemption()` reads the
+closure idempotently — required because StrictMode evaluates state initializers twice — and consumes
+the shared copy only after mount, so a later client-side visit cannot replay it. **Do not move the
+scrub into the app module or a React effect.** Cloudflare Web Analytics reads the live
+`document.location.href` when its end-of-body beacon initializes; either later location can lose the
+ordering race, and an effect also never scrubs on the wait or refuse paths.
+
 ## The auth seam: pages never touch `supabase.auth`
 
 **`src/auth/authGateway.ts` is the only module in `src/` that may call `supabase.auth.*`.** Until

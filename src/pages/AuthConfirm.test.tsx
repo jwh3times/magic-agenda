@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, expect, test } from 'vitest'
 import { AuthProvider } from '../auth/AuthProvider'
 import { fakeAuthGateway, fakeSession, type FakeAuth } from '../auth/fakeAuthGateway'
+import { loadCapturedAuthTokenUrl } from '../test/authTokenCapture'
 import { AuthConfirm } from './AuthConfirm'
 
 let fake: FakeAuth
@@ -12,7 +13,7 @@ beforeEach(() => {
   sessionStorage.clear()
   localStorage.clear()
   fake = fakeAuthGateway()
-  window.history.replaceState(null, '', '/auth/confirm')
+  loadCapturedAuthTokenUrl('/auth/confirm')
 })
 
 function tree() {
@@ -30,14 +31,14 @@ function tree() {
 }
 
 test('redeems the token exactly once under StrictMode and scrubs it from the URL', async () => {
-  window.history.replaceState(null, '', '/auth/confirm?token_hash=tok9&type=signup')
+  loadCapturedAuthTokenUrl('/auth/confirm?token_hash=tok9&type=signup')
+  expect(window.location.search).toBe('')
   render(<StrictMode>{tree()}</StrictMode>)
   await waitFor(() => expect(fake.calls.redeemToken).toEqual([['tok9', 'signup']]))
-  expect(window.location.search).toBe('')
 })
 
 test('a successful redemption lands on the board once the session arrives', async () => {
-  window.history.replaceState(null, '', '/auth/confirm?token_hash=tok9&type=signup')
+  loadCapturedAuthTokenUrl('/auth/confirm?token_hash=tok9&type=signup')
   render(tree())
   await waitFor(() => expect(fake.calls.redeemToken).toHaveLength(1))
   // The real client fires SIGNED_IN from inside verifyOtp; the fake leaves that to the test.
@@ -50,7 +51,7 @@ test('a session arriving mid-redemption does not flip to the refusal card', asyn
   // from inside verifyOtp, i.e. BEFORE the promise resolves. Re-deriving the decision from live
   // state at that moment says "already signed in — link unused" about the redemption in progress.
   fake.next.redeemToken = new Promise(() => {}) // still in flight
-  window.history.replaceState(null, '', '/auth/confirm?token_hash=tok9&type=signup')
+  loadCapturedAuthTokenUrl('/auth/confirm?token_hash=tok9&type=signup')
   render(tree())
   await waitFor(() => expect(fake.calls.redeemToken).toHaveLength(1))
 
@@ -62,7 +63,7 @@ test('a session arriving mid-redemption does not flip to the refusal card', asyn
 
 test('refuses to redeem over an existing session', async () => {
   fake = fakeAuthGateway({ session: fakeSession() })
-  window.history.replaceState(null, '', '/auth/confirm?token_hash=tok9&type=signup')
+  loadCapturedAuthTokenUrl('/auth/confirm?token_hash=tok9&type=signup')
   render(tree())
   expect(
     await screen.findByText('You’re already signed in, so this confirmation link wasn’t used.'),
@@ -83,7 +84,7 @@ test('a failed redemption shows the error card with a link to sign in', async ()
     ok: false,
     failure: { reason: 'expired-link', message: 'This link is invalid or has expired.' },
   }
-  window.history.replaceState(null, '', '/auth/confirm?token_hash=bad&type=signup')
+  loadCapturedAuthTokenUrl('/auth/confirm?token_hash=bad&type=signup')
   render(tree())
   expect(
     await screen.findByText(
@@ -99,12 +100,24 @@ test('a redemption that could not reach the server does not claim the link expir
     ok: false,
     failure: { reason: 'offline', message: 'Couldn’t reach the server.' },
   }
-  window.history.replaceState(null, '', '/auth/confirm?token_hash=tok9&type=signup')
+  loadCapturedAuthTokenUrl('/auth/confirm?token_hash=tok9&type=signup')
   render(tree())
   expect(
     await screen.findByText(/Couldn’t reach the server to confirm your account/),
   ).toBeInTheDocument()
   expect(screen.queryByText(/invalid or has expired/)).not.toBeInTheDocument()
+})
+
+test('does not replay the captured token after the redemption page remounts', async () => {
+  loadCapturedAuthTokenUrl('/auth/confirm?token_hash=tok9&type=signup')
+  const firstVisit = render(tree())
+  await waitFor(() => expect(fake.calls.redeemToken).toEqual([['tok9', 'signup']]))
+
+  firstVisit.unmount()
+  render(tree())
+
+  expect(await screen.findByText(/confirmation link is invalid or has expired/)).toBeInTheDocument()
+  expect(fake.calls.redeemToken).toEqual([['tok9', 'signup']])
 })
 
 test('a missing token shows the error card without redeeming', async () => {

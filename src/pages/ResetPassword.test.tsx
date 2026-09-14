@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, expect, test } from 'vitest'
 import { AuthProvider } from '../auth/AuthProvider'
 import { fakeAuthGateway, fakeSession, type FakeAuth } from '../auth/fakeAuthGateway'
+import { loadCapturedAuthTokenUrl } from '../test/authTokenCapture'
 import { ResetPassword } from './ResetPassword'
 
 let fake: FakeAuth
@@ -13,8 +14,7 @@ beforeEach(() => {
   sessionStorage.clear()
   localStorage.clear()
   fake = fakeAuthGateway()
-  // The redemption hook reads window.location.search directly (one-shot at mount).
-  window.history.replaceState(null, '', '/auth/reset')
+  loadCapturedAuthTokenUrl('/auth/reset')
 })
 
 /** A live recovery session, as it exists after a redemption or across a reload. */
@@ -81,7 +81,7 @@ test('a failed update surfaces the message, keeps the flag, and clears busy', as
 // ——— redemption ———
 
 test('redeems the token exactly once under StrictMode and scrubs it from the URL', async () => {
-  window.history.replaceState(null, '', '/auth/reset?token_hash=tok123&type=recovery')
+  loadCapturedAuthTokenUrl('/auth/reset?token_hash=tok123&type=recovery')
   render(<StrictMode>{tree()}</StrictMode>)
   await waitFor(() => expect(fake.calls.redeemToken).toEqual([['tok123', 'recovery']]))
   expect(window.location.search).toBe('') // spent token never lingers in the URL/history
@@ -89,7 +89,7 @@ test('redeems the token exactly once under StrictMode and scrubs it from the URL
 
 test('shows a spinner, not the error card, while the token is being redeemed', async () => {
   fake.next.redeemToken = new Promise(() => {}) // never resolves
-  window.history.replaceState(null, '', '/auth/reset?token_hash=tok123&type=recovery')
+  loadCapturedAuthTokenUrl('/auth/reset?token_hash=tok123&type=recovery')
   render(tree())
   expect(await screen.findByText('Checking your reset link…')).toBeInTheDocument()
   expect(screen.queryByText(/invalid or has expired/)).not.toBeInTheDocument()
@@ -100,7 +100,7 @@ test('a failed redemption shows the invalid-or-expired card', async () => {
     ok: false,
     failure: { reason: 'expired-link', message: 'This link is invalid or has expired.' },
   }
-  window.history.replaceState(null, '', '/auth/reset?token_hash=bad&type=recovery')
+  loadCapturedAuthTokenUrl('/auth/reset?token_hash=bad&type=recovery')
   render(tree())
   expect(
     await screen.findByText(
@@ -116,7 +116,7 @@ test('a redemption that could not reach the server does not claim the link expir
     ok: false,
     failure: { reason: 'offline', message: 'Couldn’t reach the server.' },
   }
-  window.history.replaceState(null, '', '/auth/reset?token_hash=tok123&type=recovery')
+  loadCapturedAuthTokenUrl('/auth/reset?token_hash=tok123&type=recovery')
   render(tree())
   expect(
     await screen.findByText(/Couldn’t reach the server to check your reset link/),
@@ -137,7 +137,7 @@ test('a recovery session with no token still gets the form (reload / re-entry)',
 
 test('refuses to redeem over an existing non-recovery session', async () => {
   fake = fakeAuthGateway({ session: fakeSession() }) // signed in, no recovery flag
-  window.history.replaceState(null, '', '/auth/reset?token_hash=tok123&type=recovery')
+  loadCapturedAuthTokenUrl('/auth/reset?token_hash=tok123&type=recovery')
   render(tree())
   expect(
     await screen.findByText(

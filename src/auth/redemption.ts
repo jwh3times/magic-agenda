@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useAuth } from './AuthProvider'
 import type { RedeemType } from './authGateway'
 import type { AuthFailure, AuthOutcome } from './authOutcome'
+import { consumeCapturedAuthToken, readCapturedAuthToken } from './tokenCapture'
+
+export { readTokenHash } from './tokenCapture'
 
 /**
  * What to do about an emailed `token_hash`.
@@ -35,19 +38,6 @@ export function redeemDecision(input: {
   if (input.hasSession) return { kind: 'refuse', hadToken: Boolean(input.tokenHash) }
   if (!input.tokenHash) return { kind: 'idle' }
   return { kind: 'redeem', tokenHash: input.tokenHash }
-}
-
-/**
- * Reads the token out of the query string, normalizing `?token_hash=` (which `URLSearchParams.get`
- * reports as `''`, not `null`) to absent.
- *
- * Without this the empty string is truthy in one place and falsy in another: `hadToken` would say
- * a link was present while the decision said it wasn't, and the refusal card would claim a reset
- * link "wasn't used" when the URL carried no usable token at all.
- */
-export function readTokenHash(search: string): string | null {
-  const raw = new URLSearchParams(search).get('token_hash')
-  return raw ? raw : null
 }
 
 export type RedemptionStatus =
@@ -87,12 +77,13 @@ export interface Redemption {
  *   render. StrictMode runs effect setup → cleanup → setup against the same latched decision, so
  *   without it a single-use token would be spent twice.
  *
- * The token is captured once at mount and scrubbed from the URL before redemption, so a reload
- * cannot replay a spent token and history never holds it.
+ * The blocking head bootstrap captures and scrubs the token before the app module runs. This hook
+ * reads that in-memory value idempotently during render, then consumes the shared copy after
+ * mounting so a later client-side visit cannot replay it.
  */
 export function useTokenRedemption(type: RedeemType): Redemption {
   const { session, loading, redeemToken } = useAuth()
-  const [tokenHash] = useState(() => readTokenHash(window.location.search))
+  const [tokenHash] = useState(readCapturedAuthToken)
   const [outcome, setOutcome] = useState<AuthOutcome | null>(null)
   const [decision, setDecision] = useState<RedeemDecision>({ kind: 'wait' })
 
@@ -102,9 +93,12 @@ export function useTokenRedemption(type: RedeemType): Redemption {
   const redeemedOnce = useRef(false)
 
   useEffect(() => {
+    consumeCapturedAuthToken()
+  }, [])
+
+  useEffect(() => {
     if (decision.kind !== 'redeem' || redeemedOnce.current) return
     redeemedOnce.current = true
-    window.history.replaceState(window.history.state, '', window.location.pathname)
     void redeemToken(decision.tokenHash, type).then(setOutcome)
   }, [decision, redeemToken, type])
 
