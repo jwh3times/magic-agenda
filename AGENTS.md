@@ -108,9 +108,10 @@ what a maintainer does on a new machine.
 Each file under `docs/agents/` is the canonical account of one area. Read the guide before changing
 the area it covers; do not rely on this page's summaries for it.
 
-- [**Auth**](docs/agents/auth.md) — `src/auth/`, the `authGateway` seam (the only module that may
-  call `supabase.auth`), PKCE vs. `#access_token` fragments, single-use email-token redemption and
-  the session-fixation guard, and the two-factor step-up gate.
+- [**Auth**](docs/agents/auth.md) — `src/auth/`, the blocking emailed-token bootstrap in `public/`,
+  the `authGateway` seam (the only module that may call `supabase.auth`), PKCE vs. `#access_token`
+  fragments, single-use email-token redemption and the session-fixation guard, and the two-factor
+  step-up gate.
 - [**Boards, membership, and account administration**](docs/agents/boards.md) — `boards` /
   `board_memberships` / `account_profiles`, the Membership-scoped policies and column grants,
   `create_board` / `handle_new_user` / `handle_account_deletion`, task attribution, admin roles and
