@@ -12,6 +12,25 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.12.3] - 2026-09-14
+
+### Security
+
+- Emailed password-reset and signup-confirmation tokens are now captured in memory and removed from
+  the address bar before the app's first render. This keeps a future Cloudflare Web Analytics beacon
+  from reading the live token URL, also cleans the URL while authentication is loading or an existing
+  session refuses redemption, and prevents the captured token from replaying during later in-app
+  navigation ([#295](https://github.com/jwh3times/magic-agenda/issues/295)). A real-browser check
+  injects a same-origin probe where Cloudflare would add its beacon and verifies that it sees the
+  scrubbed URL.
+
+## [1.12.2] - 2026-09-14
+
+### Changed
+
+- Routine dependency updates: React and React DOM 19.3, Vite 8.3, and matching Node/React type
+  packages ([#357](https://github.com/jwh3times/magic-agenda/pull/357)).
+
 ## [1.12.1] - 2026-09-13
 
 ### Internal
@@ -3306,7 +3325,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.1...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.3...HEAD
+[1.12.3]: https://github.com/jwh3times/magic-agenda/compare/v1.12.2...v1.12.3
+[1.12.2]: https://github.com/jwh3times/magic-agenda/compare/v1.12.1...v1.12.2
 [1.12.1]: https://github.com/jwh3times/magic-agenda/compare/v1.12.0...v1.12.1
 [1.12.0]: https://github.com/jwh3times/magic-agenda/compare/v1.11.8...v1.12.0
 [1.11.8]: https://github.com/jwh3times/magic-agenda/compare/v1.11.7...v1.11.8

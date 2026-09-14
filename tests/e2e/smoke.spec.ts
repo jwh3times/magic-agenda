@@ -36,6 +36,38 @@ test.describe('signed out', () => {
     expect(errors).toEqual([])
   })
 
+  test('auth token is scrubbed before an end-of-body script reads the URL', async ({ page }) => {
+    const tokenHash = 'bogus-e2e-token'
+    const path = `/auth/reset?token_hash=${tokenHash}&type=recovery`
+
+    await page.route('**/__beacon_probe.js', async (route) => {
+      await route.fulfill({
+        contentType: 'application/javascript',
+        body: 'document.documentElement.dataset.beaconProbeHref = document.location.href',
+      })
+    })
+    await page.route(
+      (url) => url.pathname === '/auth/reset' && url.searchParams.get('token_hash') === tokenHash,
+      async (route) => {
+        const response = await route.fetch()
+        const html = await response.text()
+        expect(html).toContain('</body>')
+        await route.fulfill({
+          response,
+          body: html.replace('</body>', '<script defer src="/__beacon_probe.js"></script></body>'),
+        })
+      },
+    )
+
+    await page.goto(path)
+    const root = page.locator('html')
+    await expect(root).toHaveAttribute('data-beacon-probe-href', /.+/)
+    const observedHref = await root.getAttribute('data-beacon-probe-href')
+
+    expect(observedHref).not.toContain('token_hash')
+    expect(new URL(observedHref!).search).toBe('')
+  })
+
   test('the service worker survives a reload without breaking CSP or fonts', async ({ page }) => {
     // The bug this guards shipped TWICE (v1.2.37). A first load never reproduces it: the worker
     // is not yet controlling the page, so fonts load normally and land in the HTTP cache. Only on

@@ -52,8 +52,14 @@ catch is load-bearing — a `throw` there is a page-level outage, not a missing 
 `script-src` also carries a sha256 for Cloudflare's auto-injected Web Analytics inline loader plus
 `static.cloudflareinsights.com`, with `cloudflareinsights.com` in `connect-src`. The hash is
 Cloudflare's snippet, not ours: a beacon update can change it and silently re-break analytics (the
-app is unaffected). If the console reports a blocked inline script, copy the hash from that message
-into `script-src`.
+app is unaffected). The beacon reads the live `document.location.href` when it initializes; it does
+not recover the original navigation URL from Navigation Timing. That makes enabling analytics safe
+for emailed `/auth/reset` and `/auth/confirm` links only because the blocking same-origin
+`/auth-token-bootstrap.js` is first in `<head>`, captures their `token_hash` in closure memory, and
+scrubs the query before the injected end-of-body script can run. A module script is not equivalent:
+the browser can run a later tiny deferred script while the module's dependency graph is still
+loading. Do not move the scrub into the app module or an effect. If the console reports a blocked
+inline script, copy the hash from that message into `script-src`.
 
 Offline read uses three versioned `localStorage` envelopes, all in `src/data/snapshot.ts` and all
 keyed to the signed-in user id: a board snapshot **per Board** (`ma-snapshot-board.<boardId>`;
