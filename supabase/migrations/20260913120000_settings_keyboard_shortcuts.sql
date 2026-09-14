@@ -1,0 +1,31 @@
+-- An Account Preference for the board's single-letter keyboard shortcuts (#269).
+--
+-- Schema only. The deployed client neither reads nor writes this column, and the split is forced
+-- rather than tidy: `Deploy Migrations` and the Cloudflare Pages build race on every merge, and
+-- `useSettings` upserts every settings field it knows on each save. A client that started sending
+-- `keyboard_shortcuts` before this column existed would have every settings write -- theme, week
+-- start, timezone -- answered with `400 PGRST204`. The client half ships in the following release,
+-- against a production database that already has the column.
+--
+-- Why it exists at all: #269 adds single-character shortcuts (`n`, `t`, `1`-`4`, `/`, `?`), and WCAG
+-- 2.1.4 (Character Key Shortcuts, Level A) requires that a user can turn such shortcuts off, because
+-- they collide with screen-reader and speech-input commands. It is an Account Preference rather than
+-- a per-device one by the maintainer's decision, so turning shortcuts off follows the account to
+-- every browser.
+--
+-- `not null default true`: shortcuts are on unless turned off, and the default is what keeps the
+-- currently-deployed client writing valid rows -- its upsert names only `user_id`, `theme`,
+-- `week_start`, and `timezone`, so the column takes its default on insert and keeps its stored value
+-- on update. The signup trigger's `insert (user_id)` takes the default the same way, so neither
+-- `handle_new_user` nor `create_board` needs rewriting.
+--
+-- No grant change: `user_settings` carries a table-level `select, insert, update, delete` grant to
+-- the Data API roles (20260729100000), unlike `tasks`, whose writes are column-scoped. RLS still
+-- scopes every row to `auth.uid() = user_id`.
+--
+-- The table is in the `supabase_realtime` publication, so this column now rides in change payloads
+-- to the owning account's other devices. It holds a boolean about the account's own UI, and a DELETE
+-- fan-out still carries only the primary key, so nothing new leaves the account.
+
+alter table public.user_settings
+  add column keyboard_shortcuts boolean not null default true;

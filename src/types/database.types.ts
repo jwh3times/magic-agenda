@@ -311,6 +311,7 @@ export type Database = {
       }
       user_settings: {
         Row: {
+          keyboard_shortcuts: boolean
           theme: string
           timezone: string | null
           updated_at: string
@@ -318,6 +319,7 @@ export type Database = {
           week_start: number
         }
         Insert: {
+          keyboard_shortcuts?: boolean
           theme?: string
           timezone?: string | null
           updated_at?: string
@@ -325,6 +327,7 @@ export type Database = {
           week_start?: number
         }
         Update: {
+          keyboard_shortcuts?: boolean
           theme?: string
           timezone?: string | null
           updated_at?: string
