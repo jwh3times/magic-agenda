@@ -62,7 +62,12 @@ async function openBoard(page: Page, theme: Theme, view: View): Promise<void> {
 test.describe('signed out', () => {
   test.use({ storageState: { cookies: [], origins: [] } })
 
+  // The clock is pinned here too, though nothing is seeded: the landing preview's cards are dated
+  // from `new Date()` (src/data/mockTasks.ts), and so is the footer year. Unpinned, these canaries
+  // matched only until the week moved past their baselines, then failed on every PR (#365).
+
   test('landing (desktop)', async ({ page }) => {
+    await page.clock.setFixedTime(new Date(PINNED_TIME))
     await page.goto('/')
     await page.getByRole('heading', { name: 'Your week, on sticky notes.' }).waitFor()
     await settle(page)
@@ -73,6 +78,7 @@ test.describe('signed out', () => {
     test.use({ viewport: MOBILE })
 
     test('landing (mobile)', async ({ page }) => {
+      await page.clock.setFixedTime(new Date(PINNED_TIME))
       await page.goto('/')
       await page.getByRole('heading', { name: 'Your week, on sticky notes.' }).waitFor()
       await settle(page)

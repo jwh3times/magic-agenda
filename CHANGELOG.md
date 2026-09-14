@@ -12,6 +12,16 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.12.1] - 2026-09-13
+
+### Internal
+
+- The two landing-page visual regression canaries now pin the browser clock, like every other
+  canary. The landing preview dates its cards from today, and so does the footer year, so these
+  screenshots matched only until the week moved past their baselines and then reported a false
+  change on every PR ([#365](https://github.com/jwh3times/magic-agenda/issues/365)). Their
+  baselines are regenerated at the pinned date, and `docs/agents/testing.md` records the rule.
+
 ## [1.12.0] - 2026-09-13
 
 ### Added
@@ -3296,7 +3306,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.0...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.1...HEAD
+[1.12.1]: https://github.com/jwh3times/magic-agenda/compare/v1.12.0...v1.12.1
 [1.12.0]: https://github.com/jwh3times/magic-agenda/compare/v1.11.8...v1.12.0
 [1.11.8]: https://github.com/jwh3times/magic-agenda/compare/v1.11.7...v1.11.8
 [1.11.7]: https://github.com/jwh3times/magic-agenda/compare/v1.11.6...v1.11.7
