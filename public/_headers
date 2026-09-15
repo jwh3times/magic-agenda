@@ -3,7 +3,7 @@
 # Docs: https://developers.cloudflare.com/pages/configuration/headers/
 #
 # CSP notes (validated against the production build, 2026-06-30; revised 2026-07-28):
-#   - script-src 'self' + one sha256 + static.cloudflareinsights.com — see the Web Analytics
+#   - script-src 'self' + one sha256 + Cloudflare's analytics and Turnstile hosts — see the Web Analytics
 #                              note below. The Vite build itself emits only external module
 #                              chunks from our origin and no inline <script>.
 #   - style-src 'unsafe-inline' — the theming layer is an inline-style-object model, and the
@@ -61,4 +61,4 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-jgs8w4t+uLh9rWeOIxx1EwRzhZxBbFdg11vxhWHiA8s=' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://fonts.googleapis.com https://fonts.gstatic.com https://cloudflareinsights.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-jgs8w4t+uLh9rWeOIxx1EwRzhZxBbFdg11vxhWHiA8s=' https://static.cloudflareinsights.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://fonts.googleapis.com https://fonts.gstatic.com https://cloudflareinsights.com; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'

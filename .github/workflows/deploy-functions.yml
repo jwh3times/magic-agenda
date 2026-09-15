@@ -33,6 +33,7 @@ jobs:
       # config.toml now contains env() references; the CLI parses config.toml (with its env() references) on every command, including functions deploy.
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       # Derived from the exact `supabase` devDependency so a CLI bump needs no workflow edit (#338).

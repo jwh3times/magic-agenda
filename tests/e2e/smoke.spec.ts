@@ -36,6 +36,29 @@ test.describe('signed out', () => {
     expect(errors).toEqual([])
   })
 
+  test('Turnstile loads on signup under the deployed CSP', async ({ page }) => {
+    const errors = collectErrors(page)
+    const failedChallengeRequests: string[] = []
+    page.on('requestfailed', (request) => {
+      if (new URL(request.url()).hostname === 'challenges.cloudflare.com') {
+        failedChallengeRequests.push(`${request.url()} ${request.failure()?.errorText}`)
+      }
+    })
+
+    await page.goto('/login')
+    const scriptResponse = page.waitForResponse(
+      (response) =>
+        response.url().startsWith('https://challenges.cloudflare.com/turnstile/v0/api.js') &&
+        response.request().resourceType() === 'script',
+    )
+    await page.getByRole('button', { name: 'Sign up' }).click()
+
+    expect((await scriptResponse).ok()).toBe(true)
+    await expect(page.locator('iframe[src*="challenges.cloudflare.com"]').first()).toBeAttached()
+    expect(failedChallengeRequests).toEqual([])
+    expect(errors).toEqual([])
+  })
+
   test('auth token is scrubbed before an end-of-body script reads the URL', async ({ page }) => {
     const tokenHash = 'bogus-e2e-token'
     const path = `/auth/reset?token_hash=${tokenHash}&type=recovery`

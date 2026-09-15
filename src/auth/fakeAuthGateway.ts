@@ -41,8 +41,8 @@ export interface FakeAuth {
   calls: {
     getSession: number
     signIn: Array<[email: string, password: string]>
-    signUp: Array<[email: string, password: string]>
-    sendPasswordReset: string[]
+    signUp: Array<[email: string, password: string, captchaToken: string]>
+    sendPasswordReset: Array<[email: string, captchaToken: string]>
     startGoogleSignIn: number
     setPassword: string[]
     redeemToken: Array<[tokenHash: string, type: RedeemType]>
@@ -132,12 +132,12 @@ export function fakeAuthGateway(options?: { session?: Session | null }): FakeAut
       calls.signIn.push([email, password])
       return next.signIn
     },
-    async signUp(email, password) {
-      calls.signUp.push([email, password])
+    async signUp(email, password, captchaToken) {
+      calls.signUp.push([email, password, captchaToken])
       return next.signUp
     },
-    async sendPasswordReset(email) {
-      calls.sendPasswordReset.push(email)
+    async sendPasswordReset(email, captchaToken) {
+      calls.sendPasswordReset.push([email, captchaToken])
       return next.sendPasswordReset
     },
     async startGoogleSignIn() {

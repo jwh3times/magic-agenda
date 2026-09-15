@@ -52,6 +52,7 @@ jobs:
           # Build only needs these to exist; real values are set in Cloudflare Pages.
           VITE_SUPABASE_URL: https://example.supabase.co
           VITE_SUPABASE_ANON_KEY: ci-placeholder
+          VITE_TURNSTILE_SITE_KEY: ci-placeholder
 
   Functions:
     runs-on: ubuntu-latest
@@ -132,6 +133,7 @@ jobs:
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -225,6 +227,7 @@ jobs:
         env:
           RESEND_API_KEY: dummy-not-a-real-key
           GOOGLE_OAUTH_CLIENT_SECRET: dummy-not-a-real-secret
+          TURNSTILE_SECRET_KEY: dummy-not-a-real-secret
           OPENAI_API_KEY: dummy-not-a-real-key
           S3_HOST: dummy.local
           S3_REGION: local

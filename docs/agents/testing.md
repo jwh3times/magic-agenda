@@ -5,7 +5,8 @@ The three test layers, what each is allowed to touch, and the lint policy the `F
 `npm test` is the fast unit/component suite: Vitest under jsdom with Supabase mocked, and it is
 **hermetic by contract** — it must never need Docker, a database, or a network. `vite.config.ts`
 injects dummy `VITE_SUPABASE_*` values to enforce that, pointed at port 1 — privileged, and
-nothing listens there — so an unmocked call fails fast with `ECONNREFUSED` rather than reaching
+nothing listens there — plus a placeholder `VITE_TURNSTILE_SITE_KEY`, so an unmocked call fails fast
+with `ECONNREFUSED` rather than reaching
 the local stack, which is live whenever `test:rls` is running. Keep `tests/**` excluded from
 that project.
 
@@ -23,9 +24,10 @@ one user's rows and another's, and every unit test mocks it away. Its tests come
 split across two files, and the distinction matters when adding one.
 
 **`test:rls:up` goes through `scripts/rls-up.mjs` rather than calling the CLI directly, and the
-reason is `RESEND_API_KEY`.** `config.toml` enables SMTP against `smtp.resend.com` through
-`env(RESEND_API_KEY)`, so a local GoTrue started by a shell holding the real key can send real
-email from a test stack — and the documented way a maintainer holds production credentials is
+reason is production auth secrets.** `config.toml` enables SMTP against `smtp.resend.com` through
+`env(RESEND_API_KEY)` and Turnstile through `env(TURNSTILE_SECRET_KEY)`, so a local GoTrue started by
+a shell holding real keys can send real email from a test stack — and the documented way a
+maintainer holds production credentials is
 `op run` with the production-operations template, which is exactly that shell. The script injects
 the same dummy values CI's stack step does, **over** the ambient environment rather than under it:
 `{ ...DUMMY_ENV, ...env }` would read as a sensible default and would hand the real key straight
@@ -87,6 +89,12 @@ through `npx`, which ignores a PATH binary in favour of a local one and otherwis
 build**, not a local server. That is the whole point — `public/_headers` is Cloudflare-specific,
 and the v1.2.37 CSP bug could not be reproduced locally. In CI it runs against the PR's Cloudflare
 Pages preview; locally, point `E2E_BASE_URL` at a preview URL or production.
+
+The signed-out smoke group owns CSP probes for external browser resources. Its Turnstile check
+enters sign-up mode, requires the challenge script response and injected iframe, and rejects failed
+challenge-host requests or console errors. Do not replace it with a source-text assertion alone:
+the latter checks the intended header, while only the preview proves Cloudflare served that header
+and the browser accepted both the script and frame.
 
 **Finding the preview is not obvious and the obvious way does not work.** This repo has no GitHub
 Deployments — Cloudflare reports as a check run named `Cloudflare Pages` whose `details_url` points

@@ -49,6 +49,23 @@ keep:
    say which half was wrong; a message that did would make the sign-in form an account-enumeration
    oracle.
 
+**Account creation and password-reset email requests cross the seam with a Turnstile token.**
+`Login` renders `TurnstileWidget` only for its sign-up and forgot-password modes, disables the
+submit button until the challenge succeeds, and passes that single-use token to `signUp` or
+`sendPasswordReset`. The gateway maps it to GoTrue's `options.captchaToken`; it never verifies the
+token in the browser. Every attempt resets the widget, whether GoTrue accepted or refused the
+request, because Cloudflare tokens cannot be reused. Expiry and widget errors clear the token, so a
+stale challenge cannot authorize a later submission. Password sign-in and Google OAuth do not use
+this challenge.
+
+`TurnstileWidget` loads Cloudflare's script with explicit rendering because the containing form is
+conditional SPA state. Its site key comes from `VITE_TURNSTILE_SITE_KEY` (public by design); the
+secret stays behind GoTrue as `TURNSTILE_SECRET_KEY`. `public/_headers` must admit
+`https://challenges.cloudflare.com` in both `script-src` and `frame-src`, and those headers require
+verification on the deployed preview rather than under Vite. Keep `fakeAuthGateway`'s call logs
+token-aware so component tests prove that the solved token, rather than a placeholder, crosses the
+seam.
+
 `Session`/`User` still cross the seam in the success direction, so the eleven modules reading
 `session`/`user` off the context remain typed against the vendor. Narrowing that is deferred, not
 overlooked.

@@ -61,18 +61,22 @@ beforeEach(() => {
 // exactly why the values are pinned here.
 
 test('signUp points the confirmation email at /auth/confirm', async () => {
-  await gw.signUp('a@b.co', 'Longenough123!')
+  await gw.signUp('a@b.co', 'Longenough123!', 'signup-challenge-token')
   expect(h.signUp).toHaveBeenCalledWith({
     email: 'a@b.co',
     password: 'Longenough123!',
-    options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
+    options: {
+      emailRedirectTo: `${window.location.origin}/auth/confirm`,
+      captchaToken: 'signup-challenge-token',
+    },
   })
 })
 
 test('sendPasswordReset points the reset email at /auth/reset', async () => {
-  await gw.sendPasswordReset('a@b.co')
+  await gw.sendPasswordReset('a@b.co', 'reset-challenge-token')
   expect(h.resetPasswordForEmail).toHaveBeenCalledWith('a@b.co', {
     redirectTo: `${window.location.origin}/auth/reset`,
+    captchaToken: 'reset-challenge-token',
   })
 })
 
@@ -104,8 +108,8 @@ test('every action resolves a failure instead of rejecting', async () => {
 
   const outcomes = await Promise.all([
     gw.signIn('a@b.co', 'pw'),
-    gw.signUp('a@b.co', 'pw'),
-    gw.sendPasswordReset('a@b.co'),
+    gw.signUp('a@b.co', 'pw', 'captcha'),
+    gw.sendPasswordReset('a@b.co', 'captcha'),
     gw.startGoogleSignIn(),
     gw.setPassword('pw'),
     gw.redeemToken('tok', 'signup'),
@@ -141,10 +145,16 @@ test('signOut swallows a rejection rather than blocking the local sign-out casca
 
 test('signUp reports whether a confirmation email is pending', async () => {
   h.signUp.mockResolvedValue({ data: { session: null, user: {} }, error: null })
-  expect(await gw.signUp('a@b.co', 'pw')).toEqual({ ok: true, confirmationRequired: true })
+  expect(await gw.signUp('a@b.co', 'pw', 'captcha')).toEqual({
+    ok: true,
+    confirmationRequired: true,
+  })
 
   h.signUp.mockResolvedValue({ data: { session: { user: {} }, user: {} }, error: null })
-  expect(await gw.signUp('a@b.co', 'pw')).toEqual({ ok: true, confirmationRequired: false })
+  expect(await gw.signUp('a@b.co', 'pw', 'captcha')).toEqual({
+    ok: true,
+    confirmationRequired: false,
+  })
 })
 
 test('getSession degrades to null instead of rejecting', async () => {
