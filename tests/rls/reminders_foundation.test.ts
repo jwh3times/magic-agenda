@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { afterAll, beforeAll, expect, test } from 'vitest'
 import {
   boardTaskInsert,
@@ -164,6 +165,28 @@ test('the delivery ledger is server-managed and keyed by account, task, and due 
     .single()
   expect(error).toBeNull()
 
+  const enable = await alice.client
+    .from('user_settings')
+    .update({ timezone: 'America/New_York', reminder_lead_minutes: 15 })
+    .eq('user_id', alice.id)
+  expect(enable.error).toBeNull()
+
+  const serviceCandidates = await serviceClient().rpc('reminder_candidate_rows')
+  expect(serviceCandidates.error).toBeNull()
+  expect(serviceCandidates.data).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        account_id: alice.id,
+        board_id: boardId,
+        task_id: task!.id,
+        task_day: '2026-10-01',
+        task_at_time: '09:00',
+      }),
+    ]),
+  )
+  const clientCandidates = await alice.client.rpc('reminder_candidate_rows')
+  expect(clientCandidates.error?.code).toBe('42501')
+
   const headers = {
     apikey: stack().serviceKey,
     Authorization: `Bearer ${stack().serviceKey}`,
@@ -222,4 +245,56 @@ test('the delivery ledger is server-managed and keyed by account, task, and due 
   const serviceRows = await serviceClient().from('reminder_deliveries').select('id')
   expect(serviceRows.error).toBeNull()
   expect(serviceRows.data).toHaveLength(1)
+
+  const subscription = await serviceClient()
+    .from('push_subscriptions')
+    .select('id')
+    .eq('account_id', alice.id)
+    .limit(1)
+    .single()
+  expect(subscription.error).toBeNull()
+  const target = await serviceClient()
+    .from('reminder_delivery_targets')
+    .insert({
+      delivery_id: inserted.body[0].id,
+      subscription_id: subscription.data!.id,
+      endpoint_hash: 'a'.repeat(43),
+    })
+    .select('id')
+    .single()
+  expect(target.error).toBeNull()
+
+  const targetClientRead = await rest<unknown[]>(
+    'reminder_delivery_targets?select=id',
+    {},
+    aliceHeaders,
+  )
+  expect(targetClientRead).toEqual({ status: 200, body: [] })
+  const targetClientWrite = await rest<unknown>('reminder_delivery_targets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal', ...aliceHeaders },
+    body: JSON.stringify({
+      delivery_id: inserted.body[0].id,
+      subscription_id: subscription.data!.id,
+      endpoint_hash: 'b'.repeat(43),
+    }),
+  })
+  expect(targetClientWrite.status).toBe(403)
+
+  const now = new Date().toISOString()
+  const attempts = await Promise.all(
+    [randomUUID(), randomUUID()].map((token) =>
+      serviceClient()
+        .from('reminder_delivery_targets')
+        .update({
+          claim_token: token,
+          claimed_at: now,
+          claim_expires_at: new Date(Date.now() + 60_000).toISOString(),
+        })
+        .eq('id', target.data!.id)
+        .or(`claim_expires_at.is.null,claim_expires_at.lt.${now}`)
+        .select('id'),
+    ),
+  )
+  expect(attempts.map((attempt) => attempt.data?.length).sort()).toEqual([0, 1])
 })

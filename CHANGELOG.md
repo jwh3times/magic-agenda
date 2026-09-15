@@ -12,6 +12,16 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.12.10] - 2026-09-15
+
+### Added
+
+- Added the authenticated Reminder sender, shared client/server Due Moment calculation, durable
+  per-device delivery outcomes, concurrency-safe claims, bounded retries, and automatic retirement
+  of dead push subscriptions. The function and schema deploy dormant so production credentials and
+  the scheduler can be activated safely in the following release
+  ([#267](https://github.com/jwh3times/magic-agenda/issues/267)).
+
 ## [1.12.9] - 2026-09-15
 
 ### Added

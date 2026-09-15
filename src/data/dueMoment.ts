@@ -1,155 +1,20 @@
 import { browserTimezone, dateYmd, isScheduled } from '../lib/dates'
 import type { Task } from '../types/task'
+import { dueMomentAtZone, type ZonedDueMoment } from './dueMomentCore'
 
-export interface DueMoment {
-  readonly kind: 'timed' | 'untimed'
-  /** The Account-specific deadline as Unix epoch milliseconds. */
-  readonly instantMs: number
-  /** The first millisecond at which this Task is Overdue. */
-  readonly overdueAtMs: number
-}
-
-interface LocalParts {
-  year: number
-  month: number
-  day: number
-  hour: number
-  minute: number
-  second: number
-}
-
-const FORMATTERS = new Map<string, Intl.DateTimeFormat>()
-const MOMENTS = new Map<string, number>()
-const MOMENT_CACHE_LIMIT = 2048
-const SAMPLE_HOURS = [-36, -24, -12, 0, 12, 24, 36]
-const HOUR_MS = 60 * 60 * 1000
-const DAY_RE = /^(\d{4})-(\d{2})-(\d{2})$/
-const TIME_RE = /^(\d{2}):(\d{2})$/
-
-function formatter(timezone: string): Intl.DateTimeFormat {
-  const cached = FORMATTERS.get(timezone)
-  if (cached) return cached
-  const created = new Intl.DateTimeFormat('en-US-u-ca-gregory-nu-latn', {
-    timeZone: timezone,
-    hourCycle: 'h23',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })
-  FORMATTERS.set(timezone, created)
-  return created
-}
+export type DueMoment = ZonedDueMoment
 
 function knownTimezone(timezone?: string | null): string {
-  const candidate = timezone || browserTimezone()
-  try {
-    formatter(candidate).format(0)
-    return candidate
-  } catch {
-    const browser = browserTimezone()
+  for (const candidate of [timezone, browserTimezone(), 'UTC']) {
+    if (!candidate) continue
     try {
-      formatter(browser).format(0)
-      return browser
+      new Intl.DateTimeFormat('en-US', { timeZone: candidate }).format(0)
+      return candidate
     } catch {
-      return 'UTC'
+      // Try the next safe fallback.
     }
   }
-}
-
-function localParts(epochMs: number, timezone: string): LocalParts {
-  const parts = formatter(timezone).formatToParts(epochMs)
-  const read = (type: Intl.DateTimeFormatPartTypes) =>
-    Number(parts.find((part) => part.type === type)?.value)
-  return {
-    year: read('year'),
-    month: read('month'),
-    day: read('day'),
-    hour: read('hour'),
-    minute: read('minute'),
-    second: read('second'),
-  }
-}
-
-function localScalar(parts: LocalParts): number {
-  return Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second)
-}
-
-function parseLocal(day: string, time: string): LocalParts | null {
-  const dayMatch = DAY_RE.exec(day)
-  const timeMatch = TIME_RE.exec(time)
-  if (!dayMatch || !timeMatch) return null
-  const parts = {
-    year: Number(dayMatch[1]),
-    month: Number(dayMatch[2]),
-    day: Number(dayMatch[3]),
-    hour: Number(timeMatch[1]),
-    minute: Number(timeMatch[2]),
-    second: 0,
-  }
-  if (parts.hour > 23 || parts.minute > 59) return null
-  const roundTrip = new Date(localScalar(parts))
-  if (
-    roundTrip.getUTCFullYear() !== parts.year ||
-    roundTrip.getUTCMonth() + 1 !== parts.month ||
-    roundTrip.getUTCDate() !== parts.day
-  ) {
-    return null
-  }
-  return parts
-}
-
-function addCalendarDay(day: string): string | null {
-  const parts = parseLocal(day, '00:00')
-  if (!parts) return null
-  const next = new Date(localScalar(parts) + 24 * HOUR_MS)
-  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(
-    next.getUTCDate(),
-  ).padStart(2, '0')}`
-}
-
-/**
- * Convert a wall-clock date/time to an instant using Temporal's `compatible` disambiguation:
- * choose the first occurrence in an overlap and move forward by the gap when the clock skips.
- *
- * `Intl` exposes instant -> local conversion, not its inverse. Sampling the offsets on both sides
- * of the target yields every candidate around a timezone transition. Exact candidates choose the
- * earliest instant; a gap chooses the candidate whose rendered local time is the nearest one after
- * the missing wall time.
- */
-function zonedEpochMs(day: string, time: string, timezone: string): number | null {
-  const key = `${timezone}|${day}|${time}`
-  const cached = MOMENTS.get(key)
-  if (cached !== undefined) return cached
-
-  const target = parseLocal(day, time)
-  if (!target) return null
-  const targetScalar = localScalar(target)
-  const offsets = new Set<number>()
-  for (const hours of SAMPLE_HOURS) {
-    const sampled = targetScalar + hours * HOUR_MS
-    offsets.add(localScalar(localParts(sampled, timezone)) - sampled)
-  }
-
-  const candidates = [...offsets].map((offset) => {
-    const instantMs = targetScalar - offset
-    return { instantMs, renderedScalar: localScalar(localParts(instantMs, timezone)) }
-  })
-  const exact = candidates
-    .filter((candidate) => candidate.renderedScalar === targetScalar)
-    .sort((a, b) => a.instantMs - b.instantMs)[0]
-  const compatible =
-    exact ??
-    candidates
-      .filter((candidate) => candidate.renderedScalar > targetScalar)
-      .sort((a, b) => a.renderedScalar - b.renderedScalar || a.instantMs - b.instantMs)[0]
-  if (!compatible) return null
-
-  if (MOMENTS.size >= MOMENT_CACHE_LIMIT) MOMENTS.clear()
-  MOMENTS.set(key, compatible.instantMs)
-  return compatible.instantMs
+  return 'UTC'
 }
 
 /** Derive one Task's Account-specific Due Moment. Inbox has none. */
@@ -158,17 +23,7 @@ export function dueMoment(
   timezone?: string | null,
 ): DueMoment | null {
   if (!isScheduled(task.day)) return null
-  const zone = knownTimezone(timezone)
-  const parsedTime = task.atTime && TIME_RE.test(task.atTime) ? task.atTime : null
-  if (parsedTime) {
-    const instantMs = zonedEpochMs(task.day, parsedTime, zone)
-    if (instantMs !== null) return { kind: 'timed', instantMs, overdueAtMs: instantMs + 1 }
-  }
-
-  const nextDay = addCalendarDay(task.day)
-  if (!nextDay) return null
-  const instantMs = zonedEpochMs(nextDay, '00:00', zone)
-  return instantMs === null ? null : { kind: 'untimed', instantMs, overdueAtMs: instantMs }
+  return dueMomentAtZone(task.day, task.atTime, knownTimezone(timezone))
 }
 
 /** Overdue is derived, never stored. */
@@ -201,6 +56,6 @@ export function nextOverdueChangeAt(
 /** First instant of the next local day, used by clock providers and boundary tests. */
 export function nextLocalDayBoundaryMs(nowMs: number, timezone?: string | null): number {
   const zone = knownTimezone(timezone)
-  const nextDay = addCalendarDay(dateYmd(new Date(nowMs), zone))
-  return (nextDay && zonedEpochMs(nextDay, '00:00', zone)) || nowMs + 24 * HOUR_MS
+  const due = dueMomentAtZone(dateYmd(new Date(nowMs), zone), null, zone)
+  return due?.instantMs ?? nowMs + 24 * 60 * 60 * 1000
 }

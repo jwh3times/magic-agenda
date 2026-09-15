@@ -85,7 +85,7 @@ of three hand‑built themes.
 | Area        | Choice                                                                                    |
 | ----------- | ----------------------------------------------------------------------------------------- |
 | Frontend    | [Vite](https://vite.dev) + [React](https://react.dev) 19 + TypeScript (SPA, React Router) |
-| Backend     | [Supabase](https://supabase.com) — Postgres + Auth + Row‑Level Security                   |
+| Backend     | [Supabase](https://supabase.com) — Postgres, Auth, RLS, and Edge Functions                |
 | Drag & drop | `@dnd-kit/core` + `@dnd-kit/sortable`                                                     |
 | Hosting     | [Cloudflare Pages](https://pages.cloudflare.com) (static SPA, auto‑deploy from GitHub)    |
 | Tests       | [Vitest](https://vitest.dev) + Testing Library (jsdom)                                    |

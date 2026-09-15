@@ -66,6 +66,8 @@ jobs:
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
           deno-version: v2.x
+      - run: deno fmt --check
+      - run: deno check delete-account/index.ts send-reminders/index.ts
       - run: deno test
 
   # Two generated trees, opposite directions: .codex/agents is generated from
