@@ -196,12 +196,12 @@ is no stylesheet to review and no CSS tooling that applies — these screenshots
 mechanical check that a token change did not wreck a theme. Six things about them are
 load-bearing:
 
-- **They are not a merge gate yet, and they do not get a job of their own.** `playwright.config.ts`
-  splits the local suite into two projects over the same browser: `chromium` (smoke + a11y) and
-  `visual`. The `E2E` job runs `chromium` as the gated step and `visual` as a following
-  `continue-on-error` step, reusing the same branch build and local stack. A changed or missing
-  baseline shows as a warning annotation, a job summary, and an artifact while the check stays
-  green. The `visual` project writes to `test-results-visual/`, not `test-results/`, because
+- **They are part of the required `E2E` merge gate, and they do not get a job of their own.**
+  `playwright.config.ts` splits the local suite into two projects over the same browser: `chromium`
+  (smoke + a11y) and `visual`. The `E2E` job runs them as consecutive gated steps, reusing the same
+  branch build and local stack. A changed or missing baseline fails the required check while the
+  always-running diagnostic steps add a warning, write the job summary, and upload candidate PNGs.
+  The `visual` project writes to `test-results-visual/`, not `test-results/`, because
   Playwright clears `outputDir` at the start of every invocation and the second step would otherwise
   wipe the gated run's traces.
 - **Baselines are generated on the Linux CI runner only.** A baseline rendered on Windows or macOS
@@ -258,8 +258,9 @@ The CI run produces the candidate images, so no separate workflow is needed. (A 
 that commits them with `GITHUB_TOKEN` was the original design and does not work: pushes made with
 that token trigger no workflows, so every required check on the new commit would sit waiting.)
 
-1. Push the change and let the PR's `E2E` job run. When anything is new or changed, the job
-   summary lists it and a `visual-diffs-<run-id>-<attempt>` artifact is uploaded.
+1. Push the change and let the PR's `E2E` job run. When anything is new or changed, the required
+   check fails, its job summary lists the candidates, and a
+   `visual-diffs-<run-id>-<attempt>` artifact is uploaded.
 2. Download it: `gh run download <run-id> -n visual-diffs-<run-id>-<attempt> -D visual-diff`. The
    artifact mirrors repository paths.
 3. **Open every image and confirm it shows the intended surface and nothing sensitive.** This is the
@@ -273,7 +274,7 @@ that token trigger no workflows, so every required check on the new commit would
 
    Ignore any `test-failed-*.png`: those are Playwright's generic failure captures, not baselines.
 
-5. Commit and push. The next `E2E` run's summary should report every canary matching.
+5. Commit and push before merge. The next `E2E` run must report every canary matching and pass.
 
 **Data API grants are explicit, per table, full stop** (`20260729100000_explicit_data_api_grants.sql`)
 and must stay that way. `config.toml` sets `auto_expose_new_tables = false` explicitly, so new

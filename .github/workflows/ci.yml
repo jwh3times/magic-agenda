@@ -335,14 +335,14 @@ jobs:
 
       - name: Run the E2E suite
         if: steps.gate.outputs.run == 'true'
-        # The `chromium` project only: smoke + a11y, the half of E2E that gates a merge. The visual
-        # canaries are the next step and deliberately cannot fail this job.
+        # The `chromium` project only: smoke + a11y. The visual project runs as the next, separately
+        # reported phase of this same required E2E check.
         run: npm run test:e2e -- --project=chromium
 
-      # Visual regression canaries (#280), NOT a gate yet. They run in this job rather than a job of
-      # their own to avoid another browser install and local-stack startup. `continue-on-error`
-      # keeps the check green; a changed or missing baseline surfaces as a warning, a job summary,
-      # and an artifact.
+      # Visual regression canaries (#280), promoted to a merge gate in #358 after ten consecutive
+      # qualifying PRs. They run in this job rather than a job of their own to avoid another browser
+      # install and local-stack startup. A changed or missing baseline fails this required check;
+      # the following diagnostic steps still publish the candidate PNGs needed to refresh it.
       #
       # It runs only after the gated suite succeeds (the default `success()` condition), so a failing
       # smoke/a11y run is never followed by a screenshot pass against the same broken branch build.
@@ -358,7 +358,6 @@ jobs:
       - name: Run the visual regression canaries
         id: visual
         if: steps.gate.outputs.run == 'true'
-        continue-on-error: true
         run: npm run test:e2e -- --project=visual --update-snapshots=missing
 
       # Two kinds of candidate, both copied at the path they belong at so the artifact mirrors the
@@ -373,7 +372,7 @@ jobs:
       # account email, but treat the artifact as public anyway: it is.
       - name: Collect the visual differences
         id: visualdiff
-        if: steps.gate.outputs.run == 'true' && steps.visual.outcome != 'skipped'
+        if: always() && steps.gate.outputs.run == 'true' && steps.visual.outcome != 'skipped'
         # Diagnostics only: a bug in this step must never turn the REQUIRED E2E check red.
         continue-on-error: true
         run: |
@@ -410,11 +409,11 @@ jobs:
             exit 0
           fi
           echo "found=true" >> "$GITHUB_OUTPUT"
-          echo "::warning title=Visual regression::$new new baseline(s) and $changed changed screenshot(s). Not a merge gate; see the job summary."
+          echo "::warning title=Visual regression::$new new baseline(s) and $changed changed screenshot(s). The required E2E check is failing; refresh the baselines before merge."
           {
             echo "## Visual regression: $new new baseline(s), $changed changed screenshot(s)"
             echo
-            echo 'Not a merge gate. The `visual-diffs-*` artifact mirrors repository paths: new baselines are already'
+            echo 'This required E2E check remains red until accepted baselines are committed. The `visual-diffs-*` artifact mirrors repository paths: new baselines are already'
             echo 'named `tests/e2e/__screenshots__/<name>-linux.png`, and a changed one has a `-actual.png` beside its'
             echo '`-expected.png` and `-diff.png`. See "Refreshing the visual baselines" in `docs/agents/testing.md`.'
             echo 'Inspect every image before committing it, because this repository is public.'
@@ -430,7 +429,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload the visual differences
-        if: steps.visualdiff.outputs.found == 'true'
+        if: always() && steps.visualdiff.outputs.found == 'true'
         # Diagnostics only: a bug in this step must never turn the REQUIRED E2E check red.
         continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

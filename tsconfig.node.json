@@ -37,6 +37,7 @@
     "scripts/e2e-global-setup.test.ts",
     "scripts/backup.test.ts",
     "scripts/turnstile-config.test.ts",
+    "scripts/visual-gate.test.ts",
     "scripts/workflow-pins.test.ts"
   ]
 }
