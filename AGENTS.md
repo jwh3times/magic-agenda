@@ -236,8 +236,9 @@ the branch build, then runs `tests/e2e/preview.spec.ts` against the real Pages p
 Cloudflare-specific headers, CSP, and service-worker behavior.
 
 What belongs in each layer, the RLS structural/baseline split, the E2E preview-URL and
-encrypted-trace machinery, the a11y baseline's strict-equality rule, and the explicit Data API
-grants: [Testing layers and lint policy](docs/agents/testing.md).
+encrypted-trace machinery, the a11y baseline's strict-equality rule, the visual canary merge gate
+and Linux-baseline refresh, and the explicit Data API grants:
+[Testing layers and lint policy](docs/agents/testing.md).
 
 ## When changing Supabase config
 

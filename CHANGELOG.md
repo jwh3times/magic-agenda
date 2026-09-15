@@ -12,6 +12,15 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.12.12] - 2026-09-15
+
+### Changed
+
+- Promoted the thirteen visual regression canaries into the required `E2E` merge gate after the
+  five-PR stability bar was met at #371. Screenshot mismatches now block merging while the
+  diagnostic steps still publish PNG-only refresh artifacts
+  ([#358](https://github.com/jwh3times/magic-agenda/issues/358)).
+
 ## [1.12.11] - 2026-09-15
 
 ### Added
@@ -3401,7 +3410,10 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.9...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.12...HEAD
+[1.12.12]: https://github.com/jwh3times/magic-agenda/compare/v1.12.11...v1.12.12
+[1.12.11]: https://github.com/jwh3times/magic-agenda/compare/v1.12.10...v1.12.11
+[1.12.10]: https://github.com/jwh3times/magic-agenda/compare/v1.12.9...v1.12.10
 [1.12.9]: https://github.com/jwh3times/magic-agenda/compare/v1.12.8...v1.12.9
 [1.12.8]: https://github.com/jwh3times/magic-agenda/compare/v1.12.7...v1.12.8
 [1.12.7]: https://github.com/jwh3times/magic-agenda/compare/v1.12.6...v1.12.7

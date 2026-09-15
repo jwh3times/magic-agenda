@@ -10,8 +10,9 @@ import { PINNED_DAY, PINNED_TIME, settle } from './fixtures/determinism'
  * applies. These screenshots are the only mechanical check that a token change did not wreck a
  * theme.
  *
- * **Not a gate yet.** CI runs this file as its own `visual` project in a `continue-on-error` step of
- * the `E2E` job, so a mismatch warns and uploads the new PNGs without blocking a merge.
+ * **This is a merge gate.** CI runs this file as its own `visual` project in the required `E2E`
+ * job. A mismatch blocks the merge while always-running diagnostic steps warn and upload the new
+ * PNGs for review.
  *
  * **Baselines are Linux-only.** They are generated on the CI runner; a baseline rendered on Windows
  * or macOS bakes in that platform's font rasterization and turns every CI run into a diff. The
