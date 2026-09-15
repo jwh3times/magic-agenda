@@ -188,7 +188,9 @@ Time, and the Account Timezone. Untimed Tasks become overdue at the next local m
 become overdue immediately after their wall-clock Due Time. `DueClockProvider` schedules the next
 boundary for all rendered Tasks and catches up when the tab becomes visible. Inbox Tasks have no Due
 Moment: editor and drag-and-drop moves clear Due Time atomically, imports reject the invalid pair,
-and both `mappers.ts` and the offline snapshot reader defensively normalize older data.
+and both `mappers.ts` and the offline snapshot reader defensively normalize older data. The
+`tasks_due_time_requires_scheduled_day` CHECK is the database boundary; RLS integration coverage
+lives in `tests/rls/task_due_moment.test.ts`.
 
 **Whole-Board Task reads use `src/data/loadBoardTasks.ts`** for both `useTasks.reload()` and
 `DataSection` export. PostgREST can return success while capping rows, so the reader pages in stable
