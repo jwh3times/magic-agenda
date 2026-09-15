@@ -12,6 +12,15 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.12.5] - 2026-09-14
+
+### Changed
+
+- Defined Magic Agenda's date commitment model: Scheduled Day remains the single calendar placement
+  and deadline day, Due Time refines its deadline, Overdue and Reminders use each Account's
+  Timezone, and Inbox Tasks have neither a Due Moment nor a Reminder
+  ([#166](https://github.com/jwh3times/magic-agenda/issues/166)).
+
 ## [1.12.4] - 2026-09-14
 
 ### Security
@@ -3337,7 +3346,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.4...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.5...HEAD
+[1.12.5]: https://github.com/jwh3times/magic-agenda/compare/v1.12.4...v1.12.5
 [1.12.4]: https://github.com/jwh3times/magic-agenda/compare/v1.12.3...v1.12.4
 [1.12.3]: https://github.com/jwh3times/magic-agenda/compare/v1.12.2...v1.12.3
 [1.12.2]: https://github.com/jwh3times/magic-agenda/compare/v1.12.1...v1.12.2
