@@ -44,6 +44,13 @@ access to delivery state nor execute access to the narrow `reminder_candidate_ro
 Deploy the function and its tables before adding the `pg_cron` invocation; that staging keeps a
 release from scheduling code or credentials that do not exist yet.
 
+The production schedule is named `send-task-reminders` and runs every five minutes. Its
+`cron.job.command` contains only the Supabase Vault names `reminder_function_url` and
+`reminder_cron_secret`; resolved values must never enter a migration, repository secret, issue,
+log, or chat. The URL is the full `/functions/v1/send-reminders` endpoint. Keep the Vault bearer
+value identical to the Edge Function's `REMINDER_CRON_SECRET`. A 401 from a manual unauthenticated
+POST and an aggregate-only 200 from the Vault-backed invocation are the activation checks.
+
 `src/sw.ts` is **hand-authored, not generated.** `vite-plugin-pwa` runs in `injectManifest` mode
 (`vite.config.ts`), which only supplies `self.__WB_MANIFEST` (the precache URL list) — none of
 workbox's runtime-caching strategies ship in the built worker; every `fetch` handler in `sw.ts` is

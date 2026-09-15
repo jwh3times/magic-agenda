@@ -12,6 +12,15 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.12.11] - 2026-09-15
+
+### Added
+
+- Activated the production Reminder sender on a five-minute Supabase Cron schedule. Its function
+  URL and dedicated bearer credential are resolved from Supabase Vault at invocation time and never
+  embedded in migration history or Cron metadata
+  ([#267](https://github.com/jwh3times/magic-agenda/issues/267)).
+
 ## [1.12.10] - 2026-09-15
 
 ### Added
