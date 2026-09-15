@@ -12,6 +12,16 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.12.13] - 2026-09-15
+
+### Internal
+
+- `/lets-go` agent skill: resumes this repository's active handoff from Proton Drive, verifies it
+  against the checkout, and marks it consumed in `handoff_map.json`.
+- `/handoff` now alerts on any work not merged to `main`, writes the handoff document to Proton
+  Drive instead of the OS temp directory, and records it in `handoff_map.json`. It then runs
+  `end-session`. The skill is no longer vendored from `mattpocock/skills`.
+
 ## [1.12.12] - 2026-09-15
 
 ### Changed
@@ -3410,7 +3420,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.12...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.13...HEAD
+[1.12.13]: https://github.com/jwh3times/magic-agenda/compare/v1.12.12...v1.12.13
 [1.12.12]: https://github.com/jwh3times/magic-agenda/compare/v1.12.11...v1.12.12
 [1.12.11]: https://github.com/jwh3times/magic-agenda/compare/v1.12.10...v1.12.11
 [1.12.10]: https://github.com/jwh3times/magic-agenda/compare/v1.12.9...v1.12.10

@@ -37,6 +37,18 @@ but its regenerable `pgdelta/` cache) and `supabase/.branches/` are on the same 
 different reason — that's Supabase CLI link state, so deleting it doesn't destroy data but does
 unlink the project, and relinking needs the database password.
 
+The `handoff` and `lets-go` skills (authored at `.agents/skills/`, both user-invoked) carry a
+session between the maintainer's Windows and Fedora machines through Proton Drive. `/handoff`
+audits for work not merged to `origin/main` and alerts on it. It then writes a handoff document to
+the `Handoffs` folder, marks it active in that folder's `handoff_map.json`, and runs `end-session`.
+`/lets-go` reads the map, resumes this repository's active handoff after checking its claims
+against the checkout, and sets the entry to `null` so the handoff is consumed once.
+`.agents/skills/handoff/scripts/handoff-map.mjs` is the only writer of the map. It resolves the
+folder (`HANDOFFS_DIR`, else `~/Proton Drive/jwh3times/My Files/Documents/Handoffs` on either OS),
+matches the map key case- and punctuation-insensitively, and refuses to run beside Proton Drive
+sync-conflict copies. `handoff` began as a vendored `mattpocock/skills` skill. It is now ours and
+has left `skills-lock.json`, so a skills sync will not overwrite it.
+
 ## Two authored trees, two generated trees — opposite directions on purpose
 
 Both Claude Code and Codex are used on this repo, and they read different files. Rather than keep
