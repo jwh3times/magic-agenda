@@ -37,9 +37,11 @@ npx supabase db push                                              # apply supaba
 npx supabase gen types typescript --linked > src/types/database.types.ts
 ```
 
-Tests are hermetic: `vite.config.ts` injects dummy `VITE_SUPABASE_*` env, so they never hit the real
-project. Local dev needs a real `.env.local` (copy `.env.example`); `src/lib/supabase.ts` throws at
-startup if the two `VITE_SUPABASE_*` vars are missing.
+Tests are hermetic: `vite.config.ts` injects dummy `VITE_SUPABASE_*` and a placeholder
+`VITE_TURNSTILE_SITE_KEY`; unit tests still mock browser integrations, so neither real service is
+reached. Local dev needs a real `.env.local` (copy `.env.example`); `src/lib/supabase.ts` throws at
+startup if the two `VITE_SUPABASE_*` vars are missing, while a missing Turnstile site key blocks
+sign-up and password reset requests.
 
 The lint policy, the three test layers, and what each CI check actually runs:
 [Testing layers and lint policy](docs/agents/testing.md).
@@ -110,8 +112,8 @@ the area it covers; do not rely on this page's summaries for it.
 
 - [**Auth**](docs/agents/auth.md) — `src/auth/`, the blocking emailed-token bootstrap in `public/`,
   the `authGateway` seam (the only module that may call `supabase.auth`), PKCE vs. `#access_token`
-  fragments, single-use email-token redemption and the session-fixation guard, and the two-factor
-  step-up gate.
+  fragments, Turnstile on account creation and password reset, single-use email-token redemption
+  and the session-fixation guard, and the two-factor step-up gate.
 - [**Boards, membership, and account administration**](docs/agents/boards.md) — `boards` /
   `board_memberships` / `account_profiles`, the Membership-scoped policies and column grants,
   `create_board` / `handle_new_user` / `handle_account_deletion`, task attribution, admin roles and
@@ -140,7 +142,8 @@ the area it covers; do not rely on this page's summaries for it.
   integration project, Playwright E2E against a deployed build, explicit Data API grants, and
   `.oxlintrc.json`.
 - [**When changing Supabase config**](docs/agents/supabase-config.md) — `supabase/config.toml` is
-  production, the CLI-version wiring, the two auth email templates, and retiring an Edge Function.
+  production, the CLI-version and auth-secret wiring, Turnstile, the two auth email templates, and
+  retiring an Edge Function.
 - [**Agents, skills, and docs automation**](docs/agents/tooling.md) — the two authored trees and
   their generated mirrors, `npm run codex:sync`, and which documents a change must keep aligned.
 - [**Backups**](docs/agents/backups.md) — the nightly encrypted dump, what the bundle must contain,
@@ -233,8 +236,9 @@ pushes them (`Deploy Auth Config`). Every edit there is a production change, not
 **Never run `supabase config push` locally** — it deploys straight to production, bypassing the PR
 preview.
 
-The `Config` preview job's exact invocation, the CLI-version wiring, the email templates'
-constraints, and why deleting an Edge Function directory does not delete the function:
+The `Config` preview job's exact invocation, the CLI-version and auth-secret wiring, Turnstile, the
+email templates' constraints, and why deleting an Edge Function directory does not delete the
+function:
 [When changing Supabase config](docs/agents/supabase-config.md).
 
 ## Agents and docs automation
