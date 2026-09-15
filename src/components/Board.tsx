@@ -15,6 +15,7 @@ import {
   startOfWeek,
 } from '../lib/dates'
 import { useToday } from '../data/todayContext'
+import { useDueClock } from '../data/dueClockContext'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { readBoardView, writeBoardView } from '../lib/viewStorage'
 import { useBoardDnd } from '../dnd/useBoardDnd'
@@ -145,6 +146,7 @@ export function Board({
   // A choice made in this tab wins over the account default; a new tab starts at initialView.
   const [view, setView] = useState<ViewName>(() => readBoardView() ?? initialView ?? 'calendar')
   const today = useToday()
+  const { nowMs, timezone: dueTimezone } = useDueClock()
   const [anchor, setAnchor] = useState(() => parseDay(today))
   const [popId, setPopId] = useState<string | null>(null)
   const [editing, setEditing] = useState<Editing | null>(null)
@@ -169,7 +171,14 @@ export function Board({
   // never be a drop target, and the lane arithmetic places visible cards correctly around it.
   const activeTasks = useMemo(() => tasks.filter((task) => !isArchived(task)), [tasks])
   const visibleTasks = useMemo(() => applyFilters(activeTasks, filter), [activeTasks, filter])
-  const visibleOverdue = useMemo(() => overdueTasks(visibleTasks, today), [visibleTasks, today])
+  const visibleOverdue = useMemo(
+    () => overdueTasks(visibleTasks, nowMs, dueTimezone),
+    [visibleTasks, nowMs, dueTimezone],
+  )
+  const rollForwardIds = useMemo(
+    () => new Set(visibleOverdue.filter((task) => task.day < today).map((task) => task.id)),
+    [visibleOverdue, today],
+  )
   const overdueCount = visibleOverdue.length
 
   const dnd = useBoardDnd(view, tasks, taskBoard.previewReorder, taskBoard.persistReorder)
@@ -200,8 +209,12 @@ export function Board({
   // this shell had to know that a set `recurParentId` means "this is an instance" — and had to
   // remember to strip the rule fields on the this-occurrence path. Both now resolve in
   // src/data/series.ts, where the rest of that invariant lives.
-  const handleSave: NonNullable<ComponentProps<typeof TaskEditor>['onSave']> = (task, scope) => {
-    void taskBoard.saveTask(editing?.task ?? null, task, Boolean(editing?.isNew), scope)
+  const handleSave: NonNullable<ComponentProps<typeof TaskEditor>['onSave']> = (
+    task,
+    scope,
+    modifiers,
+  ) => {
+    void taskBoard.saveTask(editing?.task ?? null, task, Boolean(editing?.isNew), scope, modifiers)
     setEditing(null)
   }
 
@@ -236,9 +249,7 @@ export function Board({
     onAddInbox: () => setEditing({ task: newTaskTemplate('inbox', 'todo'), isNew: true }),
     onAddStatus: (status) => setEditing({ task: newTaskTemplate('inbox', status), isNew: true }),
     onRollForward:
-      visibleOverdue.length > 0
-        ? () => void taskBoard.rollForward(today, new Set(visibleOverdue.map((task) => task.id)))
-        : undefined,
+      rollForwardIds.size > 0 ? () => void taskBoard.rollForward(today, rollForwardIds) : undefined,
   }
 
   const year = anchor.getFullYear()

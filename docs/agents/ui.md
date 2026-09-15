@@ -42,6 +42,13 @@ a parameter of a pure function. `TodayContext` lives in `todayContext.ts`, apart
 component, so it stays a hook-only module (`react-refresh/only-export-components`); its default is
 browser-local today, which is what lets every component test render unwrapped.
 
+Overdue uses a second clock because midnight polling is not precise enough for Due Time.
+`DueClockProvider` receives the complete Task collection and Account Timezone at `BoardPage`, then
+schedules the earliest Due Moment or local-day boundary and catches up on `visibilitychange`.
+`useDueClock()` publishes one shared `nowMs`; cards and aggregate views derive state with the pure
+helpers in `src/data/dueMoment.ts`. The conversion uses compatible daylight-saving disambiguation:
+the first instant in an overlap, and the first valid wall-clock instant after a gap.
+
 One call site is deliberately **not** converted: `useTasks`'s `materialize()` keeps browser-local
 time, because re-running materialization on a settings change risks duplicate instance rows (23505).
 This paragraph used to add "it only anchors a 90-day rolling horizon, where a ±1-day shift at the

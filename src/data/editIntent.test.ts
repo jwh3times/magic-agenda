@@ -7,6 +7,7 @@ import {
   onlyPerOccurrenceChanged,
 } from './editIntent'
 import { asTask, NO_RECUR, type Task, type TaskDraft } from '../types/task'
+import type { SaveModifiers } from './series'
 
 function t(id: string, over: Partial<TaskDraft> = {}): Task {
   return asTask({
@@ -34,8 +35,12 @@ const instance = (over: Partial<TaskDraft> = {}) =>
   t('i1', { recurParentId: 'tmpl', occurrenceDate: '2026-07-08', day: '2026-07-08', ...over })
 
 const NOW = '2026-09-03T15:15:00.000Z'
-const intendSave = (initial: TaskDraft, draft: TaskDraft, isNew: boolean) =>
-  decideSave(initial, draft, isNew, NOW)
+const intendSave = (
+  initial: TaskDraft,
+  draft: TaskDraft,
+  isNew: boolean,
+  modifiers?: SaveModifiers,
+) => decideSave(initial, draft, isNew, NOW, undefined, modifiers)
 
 describe('changedTaskKeys', () => {
   it('reports only the fields that actually differ', () => {
@@ -127,6 +132,11 @@ describe('intendSave', () => {
     expect(intendSave(t('x'), t('x', { title: '   ' }), false)).toEqual({ kind: 'blocked' })
   })
 
+  it('blocks an Inbox Task carrying a Due Time, including a draft loaded from old data', () => {
+    const invalid = t('x', { day: 'inbox', atTime: '09:00' })
+    expect(intendSave(invalid, invalid, false)).toEqual({ kind: 'blocked' })
+  })
+
   it('saves a new task with no scope', () => {
     const intent = intendSave(t('x'), t('x', { title: 'New' }), true)
     if (intent.kind !== 'save') throw new Error('unreachable')
@@ -199,6 +209,31 @@ describe('intendSave — Occurrence Placement (#213)', () => {
     expect(intendSave(original, { ...original, day: '2026-07-10', title: 'New' }, false)).toEqual({
       kind: 'ask',
     })
+  })
+
+  it('treats clearing Due Time while moving to Inbox as one This Occurrence placement change', () => {
+    const original = instance({ atTime: '09:00' })
+    expect(
+      intendSave(original, { ...original, day: 'inbox', atTime: null }, false, {
+        occurrenceOnlyDueTimeClear: true,
+      }),
+    ).toEqual({
+      kind: 'save',
+      task: { ...original, day: 'inbox', atTime: null },
+      scope: 'this',
+    })
+  })
+
+  it('asks when Due Time was explicitly cleared before moving the Occurrence to Inbox', () => {
+    const original = instance({ atTime: '09:00' })
+    expect(intendSave(original, { ...original, day: 'inbox', atTime: null }, false)).toEqual({
+      kind: 'ask',
+    })
+  })
+
+  it('still asks when Due Time alone is cleared from a scheduled Occurrence', () => {
+    const original = instance({ atTime: '09:00' })
+    expect(intendSave(original, { ...original, atTime: null }, false)).toEqual({ kind: 'ask' })
   })
 })
 

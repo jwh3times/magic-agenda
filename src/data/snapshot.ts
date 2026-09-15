@@ -128,7 +128,15 @@ export function readBoardSnapshot(userId: string, boardId: string): BoardSnapsho
   // The key already encodes the Board, so a mismatch here means a hand-edited or collided
   // envelope. Drop it rather than rendering one Board's tasks under another Board's name.
   if (env.boardId !== boardId) return null
-  return env as unknown as BoardSnapshot
+  const snapshot = env as unknown as BoardSnapshot
+  return {
+    ...snapshot,
+    // A v9 envelope may have been written by the pre-#369 client. Preserve the offline cache but
+    // do not hydrate a Due Time that Inbox cannot carry into app state.
+    tasks: snapshot.tasks.map((task) =>
+      task.day === 'inbox' && task.atTime !== null ? { ...task, atTime: null } : task,
+    ),
+  }
 }
 
 export function hasBoardSnapshot(userId: string, boardId: string): boolean {

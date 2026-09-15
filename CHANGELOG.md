@@ -12,6 +12,16 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.12.6] - 2026-09-15
+
+### Changed
+
+- Made Overdue follow each Account's exact Due Moments, including Due Time, local-midnight, and
+  daylight-saving boundaries, with live refresh when the next boundary passes. Sending a Task to
+  Inbox now clears its Due Time in the editor and drag-and-drop, imports reject the invalid pair,
+  and persistence plus offline-snapshot reads normalize older data
+  ([#369](https://github.com/jwh3times/magic-agenda/issues/369)).
+
 ## [1.12.5] - 2026-09-14
 
 ### Changed
@@ -3346,7 +3356,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.5...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.6...HEAD
+[1.12.6]: https://github.com/jwh3times/magic-agenda/compare/v1.12.5...v1.12.6
 [1.12.5]: https://github.com/jwh3times/magic-agenda/compare/v1.12.4...v1.12.5
 [1.12.4]: https://github.com/jwh3times/magic-agenda/compare/v1.12.3...v1.12.4
 [1.12.3]: https://github.com/jwh3times/magic-agenda/compare/v1.12.2...v1.12.3

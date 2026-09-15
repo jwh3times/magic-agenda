@@ -93,8 +93,20 @@ describe('moveToDay', () => {
   })
 
   it('moves to inbox', () => {
-    const next = moveToDay(base(), 'a', 'inbox', 0)
-    expect(next.find((x) => x.id === 'a')!.day).toBe('inbox')
+    const tasks = base()
+    tasks[0] = t('a', {
+      day: 'A',
+      order: 0,
+      atTime: '09:00',
+      recurParentId: 'series-1',
+      occurrenceDate: '2026-07-08',
+    })
+    const next = moveToDay(tasks, 'a', 'inbox', 0)
+    expect(next.find((x) => x.id === 'a')).toMatchObject({
+      day: 'inbox',
+      atTime: null,
+      occurrenceDate: '2026-07-08',
+    })
     expect(dayIds(next, 'inbox')).toEqual(['a'])
   })
 

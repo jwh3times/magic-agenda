@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react'
 import type { Mode } from '../dnd/reorder'
 import type { Task, TaskDraft } from '../types/task'
-import type { RecurScope } from './series'
+import type { RecurScope, SaveModifiers } from './series'
 
 /**
  * The board-facing half of useTasks. Commands own their failures, so consumers never coordinate
@@ -19,6 +19,7 @@ export interface TaskBoard {
     draft: TaskDraft,
     isNew: boolean,
     scope?: RecurScope,
+    modifiers?: SaveModifiers,
   ) => void | Promise<void>
   updateTask: (task: Task) => void | Promise<void>
   /** Delete the row currently owned by the data layer; an unknown id is already gone. */

@@ -4,7 +4,7 @@ import { cardStyles, type CardVariant } from '../theme/cardStyles'
 import { useTheme } from '../theme/ThemeProvider'
 import { isOverdue } from '../data/selectors'
 import { chipLabel, formatTime } from '../lib/dates'
-import { useToday } from '../data/todayContext'
+import { useDueClock } from '../data/dueClockContext'
 import { useBoardActions } from './boardActionContext'
 import { useLabel } from '../labels/LabelDirectoryProvider'
 import { labelPresentation } from '../labels/presentation'
@@ -29,7 +29,8 @@ export function TaskCard({ task, variant, dragging, wrapStyle }: TaskCardProps) 
   const onTogglePin = actions?.onTogglePin
   const { theme } = useTheme()
   const label = labelPresentation(useLabel(task.labelId))
-  const overdue = isOverdue(task, useToday())
+  const { nowMs, timezone } = useDueClock()
+  const overdue = isOverdue(task, nowMs, timezone)
   const s = cardStyles(theme, task, variant, {
     dragging,
     pop: actions?.popId === task.id,

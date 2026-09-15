@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react'
 import { useTheme } from '../theme/ThemeProvider'
 import { agendaGroups, notesForDay, overdueTasks } from '../data/selectors'
 import { formatAgendaDate } from '../lib/dates'
-import { useToday } from '../data/todayContext'
+import { useDueClock } from '../data/dueClockContext'
 import { TaskCard } from './TaskCard'
 import { INBOX, type Task } from '../types/task'
 import { useBoardActions } from './boardActionContext'
@@ -15,8 +15,8 @@ export interface AgendaViewProps {
 export function AgendaView({ tasks }: AgendaViewProps) {
   const { conf } = useTheme()
   const actions = useBoardActions()
-  const today = useToday()
-  const overdue = overdueTasks(tasks, today)
+  const { nowMs, timezone } = useDueClock()
+  const overdue = overdueTasks(tasks, nowMs, timezone)
   const overdueIds = new Set(overdue.map((t) => t.id))
   const groups = agendaGroups(tasks.filter((t) => !overdueIds.has(t.id)))
   const inbox = notesForDay(tasks, INBOX)

@@ -1,6 +1,7 @@
 import type { Task, WorkflowStatus } from '../types/task'
 import { addDays, isScheduled, ymd, weekdayLabels } from '../lib/dates'
 import { completionDecision } from './completion'
+import { isOverdue as isTaskOverdue } from './dueMoment'
 
 /** Tasks on a given day (or 'inbox'), sorted by their calendar order. Ported from `notesForDay`. */
 export function notesForDay(tasks: Task[], day: string, excludeId?: string): Task[] {
@@ -127,15 +128,15 @@ export function applyToggleCompletion(
   return { tasks: next, justCompleted }
 }
 
-/** Scheduled in the past and not Completed. Derived — never stored. */
-export function isOverdue(t: Task, todayStr: string): boolean {
-  return isScheduled(t.day) && t.day < todayStr && t.status !== 'completed'
+/** Past its Account-specific Due Moment and not Completed. Derived — never stored. */
+export function isOverdue(t: Task, nowMs: number, timezone?: string | null): boolean {
+  return isTaskOverdue(t, nowMs, timezone)
 }
 
 /** Overdue tasks, oldest day first, ties by manual order. */
-export function overdueTasks(tasks: Task[], todayStr: string): Task[] {
+export function overdueTasks(tasks: Task[], nowMs: number, timezone?: string | null): Task[] {
   return tasks
-    .filter((t) => isOverdue(t, todayStr))
+    .filter((t) => isOverdue(t, nowMs, timezone))
     .sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : a.order - b.order))
 }
 
@@ -153,8 +154,12 @@ export function applyRollForward(
   todayStr: string,
   onlyIds?: ReadonlySet<string>,
 ): { tasks: Task[]; changed: Task[] } {
-  const overdueAll = overdueTasks(tasks, todayStr)
-  const overdue = onlyIds ? overdueAll.filter((t) => onlyIds.has(t.id)) : overdueAll
+  // A timed Task already on today can be Overdue, but roll-forward has nowhere to move it. Keep
+  // the command scoped to earlier Scheduled Days; Due Time remains intact on every moved Task.
+  const candidates = tasks
+    .filter((t) => isScheduled(t.day) && t.day < todayStr && t.status !== 'completed')
+    .sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : a.order - b.order))
+  const overdue = onlyIds ? candidates.filter((t) => onlyIds.has(t.id)) : candidates
   if (overdue.length === 0) return { tasks, changed: [] }
   const base =
     tasks.filter((t) => t.day === todayStr).reduce((m, t) => Math.max(m, t.order), -1) + 1
