@@ -1,7 +1,7 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
-import { beforeEach, expect, test } from 'vitest'
+import { beforeEach, expect, test, vi } from 'vitest'
 import { AuthProvider } from '../auth/AuthProvider'
 import { fakeAuthGateway, type FakeAuth } from '../auth/fakeAuthGateway'
 import { Login } from './Login'
@@ -10,11 +10,42 @@ import { Login } from './Login'
 // `useAuth` with 3 of its 6 members while the sibling suites stubbed 6 — drift that nothing
 // caught, because a `vi.mock` factory is untyped. There is nothing left here to drift from.
 let fake: FakeAuth
+let challenge: {
+  callback: (token: string) => void
+  'expired-callback': () => void
+  'error-callback': () => void
+}
+const renderChallenge = vi.fn(
+  (
+    _container: HTMLElement,
+    options: {
+      callback: (token: string) => void
+      'expired-callback': () => void
+      'error-callback': () => void
+    },
+  ) => {
+    challenge = options
+    return 'challenge-1'
+  },
+)
+const resetChallenge = vi.fn()
+const removeChallenge = vi.fn()
 
 beforeEach(() => {
   sessionStorage.clear()
   localStorage.clear()
   fake = fakeAuthGateway()
+  renderChallenge.mockClear()
+  resetChallenge.mockClear()
+  removeChallenge.mockClear()
+  Object.defineProperty(window, 'turnstile', {
+    configurable: true,
+    value: {
+      render: renderChallenge,
+      reset: resetChallenge,
+      remove: removeChallenge,
+    },
+  })
 })
 
 function renderLogin(
@@ -29,15 +60,25 @@ function renderLogin(
   )
 }
 
+async function solveChallenge(token: string) {
+  await waitFor(() => expect(renderChallenge).toHaveBeenCalledTimes(1))
+  act(() => challenge.callback(token))
+}
+
 test('forgot mode hides the password field and sends the reset email', async () => {
   renderLogin()
   await userEvent.click(screen.getByRole('button', { name: 'Forgot password?' }))
   expect(screen.queryByPlaceholderText('Password')).not.toBeInTheDocument()
+  const submit = screen.getByRole('button', { name: 'Send reset link' })
+  expect(submit).toBeDisabled()
+  await waitFor(() => expect(renderChallenge).toHaveBeenCalledTimes(1))
+  act(() => challenge.callback('reset-challenge-token'))
 
   await userEvent.type(screen.getByPlaceholderText('you@example.com'), 'a@b.co')
-  await userEvent.click(screen.getByRole('button', { name: 'Send reset link' }))
+  await userEvent.click(submit)
 
-  expect(fake.calls.sendPasswordReset).toEqual(['a@b.co'])
+  expect(fake.calls.sendPasswordReset).toEqual([['a@b.co', 'reset-challenge-token']])
+  expect(resetChallenge).toHaveBeenCalledWith('challenge-1')
   // Same notice whether or not the account exists — never leak existence.
   expect(await screen.findByText(/If an account exists for that email/)).toBeInTheDocument()
 })
@@ -68,11 +109,25 @@ test('signup asks the user to check their email when confirmation is pending', a
   fake.next.signUp = { ok: true, confirmationRequired: true }
   renderLogin()
   await userEvent.click(screen.getByRole('button', { name: 'Sign up' }))
+  const submit = screen.getByRole('button', { name: 'Create account' })
+  expect(submit).toBeDisabled()
+  await waitFor(() => expect(renderChallenge).toHaveBeenCalledTimes(1))
+  expect(renderChallenge).toHaveBeenCalledWith(
+    expect.any(HTMLElement),
+    expect.objectContaining({
+      sitekey: 'test-turnstile-site-key',
+      theme: 'dark',
+      action: 'turnstile-spin-v1',
+    }),
+  )
+  act(() => challenge.callback('signup-challenge-token'))
+  expect(submit).toBeEnabled()
   await userEvent.type(screen.getByPlaceholderText('you@example.com'), 'a@b.co')
   await userEvent.type(screen.getByPlaceholderText('Password'), 'Longenough123!')
-  await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
+  await userEvent.click(submit)
 
-  expect(fake.calls.signUp).toEqual([['a@b.co', 'Longenough123!']])
+  expect(fake.calls.signUp).toEqual([['a@b.co', 'Longenough123!', 'signup-challenge-token']])
+  expect(resetChallenge).toHaveBeenCalledWith('challenge-1')
   // Confirmation now signs the user in — the old copy said "…, then sign in."
   expect(await screen.findByText('Check your email to confirm your account.')).toBeInTheDocument()
 })
@@ -81,12 +136,36 @@ test('signup with an immediate session shows no check-your-email notice', async 
   fake.next.signUp = { ok: true, confirmationRequired: false }
   renderLogin()
   await userEvent.click(screen.getByRole('button', { name: 'Sign up' }))
+  await waitFor(() => expect(renderChallenge).toHaveBeenCalledTimes(1))
+  act(() => challenge.callback('signup-challenge-token'))
   await userEvent.type(screen.getByPlaceholderText('you@example.com'), 'a@b.co')
   await userEvent.type(screen.getByPlaceholderText('Password'), 'Longenough123!')
   await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
 
   expect(fake.calls.signUp).toHaveLength(1)
   expect(screen.queryByText('Check your email to confirm your account.')).not.toBeInTheDocument()
+})
+
+test('an expired challenge blocks signup until Turnstile supplies another token', async () => {
+  renderLogin()
+  await userEvent.click(screen.getByRole('button', { name: 'Sign up' }))
+  const submit = screen.getByRole('button', { name: 'Create account' })
+  await waitFor(() => expect(renderChallenge).toHaveBeenCalledTimes(1))
+
+  act(() => challenge.callback('short-lived-token'))
+  expect(submit).toBeEnabled()
+  act(() => challenge['expired-callback']())
+  expect(submit).toBeDisabled()
+})
+
+test('a Turnstile load error keeps signup blocked and explains how to recover', async () => {
+  renderLogin()
+  await userEvent.click(screen.getByRole('button', { name: 'Sign up' }))
+  await waitFor(() => expect(renderChallenge).toHaveBeenCalledTimes(1))
+
+  act(() => challenge['error-callback']())
+  expect(screen.getByRole('button', { name: 'Create account' })).toBeDisabled()
+  expect(screen.getByText(/Security verification could not load/)).toBeInTheDocument()
 })
 
 test('a failed sign-in renders this app’s copy, not the GoTrue string', async () => {
@@ -98,6 +177,7 @@ test('a failed sign-in renders this app’s copy, not the GoTrue string', async 
     },
   }
   renderLogin()
+  await solveChallenge('signin-challenge-token')
   await userEvent.type(screen.getByPlaceholderText('you@example.com'), 'a@b.co')
   await userEvent.type(screen.getByPlaceholderText('Password'), 'wrongpassword')
   await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
@@ -105,6 +185,7 @@ test('a failed sign-in renders this app’s copy, not the GoTrue string', async 
   expect(
     await screen.findByText('That email and password don’t match an account.'),
   ).toBeInTheDocument()
+  expect(fake.calls.signIn).toEqual([['a@b.co', 'wrongpassword', 'signin-challenge-token']])
   expect(screen.queryByText(/Invalid login credentials/)).not.toBeInTheDocument()
 })
 
@@ -114,11 +195,13 @@ test('the submit button un-busies after a failure', async () => {
     failure: { reason: 'offline', message: 'Couldn’t reach the server.' },
   }
   renderLogin()
+  await solveChallenge('first-signin-challenge-token')
   await userEvent.type(screen.getByPlaceholderText('you@example.com'), 'a@b.co')
   await userEvent.type(screen.getByPlaceholderText('Password'), 'somepassword')
   const btn = screen.getByRole('button', { name: 'Sign in' })
   await userEvent.click(btn)
   expect(await screen.findByText('Couldn’t reach the server.')).toBeInTheDocument()
+  act(() => challenge.callback('second-signin-challenge-token'))
   expect(screen.getByRole('button', { name: 'Sign in' })).toBeEnabled()
 })
 

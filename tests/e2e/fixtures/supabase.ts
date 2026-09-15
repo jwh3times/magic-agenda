@@ -26,6 +26,9 @@ export async function testClient(): Promise<SupabaseClient> {
   const { error } = await client.auth.signInWithPassword({
     email: required('E2E_TEST_EMAIL'),
     password: required('E2E_TEST_PASSWORD'),
+    // E2E runs against the local stack configured with Cloudflare's published always-pass test
+    // secret. This dummy token is accepted only by that secret and never by production.
+    options: { captchaToken: 'XXXX.DUMMY.TOKEN.XXXX' },
   })
   if (error) throw new Error(`E2E test account sign-in failed: ${error.message}`)
   return client

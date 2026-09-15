@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '../auth/AuthProvider'
 import { MIN_PASSWORD, PASSWORD_RULE } from '../auth/passwordPolicy'
+import { TurnstileWidget, type TurnstileWidgetHandle } from '../auth/TurnstileWidget'
 import logoDark from '../assets/logo-dark.svg'
 import { authCard, authField, authLinkBtn, authLogo, authPage, authSubmit } from './authChrome'
 
@@ -57,6 +58,27 @@ export function Login() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [captchaError, setCaptchaError] = useState<string | null>(null)
+  const captchaRef = useRef<TurnstileWidgetHandle>(null)
+
+  const captchaTokenChanged = useCallback((token: string | null) => {
+    setCaptchaToken(token)
+    if (token) setCaptchaError(null)
+  }, [])
+  const captchaFailed = useCallback(() => {
+    setCaptchaError('Security verification could not load. Refresh the page and try again.')
+  }, [])
+  const submitDisabled = busy || !captchaToken
+
+  const changeMode = (next: Mode) => {
+    captchaRef.current?.reset()
+    setMode(next)
+    setError(null)
+    setNotice(null)
+    setCaptchaToken(null)
+    setCaptchaError(null)
+  }
 
   useEffect(() => {
     if (session) void navigate('/', { replace: true })
@@ -70,21 +92,29 @@ export function Login() {
     setError(null)
     setNotice(null)
 
+    if (!captchaToken) {
+      setBusy(false)
+      return
+    }
+
     if (mode === 'forgot') {
-      const outcome = await sendPasswordReset(email)
+      const outcome = await sendPasswordReset(email, captchaToken)
       // Deliberately the same notice whether or not an account exists — this form must not
       // become an account-enumeration oracle.
       if (outcome.ok)
         setNotice('If an account exists for that email, a password reset link is on its way.')
       else setError(outcome.failure.message)
     } else if (mode === 'signup') {
-      const outcome = await signUp(email, password)
+      const outcome = await signUp(email, password, captchaToken)
       if (!outcome.ok) setError(outcome.failure.message)
       else if (outcome.confirmationRequired) setNotice('Check your email to confirm your account.')
     } else {
-      const outcome = await signIn(email, password)
+      const outcome = await signIn(email, password, captchaToken)
       if (!outcome.ok) setError(outcome.failure.message)
     }
+
+    captchaRef.current?.reset()
+    setCaptchaToken(null)
 
     setBusy(false)
   }
@@ -174,9 +204,7 @@ export function Login() {
             <button
               type="button"
               onClick={() => {
-                setMode('forgot')
-                setError(null)
-                setNotice(null)
+                changeMode('forgot')
               }}
               style={{ ...authLinkBtn, alignSelf: 'flex-end', fontSize: 12 }}
             >
@@ -189,6 +217,10 @@ export function Login() {
               Your account and all of its data have been deleted. Thanks for trying Magic Agenda.
             </div>
           )}
+          <TurnstileWidget ref={captchaRef} onToken={captchaTokenChanged} onError={captchaFailed} />
+          {captchaError && (
+            <div style={{ color: '#ff8b8b', fontSize: 13, lineHeight: 1.4 }}>{captchaError}</div>
+          )}
           {error && <div style={{ color: '#ff8b8b', fontSize: 13, lineHeight: 1.4 }}>{error}</div>}
           {notice && (
             <div style={{ color: '#86efac', fontSize: 13, lineHeight: 1.4 }}>{notice}</div>
@@ -196,8 +228,12 @@ export function Login() {
 
           <button
             type="submit"
-            disabled={busy}
-            style={{ ...authSubmit, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 }}
+            disabled={submitDisabled}
+            style={{
+              ...authSubmit,
+              cursor: submitDisabled ? 'default' : 'pointer',
+              opacity: submitDisabled ? 0.6 : 1,
+            }}
           >
             {busy
               ? 'Please wait…'
@@ -214,9 +250,7 @@ export function Login() {
             <button
               type="button"
               onClick={() => {
-                setMode('signin')
-                setError(null)
-                setNotice(null)
+                changeMode('signin')
               }}
               style={authLinkBtn}
             >
@@ -228,9 +262,7 @@ export function Login() {
               <button
                 type="button"
                 onClick={() => {
-                  setMode(mode === 'signin' ? 'signup' : 'signin')
-                  setError(null)
-                  setNotice(null)
+                  changeMode(mode === 'signin' ? 'signup' : 'signin')
                 }}
                 style={authLinkBtn}
               >

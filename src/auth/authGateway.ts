@@ -30,9 +30,9 @@ export interface AuthGateway {
   getSession(): Promise<Session | null>
   /** Returns its own unsubscribe function — the vendor's `{ data: { subscription } }` stays inside. */
   onAuthStateChange(listener: (event: AuthChangeEvent, session: Session | null) => void): () => void
-  signIn(email: string, password: string): Promise<AuthOutcome>
-  signUp(email: string, password: string): Promise<SignUpOutcome>
-  sendPasswordReset(email: string): Promise<AuthOutcome>
+  signIn(email: string, password: string, captchaToken: string): Promise<AuthOutcome>
+  signUp(email: string, password: string, captchaToken: string): Promise<SignUpOutcome>
+  sendPasswordReset(email: string, captchaToken: string): Promise<AuthOutcome>
   startGoogleSignIn(): Promise<AuthOutcome>
   /** Sets the password of the *current* session's user. Requires a live session. */
   setPassword(password: string): Promise<AuthOutcome>
@@ -104,9 +104,13 @@ export const supabaseAuthGateway: AuthGateway = {
     return () => data.subscription.unsubscribe()
   },
 
-  async signIn(email, password) {
+  async signIn(email, password, captchaToken) {
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+        options: { captchaToken },
+      })
       if (error) return failed(error)
       return { ok: true }
     } catch (e) {
@@ -114,13 +118,13 @@ export const supabaseAuthGateway: AuthGateway = {
     }
   },
 
-  async signUp(email, password) {
+  async signUp(email, password, captchaToken) {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         // `{{ .RedirectTo }}` in the confirmation template resolves from this option.
-        options: { emailRedirectTo: absolute(ROUTES.signupConfirm) },
+        options: { emailRedirectTo: absolute(ROUTES.signupConfirm), captchaToken },
       })
       if (error) return failed(error)
       // No session means GoTrue is waiting on the emailed confirmation link.
@@ -130,10 +134,11 @@ export const supabaseAuthGateway: AuthGateway = {
     }
   },
 
-  async sendPasswordReset(email) {
+  async sendPasswordReset(email, captchaToken) {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: absolute(ROUTES.passwordReset),
+        captchaToken,
       })
       if (error) return failed(error)
       return { ok: true }

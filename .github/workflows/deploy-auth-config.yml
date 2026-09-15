@@ -6,6 +6,7 @@ name: Deploy Auth Config
 # Requires the repository secrets used by Deploy Migrations plus two more:
 #   RESEND_API_KEY               - resolves env(RESEND_API_KEY) in [auth.email.smtp]
 #   GOOGLE_OAUTH_CLIENT_SECRET   - resolves env(GOOGLE_OAUTH_CLIENT_SECRET) in [auth.external.google]
+#   TURNSTILE_SECRET_KEY         - resolves env(TURNSTILE_SECRET_KEY) in [auth.captcha]
 #
 # `supabase config push --yes` converges the remote project on the file, so
 # re-runs are safe. The PR-side preview of the same push lives in ci.yml (Config job).
@@ -34,6 +35,7 @@ jobs:
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       # Derived from the exact `supabase` devDependency so a CLI bump needs no workflow edit (#338).

@@ -75,11 +75,8 @@ async function scan(page: Page, label: string): Promise<Finding[]> {
           : undefined,
     })),
   )
-  // Unconditional, and BEFORE the assertion. In practice a baseline is produced by reading numbers
-  // out of a CI log — the update mode needs the E2E account's credentials, which exist only as
-  // repository secrets. Logging after the assert would skip every surface that fails, costing
-  // another serialised run on a required check that also holds the single e2e-prod-account
-  // concurrency slot.
+  // Unconditional, and BEFORE the assertion. Logging after the assert would skip every surface
+  // that fails and cost another full browser run to discover the complete replacement baseline.
   console.log(`[a11y] ${label} ${JSON.stringify(tally(found))}\n${formatFindings(found)}`)
   return found
 }

@@ -2,9 +2,8 @@
  * Pure logic behind the Playwright a11y ratchet (tests/e2e/a11y.spec.ts).
  *
  * Split out for the same reason src/sw/policy.ts is split from src/sw.ts and tests/rls/reloptions.ts
- * from its test: a11y.spec.ts cannot run without a deployed preview AND the E2E account's
- * credentials, which exist only as repository secrets — so anything asserted solely inside it is
- * untested in practice. Everything in this file runs in `npm test`.
+ * from its test: the browser scan needs Chromium and a running app, while this parser and ratchet
+ * logic should remain hermetic in `npm test`.
  */
 
 export interface BaselineEntry {

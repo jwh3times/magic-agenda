@@ -12,6 +12,18 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.12.4] - 2026-09-14
+
+### Security
+
+- Password sign-in, email signup, and password-reset requests now require a Cloudflare Turnstile challenge, with
+  single-use tokens verified by Supabase Auth server-side. The widget clears expired or attempted
+  tokens, the deployed Content Security Policy admits only Cloudflare's challenge host, and CI plus
+  deployment configuration keep the public site key separate from the secret verification key
+  ([#294](https://github.com/jwh3times/magic-agenda/issues/294)).
+- Browser CI now keeps authenticated fixtures in an ephemeral local Supabase stack while retaining
+  deployed-preview probes for Cloudflare Pages headers, CSP, and service-worker behavior.
+
 ## [1.12.3] - 2026-09-14
 
 ### Security
@@ -3325,7 +3337,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.3...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.4...HEAD
+[1.12.4]: https://github.com/jwh3times/magic-agenda/compare/v1.12.3...v1.12.4
 [1.12.3]: https://github.com/jwh3times/magic-agenda/compare/v1.12.2...v1.12.3
 [1.12.2]: https://github.com/jwh3times/magic-agenda/compare/v1.12.1...v1.12.2
 [1.12.1]: https://github.com/jwh3times/magic-agenda/compare/v1.12.0...v1.12.1

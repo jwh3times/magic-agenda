@@ -60,19 +60,32 @@ beforeEach(() => {
 // `{{ .RedirectTo }}` in supabase/templates/*.html — none of which this suite can see, which is
 // exactly why the values are pinned here.
 
+test('signIn passes the challenge token to GoTrue', async () => {
+  await gw.signIn('a@b.co', 'Longenough123!', 'signin-challenge-token')
+  expect(h.signInWithPassword).toHaveBeenCalledWith({
+    email: 'a@b.co',
+    password: 'Longenough123!',
+    options: { captchaToken: 'signin-challenge-token' },
+  })
+})
+
 test('signUp points the confirmation email at /auth/confirm', async () => {
-  await gw.signUp('a@b.co', 'Longenough123!')
+  await gw.signUp('a@b.co', 'Longenough123!', 'signup-challenge-token')
   expect(h.signUp).toHaveBeenCalledWith({
     email: 'a@b.co',
     password: 'Longenough123!',
-    options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
+    options: {
+      emailRedirectTo: `${window.location.origin}/auth/confirm`,
+      captchaToken: 'signup-challenge-token',
+    },
   })
 })
 
 test('sendPasswordReset points the reset email at /auth/reset', async () => {
-  await gw.sendPasswordReset('a@b.co')
+  await gw.sendPasswordReset('a@b.co', 'reset-challenge-token')
   expect(h.resetPasswordForEmail).toHaveBeenCalledWith('a@b.co', {
     redirectTo: `${window.location.origin}/auth/reset`,
+    captchaToken: 'reset-challenge-token',
   })
 })
 
@@ -103,9 +116,9 @@ test('every action resolves a failure instead of rejecting', async () => {
   h.verifyOtp.mockRejectedValue(boom)
 
   const outcomes = await Promise.all([
-    gw.signIn('a@b.co', 'pw'),
-    gw.signUp('a@b.co', 'pw'),
-    gw.sendPasswordReset('a@b.co'),
+    gw.signIn('a@b.co', 'pw', 'captcha'),
+    gw.signUp('a@b.co', 'pw', 'captcha'),
+    gw.sendPasswordReset('a@b.co', 'captcha'),
     gw.startGoogleSignIn(),
     gw.setPassword('pw'),
     gw.redeemToken('tok', 'signup'),
@@ -122,7 +135,7 @@ test('a returned { error } becomes the same shape as a thrown one', async () => 
     data: { session: null, user: null },
     error: new AuthApiError('Invalid login credentials', 400, 'invalid_credentials'),
   })
-  const outcome = await gw.signIn('a@b.co', 'wrong')
+  const outcome = await gw.signIn('a@b.co', 'wrong', 'captcha')
   expect(outcome).toEqual({
     ok: false,
     failure: {
@@ -141,10 +154,16 @@ test('signOut swallows a rejection rather than blocking the local sign-out casca
 
 test('signUp reports whether a confirmation email is pending', async () => {
   h.signUp.mockResolvedValue({ data: { session: null, user: {} }, error: null })
-  expect(await gw.signUp('a@b.co', 'pw')).toEqual({ ok: true, confirmationRequired: true })
+  expect(await gw.signUp('a@b.co', 'pw', 'captcha')).toEqual({
+    ok: true,
+    confirmationRequired: true,
+  })
 
   h.signUp.mockResolvedValue({ data: { session: { user: {} }, user: {} }, error: null })
-  expect(await gw.signUp('a@b.co', 'pw')).toEqual({ ok: true, confirmationRequired: false })
+  expect(await gw.signUp('a@b.co', 'pw', 'captcha')).toEqual({
+    ok: true,
+    confirmationRequired: false,
+  })
 })
 
 test('getSession degrades to null instead of rejecting', async () => {

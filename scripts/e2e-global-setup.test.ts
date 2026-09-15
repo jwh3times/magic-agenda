@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const h = vi.hoisted(() => {
   const fillEmail = vi.fn()
   const fillPassword = vi.fn()
-  const clickSignIn = vi.fn()
+  const clickSignIn = vi.fn((_options: { timeout: number }) => Promise.resolve())
   const waitForURL = vi.fn((_predicate: (url: URL) => boolean, _options: { timeout: number }) =>
     Promise.resolve(),
   )
@@ -75,6 +75,7 @@ describe('E2E global setup diagnostics', () => {
     expect(h.waitForURL).toHaveBeenCalledWith(expect.any(Function), {
       timeout: 30_000,
     })
+    expect(h.clickSignIn).toHaveBeenCalledWith({ timeout: 30_000 })
     const leftLogin = h.waitForURL.mock.calls[0]?.[0]
     expect(leftLogin).toBeDefined()
     if (!leftLogin) throw new Error('globalSetup did not install a navigation predicate')

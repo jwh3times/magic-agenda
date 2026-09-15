@@ -20,22 +20,9 @@ import { testBoardId, testClient, testUserId } from './supabase'
  * and `day` is a real NULL for the inbox rather than the app's `'inbox'` sentinel. That mapping
  * lives in src/data/mappers.ts and does not apply here -- see AGENTS.md.
  *
- * **This fixture must match PRODUCTION's schema, which is one release behind its own branch.** E2E
- * runs against the production database while migrations apply only on merge, so the payload here has
- * to satisfy the schema as it exists *before* this PR's migration -- and still work after it.
- *
- * Both mistakes have now been made once each, in opposite directions:
- *
- *   - Dropping `tasks_infer_board_id` made this fixture a pre-cutover client (it sent no
- *     `board_id`) and it began failing closed on the release *after* the migration.
- *   - Removing `user_id` here in the same PR that relaxed it to nullable failed *immediately*,
- *     because production still had `NOT NULL` when E2E ran: `null value in column "user_id" ...
- *     violates not-null constraint`.
- *
- * So a column being retired stays in this payload for the release that makes it optional, and comes
- * out in the release that drops it -- one step later than feels natural. `user_id` came out here,
- * with the drop; `category` needed no such care, having a default on both sides. Nothing else in the
- * suite writes tasks.
+ * This fixture must match the branch schema. E2E runs on a freshly migrated local stack, so a
+ * schema PR and its fixture change are verified together instead of meeting production one release
+ * apart. Nothing else in the suite writes tasks.
  */
 export const SEEDED_TITLES = ['Draft the launch note', 'Book the venue', 'Unscheduled idea']
 

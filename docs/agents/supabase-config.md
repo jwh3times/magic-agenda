@@ -16,7 +16,7 @@ through Dependabot’s `github-actions` ecosystem; this changed the `version:` i
 
 `supabase/config.toml`'s `[auth]` tree describes **production** exactly (site URL, redirect
 allow-list, password policy, OTP settings, rate limits, the Resend SMTP block, the Google OAuth
-block, TOTP MFA), `[api].auto_expose_new_tables = false` keeps automatic Data API grants off,
+block, Turnstile, TOTP MFA), `[api].auto_expose_new_tables = false` keeps automatic Data API grants off,
 and `[db.ssl_enforcement].enabled = true` requires TLS for database and pooler connections.
 Every edit is a production change, not local scaffolding. Changes to
 `supabase/config.toml` or `supabase/templates/**` **auto-apply to production on merge to `main`**
@@ -26,10 +26,18 @@ those paths using `yes n | SUPABASE_YES=false supabase config push --agent no --
 to decline confirmation prompts. Keep the explicit text mode: machine-readable output skips prompts
 and accepts their defaults even with `yes n` on stdin. The CLI has no `--dry-run`, and prompts also
 default to **yes** on EOF. Secrets referenced via `env(...)` in the file (`RESEND_API_KEY`,
-`GOOGLE_OAUTH_CLIENT_SECRET`) exist only as repository secrets, used by both the `Config` and
+`GOOGLE_OAUTH_CLIENT_SECRET`, `TURNSTILE_SECRET_KEY`) exist only as repository secrets, used by both the `Config` and
 `Deploy Auth Config` jobs; `deploy-migrations.yml` and `deploy-functions.yml` also carry them so
 the CLI's config.toml parsing on every command can't fail on a missing var. **Never run
 `supabase config push` locally** — it deploys straight to production, bypassing the PR preview.
+
+Turnstile has two distinct deployment inputs. `TURNSTILE_SECRET_KEY` is an Actions repository
+secret used only while Supabase CLI parses and deploys `[auth.captcha]`; every workflow that parses
+the config must provide it, while `scripts/rls-up.mjs` and the RLS CI job deliberately replace it
+with a dummy for the local stack. `VITE_TURNSTILE_SITE_KEY` is public browser configuration and must
+exist in both the Production and Preview environments of the Cloudflare Pages project. CI uses a
+placeholder site key because its build is hermetic. A config merge enables server-side validation,
+so do not merge the code before both real deployment inputs are provisioned.
 
 **Deleting an Edge Function from this repository does not delete it from production.**
 `supabase functions deploy` with no name deploys every function under `supabase/functions/`; it

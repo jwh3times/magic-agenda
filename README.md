@@ -118,7 +118,7 @@ npx supabase db push
 ### 3. Configure environment
 
 Copy the example env file and fill in your project's **URL** and **anon key**
-(Supabase dashboard → Project Settings → API):
+(Supabase dashboard → Project Settings → API) plus a Cloudflare Turnstile site key:
 
 ```bash
 cp .env.example .env.local
@@ -127,6 +127,7 @@ cp .env.example .env.local
 ```dotenv
 VITE_SUPABASE_URL=https://<your-project-ref>.supabase.co
 VITE_SUPABASE_ANON_KEY=<your-anon-key>
+VITE_TURNSTILE_SITE_KEY=<your-turnstile-site-key>
 ```
 
 > The anon key is **public by design** — it ships in the browser bundle and is safe because RLS
@@ -164,7 +165,8 @@ npm run dev      # start the dev server at http://localhost:5173
 | `npm run test:rls:up`       | Start a local Supabase stack for the RLS tests (Docker)           |
 | `npm run test:rls`          | Run the RLS integration tests against that stack                  |
 | `npm run test:rls:down`     | Stop the local stack                                              |
-| `npm run test:e2e`          | Playwright smoke + a11y against `E2E_BASE_URL`                    |
+| `npm run test:e2e`          | CI-oriented app smoke + a11y against a prepared `E2E_BASE_URL`    |
+| `npm run test:e2e:preview`  | Deployed Pages/CSP probes against `E2E_PREVIEW_URL`               |
 | `npm run lint`              | Lint with Oxlint, including type-aware rules                      |
 | `npm run lint:fix`          | Apply safe lint fixes                                             |
 | `npm run format`            | Format with Prettier                                              |
@@ -226,8 +228,9 @@ design/                the original prototype (reference only — not built)
 ## Deployment
 
 [Cloudflare Pages](https://pages.cloudflare.com) builds and deploys `main` (framework preset **Vite**,
-build `npm run build`, output `dist`). The `VITE_SUPABASE_*` variables are set in the Pages project for
-Production and Preview; `public/_redirects` provides the SPA deep‑link fallback, and `public/_headers`
+build `npm run build`, output `dist`). The `VITE_SUPABASE_*` variables and
+`VITE_TURNSTILE_SITE_KEY` are set in the Pages project for Production and Preview;
+`public/_redirects` provides the SPA deep‑link fallback, and `public/_headers`
 sets security response headers (Content‑Security‑Policy, HSTS, `X-Frame-Options`, `nosniff`,
 `Referrer-Policy`).
 
