@@ -12,6 +12,15 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.12.8] - 2026-09-15
+
+### Added
+
+- Added the owner-scoped push-subscription store, server-only Reminder delivery ledger, and the
+  disabled-by-default Account reminder preference. Enabling a lead now requires a concrete IANA
+  Timezone, preparing the database safely before the reminder client and sender deploy
+  ([#267](https://github.com/jwh3times/magic-agenda/issues/267)).
+
 ## [1.12.7] - 2026-09-15
 
 ### Fixed
@@ -3364,7 +3373,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.7...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.8...HEAD
+[1.12.8]: https://github.com/jwh3times/magic-agenda/compare/v1.12.7...v1.12.8
 [1.12.7]: https://github.com/jwh3times/magic-agenda/compare/v1.12.6...v1.12.7
 [1.12.6]: https://github.com/jwh3times/magic-agenda/compare/v1.12.5...v1.12.6
 [1.12.5]: https://github.com/jwh3times/magic-agenda/compare/v1.12.4...v1.12.5

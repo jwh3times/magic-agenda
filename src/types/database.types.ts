@@ -173,6 +173,89 @@ export type Database = {
           },
         ]
       }
+      push_subscriptions: {
+        Row: {
+          account_id: string
+          auth_secret: string
+          created_at: string
+          endpoint: string
+          expiration_time: string | null
+          id: string
+          p256dh: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          auth_secret: string
+          created_at?: string
+          endpoint: string
+          expiration_time?: string | null
+          id?: string
+          p256dh: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          auth_secret?: string
+          created_at?: string
+          endpoint?: string
+          expiration_time?: string | null
+          id?: string
+          p256dh?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      reminder_deliveries: {
+        Row: {
+          account_id: string
+          claim_expires_at: string | null
+          claim_token: string | null
+          claimed_at: string | null
+          created_at: string
+          delivered_at: string | null
+          due_moment: string
+          id: string
+          task_id: string
+          updated_at: string
+          window_opens_at: string
+        }
+        Insert: {
+          account_id: string
+          claim_expires_at?: string | null
+          claim_token?: string | null
+          claimed_at?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          due_moment: string
+          id?: string
+          task_id: string
+          updated_at?: string
+          window_opens_at: string
+        }
+        Update: {
+          account_id?: string
+          claim_expires_at?: string | null
+          claim_token?: string | null
+          claimed_at?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          due_moment?: string
+          id?: string
+          task_id?: string
+          updated_at?: string
+          window_opens_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'reminder_deliveries_task_id_fkey'
+            columns: ['task_id']
+            isOneToOne: false
+            referencedRelation: 'tasks'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       tasks: {
         Row: {
           archived_at: string | null
@@ -312,6 +395,7 @@ export type Database = {
       user_settings: {
         Row: {
           keyboard_shortcuts: boolean
+          reminder_lead_minutes: number | null
           theme: string
           timezone: string | null
           updated_at: string
@@ -320,6 +404,7 @@ export type Database = {
         }
         Insert: {
           keyboard_shortcuts?: boolean
+          reminder_lead_minutes?: number | null
           theme?: string
           timezone?: string | null
           updated_at?: string
@@ -328,6 +413,7 @@ export type Database = {
         }
         Update: {
           keyboard_shortcuts?: boolean
+          reminder_lead_minutes?: number | null
           theme?: string
           timezone?: string | null
           updated_at?: string
