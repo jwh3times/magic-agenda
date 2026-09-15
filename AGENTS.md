@@ -260,7 +260,8 @@ area detail in `docs/agents/` rather than growing this page. Keep `AGENTS.md`, `
 `CHANGELOG.md` aligned when a change affects project behavior, commands, architecture, or release
 notes.
 
-The project subagents, the `ship` and `end-session` skills, and the two authored trees whose
+The project subagents, the `ship` and `end-session` skills, the Proton Drive `handoff` / `lets-go`
+pair, and the two authored trees whose
 generated mirrors (`.codex/`, `.claude/skills/`) must never be hand-edited:
 [Agents, skills, and docs automation](docs/agents/tooling.md).
 
