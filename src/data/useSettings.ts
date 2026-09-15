@@ -25,6 +25,8 @@ export interface Settings {
    * commands. Ctrl/Cmd+K is not a character-key shortcut, so the command palette ignores this.
    */
   keyboardShortcuts: boolean
+  /** Minutes before the Account-specific Due Moment; null disables reminders. */
+  reminderLeadMinutes: number | null
 }
 
 const DEFAULTS: Settings = {
@@ -32,6 +34,7 @@ const DEFAULTS: Settings = {
   weekStart: 0,
   timezone: null,
   keyboardShortcuts: true,
+  reminderLeadMinutes: null,
 }
 
 export interface UseSettings {
@@ -41,6 +44,7 @@ export interface UseSettings {
   saveWeekStart: (weekStart: number) => void
   saveTimezone: (timezone: string | null) => void
   saveKeyboardShortcuts: (on: boolean) => void
+  saveReminderLeadMinutes: (minutes: number | null) => void
 }
 
 /**
@@ -127,6 +131,7 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
                 weekStart: data.week_start ?? 0,
                 timezone: data.timezone ?? null,
                 keyboardShortcuts: data.keyboard_shortcuts ?? true,
+                reminderLeadMinutes: data.reminder_lead_minutes ?? null,
               }
             : DEFAULTS,
           // `loadedFromServer: true` because reaching this branch *is* the server having answered
@@ -164,6 +169,7 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
         week_start?: number
         timezone?: string | null
         keyboard_shortcuts?: boolean
+        reminder_lead_minutes?: number | null
       } | null
       // `theme` alone gates this now. It used to also require `default_view`, which stopped being
       // a signal of a well-formed row when Default View moved to the Membership — a payload
@@ -174,6 +180,7 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
         weekStart: row.week_start ?? 0,
         timezone: row.timezone ?? null,
         keyboardShortcuts: row.keyboard_shortcuts ?? true,
+        reminderLeadMinutes: row.reminder_lead_minutes ?? null,
       }
       // Second line of defence behind the echo filter: an identical payload must not re-render
       // or re-snapshot. (useTasks' equivalent is `sameTask` inside the realtime reducer.)
@@ -181,7 +188,8 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
         next.theme === ref.current.theme &&
         next.weekStart === ref.current.weekStart &&
         next.timezone === ref.current.timezone &&
-        next.keyboardShortcuts === ref.current.keyboardShortcuts
+        next.keyboardShortcuts === ref.current.keyboardShortcuts &&
+        next.reminderLeadMinutes === ref.current.reminderLeadMinutes
       )
         return
       apply(next)
@@ -219,6 +227,8 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
             // Requires 20260913120000, which ships a release ahead of this client: sending a column
             // the database does not have answers every settings save with 400 PGRST204.
             keyboard_shortcuts: next.keyboardShortcuts,
+            // The additive v1.12.8 migration shipped before this client.
+            reminder_lead_minutes: next.reminderLeadMinutes,
           },
           { onConflict: 'user_id' },
         )
@@ -247,5 +257,18 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
     [persist],
   )
 
-  return { settings, loading, saveTheme, saveWeekStart, saveTimezone, saveKeyboardShortcuts }
+  const saveReminderLeadMinutes = useCallback(
+    (reminderLeadMinutes: number | null) => persist({ ...ref.current, reminderLeadMinutes }),
+    [persist],
+  )
+
+  return {
+    settings,
+    loading,
+    saveTheme,
+    saveWeekStart,
+    saveTimezone,
+    saveKeyboardShortcuts,
+    saveReminderLeadMinutes,
+  }
 }

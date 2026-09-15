@@ -9,6 +9,7 @@
  * which are immutable by construction. See docs/runbooks/service-worker-rollback.md.
  */
 import { isCacheFirst, isNavigation, isNeverCached } from './sw/policy'
+import { notificationFromPush } from './sw/notifications'
 
 // Typechecked under tsconfig.worker.json (WebWorker lib, no DOM). Still an `unknown` hop, not a
 // direct cast: lib.webworker.d.ts types the ambient `self` generically as `WorkerGlobalScope`
@@ -60,6 +61,36 @@ sw.addEventListener('activate', (event) => {
 
 sw.addEventListener('message', (event) => {
   if ((event.data as { type?: string } | null)?.type === 'SKIP_WAITING') void sw.skipWaiting()
+})
+
+sw.addEventListener('push', (event) => {
+  let value: unknown = null
+  try {
+    value = event.data?.json()
+  } catch {
+    // A malformed payload must still result in a visible notification. Silent push is not used.
+  }
+  const notification = notificationFromPush(value)
+  event.waitUntil(sw.registration.showNotification(notification.title, notification.options))
+})
+
+sw.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const raw = (event.notification.data as { url?: unknown } | null)?.url
+  const path = typeof raw === 'string' && raw.startsWith('/') ? raw : '/'
+  const target = new URL(path, sw.location.origin).href
+  event.waitUntil(
+    (async () => {
+      const windows = await sw.clients.matchAll({ type: 'window', includeUncontrolled: true })
+      const existing = windows[0]
+      if (existing) {
+        await existing.navigate(target)
+        await existing.focus()
+        return
+      }
+      await sw.clients.openWindow(target)
+    })(),
+  )
 })
 
 async function networkFirst(request: Request): Promise<Response> {

@@ -4,7 +4,7 @@ const a = { color: '#a78bfa' }
 
 export function Privacy() {
   return (
-    <LegalLayout title="Privacy Policy" lastUpdated="September 6, 2026">
+    <LegalLayout title="Privacy Policy" lastUpdated="September 15, 2026">
       <p>
         Magic Agenda (“we”, “us”) is a personal task‑board web app available at{' '}
         <a href="https://magicagenda.app" style={a}>
@@ -32,6 +32,11 @@ export function Privacy() {
           previously synced content offline.
         </li>
         <li>
+          <strong>Notification subscriptions.</strong> If you enable reminders on a device, we store
+          the push endpoint and public browser keys needed to reach that device. Notification
+          permission remains under your browser or operating system’s control.
+        </li>
+        <li>
           <strong>Technical data.</strong> Our infrastructure providers process standard request
           information, such as IP addresses and browser information, for delivery, security, and
           reliability. Cloudflare Web Analytics collects page-view and performance information,
@@ -43,9 +48,9 @@ export function Privacy() {
       <h2>How we use it</h2>
       <p>
         We use your information solely to provide the service — to authenticate you, store and sync
-        your tasks across your devices, deliver account emails, measure website usage and
-        performance, and keep the app secure and working. We do <strong>not</strong> sell your data,
-        and we do not use it for advertising or profiling.
+        your tasks across your devices, deliver reminders and account emails, measure website usage
+        and performance, and keep the app secure and working. We do <strong>not</strong> sell your
+        data, and we do not use it for advertising or profiling.
       </p>
 
       <h2>Service providers</h2>
@@ -108,6 +113,11 @@ export function Privacy() {
         stored data by clearing this website’s data in your browser settings. Cached content can
         remain when a session expires or a device is offline; deleting your account does not
         immediately erase cached copies on every device.
+      </p>
+      <p>
+        You can remove a device’s push subscription or turn reminders off from Settings →
+        Notifications. You can also revoke notification permission in your browser or operating
+        system settings.
       </p>
       <p>
         You may also revoke Magic Agenda’s access to your Google account from your{' '}

@@ -84,6 +84,7 @@ test('saveTheme fires the upsert request so the theme persists across reloads', 
       week_start: 0,
       timezone: null,
       keyboard_shortcuts: true,
+      reminder_lead_minutes: null,
     },
     { onConflict: 'user_id' },
   )
@@ -105,6 +106,7 @@ test('a settings change from another device is applied', async () => {
     weekStart: 0,
     timezone: null,
     keyboardShortcuts: true,
+    reminderLeadMinutes: null,
   })
 })
 
@@ -127,6 +129,7 @@ test('a remote settings event arriving right after a local save is suppressed', 
     weekStart: 0,
     timezone: null,
     keyboardShortcuts: true,
+    reminderLeadMinutes: null,
   })
 })
 
@@ -149,6 +152,7 @@ test('a failed load falls back to the snapshot, not to DEFAULTS', async () => {
     weekStart: 1,
     timezone: 'Europe/London',
     keyboardShortcuts: true,
+    reminderLeadMinutes: null,
   })
 })
 
@@ -161,6 +165,7 @@ test('a failed load with no snapshot falls back to DEFAULTS', async () => {
     weekStart: 0,
     timezone: null,
     keyboardShortcuts: true,
+    reminderLeadMinutes: null,
   })
 })
 
@@ -173,6 +178,7 @@ test('a genuinely empty row still means DEFAULTS, and is snapshotted', async () 
     weekStart: 0,
     timezone: null,
     keyboardShortcuts: true,
+    reminderLeadMinutes: null,
   })
   expect(readSettingsSnapshot('u1')?.settings.theme).toBe('cork')
 })
@@ -206,6 +212,7 @@ test('an empty row with no session does not overwrite the existing snapshot', as
     weekStart: 0,
     timezone: null,
     keyboardShortcuts: true,
+    reminderLeadMinutes: null,
   })
   // ...but the on-disk snapshot, which the next offline boot reads, must be untouched.
   expect(readSettingsSnapshot('u1')?.settings).toEqual({
@@ -248,6 +255,7 @@ test('a row missing the new columns loads as the defaults', async () => {
     weekStart: 0,
     timezone: null,
     keyboardShortcuts: true,
+    reminderLeadMinutes: null,
   })
 })
 
@@ -369,4 +377,48 @@ test('a realtime change carries keyboard_shortcuts to other devices', async () =
     })
   })
   expect(result.current.settings?.keyboardShortcuts).toBe(false)
+})
+
+// ——— #267: the reminder lead Account Preference ———
+
+test('a stored reminder lead loads and a missing value remains off', async () => {
+  h.capture.result = {
+    data: {
+      theme: 'cork',
+      week_start: 0,
+      timezone: 'America/New_York',
+      reminder_lead_minutes: 30,
+    },
+    error: null,
+  }
+  const enabled = renderHook(() => useSettings('user-1', true))
+  await waitFor(() => expect(enabled.result.current.loading).toBe(false))
+  expect(enabled.result.current.settings?.reminderLeadMinutes).toBe(30)
+  enabled.unmount()
+
+  h.capture.result = { data: { theme: 'cork', week_start: 0, timezone: null }, error: null }
+  const disabled = renderHook(() => useSettings('user-2', true))
+  await waitFor(() => expect(disabled.result.current.loading).toBe(false))
+  expect(disabled.result.current.settings?.reminderLeadMinutes).toBeNull()
+})
+
+test('saveReminderLeadMinutes persists the column and carries the timezone', async () => {
+  h.capture.result = {
+    data: { theme: 'cork', week_start: 0, timezone: 'America/New_York' },
+    error: null,
+  }
+  const { result } = renderHook(() => useSettings('u-reminders', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  act(() => result.current.saveReminderLeadMinutes(15))
+
+  expect(h.upsert).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      user_id: 'u-reminders',
+      timezone: 'America/New_York',
+      reminder_lead_minutes: 15,
+    }),
+    { onConflict: 'user_id' },
+  )
+  expect(result.current.settings?.reminderLeadMinutes).toBe(15)
 })

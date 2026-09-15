@@ -267,6 +267,7 @@ test('settings round-trip and clear together with the board', () => {
     weekStart: 0,
     timezone: null,
     keyboardShortcuts: true,
+    reminderLeadMinutes: null,
   })
   expect(readSettingsSnapshot('u1')?.settings.theme).toBe('glass')
   clearSnapshots()
