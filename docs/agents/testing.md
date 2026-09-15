@@ -34,6 +34,13 @@ the same dummy values CI's stack step does, **over** the ambient environment rat
 back. The two sets are kept identical by `scripts/rls-up.test.mjs`, which parses the workflow and
 compares them, rather than by a note here asking someone to remember (#296).
 
+The Turnstile replacement is Cloudflare's published always-pass **test** secret, paired with
+`XXXX.DUMMY.TOKEN.XXXX` only in `tests/rls/helpers.ts`. This is necessary because enabling CAPTCHA
+also protects password sign-in, which the admin-created RLS fixtures still use to obtain ordinary
+user sessions. A made-up secret cannot validate any token; a production secret must never enter the
+local stack. The test secret accepts no production token and keeps fixture authentication
+deterministic.
+
 `structure.test.ts` holds **catch-alls** that need no knowledge of any particular table and hold
 forever: RLS enabled everywhere, every RLS-enabled table has a policy, no security-definer views,
 every table reachable by the Data API roles, a newly created table reachable by _none_ of them, and
@@ -91,7 +98,7 @@ and the v1.2.37 CSP bug could not be reproduced locally. In CI it runs against t
 Pages preview; locally, point `E2E_BASE_URL` at a preview URL or production.
 
 The signed-out smoke group owns CSP probes for external browser resources. Its Turnstile check
-enters sign-up mode, requires the challenge script response and injected iframe, and rejects failed
+enters sign-up mode, requires the final challenge script response and injected iframe, and rejects failed
 challenge-host requests or console errors. Do not replace it with a source-text assertion alone:
 the latter checks the intended header, while only the preview proves Cloudflare served that header
 and the browser accepted both the script and frame.

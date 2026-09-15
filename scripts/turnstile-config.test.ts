@@ -22,11 +22,14 @@ describe('Supabase Turnstile configuration', () => {
     expect(read(path)).toContain('TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}')
   })
 
-  it('uses dummies for browser builds and the local auth stack', () => {
+  it('uses Cloudflare test credentials for the local auth stack', () => {
     const ci = read('.github/workflows/ci.yml')
     expect(ci).toContain('VITE_TURNSTILE_SITE_KEY: ci-placeholder')
-    expect(ci).toContain('TURNSTILE_SECRET_KEY: dummy-not-a-real-secret')
-    expect(read('scripts/rls-up.mjs')).toContain("TURNSTILE_SECRET_KEY: 'dummy-not-a-real-secret'")
+    expect(ci).toContain('TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA')
+    expect(read('scripts/rls-up.mjs')).toContain(
+      "TURNSTILE_SECRET_KEY: '1x0000000000000000000000000000000AA'",
+    )
+    expect(read('tests/rls/helpers.ts')).toContain("captchaToken: 'XXXX.DUMMY.TOKEN.XXXX'")
   })
 })
 

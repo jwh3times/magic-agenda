@@ -227,7 +227,8 @@ jobs:
         env:
           RESEND_API_KEY: dummy-not-a-real-key
           GOOGLE_OAUTH_CLIENT_SECRET: dummy-not-a-real-secret
-          TURNSTILE_SECRET_KEY: dummy-not-a-real-secret
+          # Cloudflare's documented always-pass test secret; never accepts a production token.
+          TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
           OPENAI_API_KEY: dummy-not-a-real-key
           S3_HOST: dummy.local
           S3_REGION: local

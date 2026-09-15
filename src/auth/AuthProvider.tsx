@@ -45,7 +45,7 @@ interface AuthContextValue {
    * `false` whenever there is no session, since there is then nothing to gate.
    */
   stepUpRequired: boolean | null
-  signIn: (email: string, password: string) => Promise<AuthOutcome>
+  signIn: (email: string, password: string, captchaToken: string) => Promise<AuthOutcome>
   signUp: (email: string, password: string, captchaToken: string) => Promise<SignUpOutcome>
   sendPasswordReset: (email: string, captchaToken: string) => Promise<AuthOutcome>
   startGoogleSignIn: () => Promise<AuthOutcome>
@@ -151,7 +151,8 @@ export function AuthProvider({
   // on `gateway` so the identities stay stable for effect dependencies (`useTokenRedemption`).
   const actions = useMemo(
     () => ({
-      signIn: (email: string, password: string) => gateway.signIn(email, password),
+      signIn: (email: string, password: string, captchaToken: string) =>
+        gateway.signIn(email, password, captchaToken),
       signUp: (email: string, password: string, captchaToken: string) =>
         gateway.signUp(email, password, captchaToken),
       sendPasswordReset: (email: string, captchaToken: string) =>

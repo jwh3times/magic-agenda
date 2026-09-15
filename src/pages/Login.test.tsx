@@ -41,7 +41,6 @@ beforeEach(() => {
   Object.defineProperty(window, 'turnstile', {
     configurable: true,
     value: {
-      ready: (callback: () => void) => callback(),
       render: renderChallenge,
       reset: resetChallenge,
       remove: removeChallenge,
@@ -59,6 +58,11 @@ function renderLogin(
       </AuthProvider>
     </MemoryRouter>,
   )
+}
+
+async function solveChallenge(token: string) {
+  await waitFor(() => expect(renderChallenge).toHaveBeenCalledTimes(1))
+  act(() => challenge.callback(token))
 }
 
 test('forgot mode hides the password field and sends the reset email', async () => {
@@ -173,6 +177,7 @@ test('a failed sign-in renders this app’s copy, not the GoTrue string', async 
     },
   }
   renderLogin()
+  await solveChallenge('signin-challenge-token')
   await userEvent.type(screen.getByPlaceholderText('you@example.com'), 'a@b.co')
   await userEvent.type(screen.getByPlaceholderText('Password'), 'wrongpassword')
   await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
@@ -180,6 +185,7 @@ test('a failed sign-in renders this app’s copy, not the GoTrue string', async 
   expect(
     await screen.findByText('That email and password don’t match an account.'),
   ).toBeInTheDocument()
+  expect(fake.calls.signIn).toEqual([['a@b.co', 'wrongpassword', 'signin-challenge-token']])
   expect(screen.queryByText(/Invalid login credentials/)).not.toBeInTheDocument()
 })
 
@@ -189,11 +195,13 @@ test('the submit button un-busies after a failure', async () => {
     failure: { reason: 'offline', message: 'Couldn’t reach the server.' },
   }
   renderLogin()
+  await solveChallenge('first-signin-challenge-token')
   await userEvent.type(screen.getByPlaceholderText('you@example.com'), 'a@b.co')
   await userEvent.type(screen.getByPlaceholderText('Password'), 'somepassword')
   const btn = screen.getByRole('button', { name: 'Sign in' })
   await userEvent.click(btn)
   expect(await screen.findByText('Couldn’t reach the server.')).toBeInTheDocument()
+  act(() => challenge.callback('second-signin-challenge-token'))
   expect(screen.getByRole('button', { name: 'Sign in' })).toBeEnabled()
 })
 

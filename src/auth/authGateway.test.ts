@@ -60,6 +60,15 @@ beforeEach(() => {
 // `{{ .RedirectTo }}` in supabase/templates/*.html — none of which this suite can see, which is
 // exactly why the values are pinned here.
 
+test('signIn passes the challenge token to GoTrue', async () => {
+  await gw.signIn('a@b.co', 'Longenough123!', 'signin-challenge-token')
+  expect(h.signInWithPassword).toHaveBeenCalledWith({
+    email: 'a@b.co',
+    password: 'Longenough123!',
+    options: { captchaToken: 'signin-challenge-token' },
+  })
+})
+
 test('signUp points the confirmation email at /auth/confirm', async () => {
   await gw.signUp('a@b.co', 'Longenough123!', 'signup-challenge-token')
   expect(h.signUp).toHaveBeenCalledWith({
@@ -107,7 +116,7 @@ test('every action resolves a failure instead of rejecting', async () => {
   h.verifyOtp.mockRejectedValue(boom)
 
   const outcomes = await Promise.all([
-    gw.signIn('a@b.co', 'pw'),
+    gw.signIn('a@b.co', 'pw', 'captcha'),
     gw.signUp('a@b.co', 'pw', 'captcha'),
     gw.sendPasswordReset('a@b.co', 'captcha'),
     gw.startGoogleSignIn(),
@@ -126,7 +135,7 @@ test('a returned { error } becomes the same shape as a thrown one', async () => 
     data: { session: null, user: null },
     error: new AuthApiError('Invalid login credentials', 400, 'invalid_credentials'),
   })
-  const outcome = await gw.signIn('a@b.co', 'wrong')
+  const outcome = await gw.signIn('a@b.co', 'wrong', 'captcha')
   expect(outcome).toEqual({
     ok: false,
     failure: {

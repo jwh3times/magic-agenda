@@ -69,9 +69,10 @@ export function Login() {
   const captchaFailed = useCallback(() => {
     setCaptchaError('Security verification could not load. Refresh the page and try again.')
   }, [])
-  const submitDisabled = busy || (mode !== 'signin' && !captchaToken)
+  const submitDisabled = busy || !captchaToken
 
   const changeMode = (next: Mode) => {
+    captchaRef.current?.reset()
     setMode(next)
     setError(null)
     setNotice(null)
@@ -91,31 +92,29 @@ export function Login() {
     setError(null)
     setNotice(null)
 
-    if (mode !== 'signin' && !captchaToken) {
+    if (!captchaToken) {
       setBusy(false)
       return
     }
 
     if (mode === 'forgot') {
-      const outcome = await sendPasswordReset(email, captchaToken!)
+      const outcome = await sendPasswordReset(email, captchaToken)
       // Deliberately the same notice whether or not an account exists — this form must not
       // become an account-enumeration oracle.
       if (outcome.ok)
         setNotice('If an account exists for that email, a password reset link is on its way.')
       else setError(outcome.failure.message)
     } else if (mode === 'signup') {
-      const outcome = await signUp(email, password, captchaToken!)
+      const outcome = await signUp(email, password, captchaToken)
       if (!outcome.ok) setError(outcome.failure.message)
       else if (outcome.confirmationRequired) setNotice('Check your email to confirm your account.')
     } else {
-      const outcome = await signIn(email, password)
+      const outcome = await signIn(email, password, captchaToken)
       if (!outcome.ok) setError(outcome.failure.message)
     }
 
-    if (mode !== 'signin') {
-      captchaRef.current?.reset()
-      setCaptchaToken(null)
-    }
+    captchaRef.current?.reset()
+    setCaptchaToken(null)
 
     setBusy(false)
   }
@@ -218,13 +217,7 @@ export function Login() {
               Your account and all of its data have been deleted. Thanks for trying Magic Agenda.
             </div>
           )}
-          {mode !== 'signin' && (
-            <TurnstileWidget
-              ref={captchaRef}
-              onToken={captchaTokenChanged}
-              onError={captchaFailed}
-            />
-          )}
+          <TurnstileWidget ref={captchaRef} onToken={captchaTokenChanged} onError={captchaFailed} />
           {captchaError && (
             <div style={{ color: '#ff8b8b', fontSize: 13, lineHeight: 1.4 }}>{captchaError}</div>
           )}

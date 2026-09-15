@@ -49,11 +49,12 @@ test.describe('signed out', () => {
     const scriptResponse = page.waitForResponse(
       (response) =>
         response.url().startsWith('https://challenges.cloudflare.com/turnstile/v0/api.js') &&
-        response.request().resourceType() === 'script',
+        response.request().resourceType() === 'script' &&
+        response.ok(),
     )
     await page.getByRole('button', { name: 'Sign up' }).click()
 
-    expect((await scriptResponse).ok()).toBe(true)
+    await scriptResponse
     await expect(page.locator('iframe[src*="challenges.cloudflare.com"]').first()).toBeAttached()
     expect(failedChallengeRequests).toEqual([])
     expect(errors).toEqual([])

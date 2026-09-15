@@ -116,7 +116,11 @@ export async function createTestUser(): Promise<TestUser> {
   if (!id) throw new Error('createTestUser returned no user id')
 
   const client = createClient<Database>(s.apiUrl, s.anonKey, NO_SESSION)
-  const { error: signInError } = await client.auth.signInWithPassword({ email, password })
+  const { error: signInError } = await client.auth.signInWithPassword({
+    email,
+    password,
+    options: { captchaToken: 'XXXX.DUMMY.TOKEN.XXXX' },
+  })
   if (signInError) throw new Error(`test user sign-in failed: ${signInError.message}`)
 
   return { id, email, client }

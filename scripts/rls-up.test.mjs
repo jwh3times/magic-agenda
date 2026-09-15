@@ -26,6 +26,10 @@ describe('stackEnv', () => {
 
   it('never carries a value that looks like a real credential', () => {
     for (const [key, value] of Object.entries(DUMMY_ENV)) {
+      if (key === 'TURNSTILE_SECRET_KEY') {
+        expect(value).toBe('1x0000000000000000000000000000000AA')
+        continue
+      }
       expect(value, key).toMatch(/dummy|local/)
     }
   })

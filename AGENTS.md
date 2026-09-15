@@ -41,7 +41,7 @@ Tests are hermetic: `vite.config.ts` injects dummy `VITE_SUPABASE_*` and a place
 `VITE_TURNSTILE_SITE_KEY`; unit tests still mock browser integrations, so neither real service is
 reached. Local dev needs a real `.env.local` (copy `.env.example`); `src/lib/supabase.ts` throws at
 startup if the two `VITE_SUPABASE_*` vars are missing, while a missing Turnstile site key blocks
-sign-up and password reset requests.
+password sign-in, sign-up, and password reset requests.
 
 The lint policy, the three test layers, and what each CI check actually runs:
 [Testing layers and lint policy](docs/agents/testing.md).
@@ -112,7 +112,7 @@ the area it covers; do not rely on this page's summaries for it.
 
 - [**Auth**](docs/agents/auth.md) — `src/auth/`, the blocking emailed-token bootstrap in `public/`,
   the `authGateway` seam (the only module that may call `supabase.auth`), PKCE vs. `#access_token`
-  fragments, Turnstile on account creation and password reset, single-use email-token redemption
+  fragments, Turnstile on password auth and reset, single-use email-token redemption
   and the session-fixation guard, and the two-factor step-up gate.
 - [**Boards, membership, and account administration**](docs/agents/boards.md) — `boards` /
   `board_memberships` / `account_profiles`, the Membership-scoped policies and column grants,

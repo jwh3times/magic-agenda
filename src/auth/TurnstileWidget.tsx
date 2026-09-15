@@ -13,7 +13,6 @@ interface TurnstileRenderOptions {
 }
 
 interface TurnstileApi {
-  ready(callback: () => void): void
   render(container: HTMLElement, options: TurnstileRenderOptions): string
   reset(widgetId: string): void
   remove(widgetId: string): void
@@ -44,7 +43,7 @@ function whenTurnstileReady(): Promise<TurnstileApi> {
         else reject(new Error('Turnstile loaded without its browser API'))
         return
       }
-      api.ready(() => resolve(api))
+      resolve(api)
     }
 
     if (window.turnstile) {

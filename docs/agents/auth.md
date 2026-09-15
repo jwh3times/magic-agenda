@@ -49,14 +49,15 @@ keep:
    say which half was wrong; a message that did would make the sign-in form an account-enumeration
    oracle.
 
-**Account creation and password-reset email requests cross the seam with a Turnstile token.**
-`Login` renders `TurnstileWidget` only for its sign-up and forgot-password modes, disables the
-submit button until the challenge succeeds, and passes that single-use token to `signUp` or
-`sendPasswordReset`. The gateway maps it to GoTrue's `options.captchaToken`; it never verifies the
-token in the browser. Every attempt resets the widget, whether GoTrue accepted or refused the
-request, because Cloudflare tokens cannot be reused. Expiry and widget errors clear the token, so a
-stale challenge cannot authorize a later submission. Password sign-in and Google OAuth do not use
-this challenge.
+**Password sign-in, account creation, and password-reset email requests cross the seam with a
+Turnstile token.** Supabase's CAPTCHA switch covers all three endpoints as one unit; it cannot be
+enabled for sign-up/reset while leaving password sign-in unchanged. `Login` therefore renders one
+`TurnstileWidget` for every email/password mode, disables the submit button until the challenge
+succeeds, and passes that single-use token to `signIn`, `signUp`, or `sendPasswordReset`. The gateway
+maps it to GoTrue's `options.captchaToken`; it never verifies the token in the browser. Every attempt
+and mode change resets the widget, whether GoTrue accepted or refused the request, because
+Cloudflare tokens cannot be reused. Expiry and widget errors clear the token, so a stale challenge
+cannot authorize a later submission. Google OAuth does not use this challenge.
 
 `TurnstileWidget` loads Cloudflare's script with explicit rendering because the containing form is
 conditional SPA state. Its site key comes from `VITE_TURNSTILE_SITE_KEY` (public by design); the

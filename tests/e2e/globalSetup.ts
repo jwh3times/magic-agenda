@@ -1,4 +1,4 @@
-import { chromium } from '@playwright/test'
+import { chromium, expect } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 
@@ -43,7 +43,9 @@ export default async function globalSetup(): Promise<void> {
       await page.goto('/login')
       await page.getByPlaceholder('you@example.com').fill(email)
       await page.getByPlaceholder('Password').fill(password)
-      await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+      const signIn = page.getByRole('button', { name: 'Sign in', exact: true })
+      await expect(signIn).toBeEnabled({ timeout: 30_000 })
+      await signIn.click()
 
       // Separate "the session took" from "the cold Board finished loading". A failure now says
       // which boundary stalled instead of spending one opaque timeout on the toolbar.

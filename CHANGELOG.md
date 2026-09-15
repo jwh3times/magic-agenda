@@ -16,7 +16,7 @@ No unreleased changes.
 
 ### Security
 
-- Email signup and password-reset requests now require a Cloudflare Turnstile challenge, with
+- Password sign-in, email signup, and password-reset requests now require a Cloudflare Turnstile challenge, with
   single-use tokens verified by Supabase Auth server-side. The widget clears expired or attempted
   tokens, the deployed Content Security Policy admits only Cloudflare's challenge host, and CI plus
   deployment configuration keep the public site key separate from the secret verification key

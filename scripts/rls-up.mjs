@@ -17,7 +17,8 @@ import { pathToFileURL } from 'node:url'
 export const DUMMY_ENV = Object.freeze({
   RESEND_API_KEY: 'dummy-not-a-real-key',
   GOOGLE_OAUTH_CLIENT_SECRET: 'dummy-not-a-real-secret',
-  TURNSTILE_SECRET_KEY: 'dummy-not-a-real-secret',
+  // Cloudflare's documented always-pass key; accepts only XXXX.DUMMY.TOKEN.XXXX.
+  TURNSTILE_SECRET_KEY: '1x0000000000000000000000000000000AA',
   OPENAI_API_KEY: 'dummy-not-a-real-key',
   S3_HOST: 'dummy.local',
   S3_REGION: 'local',

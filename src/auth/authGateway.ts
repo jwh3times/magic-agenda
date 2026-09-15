@@ -30,7 +30,7 @@ export interface AuthGateway {
   getSession(): Promise<Session | null>
   /** Returns its own unsubscribe function — the vendor's `{ data: { subscription } }` stays inside. */
   onAuthStateChange(listener: (event: AuthChangeEvent, session: Session | null) => void): () => void
-  signIn(email: string, password: string): Promise<AuthOutcome>
+  signIn(email: string, password: string, captchaToken: string): Promise<AuthOutcome>
   signUp(email: string, password: string, captchaToken: string): Promise<SignUpOutcome>
   sendPasswordReset(email: string, captchaToken: string): Promise<AuthOutcome>
   startGoogleSignIn(): Promise<AuthOutcome>
@@ -104,9 +104,13 @@ export const supabaseAuthGateway: AuthGateway = {
     return () => data.subscription.unsubscribe()
   },
 
-  async signIn(email, password) {
+  async signIn(email, password, captchaToken) {
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+        options: { captchaToken },
+      })
       if (error) return failed(error)
       return { ok: true }
     } catch (e) {

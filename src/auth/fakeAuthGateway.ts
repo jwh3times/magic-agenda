@@ -40,7 +40,7 @@ export interface FakeAuth {
   gateway: AuthGateway
   calls: {
     getSession: number
-    signIn: Array<[email: string, password: string]>
+    signIn: Array<[email: string, password: string, captchaToken: string]>
     signUp: Array<[email: string, password: string, captchaToken: string]>
     sendPasswordReset: Array<[email: string, captchaToken: string]>
     startGoogleSignIn: number
@@ -128,8 +128,8 @@ export function fakeAuthGateway(options?: { session?: Session | null }): FakeAut
       listeners.add(listener)
       return () => listeners.delete(listener)
     },
-    async signIn(email, password) {
-      calls.signIn.push([email, password])
+    async signIn(email, password, captchaToken) {
+      calls.signIn.push([email, password, captchaToken])
       return next.signIn
     },
     async signUp(email, password, captchaToken) {

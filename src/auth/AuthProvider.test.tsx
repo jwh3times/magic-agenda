@@ -91,14 +91,14 @@ test('actions delegate to the gateway', async () => {
   await waitFor(() => expect(result.current.loading).toBe(false))
 
   await act(async () => {
-    await result.current.signIn('a@b.co', 'pw')
+    await result.current.signIn('a@b.co', 'pw', 'captcha')
     await result.current.sendPasswordReset('a@b.co', 'captcha')
     await result.current.setPassword('newpw')
     await result.current.redeemToken('tok', 'signup')
     await result.current.signOut()
   })
 
-  expect(fake.calls.signIn).toEqual([['a@b.co', 'pw']])
+  expect(fake.calls.signIn).toEqual([['a@b.co', 'pw', 'captcha']])
   expect(fake.calls.sendPasswordReset).toEqual([['a@b.co', 'captcha']])
   expect(fake.calls.setPassword).toEqual(['newpw'])
   expect(fake.calls.redeemToken).toEqual([['tok', 'signup']])
