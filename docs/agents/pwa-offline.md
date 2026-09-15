@@ -20,6 +20,30 @@ tested parser: push bytes are untrusted, text is bounded, and navigation is rest
 root-relative path. Keep this alongside the existing cache policy when changing the worker; Push
 must not introduce a new cache path for Supabase or notification endpoints.
 
+`supabase/functions/send-reminders` owns server delivery. Its domain planner imports the same
+concrete-zone Due Moment implementation as the client, then derives a separate candidate for each
+Account that currently belongs to the Task's Board. Inbox Tasks, Completed Tasks, and hidden Series
+definitions are excluded. A zero-lead Reminder has one five-minute scheduler interval of grace
+because no scheduler can observe it before the Due Moment; `tasks.updated_at` prevents a Task
+created, rescheduled, or reopened after that instant from using the grace window to replay a missed
+Reminder. Retry targets already created before the Due Moment may continue later, but every claim
+rechecks current membership, preference, schedule, and Completion before sending.
+
+The server-only `reminder_deliveries` row is Account × Task × Due Moment. A conditional claim with a
+four-minute lease serializes overlapping scheduler runs. `reminder_delivery_targets` snapshots the
+Account's enrolled devices on the first attempt, so a later retry sends only to the original device
+set and skips devices that already succeeded. Transient failures back off per target; 404/410 marks
+the target dead and removes its subscription. The sender exposes only aggregate counts and its logs
+must never contain task titles, endpoints, subscription keys, provider response bodies, VAPID
+material, or the dedicated cron bearer secret.
+
+The Edge Function requires `VAPID_SUBJECT`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and
+`REMINDER_CRON_SECRET` as runtime secrets. It deliberately has gateway JWT verification disabled:
+the handler compares the opaque cron bearer secret itself, while ordinary users have neither table
+access to delivery state nor execute access to the narrow `reminder_candidate_rows()` service RPC.
+Deploy the function and its tables before adding the `pg_cron` invocation; that staging keeps a
+release from scheduling code or credentials that do not exist yet.
+
 `src/sw.ts` is **hand-authored, not generated.** `vite-plugin-pwa` runs in `injectManifest` mode
 (`vite.config.ts`), which only supplies `self.__WB_MANIFEST` (the precache URL list) — none of
 workbox's runtime-caching strategies ship in the built worker; every `fetch` handler in `sw.ts` is

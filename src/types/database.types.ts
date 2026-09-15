@@ -216,6 +216,8 @@ export type Database = {
           delivered_at: string | null
           due_moment: string
           id: string
+          suppressed_at: string | null
+          suppression_reason: string | null
           task_id: string
           updated_at: string
           window_opens_at: string
@@ -229,6 +231,8 @@ export type Database = {
           delivered_at?: string | null
           due_moment: string
           id?: string
+          suppressed_at?: string | null
+          suppression_reason?: string | null
           task_id: string
           updated_at?: string
           window_opens_at: string
@@ -242,6 +246,8 @@ export type Database = {
           delivered_at?: string | null
           due_moment?: string
           id?: string
+          suppressed_at?: string | null
+          suppression_reason?: string | null
           task_id?: string
           updated_at?: string
           window_opens_at?: string
@@ -252,6 +258,75 @@ export type Database = {
             columns: ['task_id']
             isOneToOne: false
             referencedRelation: 'tasks'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      reminder_delivery_targets: {
+        Row: {
+          attempt_count: number
+          claim_expires_at: string | null
+          claim_token: string | null
+          claimed_at: string | null
+          created_at: string
+          delivered_at: string | null
+          delivery_id: string
+          endpoint_hash: string
+          id: string
+          last_error: string | null
+          last_status_code: number | null
+          next_attempt_at: string
+          status: string
+          subscription_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          attempt_count?: number
+          claim_expires_at?: string | null
+          claim_token?: string | null
+          claimed_at?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          delivery_id: string
+          endpoint_hash: string
+          id?: string
+          last_error?: string | null
+          last_status_code?: number | null
+          next_attempt_at?: string
+          status?: string
+          subscription_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attempt_count?: number
+          claim_expires_at?: string | null
+          claim_token?: string | null
+          claimed_at?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          delivery_id?: string
+          endpoint_hash?: string
+          id?: string
+          last_error?: string | null
+          last_status_code?: number | null
+          next_attempt_at?: string
+          status?: string
+          subscription_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'reminder_delivery_targets_delivery_id_fkey'
+            columns: ['delivery_id']
+            isOneToOne: false
+            referencedRelation: 'reminder_deliveries'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'reminder_delivery_targets_subscription_id_fkey'
+            columns: ['subscription_id']
+            isOneToOne: false
+            referencedRelation: 'push_subscriptions'
             referencedColumns: ['id']
           },
         ]
@@ -428,6 +503,23 @@ export type Database = {
     }
     Functions: {
       create_board: { Args: { board_name: string }; Returns: string }
+      reminder_candidate_rows: {
+        Args: never
+        Returns: {
+          account_id: string
+          board_id: string
+          lead_minutes: number
+          recur_freq: string
+          recur_parent_id: string
+          task_at_time: string
+          task_day: string
+          task_id: string
+          task_status: string
+          task_title: string
+          task_updated_at: string
+          timezone: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

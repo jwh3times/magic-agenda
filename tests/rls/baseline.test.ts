@@ -105,6 +105,12 @@ const REVIEWED_FUNCTIONS: Record<
     explicitAcl: true,
     executeGrantees: '(owner only)',
   },
+  'reminder_candidate_rows()': {
+    secdef: true,
+    config: 'search_path=""',
+    explicitAcl: true,
+    executeGrantees: 'service_role',
+  },
   'stamp_task_attribution()': {
     secdef: false,
     config: 'search_path=""',

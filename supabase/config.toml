@@ -450,3 +450,8 @@ enabled = true
 
 [functions.delete-account]
 verify_jwt = true
+
+# Invoked only by pg_cron with a dedicated bearer secret checked inside the handler. Supabase's JWT
+# gateway cannot validate that opaque secret, so gateway verification is off for this one function.
+[functions.send-reminders]
+verify_jwt = false
