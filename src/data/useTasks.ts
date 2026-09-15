@@ -29,6 +29,7 @@ import {
   type DeletionTarget,
   type FailureHandling,
   type RecurScope,
+  type SaveModifiers,
   type SeriesPlan,
 } from './series'
 import { newId } from '../lib/id'
@@ -581,7 +582,13 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
   )
 
   const saveTask = useCallback(
-    async (orig: TaskDraft | null, draft: TaskDraft, isNew: boolean, scope?: RecurScope) => {
+    async (
+      orig: TaskDraft | null,
+      draft: TaskDraft,
+      isNew: boolean,
+      scope?: RecurScope,
+      modifiers?: SaveModifiers,
+    ) => {
       const op = resolveSave(orig, draft, isNew, scope)
       if (op.kind === 'create') return createTask(op.task)
       if (op.kind === 'promote-to-series') {
@@ -594,7 +601,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         return runPlan(planEndSeriesAt(seriesState(), op.instance, op.draft))
       }
       if (op.kind === 'update-series-from') {
-        const plan = planEditSeriesFrom(seriesState(), op.instance, op.draft)
+        const plan = planEditSeriesFrom(seriesState(), op.instance, op.draft, modifiers)
         // No template means the series is gone; there is nothing coherent to edit "from here on".
         if (plan) await runPlan(plan)
         return

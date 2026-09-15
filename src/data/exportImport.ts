@@ -252,6 +252,7 @@ function hasCommonTaskFields(value: unknown): value is CommonExportTask {
     typeof task.order === 'number' &&
     typeof task.korder === 'number' &&
     (task.atTime === null || typeof task.atTime === 'string') &&
+    (task.day !== 'inbox' || task.atTime === null) &&
     typeof task.pinned === 'boolean' &&
     (FREQS as readonly string[]).includes(task.recurFreq) &&
     typeof task.recurInterval === 'number' &&

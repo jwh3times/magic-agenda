@@ -56,7 +56,9 @@ export function rowToTask(row: TaskRow): Task {
     reopenStatus: row.reopen_status as ActiveWorkflowStatus,
     archivedAt: row.archived_at,
     day: row.day ?? INBOX,
-    atTime: row.at_time ? row.at_time.slice(0, 5) : null,
+    // Old rows may predate the Due Moment invariant. Inbox has no Due Time, so do not publish an
+    // invalid pair into app state while the cleanup migration is still rolling out.
+    atTime: row.day && row.at_time ? row.at_time.slice(0, 5) : null,
     pinned: row.pinned ?? false,
     order: row.order_index,
     korder: row.korder,
@@ -105,7 +107,9 @@ export function taskToRow(task: Task, boardId: string): TaskInsert {
     reopen_status: task.reopenStatus,
     archived_at: task.archivedAt,
     day: isScheduled(task.day) ? task.day : null,
-    at_time: task.atTime,
+    // Defence at the persistence seam: editor, drag-and-drop, and import all enforce this too, and
+    // the database constraint follows in the compatibility release after those clients deploy.
+    at_time: isScheduled(task.day) ? task.atTime : null,
     pinned: task.pinned,
     order_index: task.order,
     korder: task.korder,

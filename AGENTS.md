@@ -183,6 +183,13 @@ refusals and exact boundaries. Keep this measure stable: `pg_column_size` depend
 compression, so the same logical content can have different stored sizes. Unit and editor coverage
 lives in `taskLimits.test.ts` and `TaskEditor.test.tsx`.
 
+**Due Moment is derived, not stored.** `src/data/dueMoment.ts` combines Scheduled Day, optional Due
+Time, and the Account Timezone. Untimed Tasks become overdue at the next local midnight; timed Tasks
+become overdue immediately after their wall-clock Due Time. `DueClockProvider` schedules the next
+boundary for all rendered Tasks and catches up when the tab becomes visible. Inbox Tasks have no Due
+Moment: editor and drag-and-drop moves clear Due Time atomically, imports reject the invalid pair,
+and both `mappers.ts` and the offline snapshot reader defensively normalize older data.
+
 **Whole-Board Task reads use `src/data/loadBoardTasks.ts`** for both `useTasks.reload()` and
 `DataSection` export. PostgREST can return success while capping rows, so the reader pages in stable
 id order and checks exact counts and duplicate ids before publishing any rows. A failed or

@@ -87,6 +87,11 @@ template-first batch cursor for retry, freezes mapping after a partial write, an
 `transferContent` for import versus Owner-only `exportBoard` for export. Separate Task/Label export
 reads fail closed if a concurrent vocabulary change would create a dangling reference.
 
+`parseExport()` also owns cross-field Task invariants shared by every supported file version. In
+particular, a Task with Inbox placement and a Due Time is rejected before import planning;
+`taskToRow()` remains a defensive persistence seam, not permission for the file parser to repair an
+invalid backup silently.
+
 **`ExportTask` is the on-disk Task, and it is deliberately not `Task`.** Until #204 they were the
 same type, so `serializeExport` stringified `Task[]` straight to disk and the file format tracked
 every field rename in `src/types/task.ts` silently. Renaming `recurOriginDay`/`recurSkip` to the

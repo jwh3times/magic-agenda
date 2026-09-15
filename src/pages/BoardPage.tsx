@@ -15,6 +15,7 @@ import { OfflineContext } from '../data/offlineContext'
 import { TaskBoardContext } from '../data/taskBoardContext'
 import { useLabelDirectoryContext } from '../labels/LabelDirectoryProvider'
 import { dominantSnapshotFallbackReason } from '../data/snapshotFallback'
+import { DueClockProvider } from '../data/DueClockProvider'
 
 /** The signed-in board: owns the Supabase-backed task state, reads session-wide settings. */
 export function BoardPage() {
@@ -90,14 +91,16 @@ export function BoardPage() {
             value={{ readOnly, fallbackReason, savedAt, timezone: settings.timezone }}
           >
             <TaskBoardContext.Provider value={t}>
-              <Board
-                initialView={board?.defaultView ?? DEFAULT_VIEW}
-                weekStart={settings.weekStart}
-                onSignOut={() => void signOut()}
-                onOpenSettings={() => void navigate('/settings')}
-                canAssignLabels={can.assignLabels}
-                keyboardShortcuts={settings.keyboardShortcuts}
-              />
+              <DueClockProvider tasks={t.tasks} timezone={settings.timezone}>
+                <Board
+                  initialView={board?.defaultView ?? DEFAULT_VIEW}
+                  weekStart={settings.weekStart}
+                  onSignOut={() => void signOut()}
+                  onOpenSettings={() => void navigate('/settings')}
+                  canAssignLabels={can.assignLabels}
+                  keyboardShortcuts={settings.keyboardShortcuts}
+                />
+              </DueClockProvider>
             </TaskBoardContext.Provider>
           </OfflineContext.Provider>
           {t.error && <Toast message={t.error} onDismiss={t.clearError} />}

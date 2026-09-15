@@ -191,23 +191,24 @@ describe('applyToggleCompletion', () => {
   })
 })
 
-test('isOverdue: past + scheduled + not Completed, nothing else', () => {
-  const today = '2026-07-10'
-  expect(isOverdue(t('a', { day: '2026-07-09', status: 'todo' }), today)).toBe(true)
-  expect(isOverdue(t('a', { day: '2026-07-09', status: 'completed' }), today)).toBe(false)
-  expect(isOverdue(t('a', { day: '2026-07-10' }), today)).toBe(false)
-  expect(isOverdue(t('a', { day: 'inbox' }), today)).toBe(false)
+test('isOverdue uses Due Moment, Account Timezone, and Completion', () => {
+  const now = Date.parse('2026-07-10T10:00:00.000Z')
+  expect(isOverdue(t('a', { day: '2026-07-09', status: 'todo' }), now, 'UTC')).toBe(true)
+  expect(isOverdue(t('a', { day: '2026-07-09', status: 'completed' }), now, 'UTC')).toBe(false)
+  expect(isOverdue(t('a', { day: '2026-07-10' }), now, 'UTC')).toBe(false)
+  expect(isOverdue(t('a', { day: '2026-07-10', atTime: '09:00' }), now, 'UTC')).toBe(true)
+  expect(isOverdue(t('a', { day: 'inbox' }), now, 'UTC')).toBe(false)
 })
 
 test('overdueTasks sorts by day then manual order', () => {
-  const today = '2026-07-10'
+  const now = Date.parse('2026-07-10T10:00:00.000Z')
   const tasks = [
     t('b', { day: '2026-07-09', order: 1 }),
     t('c', { day: '2026-07-09', order: 0 }),
     t('a', { day: '2026-07-01', order: 5 }),
     t('x', { day: '2026-07-11', order: 0 }),
   ]
-  expect(overdueTasks(tasks, today).map((x) => x.id)).toEqual(['a', 'c', 'b'])
+  expect(overdueTasks(tasks, now, 'UTC').map((x) => x.id)).toEqual(['a', 'c', 'b'])
 })
 
 test('applyRollForward appends overdue tasks after today existing order', () => {
@@ -289,6 +290,7 @@ describe('applyRollForward + missingInstances (regression)', () => {
     }
     const instance = t('inst', {
       day: '2026-07-03',
+      atTime: '09:00',
       occurrenceDate: '2026-07-03',
       recurParentId: 'template-1',
       status: 'todo',
@@ -304,7 +306,9 @@ describe('applyRollForward + missingInstances (regression)', () => {
     const moved = rolled.find((x) => x.id === 'inst')!
     expect(changed.map((x) => x.id)).toEqual(['inst'])
     expect(moved.day).toBe(today)
+    expect(moved.atTime).toBe('09:00')
     expect(moved.occurrenceDate).toBe('2026-07-03')
+    expect(isOverdue(moved, Date.parse('2026-07-10T10:00:00.000Z'), 'UTC')).toBe(true)
 
     // After the move, occurrence 07-03 must still read as covered — not regenerated.
     const after = missingInstances(template, [moved], today, 30)

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { removesRule, type RecurScope } from '../data/series'
+import { removesRule, type RecurScope, type SaveModifiers } from '../data/series'
 import { intendDelete, intendSave } from '../data/editIntent'
 import { TASK_LIMITS, taskLimitError } from '../data/taskLimits'
 import { useTheme } from '../theme/ThemeProvider'
@@ -22,7 +22,7 @@ export interface TaskEditorProps {
   initial: TaskDraft
   isNew: boolean
   /** `scope` is definite for a recurring instance, and `undefined` only where it is meaningless. */
-  onSave: (task: TaskDraft, scope?: RecurScope) => void
+  onSave: (task: TaskDraft, scope?: RecurScope, modifiers?: SaveModifiers) => void
   /**
    * Receives only the task's id: the data layer resolves the row from its own state. See
    * `intendDelete` for why nothing more crosses this seam (#132).
@@ -52,6 +52,7 @@ export function TaskEditor({
   const [draft, setDraft] = useState<TaskDraft>(initial)
   const [newItem, setNewItem] = useState('')
   const [scopePrompt, setScopePrompt] = useState<null | 'save' | 'delete'>(null)
+  const [inboxForcedDueTimeClear, setInboxForcedDueTimeClear] = useState(false)
   const isRecurringInstance = !isNew && !!draft.recurParentId
 
   useEffect(() => {
@@ -69,13 +70,17 @@ export function TaskEditor({
    * files the Task away as a template that materializes nothing and the card leaves the board with
    * no error (#209). The warning below the Repeat field has always said so; only now does it bind.
    */
-  const recurNeedsDay = draft.recurFreq !== 'none' && !isScheduled(draft.day)
+  // An Occurrence draft carries its Series' Rule solely so the controls can edit it. The
+  // Occurrence itself may move to Inbox; only a standalone Task/definition needs a day for a Rule.
+  const recurNeedsDay =
+    draft.recurFreq !== 'none' && draft.recurParentId === null && !isScheduled(draft.day)
+  const dueNeedsDay = draft.atTime !== null && !isScheduled(draft.day)
   const intervalInvalid =
     !Number.isInteger(draft.recurInterval) ||
     draft.recurInterval < 1 ||
     draft.recurInterval > TASK_LIMITS.recurInterval
   const limitError = taskLimitError(draft)
-  const canSave = titleOk && !recurNeedsDay && !limitError
+  const canSave = titleOk && !recurNeedsDay && !dueNeedsDay && !limitError
 
   const chrome = editorChrome(theme, conf, isMobile)
   const { dark, panelBg, fg, sub, fieldBg, border, ctlFont, inputBase, fieldLabel, btn } = chrome
@@ -92,14 +97,32 @@ export function TaskEditor({
     setNewItem('')
   }
 
+  const saveModifiers = (task: TaskDraft): SaveModifiers | undefined =>
+    isRecurringInstance && inboxForcedDueTimeClear && task.day === 'inbox' && task.atTime === null
+      ? { occurrenceOnlyDueTimeClear: true }
+      : undefined
+
+  const emitSave = (task: TaskDraft, scope?: RecurScope) => {
+    const modifiers = saveModifiers(task)
+    if (modifiers) onSave(task, scope, modifiers)
+    else if (scope) onSave(task, scope)
+    else onSave(task)
+  }
+
   const attemptSave = () => {
-    const intent = intendSave(initial, draft, isNew, new Date().toISOString())
+    const intent = intendSave(
+      initial,
+      draft,
+      isNew,
+      new Date().toISOString(),
+      undefined,
+      saveModifiers(draft),
+    )
     if (intent.kind === 'blocked') return
     if (intent.kind === 'ask') setScopePrompt('save')
     // Called with one argument when there is no scope, rather than an explicit `undefined`:
     // `onSave(task)` and `onSave(task, undefined)` are the same to the callee but not to a spy.
-    else if (intent.scope) onSave(intent.task, intent.scope)
-    else onSave(intent.task)
+    else emitSave(intent.task, intent.scope)
   }
 
   const attemptDelete = () => {
@@ -110,8 +133,15 @@ export function TaskEditor({
 
   const chooseScope = (scope: RecurScope) => {
     if (scopePrompt === 'save') {
-      const intent = intendSave(initial, draft, isNew, new Date().toISOString(), scope)
-      if (intent.kind === 'save') onSave(intent.task, scope)
+      const intent = intendSave(
+        initial,
+        draft,
+        isNew,
+        new Date().toISOString(),
+        scope,
+        saveModifiers(draft),
+      )
+      if (intent.kind === 'save') emitSave(intent.task, scope)
     } else onDelete(initial.id, scope)
   }
 
@@ -521,7 +551,13 @@ export function TaskEditor({
             <input
               type="date"
               value={isScheduled(draft.day) ? draft.day : ''}
-              onChange={(e) => patch({ day: e.target.value || 'inbox' })}
+              onChange={(e) => {
+                if (e.target.value) patch({ day: e.target.value })
+                else {
+                  if (draft.atTime !== null) setInboxForcedDueTimeClear(true)
+                  patch({ day: 'inbox', atTime: null })
+                }
+              }}
               disabled={readOnly}
               style={{
                 padding: '9px 12px',
@@ -539,8 +575,11 @@ export function TaskEditor({
               type="time"
               aria-label="Due time"
               value={draft.atTime ?? ''}
-              onChange={(e) => patch({ atTime: e.target.value || null })}
-              disabled={readOnly}
+              onChange={(e) => {
+                if (!e.target.value) setInboxForcedDueTimeClear(false)
+                patch({ atTime: e.target.value || null })
+              }}
+              disabled={readOnly || !isScheduled(draft.day)}
               style={{
                 padding: '9px 12px',
                 borderRadius: '9px',
@@ -557,7 +596,10 @@ export function TaskEditor({
               <button
                 type="button"
                 aria-label="Clear time"
-                onClick={() => patch({ atTime: null })}
+                onClick={() => {
+                  setInboxForcedDueTimeClear(false)
+                  patch({ atTime: null })
+                }}
                 style={{
                   padding: '9px 12px',
                   borderRadius: '9px',
@@ -575,7 +617,10 @@ export function TaskEditor({
             )}
             <button
               type="button"
-              onClick={() => patch({ day: 'inbox' })}
+              onClick={() => {
+                if (draft.atTime !== null) setInboxForcedDueTimeClear(true)
+                patch({ day: 'inbox', atTime: null })
+              }}
               style={{
                 padding: '9px 14px',
                 borderRadius: '9px',
@@ -591,6 +636,12 @@ export function TaskEditor({
               {draft.day === 'inbox' ? '✓ Inbox' : 'Send to inbox'}
             </button>
           </div>
+
+          {dueNeedsDay && (
+            <div style={{ color: '#e0524a', fontSize: 12.5, fontWeight: 700 }}>
+              Due Time needs a Scheduled Day. Choose a day or clear the time.
+            </div>
+          )}
 
           <div style={fieldLabel}>Repeat</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>

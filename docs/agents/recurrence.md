@@ -251,7 +251,12 @@ and each gap was a silent write loss. #168 measured them with the real planner; 
 - **Occurrence Placement no longer raises the scope question.** Changing an Occurrence's day or
   manual order says nothing about the Series, so it saves straight through. It used to prompt, and
   choosing all-future then discarded the change — a `TaskEditor` test asserted that prompt _and_
-  clicked through it, pinning the bug's surface without catching the bug.
+  clicked through it, pinning the bug's surface without catching the bug. Moving one to Inbox also
+  clears its Due Time in the same This Occurrence edit; the coupled `day` / `atTime` transition is
+  still placement, while changing Due Time alone remains Series Content. Final field values cannot
+  distinguish those two intentions, so `TaskEditor` sends the narrow
+  `occurrenceOnlyDueTimeClear` modifier only when the Inbox action itself performed the clear;
+  `planEditSeriesFrom` omits that one forced value from an otherwise all-future mixed edit.
 - **All-future keeps the edited Occurrence's own state.** Affected Occurrences are rebuilt from the
   stored row, which is right for every Occurrence except the one being edited; without the
   exception, a pin toggled in the same save as a rename was dropped on that very card.

@@ -462,6 +462,58 @@ describe('planEditSeriesFrom — field ownership (#213)', () => {
     expect(i3.day).toBe('2026-07-15')
   })
 
+  it("keeps an Inbox move's forced Due Time clear on only the edited Occurrence", () => {
+    const base = series()
+    const state = {
+      templates: [{ ...base.templates[0], atTime: '09:00' }],
+      tasks: base.tasks.map((task, index) => ({
+        ...task,
+        atTime: ['08:00', '11:00', '10:00'][index],
+      })),
+    }
+    const i2 = state.tasks[1]
+    const plan = planEditSeriesFrom(
+      state,
+      i2,
+      editing(i2, { title: 'Renamed', day: 'inbox', atTime: null }),
+      { occurrenceOnlyDueTimeClear: true },
+    )!
+
+    expect(plan.state.templates[0]).toMatchObject({ title: 'Renamed', atTime: '09:00' })
+    expect(plan.state.tasks.find((task) => task.id === 'i1')).toMatchObject({ atTime: '08:00' })
+    expect(plan.state.tasks.find((task) => task.id === 'i2')).toMatchObject({
+      title: 'Renamed',
+      day: 'inbox',
+      atTime: null,
+    })
+    expect(plan.state.tasks.find((task) => task.id === 'i3')).toMatchObject({
+      title: 'Renamed',
+      day: '2026-07-15',
+      atTime: '10:00',
+    })
+  })
+
+  it('propagates an explicit Due Time clear even when the edited Occurrence moves to Inbox', () => {
+    const base = series()
+    const state = {
+      templates: [{ ...base.templates[0], atTime: '09:00' }],
+      tasks: base.tasks.map((task) => ({ ...task, atTime: '09:00' })),
+    }
+    const i2 = state.tasks[1]
+    const plan = planEditSeriesFrom(
+      state,
+      i2,
+      editing(i2, { title: 'Renamed', day: 'inbox', atTime: null }),
+    )!
+
+    expect(plan.state.templates[0].atTime).toBeNull()
+    expect(plan.state.tasks.find((task) => task.id === 'i2')).toMatchObject({
+      day: 'inbox',
+      atTime: null,
+    })
+    expect(plan.state.tasks.find((task) => task.id === 'i3')?.atTime).toBeNull()
+  })
+
   it('does not carry the edited Occurrence\u2019s state onto any other Occurrence', () => {
     const state = series()
     const i2 = state.tasks[1]

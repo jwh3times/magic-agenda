@@ -32,6 +32,11 @@ filter, but still passes the unfiltered `tasks` — Archived rows included — i
 exactly this reason. An Archived card is never rendered, so it is never a drop target either way,
 but its slot in the lane's indices has to stay real.
 
+Moving a Task into the Inbox clears its Due Time in the same `moveToDay` transition. For an
+Occurrence, the move remains a This Occurrence edit: `occurrenceDate` stays intact while `day` and
+`atTime` change together. Roll-forward is different: it preserves Due Time and only moves active,
+scheduled Tasks whose Scheduled Day is before today.
+
 While a search filter is active, drag is disabled via `DragDisabledContext` (consumed by
 `SortableCard`'s `useSortable({ disabled })`); this keeps the `DndContext` sensors array a constant
 size, avoiding a dnd-kit hook-deps warning. Sensors are split Mouse/Touch (not `PointerSensor`):

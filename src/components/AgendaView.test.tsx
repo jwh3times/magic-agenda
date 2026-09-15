@@ -8,6 +8,7 @@ import { asTask, NO_RECUR, type Task, type TaskDraft } from '../types/task'
 import { BoardActionContext, type BoardActions } from './boardActionContext'
 import { LabelDirectoryContext } from '../labels/labelDirectoryContext'
 import { fakeLabelDirectory } from '../labels/fakeLabelDirectory'
+import { DueClockContext } from '../data/dueClockContext'
 
 // Local factory — do NOT import from TaskCard.test.tsx (importing a test file
 // registers and re-runs its tests inside this suite too).
@@ -60,4 +61,23 @@ test('overdue tasks appear once, in a top Overdue group with a roll-forward butt
   expect(screen.getAllByText('Late thing')).toHaveLength(1)
   await userEvent.click(screen.getByRole('button', { name: 'Move all to today' }))
   expect(onRollForward).toHaveBeenCalledTimes(1)
+})
+
+test('a timed Task due earlier today is Overdue but has no roll-forward action', () => {
+  render(
+    <ThemeProvider>
+      <LabelDirectoryContext.Provider value={fakeLabelDirectory()}>
+        <DueClockContext.Provider
+          value={{ nowMs: Date.parse('2026-07-10T10:00:00.000Z'), timezone: 'UTC' }}
+        >
+          <BoardActionContext.Provider value={actions}>
+            <AgendaView tasks={[mkTask({ id: 'timed', title: 'Timed today', atTime: '09:00' })]} />
+          </BoardActionContext.Provider>
+        </DueClockContext.Provider>
+      </LabelDirectoryContext.Provider>
+    </ThemeProvider>,
+  )
+  expect(screen.getByText('Overdue')).toBeInTheDocument()
+  expect(screen.getByText('Timed today')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Move all to today' })).not.toBeInTheDocument()
 })

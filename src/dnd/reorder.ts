@@ -1,4 +1,5 @@
 import type { Task, WorkflowStatus } from '../types/task'
+import { INBOX } from '../types/task'
 import { completionDecision } from '../data/completion'
 
 /** Whether we are ordering by day (calendar/week) or status (kanban). */
@@ -27,6 +28,9 @@ export function moveToDay(tasks: Task[], id: string, day: string, index: number)
   const next = tasks.map((t) => ({ ...t }))
   const moving = next.find((t) => t.id === id)!
   moving.day = day
+  // Inbox has no Due Moment. Clearing the Due Time is part of this same placement change and, for
+  // an Occurrence, affects This Occurrence only; Occurrence Date remains untouched.
+  if (day === INBOX) moving.atTime = null
 
   const dest = next.filter((t) => t.day === day && t.id !== id).sort((a, b) => a.order - b.order)
   const at = Math.max(0, Math.min(index, dest.length))

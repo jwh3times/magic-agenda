@@ -148,6 +148,12 @@ export function pendingInstances(
 /** Which occurrences an edit or delete applies to. Chosen by the editor's scope prompt. */
 export type RecurScope = 'this' | 'future'
 
+/** Interaction provenance that cannot be recovered from a TaskDraft's final field values. */
+export interface SaveModifiers {
+  /** Inbox forced Due Time clear; keep that coupled repair on the edited Occurrence. */
+  occurrenceOnlyDueTimeClear?: boolean
+}
+
 export type SaveOp =
   | { kind: 'create'; task: Task }
   /** A standalone Task that stays standalone. */
@@ -299,6 +305,29 @@ function seriesContent(draft: TaskDraft): Partial<TaskDraft> {
   return pick(draft, SERIES_CONTENT_FIELDS)
 }
 
+/**
+ * Moving a timed Occurrence to Inbox forces Due Time to clear, but that coupled placement repair
+ * says nothing about the Series. If another edit asks for all-future scope in the same save, omit
+ * only that forced clear while allowing every independently edited Series Content field through.
+ */
+function futureSeriesContent(
+  instance: TaskDraft,
+  draft: TaskDraft,
+  modifiers?: SaveModifiers,
+): Partial<TaskDraft> {
+  const content = { ...seriesContent(draft) }
+  if (
+    modifiers?.occurrenceOnlyDueTimeClear &&
+    instance.day !== 'inbox' &&
+    instance.atTime !== null &&
+    draft.day === 'inbox' &&
+    draft.atTime === null
+  ) {
+    delete content.atTime
+  }
+  return content
+}
+
 /** What the edited Occurrence keeps of its own: its state and its placement. */
 function occurrenceOwned(draft: TaskDraft): Partial<TaskDraft> {
   return pick(draft, PER_OCCURRENCE_FIELDS)
@@ -314,6 +343,7 @@ export function planEditSeriesFrom(
   state: SeriesState,
   instance: TaskDraft,
   draft: TaskDraft,
+  modifiers?: SaveModifiers,
 ): SeriesPlan | null {
   const template = state.templates.find((t) => t.id === instance.recurParentId)
   if (!template) return null
@@ -321,6 +351,7 @@ export function planEditSeriesFrom(
   // Scoped by the Occurrence Date, not the movable Scheduled Day, so a dragged card still edits
   // the right Occurrences (and matches how materialization identifies them).
   const cut = occurrenceDateOf(instance)
+  const content = futureSeriesContent(instance, draft, modifiers)
   // `RULE_EDITABLE_FIELDS` rather than every Rule field: `excludedDates` is Rule-owned but must
   // never come from a draft. A draft is an Occurrence, whose own `excludedDates` is always empty,
   // so copying it here would erase the Series' Excluded Dates and resurrect every Occurrence the
@@ -329,7 +360,7 @@ export function planEditSeriesFrom(
   // partial widens the recurrence fields back to their union, so the shape has to be re-chosen.
   const rebuilt = asTask({
     ...template,
-    ...seriesContent(draft),
+    ...content,
     // Unticked, like `status` above: Step Completion is Occurrence State, so a definition holds
     // the Steps and never their progress.
     checklist: draft.checklist.map((c) => ({ ...c, done: false })),
@@ -355,15 +386,18 @@ export function planEditSeriesFrom(
     if (t.id === draft.id) {
       return asTask({
         ...t,
-        ...seriesContent(draft),
+        ...content,
         ...occurrenceOwned(draft),
+        // When Inbox forced `atTime` out of Series Content above, the edited Occurrence still owns
+        // that clear. In every other case this simply repeats the value already present in content.
+        atTime: draft.atTime,
         checklist: draft.checklist,
       })
     }
     // Every other affected Occurrence keeps its own state, placement, and Step Completion.
     return asTask({
       ...t,
-      ...seriesContent(draft),
+      ...content,
       checklist: reconcileSteps(draft.checklist, t.checklist),
     })
   })

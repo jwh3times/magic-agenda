@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import { ThemeProvider } from '../theme/ThemeProvider'
@@ -7,7 +7,7 @@ import { asTask, NO_RECUR, type Task, type TaskDraft } from '../types/task'
 import type { ReactNode } from 'react'
 import { LabelDirectoryContext } from '../labels/labelDirectoryContext'
 import { fakeLabelDirectory } from '../labels/fakeLabelDirectory'
-import type { RecurScope } from '../data/series'
+import type { RecurScope, SaveModifiers } from '../data/series'
 
 function mkInstance(over: Partial<TaskDraft> = {}): Task {
   return asTask({
@@ -59,7 +59,7 @@ function TestProviders({ children }: { children: ReactNode }) {
 }
 
 function renderEditor(initial: TaskDraft) {
-  const onSave = vi.fn<(task: TaskDraft, scope?: RecurScope) => void>()
+  const onSave = vi.fn<(task: TaskDraft, scope?: RecurScope, modifiers?: SaveModifiers) => void>()
   const onDelete = vi.fn()
   const onClose = vi.fn()
   const { container } = render(
@@ -284,6 +284,67 @@ test('saving a day-only change to a recurring instance skips the scope prompt', 
   expect(screen.queryByText('Save repeating task')).not.toBeInTheDocument()
   expect(onSave).toHaveBeenCalledTimes(1)
   expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ day: '2026-07-17' }), 'this')
+})
+
+test('sending a timed Occurrence to Inbox clears Due Time and saves This Occurrence directly', async () => {
+  const user = userEvent.setup()
+  const { onSave } = renderEditor(editing({ day: '2026-07-10', atTime: '09:00' }))
+
+  await user.click(screen.getByRole('button', { name: 'Send to inbox' }))
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+
+  expect(screen.queryByText('Save repeating task')).not.toBeInTheDocument()
+  expect(onSave).toHaveBeenCalledWith(
+    expect.objectContaining({ day: 'inbox', atTime: null }),
+    'this',
+    { occurrenceOnlyDueTimeClear: true },
+  )
+})
+
+test('an explicit Due Time clear remains Series Content after the Occurrence also moves to Inbox', async () => {
+  const user = userEvent.setup()
+  const { onSave } = renderEditor(editing({ day: '2026-07-10', atTime: '09:00' }))
+
+  fireEvent.change(screen.getByLabelText('Due time'), { target: { value: '' } })
+  await user.click(screen.getByRole('button', { name: 'Send to inbox' }))
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  expect(screen.getByText('Save repeating task')).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'This and all future' }))
+
+  expect(onSave).toHaveBeenCalledWith(
+    expect.objectContaining({ day: 'inbox', atTime: null }),
+    'future',
+  )
+})
+
+test('scheduling a Task again does not restore the Due Time cleared by Inbox', async () => {
+  const user = userEvent.setup()
+  const { onSave, container } = renderEditor(
+    mkInstance({
+      recurParentId: null,
+      occurrenceDate: null,
+      day: '2026-07-10',
+      atTime: '09:00',
+    }),
+  )
+
+  await user.click(screen.getByRole('button', { name: 'Send to inbox' }))
+  const dayInput = container.querySelector('input[type="date"]') as HTMLInputElement
+  fireEvent.change(dayInput, { target: { value: '2026-07-17' } })
+
+  expect(screen.getByLabelText('Due time')).toHaveValue('')
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ day: '2026-07-17', atTime: null }))
+})
+
+test('Inbox disables Due Time, while a legacy invalid draft is visible and cannot save', () => {
+  renderEditor(mkInstance({ recurParentId: null, day: 'inbox' }))
+  expect(screen.getByLabelText('Due time')).toBeDisabled()
+  cleanup()
+
+  renderEditor(mkInstance({ recurParentId: null, day: 'inbox', atTime: '09:00' }))
+  expect(screen.getByText(/Due Time needs a Scheduled Day/)).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
 })
 
 test('toggling the pin on a non-recurring task saves via the normal (no-prompt) path', async () => {

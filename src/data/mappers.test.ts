@@ -197,7 +197,7 @@ describe('taskToRow', () => {
 describe('at_time', () => {
   it('round-trips and normalizes the seconds Postgres appends', () => {
     // Postgres `time` comes back as 'HH:MM:SS'; the app keeps 'HH:MM'.
-    const withSeconds = rowToTask(row({ at_time: '14:30:00' }))
+    const withSeconds = rowToTask(row({ day: '2026-07-10', at_time: '14:30:00' }))
     expect(withSeconds.atTime).toBe('14:30')
     expect(taskToRow(withSeconds, 'b1').at_time).toBe('14:30')
 
@@ -208,6 +208,11 @@ describe('at_time', () => {
   it('treats a missing at_time column (pre-migration deploy window) as all-day', () => {
     const predeploy = rowToTask(row({ at_time: undefined as unknown as string }))
     expect(predeploy.atTime).toBeNull()
+  })
+
+  it('normalizes an invalid Inbox + Due Time pair at both persistence directions', () => {
+    expect(rowToTask(row({ day: null, at_time: '14:30:00' })).atTime).toBeNull()
+    expect(taskToRow(task({ day: 'inbox', atTime: '14:30' }), 'b1').at_time).toBeNull()
   })
 })
 

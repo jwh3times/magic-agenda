@@ -68,6 +68,22 @@ test('templates are stored separately from board tasks', () => {
   expect(readBoardSnapshot('u1', 'b1')?.tasks.some((t) => t.id === 't')).toBe(false)
 })
 
+test('normalizes an Inbox Due Time from a snapshot written by an older client', () => {
+  localStorage.setItem(
+    'ma-snapshot-board.b1',
+    JSON.stringify({
+      v: 9,
+      userId: 'u1',
+      boardId: 'b1',
+      savedAt: Date.now(),
+      tasks: [{ ...task('legacy'), day: 'inbox', atTime: '09:00' }],
+      templates: [],
+    }),
+  )
+
+  expect(readBoardSnapshot('u1', 'b1')?.tasks[0]).toMatchObject({ day: 'inbox', atTime: null })
+})
+
 test('refuses a snapshot belonging to another user', () => {
   writeBoardSnapshot('u1', 'b1', [task('a')], [])
   expect(readBoardSnapshot('u2', 'b1')).toBeNull()

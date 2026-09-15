@@ -1,7 +1,7 @@
 import { isScheduled } from '../lib/dates'
 import { PER_OCCURRENCE_FIELDS } from './fieldOwnership'
 import { type TaskDraft } from '../types/task'
-import type { RecurScope } from './series'
+import type { RecurScope, SaveModifiers } from './series'
 import { completionDecision } from './completion'
 import { taskLimitError } from './taskLimits'
 
@@ -48,6 +48,23 @@ export function onlyPerOccurrenceChanged(original: TaskDraft, next: TaskDraft): 
 }
 
 /**
+ * Sending an Occurrence to Inbox necessarily clears its Due Time. That coupled clear belongs to
+ * the same This Occurrence placement action; clearing Due Time while it stays scheduled remains a
+ * Series Content edit and still asks for scope.
+ */
+function onlyInboxPlacementChanged(
+  original: TaskDraft,
+  next: TaskDraft,
+  modifiers?: SaveModifiers,
+): boolean {
+  if (!modifiers?.occurrenceOnlyDueTimeClear) return false
+  if (next.day !== 'inbox' || next.atTime !== null || original.day === 'inbox') return false
+  return changedTaskKeys(original, next).every(
+    (key) => PER_OCCURRENCE_FIELDS.has(key) || key === 'atTime',
+  )
+}
+
+/**
  * Normalizes a draft into what would actually be saved — still a `TaskDraft`, deliberately.
  *
  * It must **not** narrow to a `Task` here. An Occurrence's draft legitimately carries its parent
@@ -88,19 +105,30 @@ export function intendSave(
   isNew: boolean,
   now: string,
   chosenScope?: RecurScope,
+  modifiers?: SaveModifiers,
 ): SaveIntent {
   const cleaned = cleanDraft(draft)
   const task = {
     ...cleaned,
     ...completionDecision(initial, cleaned.status, now),
   }
-  if (task.title.length === 0 || taskLimitError(task)) return { kind: 'blocked' }
+  if (
+    task.title.length === 0 ||
+    taskLimitError(task) ||
+    (!isScheduled(task.day) && task.atTime !== null)
+  )
+    return { kind: 'blocked' }
   // `draft.recurParentId` rather than `initial`'s: the draft is what is about to be saved.
   if (isNew || !draft.recurParentId) return { kind: 'save', task }
   if (chosenScope) return { kind: 'save', task, scope: chosenScope }
   // Edits confined to this Occurrence — its state or its placement — have no series content to
   // route, so there is nothing to ask about.
-  if (onlyPerOccurrenceChanged(initial, task)) return { kind: 'save', task, scope: 'this' }
+  if (
+    onlyPerOccurrenceChanged(initial, task) ||
+    onlyInboxPlacementChanged(initial, task, modifiers)
+  ) {
+    return { kind: 'save', task, scope: 'this' }
+  }
   return { kind: 'ask' }
 }
 

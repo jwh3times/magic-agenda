@@ -8,7 +8,7 @@ provider.
 
 `pages/BoardPage.tsx` wires `useTasks(userId, boardId, hasSession)` + `useSettingsContext()` +
 `useBoardDirectoryContext()` / `useBoardSession()` + `useLabelDirectoryContext()` +
-`ThemeProvider`, then publishes the
+`ThemeProvider`, then wraps the rendered board in `DueClockProvider` and publishes the
 board-facing half of `useTasks` through `TaskBoardContext`. `boardId` is the session-wide Board
 Directory's resolved selection (`selectedBoardId`, see below), not something `BoardPage` decides
 itself: while the directory is still loading it is `null`, `useTasks` guards on `!boardId` the same
@@ -33,6 +33,11 @@ and `fakeAuthGateway`, so interface additions cannot leave partial, untyped retu
 `useTasks` remains the single source of truth for board tasks: optimistic CRUD with rollback, plus
 `persistReorder` (upserts only the changed lanes). Its raw React setter is private; drag-over uses
 the narrower `previewReorder(next)` command.
+
+Board snapshots are an offline cache, so old data is repaired at its read seam as well as at the
+database mapper. A current-version snapshot written before #369 may contain Inbox plus Due Time;
+`readBoardSnapshot()` clears that Due Time before publishing Tasks while preserving the rest of the
+cache. This is a semantic invariant, not a shape change, so it does not spend a snapshot version.
 
 Default View is a **Membership Preference, not an Account Preference**, and since #180 it is only
 that. `board_memberships.default_view` describes how this Account experiences _this_ Board, so

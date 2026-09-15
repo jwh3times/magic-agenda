@@ -380,6 +380,26 @@ test('parseExport rejects garbage, unsupported versions, malformed tasks, and mi
   })
 })
 
+test('parseExport rejects Inbox plus Due Time in every supported file version', () => {
+  const v4 = JSON.parse(
+    serializeExport([task({ day: '2026-07-10', atTime: '09:00' })], [], labels, 'x'),
+  ) as Record<string, unknown>
+  const v4Tasks = v4.tasks as Array<Record<string, unknown>>
+  v4Tasks[0].day = 'inbox'
+
+  const v3 = structuredClone(v4)
+  v3.version = 3
+  for (const row of v3.tasks as Array<Record<string, unknown>>) {
+    delete row.recurWeekdays
+    delete row.recurCount
+  }
+
+  expect(parseExport(JSON.stringify(v4)).ok).toBe(false)
+  expect(parseExport(JSON.stringify(v3)).ok).toBe(false)
+  expect(parseExport(v2Export([v2Task({ day: 'inbox', atTime: '09:00' })])).ok).toBe(false)
+  expect(parseExport(legacyExport([legacyTask({ day: 'inbox', atTime: '09:00' })])).ok).toBe(false)
+})
+
 test('a remapped template + instance is not re-materialized on the next reload', () => {
   const { tasks, templates } = remapIds({ tasks: [instance], templates: [template] })
   const missing = missingInstances(templates[0], [tasks[0]], '2026-07-10', 3)
