@@ -1,4 +1,4 @@
-import { chromium, expect } from '@playwright/test'
+import { chromium } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 
@@ -11,15 +11,14 @@ const SETUP_TRACE = path.join(SETUP_RESULTS, 'trace.zip')
  * Signs in once per run and saves the session.
  *
  * Not per-test, for two reasons: it is slow, and `supabase/config.toml` limits sign-ins to 30 per
- * 5 minutes per IP. A shared CI egress IP plus per-test sign-in is a self-inflicted flake.
+ * 5 minutes per IP. Re-authenticating every test against one local GoTrue is a self-inflicted flake.
  */
 export default async function globalSetup(): Promise<void> {
   const baseURL = process.env.E2E_BASE_URL
   if (!baseURL) {
     throw new Error(
-      'E2E_BASE_URL is unset. These tests run against a DEPLOYED build (a Cloudflare Pages\n' +
-        'preview in CI) because public/_headers is Cloudflare-specific.\n' +
-        'Locally, point it at a preview URL or https://magicagenda.app.',
+      'E2E_BASE_URL is unset. The authenticated suite needs the branch build backed by an\n' +
+        'isolated local Supabase stack. CI prepares it automatically; see docs/agents/testing.md.',
     )
   }
   const email = process.env.E2E_TEST_EMAIL
@@ -43,9 +42,10 @@ export default async function globalSetup(): Promise<void> {
       await page.goto('/login')
       await page.getByPlaceholder('you@example.com').fill(email)
       await page.getByPlaceholder('Password').fill(password)
-      const signIn = page.getByRole('button', { name: 'Sign in', exact: true })
-      await expect(signIn).toBeEnabled({ timeout: 30_000 })
-      await signIn.click()
+      // click() auto-waits for the button to become enabled. That matters when the local
+      // Turnstile test widget is still obtaining its deterministic token, and it keeps this
+      // setup module independent of Playwright's assertion runtime.
+      await page.getByRole('button', { name: 'Sign in', exact: true }).click({ timeout: 30_000 })
 
       // Separate "the session took" from "the cold Board finished loading". A failure now says
       // which boundary stalled instead of spending one opaque timeout on the toolbar.

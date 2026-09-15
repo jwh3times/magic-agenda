@@ -120,5 +120,5 @@ export const TurnstileWidget = forwardRef<
     }
   }, [onError, onToken])
 
-  return <div ref={containerRef} aria-label="Security verification" />
+  return <div ref={containerRef} role="group" aria-label="Security verification" />
 })

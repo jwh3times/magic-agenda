@@ -92,16 +92,32 @@ verified 2026-07-29 against the ruleset and six consecutive successful `RLS` job
 through `npx`, which ignores a PATH binary in favour of a local one and otherwise installs
 `latest`.
 
-`npm run test:e2e` is a **third layer**: Playwright (Chromium only) against a **real deployed
-build**, not a local server. That is the whole point — `public/_headers` is Cloudflare-specific,
-and the v1.2.37 CSP bug could not be reproduced locally. In CI it runs against the PR's Cloudflare
-Pages preview; locally, point `E2E_BASE_URL` at a preview URL or production.
+Playwright is the **third layer**, split at the deployment seam because the two adapters prove
+different things:
 
-The signed-out smoke group owns CSP probes for external browser resources. Its Turnstile check
-enters sign-up mode, requires the final challenge script response and injected iframe, and rejects failed
-challenge-host requests or console errors. Do not replace it with a source-text assertion alone:
-the latter checks the intended header, while only the preview proves Cloudflare served that header
-and the browser accepted both the script and frame.
+- `playwright.config.ts` runs the authenticated smoke, accessibility, and visual suites against a
+  branch build backed by an isolated local Supabase stack. CI creates a confirmed fixture account,
+  builds with the local anon URL/key and Cloudflare's always-pass test site key, and serves `dist/`
+  on localhost. The matching test secret lives only in the local GoTrue container. Production data
+  and production CAPTCHA are never part of this adapter.
+- `playwright.preview.config.ts` runs `tests/e2e/preview.spec.ts` against the real Cloudflare Pages
+  preview. These signed-out probes own everything a local server cannot reproduce:
+  `public/_headers`, external-resource CSP, and service-worker behavior. Run them with
+  `E2E_PREVIEW_URL=<preview> npm run test:e2e:preview`.
+
+`npm run test:e2e` is CI-oriented: it assumes `E2E_BASE_URL`, the local Supabase anon values, the
+fixed local account credentials, a migrated stack, and a branch build are already prepared. The
+workflow is the supported orchestration and `scripts/e2e-local-setup.ts` deliberately requires
+`GITHUB_ENV`; mirror those workflow steps only when diagnosing the authenticated adapter locally.
+The preview command above is independently runnable and needs no account credentials.
+
+The Turnstile preview probe requires the final challenge script response and a challenge frame in
+Playwright's frame tree, then rejects failed challenge-host requests or console errors. The frame
+lives in a closed shadow root, so a DOM locator cannot see it. Do not replace the browser probe with
+a source-text assertion alone: the latter checks the intended header, while only the preview proves
+Cloudflare served it and the browser accepted both the script and frame. The test deliberately does
+not require a solved challenge; Cloudflare documents automated browsers as unsupported for managed
+production challenges.
 
 **Finding the preview is not obvious and the obvious way does not work.** This repo has no GitHub
 Deployments — Cloudflare reports as a check run named `Cloudflare Pages` whose `details_url` points
@@ -124,32 +140,16 @@ that location is what routes setup failures through the same encryption step. Do
 with a plain upload of `test-results/`. The general rule: **treat every artifact this repo uploads as
 public**, and check what a new one actually contains before adding it.
 
-E2E drives **one dedicated account in the production project**, so runs are serialised twice:
-`workers: 1` within a run, and a `concurrency` group across PRs — scoped to `pull_request` events, so
-a push to `main` (where the job only gate-skips) cannot occupy the group's single pending slot and
-evict a queued PR. Seeding uses the anon key and that account's own credentials — **the service-role
-key must never enter CI.** All three skip conditions (non-PR events, fork PRs, runs without secrets)
-report success from inside a step, never a job-level `if:`.
+E2E still uses `workers: 1` within a run because every signed-in test shares one local account and
+realtime seeding mutations can race across workers. Runs for different PRs may execute concurrently;
+only a superseded run of the same PR is cancelled. Non-PR events and fork PRs report success from
+inside the gate step, never through a job-level `if:` that would leave the required check pending.
 
-**`tests/e2e/fixtures/` must match PRODUCTION's schema, which is one release behind its own
-branch.** E2E runs against the _production_ database, but `Deploy Migrations` only applies
-migrations on merge to `main` — so a PR carrying a schema change exercises its new client against
-the **old** schema, and the next PR is the first to meet the new one. The fixtures are also the one
-Supabase client in this repo that no unit or RLS test covers.
-
-Both halves of that have now bitten once each, in opposite directions, and the pair is the useful
-lesson:
-
-- **Too late.** Dropping `tasks_infer_board_id` made `seedBoard` a pre-cutover client — it sent no
-  `board_id` — but `v1.6.0`'s own E2E passed green, because production still had the trigger while
-  it ran. The failure landed on the _following_ PR, which had not touched a line of it.
-- **Too early.** Removing `user_id` from that same fixture in the very PR that relaxed it to
-  nullable failed _immediately_: production still had `NOT NULL` when E2E ran, so the seed died on
-  `null value in column "user_id" ... violates not-null constraint`.
-
-The rule that follows: **a column being retired stays in the fixture for the release that makes it
-optional, and comes out in the release that drops it** — one step later than feels natural. A column
-with a default needs no such care, since omitting it is valid on both sides.
+`scripts/e2e-local-setup.ts` briefly uses the **ephemeral local** service-role key to create the
+confirmed fixture user. It never writes that key to `GITHUB_ENV`; only the local anon URL/key and
+fixed local-only credentials cross into later steps. A production service-role key must never enter
+CI. The fixture now meets the branch's own freshly migrated schema, eliminating the former
+one-release lag where a schema PR tested its client against production's previous schema.
 
 Five non-obvious constraints on the specs themselves. Four cost a real debugging pass; the fifth
 is a deliberate tradeoff worth understanding before it costs one:
@@ -184,10 +184,10 @@ is a deliberate tradeoff worth understanding before it costs one:
   a regression; a count that FELL means the baseline is stale and the lower number must be
   committed. That second direction is deliberate — tolerating it is what lets a ratchet's ceiling
   drift above reality — but it has one confusing consequence: any merge that lands without an E2E
-  run (a non-PR event, a fork PR, a Dependabot PR) and incidentally reduces a count leaves the next
-  human PR red for a number it did not cause. The fix is always to commit the lower number.
-  Regeneration in practice means reading the counts out of the CI log: `E2E_A11Y_UPDATE_BASELINE=1`
-  still works but needs the E2E account's credentials, which exist only as repository secrets.
+  run (for example, a fork PR) and incidentally reduces a count leaves the next PR red for a number
+  it did not cause. The fix is always to commit the lower number. `E2E_A11Y_UPDATE_BASELINE=1` can
+  regenerate the complete baseline against the isolated local adapter; no production account is
+  involved.
 
 ### Visual regression canaries
 
@@ -197,15 +197,13 @@ mechanical check that a token change did not wreck a theme. Six things about the
 load-bearing:
 
 - **They are not a merge gate yet, and they do not get a job of their own.** `playwright.config.ts`
-  splits the suite into two projects over the same browser: `chromium` (smoke + a11y) and `visual`.
-  The `E2E` job runs `chromium` as the gated step and `visual` as a following `continue-on-error`
-  step, so a changed or missing baseline shows as a warning annotation, a job summary, and an
-  artifact while the check stays green. A separate job was rejected because every E2E run drives
-  the same production account: it would join the `e2e-prod-account` concurrency group, and since
-  GitHub keeps one pending run per group, a PR's second queued job could evict another PR's
-  required E2E run. The `visual` project writes to `test-results-visual/`, not `test-results/`,
-  because Playwright clears `outputDir` at the start of every invocation and the second step would
-  otherwise wipe the gated run's traces.
+  splits the local suite into two projects over the same browser: `chromium` (smoke + a11y) and
+  `visual`. The `E2E` job runs `chromium` as the gated step and `visual` as a following
+  `continue-on-error` step, reusing the same branch build and local stack. A changed or missing
+  baseline shows as a warning annotation, a job summary, and an artifact while the check stays
+  green. The `visual` project writes to `test-results-visual/`, not `test-results/`, because
+  Playwright clears `outputDir` at the start of every invocation and the second step would otherwise
+  wipe the gated run's traces.
 - **Baselines are generated on the Linux CI runner only.** A baseline rendered on Windows or macOS
   bakes in that platform's font rasterization and turns every CI run into a diff.
   `snapshotPathTemplate` puts the platform in the filename (`tests/e2e/__screenshots__/<name>-linux.png`),

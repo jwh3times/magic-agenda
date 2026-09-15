@@ -1,134 +1,8 @@
-import { expect, test, type ConsoleMessage, type Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 import { seedBoard, SEEDED_TITLES } from './fixtures/seedBoard'
 
 // No fake clock in this file, deliberately. `page.clock` can invalidate Supabase's JWT expiry
-// checks (the token was issued in real time) and may not reach the service worker's separate
-// context -- and the service-worker test below is the single most valuable thing here.
-
-/**
- * Console errors, minus the ones that are not ours.
- *
- * public/_headers records that Cloudflare's injected Web Analytics beacon changes its hash
- * without notice and silently re-breaks CSP. Unscoped, that event would turn every PR red for a
- * cause unrelated to any PR.
- */
-const IGNORED = [/cloudflareinsights\.com/i, /static\.cloudflareinsights/i]
-
-function collectErrors(page: Page): string[] {
-  const errors: string[] = []
-  page.on('console', (msg: ConsoleMessage) => {
-    if (msg.type() !== 'error') return
-    const text = msg.text()
-    if (IGNORED.some((re) => re.test(text))) return
-    errors.push(text)
-  })
-  page.on('pageerror', (error) => errors.push(String(error)))
-  return errors
-}
-
-test.describe('signed out', () => {
-  test.use({ storageState: { cookies: [], origins: [] } })
-
-  test('landing renders with no console errors', async ({ page }) => {
-    const errors = collectErrors(page)
-    await page.goto('/')
-    await expect(page.getByRole('heading', { name: 'Your week, on sticky notes.' })).toBeVisible()
-    expect(errors).toEqual([])
-  })
-
-  test('Turnstile loads on signup under the deployed CSP', async ({ page }) => {
-    const errors = collectErrors(page)
-    const failedChallengeRequests: string[] = []
-    page.on('requestfailed', (request) => {
-      if (new URL(request.url()).hostname === 'challenges.cloudflare.com') {
-        failedChallengeRequests.push(`${request.url()} ${request.failure()?.errorText}`)
-      }
-    })
-
-    await page.goto('/login')
-    const scriptResponse = page.waitForResponse(
-      (response) =>
-        response.url().startsWith('https://challenges.cloudflare.com/turnstile/v0/api.js') &&
-        response.request().resourceType() === 'script' &&
-        response.ok(),
-    )
-    await page.getByRole('button', { name: 'Sign up' }).click()
-
-    await scriptResponse
-    await expect(page.locator('iframe[src*="challenges.cloudflare.com"]').first()).toBeAttached()
-    expect(failedChallengeRequests).toEqual([])
-    expect(errors).toEqual([])
-  })
-
-  test('auth token is scrubbed before an end-of-body script reads the URL', async ({ page }) => {
-    const tokenHash = 'bogus-e2e-token'
-    const path = `/auth/reset?token_hash=${tokenHash}&type=recovery`
-
-    await page.route('**/__beacon_probe.js', async (route) => {
-      await route.fulfill({
-        contentType: 'application/javascript',
-        body: 'document.documentElement.dataset.beaconProbeHref = document.location.href',
-      })
-    })
-    await page.route(
-      (url) => url.pathname === '/auth/reset' && url.searchParams.get('token_hash') === tokenHash,
-      async (route) => {
-        const response = await route.fetch()
-        const html = await response.text()
-        expect(html).toContain('</body>')
-        await route.fulfill({
-          response,
-          body: html.replace('</body>', '<script defer src="/__beacon_probe.js"></script></body>'),
-        })
-      },
-    )
-
-    await page.goto(path)
-    const root = page.locator('html')
-    await expect(root).toHaveAttribute('data-beacon-probe-href', /.+/)
-    const observedHref = await root.getAttribute('data-beacon-probe-href')
-
-    expect(observedHref).not.toContain('token_hash')
-    expect(new URL(observedHref!).search).toBe('')
-  })
-
-  test('the service worker survives a reload without breaking CSP or fonts', async ({ page }) => {
-    // The bug this guards shipped TWICE (v1.2.37). A first load never reproduces it: the worker
-    // is not yet controlling the page, so fonts load normally and land in the HTTP cache. Only on
-    // the NEXT navigation does the worker intercept and get refused. The reload IS the test.
-    const errors = collectErrors(page)
-    const failed: string[] = []
-    page.on('requestfailed', (req) => failed.push(`${req.url()} ${req.failure()?.errorText}`))
-
-    await page.goto('/')
-    await page.waitForFunction(() => !!navigator.serviceWorker?.controller, null, {
-      timeout: 30_000,
-    })
-
-    await page.reload()
-    await expect(page.getByRole('heading', { name: 'Your week, on sticky notes.' })).toBeVisible()
-
-    // Assert the @font-face rules REGISTERED, not that a family "checks".
-    //
-    // Two traps here, both of which make the obvious version of this test vacuous:
-    //   1. document.fonts.check('16px Whatever') returns TRUE for a family with no FontFace at all.
-    //      In the exact v1.2.37 failure mode -- the worker's fetch of the Google Fonts stylesheet is
-    //      refused, so NO @font-face parses -- check() therefore passes. It cannot see the bug.
-    //   2. There is no font called Inter in this app. index.html loads Archivo Black, Caveat,
-    //      Libre Franklin, Manrope and Space Grotesk; Landing itself renders in system-ui
-    //      (src/pages/Landing.tsx:60), so any loaded-status assertion fails on a healthy deploy too.
-    //
-    // When the stylesheet is refused, document.fonts is EMPTY. Iterating it is the signal.
-    const families = await page.evaluate(async () => {
-      await document.fonts.ready
-      return [...new Set([...document.fonts].map((f) => f.family.replace(/['"]/g, '')))]
-    })
-    expect(families).toContain('Libre Franklin')
-
-    expect(errors).toEqual([])
-    expect(failed).toEqual([])
-  })
-})
+// checks because the token was issued in real time.
 
 test.describe('signed in', () => {
   test('board renders the seeded tasks', async ({ page }) => {
@@ -208,8 +82,15 @@ test.describe('signed in', () => {
     )
 
     // The realtime WebSocket is not routable and does not need to be: the REST load failing is what
-    // reaches hydrateFromSnapshot.
-    await page.route(/supabase\.co/, (route) => route.abort())
+    // reaches hydrateFromSnapshot. Match the configured adapter instead of a production hostname;
+    // CI intentionally points this suite at its isolated local stack.
+    const supabaseURL = process.env.E2E_SUPABASE_URL
+    if (!supabaseURL) throw new Error('E2E_SUPABASE_URL is unset')
+    const supabaseOrigin = new URL(supabaseURL).origin
+    await page.route(
+      (url) => url.href.startsWith(`${supabaseOrigin}/`),
+      (route) => route.abort(),
+    )
     await page.reload()
 
     // Scoped, not a bare getByRole('status'): dnd-kit's accessibility LiveRegion is ALSO

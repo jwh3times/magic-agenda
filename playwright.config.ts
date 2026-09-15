@@ -1,15 +1,14 @@
 import { defineConfig, devices } from '@playwright/test'
 
-// E2E runs against a REAL deployed build (a Cloudflare Pages preview in CI), because
-// public/_headers is Cloudflare-specific and a local server cannot reproduce how Pages resolves
-// header rules -- which is the exact cause of the v1.2.37 CSP bug this suite exists to catch.
+// Authenticated E2E runs against an isolated local Supabase stack so CAPTCHA and test data never
+// couple CI to production. playwright.preview.config.ts separately exercises the deployed Pages
+// preview for behavior that depends on Cloudflare's real response headers.
 export default defineConfig({
   testDir: 'tests/e2e',
   globalSetup: './tests/e2e/globalSetup.ts',
 
-  // One worker, always. Every signed-in test drives the SAME production account, and the app
-  // subscribes to Supabase realtime -- so a parallel worker's seeding deletions are pushed live
-  // into another worker's open page between load and assertion. This is not a speed knob.
+  // One worker, always. Signed-in tests share one local account and subscribe to realtime, so a
+  // parallel worker's seeding deletions could reach another worker between load and assertion.
   workers: 1,
   fullyParallel: false,
 
@@ -62,7 +61,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: /visual.spec.ts/,
+      testIgnore: /(preview|visual)\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], channel: 'chromium' },
     },
     {

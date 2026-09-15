@@ -139,8 +139,8 @@ the area it covers; do not rely on this page's summaries for it.
   worker, network-first navigation, what is never cached, the CSP in `public/_headers`, and the
   `localStorage` snapshot envelopes.
 - [**Testing layers and lint policy**](docs/agents/testing.md) — the hermetic unit suite, the RLS
-  integration project, Playwright E2E against a deployed build, explicit Data API grants, and
-  `.oxlintrc.json`.
+  integration project, isolated-stack Playwright E2E plus deployed-preview probes, explicit Data
+  API grants, and `.oxlintrc.json`.
 - [**When changing Supabase config**](docs/agents/supabase-config.md) — `supabase/config.toml` is
   production, the CLI-version and auth-secret wiring, Turnstile, the two auth email templates, and
   retiring an Edge Function.
@@ -222,8 +222,9 @@ inserts one row per case for exactly this reason and says so.
 Three layers, and each exists because the one below it cannot reach the failure: `npm test`
 (hermetic Vitest under jsdom, Supabase mocked), `npm run test:rls` (a separate Vitest project
 against a real local stack — where the authorization boundary is actually exercised), and
-`npm run test:e2e` (Playwright against a **real deployed build**, because `public/_headers` is
-Cloudflare-specific and cannot be reproduced locally).
+Playwright E2E. CI runs authenticated browser behavior against an isolated local Supabase stack and
+the branch build, then runs `tests/e2e/preview.spec.ts` against the real Pages preview for
+Cloudflare-specific headers, CSP, and service-worker behavior.
 
 What belongs in each layer, the RLS structural/baseline split, the E2E preview-URL and
 encrypted-trace machinery, the a11y baseline's strict-equality rule, and the explicit Data API

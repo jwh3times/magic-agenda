@@ -244,23 +244,14 @@ jobs:
       contents: read
       # scripts/preview-url.mjs reads the Cloudflare Pages check run to find the preview URL.
       checks: read
-    # One shared production test account, so runs must not overlap across PRs.
-    # cancel-in-progress: false because a half-run suite leaves the account mid-seed.
-    #
-    # The group is scoped to pull_request events. This workflow also runs on push to main, where the
-    # job gate-skips in seconds -- but it would still JOIN the group, and GitHub keeps only one
-    # pending run per group. A merge landing while one PR's suite runs and another waits would evict
-    # the waiting PR's job, so every busy merge would wedge a queued PR once this check is required.
-    # Off-PR runs therefore get a per-run group of their own, which contends with nothing.
-    #
-    # ACCEPTED COST, unchanged: with three or more PRs queued, the middle one is still cancelled and
-    # needs a manual re-run.
+    # Each run gets its own local Supabase stack and test account. Only superseded runs of the same
+    # PR contend, and those are safe to cancel because they share no external mutable state.
     concurrency:
-      group: ${{ github.event_name == 'pull_request' && 'e2e-prod-account' || format('e2e-noop-{0}', github.run_id) }}
-      cancel-in-progress: false
-    timeout-minutes: 25
+      group: ${{ format('e2e-{0}', github.event.pull_request.number || github.run_id) }}
+      cancel-in-progress: true
+    timeout-minutes: 35
     steps:
-      # All three skips report SUCCESS from inside a step, never a job-level `if:`. A required check
+      # Both skips report SUCCESS from inside a step, never a job-level `if:`. A required check
       # that never runs leaves a PR unmergeable forever -- the same rule the Changelog job follows.
       #
       # The gate runs FIRST, before checkout and npm ci: it needs neither, and every push to main
@@ -268,7 +259,6 @@ jobs:
       - name: Decide whether to run
         id: gate
         env:
-          HAS_SECRETS: ${{ secrets.E2E_TEST_EMAIL != '' }}
           IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
           EVENT: ${{ github.event_name }}
         run: |
@@ -276,10 +266,7 @@ jobs:
             echo "Not a pull_request event ($EVENT): there is no preview to test. Skipping."
             echo "run=false" >> "$GITHUB_OUTPUT"
           elif [ "$IS_FORK" = "true" ]; then
-            echo "Fork PR: Cloudflare builds no preview and secrets are unavailable. Skipping."
-            echo "run=false" >> "$GITHUB_OUTPUT"
-          elif [ "$HAS_SECRETS" != "true" ]; then
-            echo "No E2E secrets available (Dependabot or unconfigured repo). Skipping."
+            echo "Fork PR: Cloudflare builds no preview. Skipping."
             echo "run=false" >> "$GITHUB_OUTPUT"
           else
             echo "run=true" >> "$GITHUB_OUTPUT"
@@ -307,27 +294,56 @@ jobs:
         run: |
           URL="$(node scripts/preview-url.mjs "${{ github.event.pull_request.head.sha }}")"
           echo "Preview: $URL"
-          echo "E2E_BASE_URL=$URL" >> "$GITHUB_ENV"
+          echo "E2E_PREVIEW_URL=$URL" >> "$GITHUB_ENV"
+
+      - name: Test the deployed Cloudflare boundary
+        if: steps.gate.outputs.run == 'true'
+        run: npm run test:e2e:preview
+
+      - name: Start an isolated local Supabase stack
+        id: local_stack
+        if: steps.gate.outputs.run == 'true'
+        run: npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy
+        env:
+          RESEND_API_KEY: dummy-not-a-real-key
+          GOOGLE_OAUTH_CLIENT_SECRET: dummy-not-a-real-secret
+          # Cloudflare's documented always-pass test secret; never accepts a production token.
+          TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
+          OPENAI_API_KEY: dummy-not-a-real-key
+          S3_HOST: dummy.local
+          S3_REGION: local
+          S3_ACCESS_KEY: dummy-access-key
+          S3_SECRET_KEY: dummy-secret-key
+
+      - name: Prepare the local E2E environment
+        if: steps.gate.outputs.run == 'true'
+        run: node scripts/e2e-local-setup.ts
+
+      - name: Build and serve the isolated app
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          npm run build
+          npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > "$RUNNER_TEMP/vite-preview.log" 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4173/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/vite-preview.log"
+          exit 1
 
       - name: Run the E2E suite
         if: steps.gate.outputs.run == 'true'
-        env:
-          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
-          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
-          E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
-          E2E_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
         # The `chromium` project only: smoke + a11y, the half of E2E that gates a merge. The visual
         # canaries are the next step and deliberately cannot fail this job.
         run: npm run test:e2e -- --project=chromium
 
       # Visual regression canaries (#280), NOT a gate yet. They run in this job rather than a job of
-      # their own because every E2E run drives the same production account: a second job would join
-      # the e2e-prod-account concurrency group and, since GitHub keeps one pending run per group,
-      # could evict another PR's queued required E2E run. `continue-on-error` keeps the check green;
-      # a changed or missing baseline surfaces as a warning, a job summary, and an artifact.
+      # their own to avoid another browser install and local-stack startup. `continue-on-error`
+      # keeps the check green; a changed or missing baseline surfaces as a warning, a job summary,
+      # and an artifact.
       #
       # It runs only after the gated suite succeeds (the default `success()` condition), so a failing
-      # smoke/a11y run is never followed by a screenshot pass against the same broken preview.
+      # smoke/a11y run is never followed by a screenshot pass against the same broken branch build.
       #
       # `--update-snapshots=missing` is deliberate and CI-only. Under the config's default ('none'),
       # Playwright writes NOTHING for a missing baseline -- no `-actual.png` -- so the first run of a
@@ -341,11 +357,6 @@ jobs:
         id: visual
         if: steps.gate.outputs.run == 'true'
         continue-on-error: true
-        env:
-          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
-          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
-          E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
-          E2E_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
         run: npm run test:e2e -- --project=visual --update-snapshots=missing
 
       # Two kinds of candidate, both copied at the path they belong at so the artifact mirrors the
@@ -493,3 +504,7 @@ jobs:
           path: ${{ steps.traces.outputs.bundle }}
           retention-days: 7
           if-no-files-found: error
+
+      - name: Stop the local stack
+        if: always() && steps.local_stack.outcome == 'success'
+        run: npx supabase stop --no-backup

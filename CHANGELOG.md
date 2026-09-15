@@ -21,6 +21,8 @@ No unreleased changes.
   tokens, the deployed Content Security Policy admits only Cloudflare's challenge host, and CI plus
   deployment configuration keep the public site key separate from the secret verification key
   ([#294](https://github.com/jwh3times/magic-agenda/issues/294)).
+- Browser CI now keeps authenticated fixtures in an ephemeral local Supabase stack while retaining
+  deployed-preview probes for Cloudflare Pages headers, CSP, and service-worker behavior.
 
 ## [1.12.3] - 2026-09-14
 
