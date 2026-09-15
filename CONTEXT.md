@@ -14,14 +14,46 @@ Recurring Series, and may be Unlabeled or assigned one Label.
 _Avoid_: item, entry, to-do
 
 **Scheduled Day**:
-The day a Task currently sits on, or the Inbox when it has none. Freely changed by rescheduling,
-and never an identity.
+The calendar day a Task is planned for, or absent while it is in the Inbox. It anchors the Task's
+Due Moment, is freely changed by rescheduling, and is never an identity.
 _Avoid_: task date, origin date
+
+**Schedule Placement**:
+Where a Task sits on its Board: its Scheduled Day or Inbox state, plus its relative manual order
+within that placement and within its Workflow Status. Rescheduling changes placement and the
+derived Due Moment.
+_Avoid_: due date, calendar container
 
 **Inbox**:
 The state of a Task that has no Scheduled Day. It is a property of the Task, not a container that
-holds it.
+holds it; an Inbox Task has no Due Time, Due Moment, or Reminder.
 _Avoid_: backlog, unscheduled list
+
+**Due Time**:
+An optional local clock time by which a Task is due on its Scheduled Day. Without one, the Task is
+due at the end of that day; it is never a separate scheduled start time.
+_Avoid_: scheduled time, at time
+
+**Due Moment**:
+The deadline formed from a Task's Scheduled Day and Due Time in one Account's Timezone. It is the
+instant at the named Due Time, or the first instant of the next local day when no Due Time exists,
+and does not exist for an Inbox Task.
+_Avoid_: due date, independent deadline
+
+**Reminder**:
+A notification an Account elects to receive before a Task's Due Moment. It is derived per Account
+from the Task's schedule and that Account's reminder preference.
+_Avoid_: alarm, Board reminder
+
+**Overdue**:
+The state of a Task that is not Completed and is later than its timed Due Moment, or has reached its
+untimed Due Moment, in the viewing Account's Timezone.
+_Avoid_: past day, late flag
+
+**Timezone**:
+The Account preference that defines how its local calendar dates, clock times, and day boundaries
+are interpreted for Scheduled Days, Due Times, Overdue, and Reminders.
+_Avoid_: Board timezone, device offset
 
 ## Workflow and completion
 
@@ -118,8 +150,8 @@ the Recurring Series or with any other Occurrence.
 _Avoid_: instance state, per-occurrence fields, progress
 
 **Occurrence Placement**:
-Where one Occurrence sits: its Scheduled Day and its manual position within that day or Kanban
-column. It belongs to that Occurrence alone, so moving one Occurrence never moves another.
+One Occurrence's Schedule Placement. It belongs to that Occurrence alone, so moving one Occurrence
+never moves another.
 _Avoid_: position, ordering, layout
 
 **This Occurrence**:
