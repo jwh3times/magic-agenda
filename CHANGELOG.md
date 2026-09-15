@@ -12,6 +12,15 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.12.9] - 2026-09-15
+
+### Added
+
+- Added Settings controls for an Account reminder lead and independent browser/device enrollment,
+  including permission-denied, unsupported-browser, unconfigured-deployment, Automatic Timezone,
+  and iOS Home Screen guidance. The service worker now displays bounded Reminder payloads and opens
+  Magic Agenda when a notification is selected ([#267](https://github.com/jwh3times/magic-agenda/issues/267)).
+
 ## [1.12.8] - 2026-09-15
 
 ### Added
@@ -3373,7 +3382,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.8...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.9...HEAD
+[1.12.9]: https://github.com/jwh3times/magic-agenda/compare/v1.12.8...v1.12.9
 [1.12.8]: https://github.com/jwh3times/magic-agenda/compare/v1.12.7...v1.12.8
 [1.12.7]: https://github.com/jwh3times/magic-agenda/compare/v1.12.6...v1.12.7
 [1.12.6]: https://github.com/jwh3times/magic-agenda/compare/v1.12.5...v1.12.6

@@ -1,5 +1,25 @@
 # Installable PWA and offline read
 
+## Web Push
+
+`src/notifications/pushGateway.ts` owns the browser subscription seam. Settings asks for
+notification permission only from the explicit “Enable on this device” button, subscribes with the
+public `VITE_VAPID_PUBLIC_KEY`, and stores the endpoint plus browser key material in the
+Account-owned `push_subscriptions` table. Each browser or installed app is independent; the Account
+lead in `user_settings.reminder_lead_minutes` enables or disables delivery across them. A deployment
+without the public VAPID value stays usable and says that Push is unconfigured rather than throwing.
+
+iOS and iPadOS expose standards-based Web Push only to a Home Screen web app. The Settings section
+therefore gives install guidance before generic feature-detection messaging when it recognizes an
+Apple mobile device outside standalone display mode. The actual capability decision remains feature
+detection; user-agent recognition controls only that more useful explanation.
+
+`src/sw.ts` handles `push` by always displaying a notification and handles `notificationclick` by
+focusing an existing Magic Agenda window or opening one. `src/sw/notifications.ts` is the pure,
+tested parser: push bytes are untrusted, text is bounded, and navigation is restricted to a
+root-relative path. Keep this alongside the existing cache policy when changing the worker; Push
+must not introduce a new cache path for Supabase or notification endpoints.
+
 `src/sw.ts` is **hand-authored, not generated.** `vite-plugin-pwa` runs in `injectManifest` mode
 (`vite.config.ts`), which only supplies `self.__WB_MANIFEST` (the precache URL list) — none of
 workbox's runtime-caching strategies ship in the built worker; every `fetch` handler in `sw.ts` is

@@ -74,6 +74,13 @@ payload, and an offline settings snapshot written before the field existed — t
 spreads over `DEFAULTS` rather than trusting the stored shape, which is why the shared snapshot
 version did not need a bump.
 
+**`user_settings.reminder_lead_minutes` (#267) follows the same database-first release rule.** The
+nullable integer is an Account Preference: NULL is off and 0–10080 is the lead in minutes. The
+database requires a real IANA `timezone` whenever it is non-NULL because the scheduled sender has
+no browser whose Automatic zone it can follow. It shipped in v1.12.8 before the client began naming
+it. Readers default a missing column or older settings snapshot to NULL, so the deploy window and
+offline cache both remain safely off.
+
 Settings are **session-scoped, not page-scoped**: `SettingsProvider` (`src/data/SettingsProvider.tsx`)
 owns the single `useSettings(userId, hasSession)` call above `<Routes>` in `App.tsx`, so navigating
 between `/` and `/settings` no longer refetches or rebuilds the realtime channel. It mounts for

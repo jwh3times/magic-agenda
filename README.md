@@ -76,6 +76,9 @@ of three hand‑built themes.
 - **Installable, and readable offline** — add it to your Home Screen for a standalone app; with no
   network, the last‑synced board renders read‑only from a local snapshot instead of a dead login
   screen.
+- **Per-device notifications** — choose an Account reminder lead and subscribe each supported
+  browser or installed app independently. A concrete IANA timezone keeps server delivery aligned
+  with the same Due Moment used for Overdue.
 
 ## Tech stack
 
@@ -128,6 +131,7 @@ cp .env.example .env.local
 VITE_SUPABASE_URL=https://<your-project-ref>.supabase.co
 VITE_SUPABASE_ANON_KEY=<your-anon-key>
 VITE_TURNSTILE_SITE_KEY=<your-turnstile-site-key>
+VITE_VAPID_PUBLIC_KEY=<your-public-vapid-key>
 ```
 
 > The anon key is **public by design** — it ships in the browser bundle and is safe because RLS
@@ -228,8 +232,8 @@ design/                the original prototype (reference only — not built)
 ## Deployment
 
 [Cloudflare Pages](https://pages.cloudflare.com) builds and deploys `main` (framework preset **Vite**,
-build `npm run build`, output `dist`). The `VITE_SUPABASE_*` variables and
-`VITE_TURNSTILE_SITE_KEY` are set in the Pages project for Production and Preview;
+build `npm run build`, output `dist`). The `VITE_SUPABASE_*`, `VITE_TURNSTILE_SITE_KEY`, and public
+`VITE_VAPID_PUBLIC_KEY` variables are set in the Pages project for Production and Preview;
 `public/_redirects` provides the SPA deep‑link fallback, and `public/_headers`
 sets security response headers (Content‑Security‑Policy, HSTS, `X-Frame-Options`, `nosniff`,
 `Referrer-Policy`).

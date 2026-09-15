@@ -25,5 +25,5 @@
   // typechecks today only by accident (it imports expect/test explicitly and asserts nothing
   // DOM-dependent) — the first ambient-globals or DOM-typed assertion added there would fail
   // tsc -b with a baffling error from a project the test has no business being in.
-  "include": ["src/sw.ts", "src/sw/policy.ts"]
+  "include": ["src/sw.ts", "src/sw/policy.ts", "src/sw/notifications.ts"]
 }
