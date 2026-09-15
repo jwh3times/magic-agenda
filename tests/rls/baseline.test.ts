@@ -195,17 +195,21 @@ test('the security posture of every application function is the reviewed one', a
  * `app_private` holds the account-role helper used by feature-flag write policies. Only
  * `authenticated` gains USAGE, and PostgREST still refuses this unlisted schema.
  *
- * `net` left this list with Supabase CLI 2.115: a fresh local stack no longer enables the opt-in
- * `pg_net` extension, and Magic Agenda does not use it. Keep the smaller surface rather than
- * restoring an unused extension or its grants just to preserve the old baseline.
+ * `net` left this list with Supabase CLI 2.115 because a fresh local stack no longer enabled the
+ * opt-in `pg_net` extension. It returned deliberately for #267: the postgres-owned Reminder Cron
+ * job needs `net.http_post`. The extension is owned by Supabase's platform administrator and
+ * restores its own `USAGE`/`EXECUTE` grants; the migration's `postgres` role cannot revoke them.
+ * This does not make `net` callable through the Data API because `[api] schemas` still exposes only
+ * `public` and `graphql_public`. Keep `net` here only while an owned Cron integration uses it.
  *
- * All eight below are Supabase-managed.
+ * All nine below are Supabase-managed.
  */
 const REACHABLE_SCHEMAS = [
   'auth',
   'extensions',
   'graphql',
   'graphql_public',
+  'net',
   'public',
   'realtime',
   'storage',
