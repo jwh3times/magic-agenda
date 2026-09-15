@@ -12,6 +12,14 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.12.7] - 2026-09-15
+
+### Fixed
+
+- Cleared legacy Due Times from Inbox Tasks and added a validated database constraint so imports,
+  older callers, and direct Data API writes cannot recreate an Inbox Task with a Due Time
+  ([#369](https://github.com/jwh3times/magic-agenda/issues/369)).
+
 ## [1.12.6] - 2026-09-15
 
 ### Changed
@@ -3356,7 +3364,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.6...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.7...HEAD
+[1.12.7]: https://github.com/jwh3times/magic-agenda/compare/v1.12.6...v1.12.7
 [1.12.6]: https://github.com/jwh3times/magic-agenda/compare/v1.12.5...v1.12.6
 [1.12.5]: https://github.com/jwh3times/magic-agenda/compare/v1.12.4...v1.12.5
 [1.12.4]: https://github.com/jwh3times/magic-agenda/compare/v1.12.3...v1.12.4
