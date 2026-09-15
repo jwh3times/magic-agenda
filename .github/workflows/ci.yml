@@ -339,10 +339,10 @@ jobs:
         # reported phase of this same required E2E check.
         run: npm run test:e2e -- --project=chromium
 
-      # Visual regression canaries (#280), promoted to a merge gate in #358 after ten consecutive
-      # qualifying PRs. They run in this job rather than a job of their own to avoid another browser
-      # install and local-stack startup. A changed or missing baseline fails this required check;
-      # the following diagnostic steps still publish the candidate PNGs needed to refresh it.
+      # Visual regression canaries (#280), promoted to a merge gate in #358 after the five-PR
+      # stability bar was met. They run in this job rather than a job of their own to avoid another
+      # browser install and local-stack startup. A changed or missing baseline fails this required
+      # check; the following diagnostic steps still publish the candidate PNGs needed to refresh it.
       #
       # It runs only after the gated suite succeeds (the default `success()` condition), so a failing
       # smoke/a11y run is never followed by a screenshot pass against the same broken branch build.

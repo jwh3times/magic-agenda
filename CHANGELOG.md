@@ -16,9 +16,10 @@ No unreleased changes.
 
 ### Changed
 
-- Promoted the thirteen visual regression canaries into the required `E2E` merge gate after ten
-  consecutive qualifying PRs. Screenshot mismatches now block merging while the diagnostic steps
-  still publish PNG-only refresh artifacts ([#358](https://github.com/jwh3times/magic-agenda/issues/358)).
+- Promoted the thirteen visual regression canaries into the required `E2E` merge gate after the
+  five-PR stability bar was met at #371. Screenshot mismatches now block merging while the
+  diagnostic steps still publish PNG-only refresh artifacts
+  ([#358](https://github.com/jwh3times/magic-agenda/issues/358)).
 
 ## [1.12.11] - 2026-09-15
 
