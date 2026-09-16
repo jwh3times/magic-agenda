@@ -12,6 +12,15 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.12.14] - 2026-09-16
+
+### Changed
+
+- `/handoff` and `/lets-go` now work without the Proton Drive desktop client. On a machine with
+  only the `proton-drive` CLI (Fedora), `HANDOFFS_DIR` is a local mirror that both skills pull from
+  and push to `/my-files/Documents/Handoffs` at the points where the map or a document is read or
+  written. `handoff-map.mjs` is unchanged.
+
 ## [1.12.13] - 2026-09-15
 
 ### Internal
@@ -3420,7 +3429,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.13...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.14...HEAD
+[1.12.14]: https://github.com/jwh3times/magic-agenda/compare/v1.12.13...v1.12.14
 [1.12.13]: https://github.com/jwh3times/magic-agenda/compare/v1.12.12...v1.12.13
 [1.12.12]: https://github.com/jwh3times/magic-agenda/compare/v1.12.11...v1.12.12
 [1.12.11]: https://github.com/jwh3times/magic-agenda/compare/v1.12.10...v1.12.11

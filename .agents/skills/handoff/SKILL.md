@@ -14,6 +14,24 @@ document travels through Proton Drive; `handoff_map.json` beside it records whic
 `scripts/handoff-map.mjs` beside this file owns the folder location, the map key, and the map
 format. Run it with `node`; do not edit the map by hand.
 
+## Transport
+
+Decide once, before step 1, how the folder reaches the cloud. Later steps marked **(CLI mirror
+only)** apply to the second transport alone.
+
+- **Desktop client** — the Proton Drive desktop client (Windows) syncs the folder itself. The
+  default folder exists and `HANDOFFS_DIR` is unset. Skip every CLI step.
+- **CLI mirror** — no desktop client (Fedora). `command -v proton-drive` succeeds, the default
+  folder is absent, and `HANDOFFS_DIR` names a local mirror of the cloud folder
+  `/my-files/Documents/Handoffs`. Nothing moves files on its own: the skill pulls what it reads
+  and pushes what it writes with the `proton-drive` CLI. If `HANDOFFS_DIR` is unset, ask the user
+  to export it in their shell profile and stop. If a CLI command answers `You need to login
+  first`, ask the user to run `proton-drive auth login` and stop.
+
+Every CLI command below names a conflict strategy, because the CLI prompts otherwise and a prompt
+hangs an agent. Downloads use `-f remove` (the cloud copy wins over a stale mirror) and uploads use
+`-f create-new-revision` (the cloud keeps the earlier revision).
+
 ## Steps
 
 ### 1. Audit unmerged work
@@ -39,6 +57,15 @@ uncommitted, unpushed, pushed without a PR, or PR open), then continue with the 
 shipping it is the user's call.
 
 ### 2. Resolve the map entry
+
+**Pull** (CLI mirror only) — fetch the current map before reading it, so the entry reflects the
+other machine's last write:
+
+```bash
+proton-drive filesystem download -f remove /my-files/Documents/Handoffs/handoff_map.json "$HANDOFFS_DIR"
+```
+
+Complete when the transfer summary lists the map as downloaded.
 
 `node <this skill>/scripts/handoff-map.mjs resolve` prints the folder, the map `key` for this
 repo, and its current `active` document. A non-zero exit is a blocker: report its message and
@@ -68,6 +95,16 @@ personal information.
 
 `node <this skill>/scripts/handoff-map.mjs set <file name>`. The script refuses a file that is not
 in the folder and verifies what it wrote. A replaced `previous` document stays in the folder.
+
+**Push** (CLI mirror only) — the new document and the updated map go to the cloud together, so
+the other machine sees an entry only for a document it can download:
+
+```bash
+proton-drive filesystem upload -f create-new-revision -t "$HANDOFFS_DIR/<file name>" "$HANDOFFS_DIR/handoff_map.json" /my-files/Documents/Handoffs
+```
+
+Complete when the transfer summary lists both files as uploaded. An upload that fails leaves the
+map changed locally only; report that and do not continue to step 5 until it succeeds.
 
 ### 5. Close the session
 
