@@ -12,6 +12,15 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.12.14] - 2026-09-16
+
+### Changed
+
+- `/handoff` and `/lets-go` now work without the Proton Drive desktop client. On a machine with
+  only the `proton-drive` CLI (Fedora), `HANDOFFS_DIR` is a local mirror that both skills pull from
+  and push to `/my-files/Documents/Handoffs` at the points where the map or a document is read or
+  written. `handoff-map.mjs` is unchanged.
+
 ## [1.12.13] - 2026-09-15
 
 ### Internal
