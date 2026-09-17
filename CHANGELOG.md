@@ -12,6 +12,34 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.14.0] - 2026-09-17
+
+### Added
+
+- **Undo for board-safe actions (#271).** Completing or reopening a card, deleting a task or a
+  single recurring occurrence, dragging, rolling overdue tasks forward, and every bulk change now
+  show a toast naming what happened ("Completed “Pay rent”", "Moved 3 tasks to Inbox") with an
+  **Undo** button for six seconds.
+  - Undo restores exactly the tasks that action changed. Deleted tasks return with their original
+    identity, and a recurring series the delete retired comes back before its occurrences.
+  - It is last-write-wins: the notice after undoing says your earlier version replaced any change
+    made to those tasks on another device since.
+  - Any later change on this device, or switching Boards, retires the pending undo, so undo never
+    reverts a newer edit or writes into the wrong Board.
+  - Series-wide edits and deletes and task-editor saves are not undoable.
+
+### Changed
+
+- Bulk actions announce their result through the undo toast.
+
+### Internal
+
+- `src/data/undo.ts` (`captureUndo`, `planUndo`) records the prior version of only the rows an
+  action wrote. `useTasks` guards offers with a write generation and the Board, and stamps the
+  drag origin so a cancelled drag's origin is never reused. Known limits, documented in the area
+  guides: undoing a Reopen gets a fresh completion time from the lifecycle trigger, and an undone
+  delete is re-authored by whoever clicked Undo.
+
 ## [1.13.0] - 2026-09-17
 
 ### Added
@@ -3488,7 +3516,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.13.0...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.0...HEAD
+[1.14.0]: https://github.com/jwh3times/magic-agenda/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/jwh3times/magic-agenda/compare/v1.12.16...v1.13.0
 [1.12.16]: https://github.com/jwh3times/magic-agenda/compare/v1.12.15...v1.12.16
 [1.12.15]: https://github.com/jwh3times/magic-agenda/compare/v1.12.14...v1.12.15

@@ -33,7 +33,27 @@ and `fakeAuthGateway`, so interface additions cannot leave partial, untyped retu
 `useTasks` remains the single source of truth for board tasks: optimistic CRUD with rollback, plus
 `persistReorder` (upserts only the changed lanes) and, since #270, `bulkUpdate` / `bulkDelete`.
 These are one batched write per selection, planned by `src/data/bulk.ts` and `planBulkDelete`; see
-[Recurrence](recurrence.md) for how bulk delete treats Occurrences. Its raw React setter is private; drag-over uses
+[Recurrence](recurrence.md) for how bulk delete treats Occurrences.
+
+**Undo (#271) is one level, row-scoped, and owned by `useTasks`.** After a successful
+Complete/Reopen, plain or single-Occurrence delete, drag, roll-forward, or bulk change, the hook
+records the prior version of exactly the rows that action wrote (`captureUndo`,
+`src/data/undo.ts`) and publishes `lastUndo` for `Board`'s 6-second toast. Two rules keep it
+honest. **Any other write from this client forgets the entry**, because undoing past a later edit
+would silently revert that edit. **A drag's "before" is the board when the drag began:**
+`previewReorder` records that origin on its first hover, since by drop time `tasksRef` already holds
+the preview. The origin is stamped with the write generation, a board generation (bumped by
+reloads and remote changes), and the Board, so a cancelled drag's origin can never be inherited by a
+later drag; a drop whose origin went stale offers no undo rather than a wrong one. The same write
+generation closes the in-flight race: an action may offer undo only if no later write started
+while it awaited, or undoing it would revert that later write. An entry also records its Board,
+and switching Boards hides and refuses it, because undo writes with the current `board_id`. A
+re-inserted row is new to the attribution trigger, so an undone delete is re-authored by whoever
+clicked Undo. Undo writes definitions before Occurrences, reconciles returned rows, needs the
+same complete authenticated load as a Series plan, and reloads on failure. It is last-write-wins
+against other devices, and the post-undo notice (`UNDONE_NOTICE`) says so. Series-level
+operations (edit or delete this-and-future, promotion, ending a Series) are excluded, as is any
+editor save. Its raw React setter is private; drag-over uses
 the narrower `previewReorder(next)` command.
 
 Board snapshots are an offline cache, so old data is repaired at its read seam as well as at the

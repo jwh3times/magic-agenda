@@ -1,12 +1,13 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { render, screen, within } from '@testing-library/react'
 import { afterEach, describe, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { ThemeProvider } from '../theme/ThemeProvider'
-import { Board } from './Board'
+import { Board, UNDONE_NOTICE } from './Board'
 import { applyToggleCompletion } from '../data/selectors'
-import { planBulkUpdate } from '../data/bulk'
+import { describeBulkChange, planBulkUpdate } from '../data/bulk'
+import { countTasks, quoted } from '../data/undo'
 import { makeMockTasks } from '../data/mockTasks'
 import { ymd } from '../lib/dates'
 import { OfflineContext } from '../data/offlineContext'
@@ -36,6 +37,14 @@ function Harness({
   bulkFails?: boolean
 }) {
   const [tasks, setTasks] = useState<Task[]>(() => seed ?? makeMockTasks())
+  // Whole-board snapshot undo: enough to exercise the board's toast and wiring. Row-scoped restore
+  // is the data layer's job and is tested in undo.test.ts and useTasks.test.ts.
+  const [undoState, setUndoState] = useState<{ id: number; label: string; prev: Task[] } | null>(
+    null,
+  )
+  const offerUndo = (label: string) =>
+    setUndoState((current) => ({ id: (current?.id ?? 0) + 1, label, prev: tasks }))
+  const dismissUndo = useCallback(() => setUndoState(null), [])
   const taskBoard: TaskBoard = {
     tasks,
     previewReorder: setTasks,
@@ -51,21 +60,41 @@ function Harness({
     },
     updateTask: (task) =>
       setTasks((prev) => prev.map((current) => (current.id === task.id ? task : current))),
-    deleteTask: (id) => setTasks((prev) => prev.filter((task) => task.id !== id)),
-    toggleCompletion: (id) =>
-      setTasks((prev) => applyToggleCompletion(prev, id, '2026-09-03T15:00:00.000Z').tasks),
+    deleteTask: (id) => {
+      const task = tasks.find((t) => t.id === id)
+      if (task) offerUndo(`Deleted ${quoted(task)}`)
+      setTasks((prev) => prev.filter((t) => t.id !== id))
+    },
+    toggleCompletion: (id) => {
+      const next = applyToggleCompletion(tasks, id, '2026-09-03T15:00:00.000Z').tasks
+      const toggled = next.find((t) => t.id === id)
+      if (toggled)
+        offerUndo(`${toggled.status === 'completed' ? 'Completed' : 'Reopened'} ${quoted(toggled)}`)
+      setTasks(next)
+    },
     rollForward: () => {},
     // Plain Tasks only, like saveTask above; Series bulk semantics are tested in series.test.ts.
     bulkUpdate: (ids, change) => {
       if (bulkFails) return false
-      setTasks((prev) => planBulkUpdate(prev, ids, change, '2026-09-03T15:00:00.000Z').tasks)
+      const plan = planBulkUpdate(tasks, ids, change, '2026-09-03T15:00:00.000Z')
+      offerUndo(describeBulkChange(change, plan.changed.length))
+      setTasks(plan.tasks)
       return true
     },
     bulkDelete: (ids) => {
       if (bulkFails) return false
+      offerUndo(`Deleted ${countTasks(tasks.filter((t) => ids.has(t.id)).length)}`)
       setTasks((prev) => prev.filter((task) => !ids.has(task.id)))
       return true
     },
+    lastUndo: undoState && { id: undoState.id, label: undoState.label },
+    undo: () => {
+      if (!undoState) return false
+      setTasks(undoState.prev)
+      setUndoState(null)
+      return true
+    },
+    dismissUndo,
     getTemplate: () => undefined,
   }
   return (
@@ -720,5 +749,48 @@ describe('selection mode', () => {
     await user.click(screen.getByText('Renew passport'))
     await user.keyboard('{/Control}')
     expect(screen.queryByRole('toolbar', { name: 'Bulk actions' })).not.toBeInTheDocument()
+  })
+})
+
+// ——— undo (#271) ———
+
+describe('undo', () => {
+  const undoButton = () => screen.getByRole('button', { name: 'Undo' })
+
+  test('completing a card offers Undo, and Undo reopens it and explains last-write-wins', async () => {
+    const user = userEvent.setup()
+    renderBoard()
+    await user.click(within(cardFor('Call plumber')).getByRole('button', { name: 'Complete' }))
+
+    expect(screen.getByText('Completed “Call plumber”')).toBeInTheDocument()
+    await user.click(undoButton())
+
+    expect(
+      within(cardFor('Call plumber')).getByRole('button', { name: 'Complete' }),
+    ).toBeInTheDocument()
+    expect(await screen.findByText(UNDONE_NOTICE)).toBeInTheDocument()
+  })
+
+  test('a bulk delete can be undone from its toast', async () => {
+    const user = userEvent.setup()
+    renderBoard()
+    await user.click(screen.getByRole('button', { name: '☑ Select' }))
+    await user.click(screen.getByText('Call plumber'))
+    await user.click(screen.getByText('Pay rent'))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm delete' }))
+
+    expect(await screen.findByText('Deleted 2 tasks')).toBeInTheDocument()
+    await user.click(undoButton())
+    expect(screen.getByText('Call plumber')).toBeInTheDocument()
+    expect(screen.getByText('Pay rent')).toBeInTheDocument()
+  })
+
+  test('dismissing the toast forgets the action', async () => {
+    const user = userEvent.setup()
+    renderBoard()
+    await user.click(within(cardFor('Call plumber')).getByRole('button', { name: 'Complete' }))
+    await user.click(screen.getByRole('button', { name: 'Dismiss' }))
+    expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument()
   })
 })

@@ -25,6 +25,9 @@ entered; and Archive is its own transition, where the **first** one is stamped b
 supplied instant cannot backdate it and staying Archived preserves the original. The single
 exception is INSERT, which keeps a supplied `completed_at` and `archived_at` — that is how a v3
 backup restores the instants its file recorded, and the only case where a client value survives.
+Undo (#271) inherits both halves. Undoing a **delete** re-inserts the row, so its recorded
+Completion instant returns intact. Undoing a **Reopen** is an UPDATE back to Completed, so the
+trigger stamps that Completion afresh, and the original instant is not recovered.
 
 Three named invariants back the trigger up: `tasks_completed_at_matches_status`
 (`completed_at` present exactly when the status is `done`), `tasks_archived_at_requires_completed`,

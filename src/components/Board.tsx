@@ -34,7 +34,6 @@ import { ShortcutHelp } from './ShortcutHelp'
 import { Toast } from './Toast'
 import { BulkActionBar } from './BulkActionBar'
 import { planBulkUpdate, type BulkChange } from '../data/bulk'
-import { STATUS } from '../theme/constants'
 import { useKeyboardShortcuts } from '../lib/useKeyboardShortcuts'
 import type { ShortcutAction } from '../lib/keyboardShortcuts'
 import { dateOrderForLocale, parseQuickAdd } from '../data/quickAdd'
@@ -90,6 +89,13 @@ const DND_INSTRUCTIONS: ScreenReaderInstructions = {
     Press space again to drop it in its new position, or press escape to cancel.
   `,
 }
+
+/**
+ * Said after every undo, because undo is last-write-wins (#271): it restores this device's earlier
+ * version of the affected tasks, over anything another device changed on them in the meantime.
+ */
+export const UNDONE_NOTICE =
+  'Undone. Your earlier version is back, replacing any change made to those tasks on another device since.'
 
 const VIEWS: ViewOption[] = [
   { key: 'calendar', label: 'Calendar' },
@@ -274,41 +280,30 @@ export function Board({
     setEditing({ task: t, isNew: false })
   }
 
-  const plural = (n: number) => `${n} ${n === 1 ? 'task' : 'tasks'}`
-  // Both bulk actions announce only what actually happened: the count is the Tasks the change
-  // alters (not everything selected), and nothing is announced, and selection is not left, until
-  // the data layer reports the write succeeded. A refusal or rollback surfaces its own error.
+  const toastBottom = selectionActive ? barHeight + (isMobile ? 12 : 20 + 12) : 20
+  // A successful bulk action is announced by its undo toast (#271), whose label counts only the
+  // Tasks it altered. A change that would alter nothing says so instead of writing, and a refused
+  // or rolled-back write announces nothing and keeps the selection; its error surfaces on its own.
   const applyBulk = (change: BulkChange) => {
     if (selection.size === 0) return
     const altered = planBulkUpdate(tasks, selection, change, new Date().toISOString()).changed
-      .length
-    if (altered === 0) {
+    if (altered.length === 0) {
+      // The undo toast outranks a notice, so step it aside or this feedback would wait behind it.
+      taskBoard.dismissUndo()
       setNotice('The selected tasks already have that.')
       return
     }
-    const count = plural(altered)
-    const message =
-      change.kind === 'day'
-        ? `Moved ${count} to ${whenLabel(change.day)}`
-        : change.kind === 'status'
-          ? `Set ${count} to ${STATUS.find((s) => s.key === change.status)?.label ?? change.status}`
-          : `Recolored ${count}`
-    void Promise.resolve(taskBoard.bulkUpdate(selection, change)).then((ok) => {
-      if (ok) setNotice(message)
-    })
+    void taskBoard.bulkUpdate(selection, change)
   }
   const deleteSelection = () => {
     if (selection.size === 0) return
-    const occurrences = visibleTasks.filter((t) => selection.has(t.id) && t.recurParentId).length
-    const message =
-      `Deleted ${plural(selection.size)}` +
-      (occurrences > 0
-        ? `. ${occurrences} recurring ${occurrences === 1 ? 'occurrence' : 'occurrences'} will not come back.`
-        : '')
     void Promise.resolve(taskBoard.bulkDelete(selection)).then((ok) => {
-      if (!ok) return
-      setNotice(message)
-      exitSelection()
+      if (ok) exitSelection()
+    })
+  }
+  const undoLast = () => {
+    void Promise.resolve(taskBoard.undo()).then((ok) => {
+      if (ok) setNotice(UNDONE_NOTICE)
     })
   }
 
@@ -579,13 +574,27 @@ export function Board({
             onHeightChange={setBarHeight}
           />
         )}
-        {notice && (
+        {taskBoard.lastUndo ? (
+          // Keyed by the action, so each new undoable action restarts the 6-second window even
+          // when its label repeats (completing two tasks with the same title).
           <Toast
+            key={taskBoard.lastUndo.id}
             tone="info"
-            message={notice}
-            onDismiss={() => setNotice(null)}
-            bottom={selectionActive ? barHeight + (isMobile ? 12 : 20 + 12) : 20}
+            message={taskBoard.lastUndo.label}
+            duration={6000}
+            onDismiss={taskBoard.dismissUndo}
+            action={readOnly ? undefined : { label: 'Undo', onClick: undoLast }}
+            bottom={toastBottom}
           />
+        ) : (
+          notice && (
+            <Toast
+              tone="info"
+              message={notice}
+              onDismiss={() => setNotice(null)}
+              bottom={toastBottom}
+            />
+          )
         )}
       </div>
     </BoardActionContext.Provider>
