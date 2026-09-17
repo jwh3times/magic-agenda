@@ -12,6 +12,14 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.12.16] - 2026-09-17
+
+### Docs
+
+- `docs/agents/testing.md` no longer says `app_private` is unbuilt. The schema has existed since
+  account administration added `is_admin()`, and the admin dashboard (v1.12.15) added
+  `require_admin_session()` beside it.
+
 ## [1.12.15] - 2026-09-16
 
 ### Added
@@ -3455,7 +3463,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.15...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.16...HEAD
+[1.12.16]: https://github.com/jwh3times/magic-agenda/compare/v1.12.15...v1.12.16
 [1.12.15]: https://github.com/jwh3times/magic-agenda/compare/v1.12.14...v1.12.15
 [1.12.14]: https://github.com/jwh3times/magic-agenda/compare/v1.12.13...v1.12.14
 [1.12.13]: https://github.com/jwh3times/magic-agenda/compare/v1.12.12...v1.12.13
