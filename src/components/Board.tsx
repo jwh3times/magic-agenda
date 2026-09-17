@@ -32,6 +32,9 @@ import { SearchFilterBar } from './SearchFilterBar'
 import { CommandPalette, type PaletteCommand } from './CommandPalette'
 import { ShortcutHelp } from './ShortcutHelp'
 import { Toast } from './Toast'
+import { BulkActionBar } from './BulkActionBar'
+import type { BulkChange } from '../data/bulk'
+import { STATUS } from '../theme/constants'
 import { useKeyboardShortcuts } from '../lib/useKeyboardShortcuts'
 import type { ShortcutAction } from '../lib/keyboardShortcuts'
 import { dateOrderForLocale, parseQuickAdd } from '../data/quickAdd'
@@ -40,7 +43,7 @@ import { applyFilters, isFilterActive, EMPTY_FILTER, type FilterQuery } from '..
 import { isArchived } from '../data/completion'
 import { overdueTasks } from '../data/selectors'
 import type { ViewOption } from './ViewSwitcher'
-import { BoardActionContext, type BoardActions } from './boardActionContext'
+import { BoardActionContext, type BoardActions, type OpenOptions } from './boardActionContext'
 import { useTaskBoard } from '../data/taskBoardContext'
 import {
   INBOX,
@@ -156,6 +159,9 @@ export function Board({
   const [helpOpen, setHelpOpen] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
+  // Selection mode (#270). Ids are kept as chosen; `selection` below narrows them to what is shown.
+  const [selecting, setSelecting] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set())
   // Numeric quick-add dates ("3/4") follow the browser's locale, by the maintainer's decision.
   const dateOrder = useMemo(() => dateOrderForLocale(), [])
 
@@ -180,6 +186,28 @@ export function Board({
     [visibleOverdue, today],
   )
   const overdueCount = visibleOverdue.length
+
+  // Only cards the user can see count as selected: a filter change or a remote delete must never
+  // leave a hidden Task inside the next bulk action. Offline, selection mode is off altogether.
+  const selectionActive = selecting && !readOnly
+  const selection = useMemo<ReadonlySet<string>>(
+    () =>
+      selectionActive
+        ? new Set(visibleTasks.filter((t) => selectedIds.has(t.id)).map((t) => t.id))
+        : new Set(),
+    [selectionActive, visibleTasks, selectedIds],
+  )
+  const exitSelection = () => {
+    setSelecting(false)
+    setSelectedIds(new Set())
+  }
+  const toggleSelected = (id: string) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
 
   const dnd = useBoardDnd(view, tasks, taskBoard.previewReorder, taskBoard.persistReorder)
 
@@ -223,7 +251,12 @@ export function Board({
     setEditing(null)
   }
 
-  const openTask = (task: Task) => {
+  const openTask = (task: Task, options?: OpenOptions) => {
+    if (!readOnly && (selecting || options?.additive)) {
+      setSelecting(true)
+      toggleSelected(task.id)
+      return
+    }
     let t: TaskDraft = task
     if (task.recurParentId) {
       const tmpl = taskBoard.getTemplate(task.recurParentId)
@@ -238,9 +271,36 @@ export function Board({
     setEditing({ task: t, isNew: false })
   }
 
+  const plural = (n: number) => `${n} ${n === 1 ? 'task' : 'tasks'}`
+  const applyBulk = (change: BulkChange) => {
+    if (selection.size === 0) return
+    void taskBoard.bulkUpdate(selection, change)
+    const count = plural(selection.size)
+    setNotice(
+      change.kind === 'day'
+        ? `Moved ${count} to ${whenLabel(change.day)}`
+        : change.kind === 'status'
+          ? `Set ${count} to ${STATUS.find((s) => s.key === change.status)?.label ?? change.status}`
+          : `Recolored ${count}`,
+    )
+  }
+  const deleteSelection = () => {
+    if (selection.size === 0) return
+    const occurrences = visibleTasks.filter((t) => selection.has(t.id) && t.recurParentId).length
+    void taskBoard.bulkDelete(selection)
+    setNotice(
+      `Deleted ${plural(selection.size)}` +
+        (occurrences > 0
+          ? `. ${occurrences} recurring ${occurrences === 1 ? 'occurrence' : 'occurrences'} will not come back.`
+          : ''),
+    )
+    exitSelection()
+  }
+
   const actions: BoardActions = {
     popId,
     onOpen: openTask,
+    selectedIds: selectionActive ? selection : undefined,
     // Undefined (not a no-op) while read-only: TaskCard already falls back to a non-interactive
     // <span> when no handler is passed, so this is the existing affordance, not a new one.
     onToggleCompletion: readOnly ? undefined : handleToggle,
@@ -301,6 +361,15 @@ export function Board({
       run: () => setTheme(t.key),
     })),
     { id: 'search', label: 'Search tasks', run: focusSearch },
+    ...(readOnly
+      ? []
+      : [
+          {
+            id: 'select',
+            label: selecting ? 'Stop selecting tasks' : 'Select tasks',
+            run: () => (selecting ? exitSelection() : setSelecting(true)),
+          },
+        ]),
     { id: 'help', label: 'Keyboard shortcuts', run: () => setHelpOpen(true) },
   ]
 
@@ -326,6 +395,19 @@ export function Board({
         break
     }
   }
+  // Escape leaves selection mode, unless a dialog that owns Escape is open over the board.
+  const escapeExits = selectionActive && !paletteOpen && !helpOpen && editing === null
+  useEffect(() => {
+    if (!escapeExits) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      setSelecting(false)
+      setSelectedIds(new Set())
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [escapeExits])
+
   useKeyboardShortcuts({
     characterShortcuts: keyboardShortcuts,
     // A keyboard drag counts as blocking too: "t" mid-drag would move the calendar under the card
@@ -363,7 +445,15 @@ export function Board({
           />
         )}
 
-        <SearchFilterBar query={filter} onChange={setFilter} searchInputRef={searchRef} />
+        <SearchFilterBar
+          query={filter}
+          onChange={setFilter}
+          searchInputRef={searchRef}
+          selecting={selectionActive}
+          onToggleSelect={
+            readOnly ? undefined : () => (selecting ? exitSelection() : setSelecting(true))
+          }
+        />
 
         <DndContext
           accessibility={{ screenReaderInstructions: DND_INSTRUCTIONS }}
@@ -374,7 +464,9 @@ export function Board({
           onDragEnd={dnd.onDragEnd}
           onDragCancel={dnd.onDragCancel}
         >
-          <DragDisabledContext.Provider value={filterActive || readOnly}>
+          {/* Selection claims clicks and Enter, so drag is off while it lasts — via this context,
+              never by changing the sensors array (see docs/agents/drag-and-drop.md). */}
+          <DragDisabledContext.Provider value={filterActive || readOnly || selectionActive}>
             <main
               style={{
                 display: 'flex',
@@ -450,7 +542,23 @@ export function Board({
             onOpenSettings={onOpenSettings}
           />
         )}
-        {notice && <Toast tone="info" message={notice} onDismiss={() => setNotice(null)} />}
+        {selectionActive && (
+          <BulkActionBar
+            count={selection.size}
+            today={today}
+            onApply={applyBulk}
+            onDelete={deleteSelection}
+            onDone={exitSelection}
+          />
+        )}
+        {notice && (
+          <Toast
+            tone="info"
+            message={notice}
+            onDismiss={() => setNotice(null)}
+            bottom={selectionActive ? (isMobile ? 150 : 90) : 20}
+          />
+        )}
       </div>
     </BoardActionContext.Provider>
   )

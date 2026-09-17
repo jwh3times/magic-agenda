@@ -26,7 +26,9 @@ export interface SortableCardProps {
 export function SortableCard({ task, variant }: SortableCardProps) {
   const disabled = useContext(DragDisabledContext)
   const { setNodeRef, attributes, listeners, isDragging } = useSortable({ id: task.id, disabled })
-  const onOpen = useBoardActions()?.onOpen
+  const actions = useBoardActions()
+  const onOpen = actions?.onOpen
+  const selectedIds = actions?.selectedIds
   const { conf } = useTheme()
   const [focused, setFocused] = useState(false)
 
@@ -65,6 +67,9 @@ export function SortableCard({ task, variant }: SortableCardProps) {
       onBlur={() => setFocused(false)}
       {...attributes}
       {...listeners}
+      // In selection mode Enter toggles instead of opening (Board decides), and the button reports
+      // whether this card is selected. Outside it, no pressed state is claimed at all.
+      aria-pressed={selectedIds ? selectedIds.has(task.id) : undefined}
       onKeyDown={onKeyDown}
     >
       <TaskCard

@@ -78,7 +78,7 @@ describe('planBulkUpdate: move to a day', () => {
       atTime: '09:30',
       recurParentId: 'series',
       occurrenceDate: '2026-09-17',
-    } as Partial<Task>)
+    })
     const { changed } = planBulkUpdate([occurrence], ids('o'), { kind: 'day', day: INBOX }, NOW)
     expect(changed[0]).toMatchObject({
       day: INBOX,

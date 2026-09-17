@@ -152,6 +152,17 @@ cut)`, which counts by Occurrence Date and requires `state.tasks` to be the whol
   exclusion (capped in the past, its Occurrence Dates never materialized because the window starts
   at today) is not spent by this test, and catching it would cost the clock-free property for a case
   that is narrow in practice.
+- **Bulk delete (#270) is `planDeleteOccurrence` at scale, and must stay that.** `planBulkDelete`
+  groups the selected Occurrences by Series and writes **one** definition update per Series
+  carrying every new Excluded Date. N separate single-delete plans would race N upserts of the same
+  row, and the last to land would keep only its own exclusion, so the other deleted Occurrences
+  would be re-materialized. A Series the selection spends is retired by the same `ruleIsSpent`
+  test, against the state the bulk delete produces. Its definition deletion cascades, so its
+  Occurrences are left out of the batched `{ by: 'ids' }` row deletion. Failure handling and the
+  whole-board precondition match the single delete. `useTasks.bulkDelete` sends a selection of
+  plain Tasks straight to one `.delete().in('id', …)` and routes anything touching a Series through
+  `runPlan`, so the complete-load gate still applies. Bulk move, status, and color
+  (`src/data/bulk.ts`) change Occurrences as This Occurrence, exactly as a drag does.
 - **`FailureHandling` is two independent questions** (`abort` and `recover`) because the original
   behaviour answered them independently: a failed content upsert aborts the trim that follows it,
   while a failed `excludedDates` write must _not_ stop the occurrence being deleted.

@@ -17,7 +17,10 @@ export function Toast({
   duration = 4500,
   tone = 'error',
   action,
+  bottom = 20,
 }: {
+  /** Distance from the viewport bottom, raised while the bulk action bar occupies it. */
+  bottom?: number
   message: string
   onDismiss: () => void
   duration?: number
@@ -38,7 +41,7 @@ export function Toast({
       role={tone === 'error' ? 'alert' : 'status'}
       style={{
         position: 'fixed',
-        bottom: 20,
+        bottom,
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 9500,
