@@ -74,8 +74,10 @@ both `security definer`) are hardened the same way from birth. `create_board` is
 in `public` rather than `app_private`, which the baseline's own docstring now spells out as a second
 case rather than an exception: a **policy helper** belongs in `app_private`, but a **client-invoked
 RPC** cannot live there at all, because `[api] schemas` lists only `public` and `graphql_public` and
-PostgREST refuses an unlisted schema with `PGRST106` even for `service_role`. `app_private` is
-therefore still unbuilt, and the first co-member predicate remains what introduces it.
+PostgREST refuses an unlisted schema with `PGRST106` even for `service_role`. `app_private` now
+exists: account administration introduced it for `is_admin()`, and the admin dashboard added
+`require_admin_session()` beside it. The two dashboard RPCs, `admin_stats()` and `admin_users()`,
+follow `create_board` into `public` (see [Boards](boards.md)).
 Each remaining weakness is tolerable for a specific reason stated in the file; recording them is
 what turns "someday" into a line someone has to delete. A baseline that _shrinks_ is a failure too:
 that means it is stale and the smaller set must be committed.
