@@ -12,6 +12,32 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.12.15] - 2026-09-16
+
+### Added
+
+- **Admin dashboard at `/admin` (#274).** Administrators get an **Admin** link in Settings that
+  opens aggregate statistics (Accounts, recent sign-ins, two-factor adoption, Boards, Tasks,
+  completed Tasks, recurring series, and a 30-day UTC series of new Accounts and Tasks), a paged
+  account list (email, sign-up and last sign-in dates, two-factor status, role, and owned Board and
+  Task counts), and toggles for existing feature flags. **It never shows Task content**: the
+  database functions behind it return only counts, dates, and account identity.
+
+### Security
+
+- The new `admin_stats()` and `admin_users(page_limit, page_offset)` functions are the boundary,
+  not the route. They refuse unless the caller holds a live admin role on a two-factor (`aal2`)
+  session **and** the verified factor existed before that session began, so a stolen password-only
+  session cannot enrol its own factor and step itself up. The runbook now requires a verified
+  factor before the admin role is granted. Administration still grants no access to any Board.
+
+### Internal
+
+- `tests/rls/admin_dashboard.test.ts` enrols real TOTP factors against the local stack and proves
+  every refusal path (`42501`), exact count changes, the returned column set, paging bounds, and
+  immediate role revocation. The function-posture baseline records the two RPCs and their private
+  helper.
+
 ## [1.12.14] - 2026-09-16
 
 ### Changed
@@ -3429,7 +3455,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.14...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.15...HEAD
+[1.12.15]: https://github.com/jwh3times/magic-agenda/compare/v1.12.14...v1.12.15
 [1.12.14]: https://github.com/jwh3times/magic-agenda/compare/v1.12.13...v1.12.14
 [1.12.13]: https://github.com/jwh3times/magic-agenda/compare/v1.12.12...v1.12.13
 [1.12.12]: https://github.com/jwh3times/magic-agenda/compare/v1.12.11...v1.12.12

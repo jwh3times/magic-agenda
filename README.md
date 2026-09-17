@@ -199,7 +199,7 @@ src/
 ├─ labels/       selected-Board Label directory, presentation, offline read path, and Owner-only
 │                management (create/rename/recolor/reorder/delete)
 ├─ lib/          supabase client, date + id helpers
-├─ pages/        Login, AuthCallback, AuthConfirm, ResetPassword, SettingsPage, BoardPage
+├─ pages/        Login, AuthCallback, AuthConfirm, ResetPassword, SettingsPage, BoardPage, AdminPage
 ├─ theme/        constants, per‑theme tokens, card styles, ThemeProvider
 └─ types/        domain + generated database types
 supabase/migrations/   SQL schema (CLI‑managed)
