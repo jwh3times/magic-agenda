@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest'
 import { withPg } from './helpers'
+import reviewed from '../../supabase/reviewed-functions.json'
 
 /**
  * Security baselines: the schema's current security posture, asserted by strict equality.
@@ -41,10 +42,12 @@ import { withPg } from './helpers'
  * removal was the stale-client fail-closed mechanism, not a cleanup chore: with it in place a
  * second Board would have meant a pre-cutover insert landing in an arbitrary one.
  *
- * `set_updated_at` is the one function still carrying the default ACL. It stays that way knowingly:
- * it is an invoker trigger function, so `PUBLIC` executing it borrows no privilege, and a direct
- * call fails for want of a trigger context. It would matter the moment it became `security
- * definer`, which is exactly the change this baseline would catch.
+ * `set_updated_at` used to be the one function still carrying PostgreSQL's default `PUBLIC`
+ * EXECUTE, tolerated because an invoker trigger function borrows no privilege and a direct call
+ * fails for want of a trigger context. #384 retired that exception: it is owner-only now, like the
+ * four other invoker trigger functions here, which is possible because EXECUTE on a trigger
+ * function is checked when the trigger is created rather than each time it fires. Its
+ * `search_path` is still unset, which the Supabase advisor reports and this baseline records.
  *
  * `create_board(text)` is `security definer` in `public`, and that is deliberate rather than a
  * lapse. It must insert a `boards` row and its Owner `board_memberships` row together — a Board
@@ -65,88 +68,27 @@ import { withPg } from './helpers'
  * This distinction was added with `create_board`; the single-case version of the rule above it
  * would have flagged a correct function as an error.
  *
+ * **A new function migration must revoke from `anon` and `service_role` explicitly, never only
+ * from `public` (#384).** `revoke ... from public` removes PostgreSQL's built-in PUBLIC EXECUTE
+ * and nothing else, which is enough on a fresh stack and not enough in production: production
+ * carries legacy `pg_default_acl` entries granting the three API roles EXECUTE on every function
+ * created in `public`, so six functions here drifted while this test stayed green. The expectation
+ * now lives in `supabase/reviewed-functions.json` and is shared with
+ * `scripts/verify-function-grants.mjs`, which asserts it against **production** after every
+ * `Deploy Migrations` run — because this test structurally cannot.
+ *
  * `admin_stats()` and `admin_users(integer, integer)` (#274) are client-invoked definer RPCs of the
  * second kind, returning aggregate counts and account identity but never Task content. Their shared
  * check, `app_private.require_admin_session()`, carries **no** grant at all: it is called only from
  * inside those definer bodies, where the executing role is the owner, so no API role needs it.
  */
-const REVIEWED_FUNCTIONS: Record<
-  string,
-  { secdef: boolean; config: string; explicitAcl: boolean; executeGrantees: string }
-> = {
-  'admin_stats()': {
-    secdef: true,
-    config: 'search_path=""',
-    explicitAcl: true,
-    executeGrantees: 'authenticated',
-  },
-  'admin_users(integer,integer)': {
-    secdef: true,
-    config: 'search_path=""',
-    explicitAcl: true,
-    executeGrantees: 'authenticated',
-  },
-  'app_private.is_admin()': {
-    secdef: true,
-    config: 'search_path=""',
-    explicitAcl: true,
-    executeGrantees: 'authenticated',
-  },
-  'app_private.require_admin_session()': {
-    secdef: false,
-    config: 'search_path=""',
-    explicitAcl: true,
-    executeGrantees: '(owner only)',
-  },
-  'create_board(text)': {
-    secdef: true,
-    config: 'search_path=""',
-    explicitAcl: true,
-    executeGrantees: 'authenticated',
-  },
-  'enforce_reminder_preferences()': {
-    secdef: false,
-    config: 'search_path=""',
-    explicitAcl: true,
-    executeGrantees: '(owner only)',
-  },
-  'enforce_task_completion_lifecycle()': {
-    secdef: false,
-    config: 'search_path=""',
-    explicitAcl: true,
-    executeGrantees: '(owner only)',
-  },
-  'handle_account_deletion()': {
-    secdef: true,
-    config: 'search_path=""',
-    explicitAcl: true,
-    executeGrantees: '(owner only)',
-  },
-  'handle_new_user()': {
-    secdef: true,
-    config: 'search_path=""',
-    explicitAcl: true,
-    executeGrantees: '(owner only)',
-  },
-  'reminder_candidate_rows()': {
-    secdef: true,
-    config: 'search_path=""',
-    explicitAcl: true,
-    executeGrantees: 'service_role',
-  },
-  'stamp_task_attribution()': {
-    secdef: false,
-    config: 'search_path=""',
-    explicitAcl: true,
-    executeGrantees: '(owner only)',
-  },
-  'set_updated_at()': {
-    secdef: false,
-    config: '(none)',
-    explicitAcl: false,
-    executeGrantees: 'PUBLIC',
-  },
+type ReviewedFunction = {
+  secdef: boolean
+  config: string
+  explicitAcl: boolean
+  executeGrantees: string
 }
+const REVIEWED_FUNCTIONS = reviewed.functions as Record<string, ReviewedFunction>
 
 test('the security posture of every application function is the reviewed one', async () => {
   const rows = await withPg(async (pg) => {

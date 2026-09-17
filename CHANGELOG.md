@@ -12,6 +12,26 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.14.1] - 2026-09-17
+
+### Security
+
+- **Production's function permissions now match the reviewed baseline (#384).** Seven database
+  functions could be executed by the public API roles in production but not on a local stack, so
+  the required check that asserts this posture could not see it. Nothing was exploitable — the one
+  client-callable function refuses a signed-out caller, and the rest are trigger functions
+  PostgreSQL will not call directly — but a future function would have inherited the same grant.
+  The migration also stops new functions inheriting it, and retires the last function executable by
+  `PUBLIC`.
+
+### Internal
+
+- The expectation moved to `supabase/reviewed-functions.json`, shared by two checks that see
+  different databases: the local `RLS` job and `scripts/verify-function-grants.mjs`, which
+  `Deploy Migrations` now runs against production after every push. A new function migration must
+  revoke from `anon` and `service_role` explicitly, not only from `public`; `AGENTS.md` and the
+  testing guide record the rule and the measured reason for it.
+
 ## [1.14.0] - 2026-09-17
 
 ### Added
@@ -3516,7 +3536,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.0...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.1...HEAD
+[1.14.1]: https://github.com/jwh3times/magic-agenda/compare/v1.14.0...v1.14.1
 [1.14.0]: https://github.com/jwh3times/magic-agenda/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/jwh3times/magic-agenda/compare/v1.12.16...v1.13.0
 [1.12.16]: https://github.com/jwh3times/magic-agenda/compare/v1.12.15...v1.12.16
