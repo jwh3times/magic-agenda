@@ -1266,3 +1266,86 @@ test('undo refuses on a board that has not completed an authenticated load', asy
   expect(ok).toBe(false)
   expect(result.current.error).toBe('Reload the complete Board before undoing.')
 })
+
+test('an undo recorded on one Board is hidden and refused after switching Boards', async () => {
+  const { result, rerender } = renderHook(({ board }) => useTasks('u1', board, true), {
+    initialProps: { board: 'b1' },
+  })
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  await act(async () => {
+    await result.current.toggleCompletion('t1')
+  })
+  expect(result.current.lastUndo).not.toBeNull()
+
+  rerender({ board: 'b2' })
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  expect(result.current.lastUndo).toBeNull()
+  h.upsert.mockClear()
+  let ok = true
+  await act(async () => {
+    ok = await result.current.undo()
+  })
+  expect(ok).toBe(false)
+  expect(h.upsert).not.toHaveBeenCalled()
+})
+
+test('an action still saving when a later write starts offers no undo', async () => {
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  let finish!: () => void
+  h.writeSelect.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = () => resolve({ data: null, error: null })
+      }),
+  )
+  let toggling!: void | Promise<void>
+  act(() => {
+    toggling = result.current.toggleCompletion('t1')
+  })
+  await act(async () => {
+    await result.current.updateTask({ ...result.current.tasks[0], title: 'edited meanwhile' })
+  })
+  await act(async () => {
+    finish()
+    await toggling
+  })
+  expect(result.current.lastUndo).toBeNull()
+})
+
+test('a drag origin left by a cancelled drag is not inherited after a reload', async () => {
+  h.capture.rows = [
+    serverRow({ id: 't1', title: 'dragged', day: '2026-07-01', order_index: 0 }),
+    serverRow({ id: 't2', day: '2026-07-02', order_index: 0 }),
+  ]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  // A drag that hovers and is cancelled: an origin is recorded, nothing persists.
+  act(() =>
+    result.current.previewReorder(
+      result.current.tasks.map((t) => (t.id === 't1' ? { ...t, day: '2026-07-03' } : t)),
+    ),
+  )
+  // The server now has t1 elsewhere; a reload brings that in.
+  h.capture.rows = [
+    serverRow({ id: 't1', title: 'dragged', day: '2026-07-05', order_index: 0 }),
+    serverRow({ id: 't2', day: '2026-07-02', order_index: 0 }),
+  ]
+  await act(async () => {
+    await result.current.reload()
+  })
+
+  const board = result.current.tasks
+  const moved = board.map((t) => (t.id === 't1' ? { ...t, day: '2026-07-02', order: 1 } : t))
+  act(() => result.current.previewReorder(moved))
+  await act(async () => {
+    await result.current.persistReorder(moved, ['2026-07-05', '2026-07-02'], 'day')
+  })
+  await act(async () => {
+    await result.current.undo()
+  })
+  // Restored to where the reload put it, not to the stale pre-cancel origin.
+  expect(result.current.tasks.find((t) => t.id === 't1')?.day).toBe('2026-07-05')
+})

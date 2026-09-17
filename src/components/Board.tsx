@@ -288,6 +288,8 @@ export function Board({
     if (selection.size === 0) return
     const altered = planBulkUpdate(tasks, selection, change, new Date().toISOString()).changed
     if (altered.length === 0) {
+      // The undo toast outranks a notice, so step it aside or this feedback would wait behind it.
+      taskBoard.dismissUndo()
       setNotice('The selected tasks already have that.')
       return
     }

@@ -154,28 +154,71 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
   // One level: the latest undoable action. Any other write from this client forgets it, since
   // undoing past a later edit would silently revert that edit too. Remote changes do not forget it;
   // undo is last-write-wins against another device, and the toast says so.
-  const [undoable, setUndoable] = useState<{ id: number; entry: UndoEntry } | null>(null)
+  //
+  // Every write takes a generation from `forgetUndo()` before it awaits, and may offer undo only if
+  // no later write has started since. Without that, a slow Complete could offer undo *after* an
+  // editor save to the same Task began, and undoing would revert the save.
+  //
+  // An entry belongs to the Board it was recorded on. Switching Boards hides and refuses it: undo
+  // writes rows with the current `boardId`, so restoring Board A's rows on Board B would move or
+  // re-insert them there.
+  const [undoable, setUndoable] = useState<{
+    id: number
+    boardId: string
+    entry: UndoEntry
+  } | null>(null)
   const undoSeq = useRef(0)
+  const writeGen = useRef(0)
+  // Bumped by anything that changes the board without a local write: a reload or a remote change.
+  const boardGen = useRef(0)
   // The board as it was when the current drag began. `previewReorder` replaces state on every
-  // hover, so by the time a drop persists, `tasksRef` already holds the moved board.
-  const dragOrigin = useRef<Task[] | null>(null)
+  // hover, so by the time a drop persists, `tasksRef` already holds the moved board. Stamped with
+  // both generations and the Board, because a drag can be cancelled without persisting: a later
+  // drag must not inherit an origin that predates writes, reloads, or remote changes since.
+  const dragOrigin = useRef<{
+    writeGen: number
+    boardGen: number
+    boardId: string
+    tasks: Task[]
+  } | null>(null)
+  const originIsCurrent = useCallback(
+    (origin: typeof dragOrigin.current): origin is NonNullable<typeof origin> =>
+      origin !== null &&
+      origin.writeGen === writeGen.current &&
+      origin.boardGen === boardGen.current &&
+      origin.boardId === boardId,
+    [boardId],
+  )
 
-  const offerUndo = useCallback((label: string, before: SeriesState, ids: Iterable<string>) => {
-    undoSeq.current += 1
-    setUndoable({ id: undoSeq.current, entry: captureUndo(label, before, ids) })
-  }, [])
   const forgetUndo = useCallback(() => {
+    writeGen.current += 1
     setUndoable(null)
     dragOrigin.current = null
+    return writeGen.current
   }, [])
+  const offerUndo = useCallback(
+    (generation: number, label: string, before: SeriesState, ids: Iterable<string>) => {
+      if (generation !== writeGen.current) return
+      undoSeq.current += 1
+      setUndoable({ id: undoSeq.current, boardId, entry: captureUndo(label, before, ids) })
+    },
+    [boardId],
+  )
   const dismissUndo = useCallback(() => setUndoable(null), [])
 
   const previewReorder = useCallback(
     (next: Task[]) => {
-      dragOrigin.current ??= tasksRef.current
+      if (!originIsCurrent(dragOrigin.current)) {
+        dragOrigin.current = {
+          writeGen: writeGen.current,
+          boardGen: boardGen.current,
+          boardId,
+          tasks: tasksRef.current,
+        }
+      }
       setTasks(next)
     },
-    [setTasks],
+    [setTasks, originIsCurrent, boardId],
   )
 
   /**
@@ -257,6 +300,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     // which would materialize the same instances twice and hit the unique index.
     if (inFlight.current) return
     inFlight.current = true
+    boardGen.current += 1
     hasLoadedFromServer.current = false
     setLoading(true)
     setError(null)
@@ -339,6 +383,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     (payload: ChangePayload) => {
       const change = payloadToChange(payload as RealtimePostgresChangesPayload<TaskRow>)
       if (!change) return
+      boardGen.current += 1
       // Functional update: bursts of events (a series creation is a template + many instance
       // frames before a render flush) must compose through React's queue — a value-form dispatch
       // computed from tasksRef would drop all but the first and last. Same-reference returns
@@ -465,7 +510,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
 
   const toggleCompletion = useCallback(
     async (id: string) => {
-      forgetUndo()
+      const generation = forgetUndo()
       const prev = tasksRef.current
       const before = { tasks: prev, templates: templatesRef.current }
       const { tasks: next } = applyToggleCompletion(prev, id, new Date().toISOString())
@@ -482,7 +527,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         if (err) throw new Error(err.message)
         reconcileReturnedRows(data)
         const verb = toggled.status === 'completed' ? 'Completed' : 'Reopened'
-        offerUndo(`${verb} ${quoted(toggled)}`, before, [id])
+        offerUndo(generation, `${verb} ${quoted(toggled)}`, before, [id])
       } catch (e) {
         setTasks(prev)
         setError(errorMessage(e))
@@ -493,8 +538,8 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
 
   const persistReorder = useCallback(
     async (next: Task[], containers: string[], mode: Mode) => {
-      const origin = dragOrigin.current
-      forgetUndo()
+      const origin = originIsCurrent(dragOrigin.current) ? dragOrigin.current.tasks : null
+      const generation = forgetUndo()
       setTasks(next)
       const moved = next.filter((t) => containers.includes(mode === 'day' ? t.day : t.status))
       const rows = moved.map((t) => taskToRow(t, boardId))
@@ -514,6 +559,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
           })
           const label = relocated.length === 1 ? `Moved ${quoted(relocated[0])}` : 'Reordered tasks'
           offerUndo(
+            generation,
             label,
             { tasks: origin, templates: templatesRef.current },
             moved.map((t) => t.id),
@@ -524,12 +570,21 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         void reload()
       }
     },
-    [setTasks, boardId, reload, markWrites, reconcileReturnedRows, forgetUndo, offerUndo],
+    [
+      setTasks,
+      boardId,
+      reload,
+      markWrites,
+      reconcileReturnedRows,
+      forgetUndo,
+      offerUndo,
+      originIsCurrent,
+    ],
   )
 
   const rollForward = useCallback(
     async (todayStr: string, onlyIds?: ReadonlySet<string>) => {
-      forgetUndo()
+      const generation = forgetUndo()
       const prev = tasksRef.current
       const before = { tasks: prev, templates: templatesRef.current }
       const { tasks: next, changed } = applyRollForward(prev, todayStr, onlyIds)
@@ -543,6 +598,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         )
         if (err) throw new Error(err.message)
         offerUndo(
+          generation,
           `Rolled ${countTasks(changed.length)} forward to today`,
           before,
           changed.map((t) => t.id),
@@ -563,7 +619,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
    */
   const bulkUpdate = useCallback(
     async (ids: ReadonlySet<string>, change: BulkChange): Promise<boolean> => {
-      forgetUndo()
+      const generation = forgetUndo()
       const prev = tasksRef.current
       const before = { tasks: prev, templates: templatesRef.current }
       const { tasks: next, changed } = planBulkUpdate(prev, ids, change, new Date().toISOString())
@@ -579,6 +635,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         if (err) throw new Error(err.message)
         reconcileReturnedRows(data)
         offerUndo(
+          generation,
           describeBulkChange(change, changed.length),
           before,
           changed.map((t) => t.id),
@@ -726,14 +783,15 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
 
   const deleteTask = useCallback(
     async (id: string, scope?: RecurScope) => {
-      forgetUndo()
+      const generation = forgetUndo()
       const task = tasksRef.current.find((t) => t.id === id)
       // Already gone — from another device, or a double-click. The row is deleted either way.
       if (!task) return
       const before = seriesState()
       const op = resolveDelete(task, scope)
       if (op.kind === 'delete-plain') {
-        if (await removeTask(op.id)) offerUndo(`Deleted ${quoted(task)}`, before, [op.id])
+        if (await removeTask(op.id))
+          offerUndo(generation, `Deleted ${quoted(task)}`, before, [op.id])
         return
       }
       // Deleting this and every later Occurrence is a Series-level operation: not undoable (#271).
@@ -742,7 +800,8 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         return
       }
       const plan = planDeleteOccurrence(before, op.instance)
-      if (await runPlan(plan)) offerUndo(`Deleted ${quoted(task)}`, before, plan.markIds)
+      if (await runPlan(plan))
+        offerUndo(generation, `Deleted ${quoted(task)}`, before, plan.markIds)
     },
     [removeTask, runPlan, seriesState, forgetUndo, offerUndo],
   )
@@ -754,12 +813,13 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
    */
   const bulkDelete = useCallback(
     async (ids: ReadonlySet<string>): Promise<boolean> => {
-      forgetUndo()
+      const generation = forgetUndo()
       const before = seriesState()
       const plan = planBulkDelete(before, ids)
       if (plan.markIds.length === 0) return true
       const deleted = before.tasks.filter((t) => ids.has(t.id)).length
-      const offer = () => offerUndo(`Deleted ${countTasks(deleted)}`, before, plan.markIds)
+      const offer = () =>
+        offerUndo(generation, `Deleted ${countTasks(deleted)}`, before, plan.markIds)
       const touchesSeries =
         plan.upserts.length > 0 || plan.deletions.some((deletion) => deletion.target.by !== 'ids')
       if (touchesSeries) {
@@ -791,13 +851,15 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
    *
    * Two limits, both deliberate. Undoing a Reopen is an UPDATE back to Completed, and the lifecycle
    * trigger stamps that Completion afresh rather than trusting the client's instant (see
-   * docs/agents/completion.md). And it is last-write-wins: a change another device made to the
+   * docs/agents/completion.md). A re-inserted row is also a new row to the attribution trigger:
+   * its author becomes whoever clicked Undo, with a fresh revision and creation time. And it is
+   * last-write-wins: a change another device made to the
    * same rows since is overwritten. It needs the same complete authenticated load as a Series plan,
    * because it may restore a definition whose cascade reaches rows this client never loaded.
    */
   const undo = useCallback(async (): Promise<boolean> => {
     const pending = undoable
-    if (!pending) return false
+    if (!pending || pending.boardId !== boardId) return false
     if (!hasSession || !hasLoadedFromServer.current) {
       setError('Reload the complete Board before undoing.')
       return false
@@ -864,7 +926,10 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     deleteTask,
     bulkUpdate,
     bulkDelete,
-    lastUndo: undoable ? { id: undoable.id, label: undoable.entry.label } : null,
+    lastUndo:
+      undoable && undoable.boardId === boardId
+        ? { id: undoable.id, label: undoable.entry.label }
+        : null,
     undo,
     dismissUndo,
     offline,
