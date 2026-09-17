@@ -18,7 +18,7 @@ import {
 export const ADMIN_PAGE_SIZE = 25
 
 const FORBIDDEN_MESSAGE =
-  'Administration needs an admin role and a two-factor session. Turn on two-factor authentication in Settings, then sign in again.'
+  'Administration needs an admin role and a two-factor session. Turn on two-factor authentication in Settings, then sign out and sign in again.'
 
 /**
  * The protected /admin route (#274): aggregate statistics, the account list, and flag toggles.
@@ -202,6 +202,17 @@ function AccountsSection() {
   if (!loaded || loaded.page !== page) return <Spinner label="Loading accounts…" />
   if (!loaded.result.ok) return <Refusal result={loaded.result} />
   const { users, total } = loaded.result.data
+  // `total` rides on the rows, so a page emptied by deletions cannot report one.
+  if (users.length === 0 && page > 0) {
+    return (
+      <p style={{ margin: 0 }}>
+        No accounts on this page.{' '}
+        <button type="button" onClick={() => setPage(0)}>
+          First page
+        </button>
+      </p>
+    )
+  }
   const pages = Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE))
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -220,7 +231,7 @@ function AccountsSection() {
         <tbody>
           {users.map((user) => (
             <tr key={user.id}>
-              <td style={cell}>{user.email}</td>
+              <td style={cell}>{user.email ?? '(no email)'}</td>
               <td style={cell}>{utcDay(user.createdAt)}</td>
               <td style={cell}>{utcDay(user.lastSignInAt)}</td>
               <td style={cell}>{user.hasMfa ? 'On' : 'Off'}</td>
@@ -276,7 +287,8 @@ function FlagRow({ flag, onSaved }: { flag: FeatureFlag; onSaved: () => void }) 
     const result = await saveFeatureFlag(flag.key, patch)
     setPending(false)
     if (!result.ok) {
-      setError(result.reason === 'forbidden' ? FORBIDDEN_MESSAGE : result.message)
+      // Flag writes need the admin role but not two-factor, so FORBIDDEN_MESSAGE would mislead.
+      setError(result.reason === 'forbidden' ? 'Only an admin can change flags.' : result.message)
       return
     }
     onSaved()

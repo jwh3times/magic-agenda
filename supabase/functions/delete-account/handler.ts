@@ -1,12 +1,12 @@
-import { createClient } from "jsr:@supabase/supabase-js@2";
-import { requireUser } from "../_shared/auth.ts";
-import { corsHeaders } from "../_shared/cors.ts";
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { requireUser } from '../_shared/auth.ts'
+import { corsHeaders } from '../_shared/cors.ts'
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
 
 /**
  * Deletes the CALLING user's auth account. The service-role client is created
@@ -27,24 +27,24 @@ const json = (body: unknown, status = 200) =>
  * nothing they could act on. Map it to its own message then.
  */
 export async function handler(req: Request): Promise<Response> {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
   }
-  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+  if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
-  const user = await requireUser(req);
-  if (user instanceof Response) return user;
+  const user = await requireUser(req)
+  if (user instanceof Response) return user
 
   const admin = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-  );
-  const { error } = await admin.auth.admin.deleteUser(user.id);
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+  )
+  const { error } = await admin.auth.admin.deleteUser(user.id)
   if (error) {
     // Irreversible endpoint: keep a server-side trail (function logs) while the
     // client only ever sees the generic message.
-    console.error("delete-account: deleteUser failed", error);
-    return json({ error: "Deletion failed" }, 500);
+    console.error('delete-account: deleteUser failed', error)
+    return json({ error: 'Deletion failed' }, 500)
   }
-  return json({ ok: true });
+  return json({ ok: true })
 }

@@ -177,13 +177,18 @@ build a surveillance surface, so neither function may ever select a title, descr
 label, or day. Task counts exclude hidden Series definitions, which `admin_stats()` reports apart.
 
 Both RPCs call `app_private.require_admin_session()`, which refuses with `42501` unless the caller
-holds a live admin role **and** the session JWT is `aal2`. That is stricter than the flag policies
-on purpose: a stolen password-only session cannot enumerate accounts. The helper has no grants,
-because only the definer bodies call it. The page's role check is cosmetic; it renders the
-database's refusal as a two-factor explanation. Flag toggles on the page use the ordinary
-`feature_flags` update policies, and creating or deleting a flag stays in SQL.
-`tests/rls/admin_dashboard.test.ts` enrols a real TOTP factor to reach `aal2`, then proves the
-anonymous, member, and password-only-admin refusals, exact count deltas, the returned column set,
+holds a live admin role, the session JWT is `aal2`, **and** a verified factor existed before that
+session began (`auth.sessions` via the JWT's `session_id`). The last clause is not redundant: an
+Account with no verified factor can enrol one from a password-only session, and verifying it raises
+that same session to `aal2`, so a stolen session could otherwise mint its own second factor. A
+factor added mid-session counts only after a fresh sign-in. What no check can stop is a stolen
+password for an admin with no factor, so the runbook requires a verified factor before the role is
+granted. The helper has no grants, because only the definer bodies call it. The page's role check
+is cosmetic; it renders the database's refusal as a two-factor explanation. Flag toggles on the
+page use the ordinary `feature_flags` update policies (admin role, no two-factor requirement), and
+creating or deleting a flag stays in SQL.
+`tests/rls/admin_dashboard.test.ts` enrols a real TOTP factor and signs in again to reach `aal2`,
+then proves the anonymous, member, password-only-admin, and self-enrolled-session refusals, exact count deltas, the returned column set,
 paging bounds, and immediate revocation.
 
 ## The app layer matches it

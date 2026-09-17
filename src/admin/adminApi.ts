@@ -21,7 +21,8 @@ export interface AdminStats {
 
 export interface AdminUser {
   id: string
-  email: string
+  /** Null for an Account with no email identity (the generated type cannot say so). */
+  email: string | null
   createdAt: string
   lastSignInAt: string | null
   hasMfa: boolean
@@ -107,7 +108,7 @@ export async function loadAdminUsers(
       total: rows[0]?.total_count ?? 0,
       users: rows.map((row) => ({
         id: row.id,
-        email: row.email,
+        email: row.email ?? null,
         createdAt: row.created_at,
         lastSignInAt: row.last_sign_in_at ?? null,
         hasMfa: row.has_mfa,
@@ -121,8 +122,9 @@ export async function loadAdminUsers(
 
 /**
  * Keys are immutable through the Data API, and creating or deleting a flag stays in SQL (see
- * docs/runbooks/roles-and-feature-flags.md). RLS answers a non-admin update with zero rows rather
- * than an error, so an empty result is a refusal, never a success.
+ * docs/runbooks/roles-and-feature-flags.md). An update that matches no row is never a success, but
+ * it is not necessarily a refusal either: RLS hides a non-admin's target, and a flag deleted in SQL
+ * since the list loaded looks the same.
  */
 export async function saveFeatureFlag(
   key: string,
@@ -137,5 +139,9 @@ export async function saveFeatureFlag(
   const row = data?.[0]
   return row
     ? { ok: true, data: row }
-    : { ok: false, reason: 'forbidden', message: 'The flag was not updated.' }
+    : {
+        ok: false,
+        reason: 'failed',
+        message: 'The flag was not updated. It may have been deleted, or your admin role removed.',
+      }
 }

@@ -119,11 +119,10 @@ test('an empty page past the end still reports success', async () => {
   expect(await loadAdminUsers(9, 25)).toEqual({ ok: true, data: { total: 0, users: [] } })
 })
 
-test('a flag write that RLS filters to no rows is forbidden, not silently successful', async () => {
-  expect(await saveFeatureFlag('beta', { enabled: true })).toMatchObject({
-    ok: false,
-    reason: 'forbidden',
-  })
+test('a flag write that matches no row fails, rather than silently succeeding', async () => {
+  const missed = await saveFeatureFlag('beta', { enabled: true })
+  expect(missed).toMatchObject({ ok: false, reason: 'failed' })
+  expect(!missed.ok && missed.message).toMatch(/deleted, or your admin role removed/)
   h.updateResult = { data: [{ key: 'beta', enabled: true, description: 'x' }], error: null }
   expect(await saveFeatureFlag('beta', { enabled: true })).toEqual({
     ok: true,

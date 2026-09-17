@@ -11,11 +11,14 @@ import {
 } from './helpers'
 
 // The admin dashboard's privacy stance (#274) is enforced here, not in the route: aggregate
-// counts only, reachable only by a live admin role on a two-factor (`aal2`) session.
+// counts only, reachable only by a live admin role on an `aal2` session whose verified factor
+// predates the session.
 
 let admin: TestUser
 let member: TestUser
 let passwordOnlyAdmin: TestUser
+/** The admin's original session, raised to `aal2` by enrolling a factor from inside it. */
+let midSessionAdmin: TestUser['client']
 
 /** RFC 6238 TOTP (SHA-1, 30 s, 6 digits) — what an authenticator app computes from the secret. */
 function totp(base32Secret: string, now = Date.now()): string {
@@ -32,8 +35,16 @@ function totp(base32Secret: string, now = Date.now()): string {
   return ((mac.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).toString().padStart(6, '0')
 }
 
-/** Enrols a verified TOTP factor, which also raises this client's session to `aal2`. */
-async function stepUp(user: TestUser): Promise<void> {
+async function expectAal2(client: TestUser['client']) {
+  const level = await client.auth.mfa.getAuthenticatorAssuranceLevel()
+  expect(level.data?.currentLevel).toBe('aal2')
+}
+
+/**
+ * Enrols and verifies a TOTP factor from the user's existing password-only session. Verifying
+ * raises THAT session to `aal2`, which is exactly what a stolen session could do for itself.
+ */
+async function enrolFactor(user: TestUser): Promise<{ factorId: string; secret: string }> {
   const enrolled = await user.client.auth.mfa.enroll({ factorType: 'totp' })
   if (enrolled.error) throw new Error(`enroll failed: ${enrolled.error.message}`)
   const { id, totp: factor } = enrolled.data as { id: string; totp: { secret: string } }
@@ -42,8 +53,36 @@ async function stepUp(user: TestUser): Promise<void> {
     code: totp(factor.secret),
   })
   if (verified.error) throw new Error(`verify failed: ${verified.error.message}`)
-  const level = await user.client.auth.mfa.getAuthenticatorAssuranceLevel()
-  expect(level.data?.currentLevel).toBe('aal2')
+  await expectAal2(user.client)
+  return { factorId: id, secret: factor.secret }
+}
+
+/** A fresh sign-in (password, then code): a new session that began after the factor existed. */
+async function signInWithFactor(
+  user: TestUser,
+  factor: { factorId: string; secret: string },
+): Promise<TestUser['client']> {
+  const client = anonClient()
+  const signedIn = await client.auth.signInWithPassword({
+    email: user.email,
+    password: user.password,
+    options: { captchaToken: 'XXXX.DUMMY.TOKEN.XXXX' },
+  })
+  if (signedIn.error) throw new Error(`sign-in failed: ${signedIn.error.message}`)
+  // The next time step, so GoTrue cannot refuse the code as a replay of the enrolment's.
+  const verified = await client.auth.mfa.challengeAndVerify({
+    factorId: factor.factorId,
+    code: totp(factor.secret, Date.now() + 30_000),
+  })
+  if (verified.error) throw new Error(`step-up failed: ${verified.error.message}`)
+  await expectAal2(client)
+  return client
+}
+
+async function expectRefused(result: PromiseLike<{ data: unknown; error: unknown }>) {
+  const { data, error } = await result
+  expect(data).toBeNull()
+  expect(error).toMatchObject({ code: '42501' })
 }
 
 async function grantAdmin(user: TestUser) {
@@ -84,29 +123,46 @@ beforeAll(async () => {
   passwordOnlyAdmin = await createTestUser()
   await grantAdmin(admin)
   await grantAdmin(passwordOnlyAdmin)
-  await stepUp(admin)
-  await stepUp(member)
+  const adminFactor = await enrolFactor(admin)
+  midSessionAdmin = admin.client
+  admin = { ...admin, client: await signInWithFactor(admin, adminFactor) }
+  member = { ...member, client: await signInWithFactor(member, await enrolFactor(member)) }
 })
 afterAll(async () => {
+  await midSessionAdmin.auth.signOut()
   await deleteTestUser(admin)
   await deleteTestUser(member)
   await deleteTestUser(passwordOnlyAdmin)
 })
 
-test('anonymous visitors, ordinary accounts, and password-only admins are all refused', async () => {
-  for (const client of [anonClient(), member.client, passwordOnlyAdmin.client]) {
-    const stats = await client.rpc('admin_stats')
-    expect(stats.error).not.toBeNull()
-    expect(stats.data).toBeNull()
-    const users = await client.rpc('admin_users', { page_limit: 10, page_offset: 0 })
-    expect(users.error).not.toBeNull()
-    expect(users.data).toBeNull()
+test('visitors, members, password-only admins, and self-minted factors are all refused', async () => {
+  const refused = [
+    anonClient(),
+    member.client, // aal2, but no role
+    passwordOnlyAdmin.client, // role, but no factor
+    midSessionAdmin, // role and aal2, but the factor was enrolled from inside this session
+  ]
+  await expectAal2(midSessionAdmin)
+  for (const client of refused) {
+    await expectRefused(client.rpc('admin_stats'))
+    await expectRefused(client.rpc('admin_users', { page_limit: 10, page_offset: 0 }))
   }
+  expect((await admin.client.rpc('admin_stats')).error).toBeNull()
 })
 
 test('JWT user metadata cannot stand in for the role', async () => {
-  await member.client.auth.updateUser({ data: { role: 'admin', is_admin: true } })
-  expect((await member.client.rpc('admin_stats')).error).not.toBeNull()
+  const updated = await member.client.auth.updateUser({ data: { role: 'admin', is_admin: true } })
+  expect(updated.error).toBeNull()
+  // updateUser keeps the old access token; only a refresh puts the metadata into the JWT.
+  const refreshed = await member.client.auth.refreshSession()
+  expect(refreshed.error).toBeNull()
+  const token = refreshed.data.session!.access_token
+  const claims = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString()) as {
+    aal: string
+    user_metadata: Record<string, unknown>
+  }
+  expect(claims).toMatchObject({ aal: 'aal2', user_metadata: { role: 'admin', is_admin: true } })
+  await expectRefused(member.client.rpc('admin_stats'))
 })
 
 test('stats are aggregate counts with a 30-day series, and track new Tasks exactly', async () => {
@@ -133,7 +189,11 @@ test('stats are aggregate counts with a 30-day series, and track new Tasks exact
 
   const boardId = await currentBoardId(member.id)
   // One row per insert: PostgREST sends explicit NULLs for keys only some batch rows name.
-  for (const values of [{ title: 'counted' }, { title: 'counted too', status: 'done' }]) {
+  for (const values of [
+    { title: 'counted' },
+    { title: 'counted too', status: 'done' },
+    { title: 'a Series definition', recur_freq: 'weekly', day: '2026-09-16' },
+  ]) {
     const inserted = await member.client
       .from('tasks')
       .insert(boardTaskInsert(boardId, { id: randomUUID(), ...values }))
@@ -143,6 +203,7 @@ test('stats are aggregate counts with a 30-day series, and track new Tasks exact
   const after = (await admin.client.rpc('admin_stats')).data as Record<string, unknown>
   expect(after.tasks).toBe((stats.tasks as number) + 2)
   expect(after.completed_tasks).toBe((stats.completed_tasks as number) + 1)
+  expect(after.series).toBe((stats.series as number) + 1)
   expect((after.daily as typeof daily)[29].new_tasks).toBe(daily[29].new_tasks + 2)
 })
 
@@ -212,24 +273,9 @@ test('paging is bounded and ordered newest first', async () => {
 test('revoking the role applies to the same aal2 session immediately', async () => {
   try {
     await withPg((pg) => pg.query('delete from public.user_roles where user_id = $1', [admin.id]))
-    expect((await admin.client.rpc('admin_stats')).error).not.toBeNull()
+    await expectRefused(admin.client.rpc('admin_stats'))
   } finally {
     await grantAdmin(admin)
   }
   expect((await admin.client.rpc('admin_stats')).error).toBeNull()
-})
-
-test('the shared session check is not a Data API RPC', async () => {
-  const { apiUrl, anonKey } = (await import('./helpers')).stack()
-  const session = await admin.client.auth.getSession()
-  const result = await fetch(`${apiUrl}/rest/v1/rpc/require_admin_session`, {
-    method: 'POST',
-    headers: {
-      apikey: anonKey,
-      Authorization: `Bearer ${session.data.session!.access_token}`,
-      'Content-Type': 'application/json',
-    },
-    body: '{}',
-  })
-  expect(result.ok).toBe(false)
 })

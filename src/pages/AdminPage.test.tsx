@@ -42,7 +42,7 @@ const STATS: AdminStats = {
   ],
 }
 
-function usersPage(total: number, emails: string[]): AdminResult<AdminUserPage> {
+function usersPage(total: number, emails: (string | null)[]): AdminResult<AdminUserPage> {
   return {
     ok: true,
     data: {
@@ -148,12 +148,30 @@ test('toggles a flag and saves its description, then refreshes the flag list', a
   expect(h.saveFlag).toHaveBeenLastCalledWith('beta_board', { description: 'new rollout' })
 })
 
-test('a refused flag write is shown, and the list is not refreshed as if it saved', async () => {
+test('a failed flag write is shown, and the list is not refreshed as if it saved', async () => {
   h.flags = [{ key: 'beta_board', enabled: false, description: '' }]
-  h.saveFlag.mockResolvedValue({ ok: false, reason: 'forbidden', message: 'no rows' })
+  h.saveFlag.mockResolvedValue({ ok: false, reason: 'failed', message: 'It may have been deleted' })
   renderAdmin()
   const flags = screen.getByRole('region', { name: 'Feature flags' })
   await userEvent.click(within(flags).getByRole('checkbox', { name: 'beta_board' }))
-  expect(await within(flags).findByRole('alert')).toHaveTextContent(/two-factor session/)
+  const alert = await within(flags).findByRole('alert')
+  expect(alert).toHaveTextContent('It may have been deleted')
+  expect(alert).not.toHaveTextContent(/two-factor/)
   expect(h.reloadFlags).not.toHaveBeenCalled()
+})
+
+test('a page emptied by deletions offers a way back instead of a wrong total', async () => {
+  h.users
+    .mockResolvedValueOnce(usersPage(ADMIN_PAGE_SIZE + 1, ['first@example.test']))
+    .mockResolvedValueOnce(usersPage(0, []))
+    .mockResolvedValueOnce(usersPage(1, [null]))
+  renderAdmin()
+  const accounts = await screen.findByRole('region', { name: 'Accounts' })
+  await userEvent.click(await within(accounts).findByRole('button', { name: 'Next' }))
+  expect(await within(accounts).findByText(/No accounts on this page/)).toBeInTheDocument()
+  expect(within(accounts).queryByText(/0 accounts/)).not.toBeInTheDocument()
+
+  await userEvent.click(within(accounts).getByRole('button', { name: 'First page' }))
+  expect(await within(accounts).findByText('(no email)')).toBeInTheDocument()
+  expect(h.users).toHaveBeenLastCalledWith(0, ADMIN_PAGE_SIZE)
 })

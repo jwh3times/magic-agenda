@@ -8,7 +8,15 @@
 --     that way: a "just show the latest task" column is exactly the change this file refuses.
 --   * The `/admin` route gate is cosmetic. These functions are the boundary, and they refuse
 --     unless the caller holds a LIVE admin role (`app_private.is_admin()`, never JWT claims) on a
---     two-factor (`aal2`) session. A stolen password-only session cannot enumerate accounts.
+--     two-factor (`aal2`) session whose verified factor existed BEFORE that session began.
+--
+--     `aal2` alone is not enough. An Account with no verified factor may enrol one from a
+--     password-only session, and verifying it raises that same session to `aal2` -- so a stolen
+--     session could mint its own second factor. Requiring the factor to predate the session
+--     (`auth.jwt() ->> 'session_id'`) closes that: a factor added mid-session counts only after a
+--     fresh sign-in, which needs the password as well as the code. What this cannot stop is a
+--     stolen PASSWORD for an admin with no factor at all, which is why the runbook requires a
+--     verified factor before the role is granted.
 --   * Administration still grants no Board access: the definer privilege is spent only on the
 --     aggregates below, and every Board/Task policy is unchanged.
 --
@@ -22,7 +30,16 @@ language plpgsql stable set search_path = ''
 as $$
 begin
   if not coalesce((select app_private.is_admin()), false)
-     or coalesce((select auth.jwt() ->> 'aal'), '') <> 'aal2' then
+     or coalesce((select auth.jwt() ->> 'aal'), '') <> 'aal2'
+     or not exists (
+       select 1
+         from auth.sessions s
+         join auth.mfa_factors f on f.user_id = s.user_id
+        where s.id = nullif(auth.jwt() ->> 'session_id', '')::uuid
+          and s.user_id = (select auth.uid())
+          and f.status = 'verified'
+          and f.created_at < s.created_at
+     ) then
     raise exception 'administration requires an admin role and a two-factor session'
       using errcode = '42501';
   end if;

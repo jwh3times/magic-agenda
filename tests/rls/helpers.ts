@@ -90,6 +90,8 @@ export function anonClient(): TestSupabaseClient {
 export interface TestUser {
   id: string
   email: string
+  /** For tests that must open a second, independent session for the same Account. */
+  password: string
   client: TestSupabaseClient
 }
 
@@ -123,7 +125,7 @@ export async function createTestUser(): Promise<TestUser> {
   })
   if (signInError) throw new Error(`test user sign-in failed: ${signInError.message}`)
 
-  return { id, email, client }
+  return { id, email, password, client }
 }
 
 export async function deleteTestUser(user: TestUser): Promise<void> {

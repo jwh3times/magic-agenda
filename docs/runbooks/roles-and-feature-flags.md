@@ -6,7 +6,11 @@ or Tasks. Board Membership remains the authorization boundary for Board content.
 ## Assign or revoke an administrator
 
 Use a trusted SQL connection as the migration owner. Resolve and verify the intended Account's
-UUID before running either statement. There is no signup option, profile edit, or client API that
+UUID before running either statement. **Before granting the role, confirm the Account already has a
+verified two-factor factor** (`select status from auth.mfa_factors where user_id = '<uuid>'`
+returns `verified`). The admin dashboard only accepts a factor that predates the session, which
+stops a stolen session from enrolling its own, but an admin with no factor at all is protected by
+their password alone. There is no signup option, profile edit, or client API that
 can assign a role; even an administrator cannot assign another administrator through the Data API.
 
 ```sql
@@ -25,8 +29,9 @@ seeded by migrations, and there is no screen for assigning roles.
 An administrator sees an **Admin** link in Settings, which opens `/admin`: aggregate statistics,
 the account list (email, dates, two-factor status, role, and owned Board and Task counts), and flag
 toggles. It never shows Task content. The statistics and account list require a two-factor
-session: turn on two-factor authentication in Settings, then sign in again. Without one, the page
-explains the refusal instead of showing data.
+session whose factor was enrolled before that sign-in: turn on two-factor authentication in
+Settings, then sign out and sign in again. Without one, the page explains the refusal instead of
+showing data.
 
 ## Define a rollout flag
 
