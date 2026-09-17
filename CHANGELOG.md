@@ -12,6 +12,31 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.13.0] - 2026-09-17
+
+### Added
+
+- **Bulk multi-select (#270).** Ctrl-click (⌘-click on a Mac) a card, or turn on **☑ Select** beside
+  the search bar, to select several cards. While selecting, a click or Enter toggles a card instead
+  of opening it, and dragging is paused. An action bar (a bottom sheet on phones) moves the
+  selection to a date or the Inbox, sets its Workflow Status or Note Color, or deletes it after an
+  inline confirmation. **Done**, or Escape, leaves selection mode; the command palette offers
+  **Select tasks** too.
+  - Moving to the Inbox clears Due Time, as a drag does. Moved cards keep their relative order at
+    the end of the destination day or column.
+  - Deleting recurring Occurrences records them as skipped in one write per Series, so none of them
+    reappears. A bounded Series left with nothing to produce is retired, as a single delete already
+    retires it.
+  - Only cards currently shown can be selected, so a search or filter never lets a hidden card into
+    a bulk action. Messages count only the cards a change actually altered, and nothing is announced
+    unless the write succeeded.
+
+### Internal
+
+- Pure planners `planBulkUpdate` (`src/data/bulk.ts`) and `planBulkDelete` (`src/data/series.ts`),
+  with `useTasks.bulkUpdate` / `bulkDelete` sending one batched request per selection. The area
+  guides for recurrence, drag-and-drop, and client state describe the new rules.
+
 ## [1.12.16] - 2026-09-17
 
 ### Docs
@@ -3463,7 +3488,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.12.16...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.13.0...HEAD
+[1.13.0]: https://github.com/jwh3times/magic-agenda/compare/v1.12.16...v1.13.0
 [1.12.16]: https://github.com/jwh3times/magic-agenda/compare/v1.12.15...v1.12.16
 [1.12.15]: https://github.com/jwh3times/magic-agenda/compare/v1.12.14...v1.12.15
 [1.12.14]: https://github.com/jwh3times/magic-agenda/compare/v1.12.13...v1.12.14

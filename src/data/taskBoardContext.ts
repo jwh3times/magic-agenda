@@ -2,6 +2,7 @@ import { createContext, useContext } from 'react'
 import type { Mode } from '../dnd/reorder'
 import type { Task, TaskDraft } from '../types/task'
 import type { RecurScope, SaveModifiers } from './series'
+import type { BulkChange } from './bulk'
 
 /**
  * The board-facing half of useTasks. Commands own their failures, so consumers never coordinate
@@ -27,6 +28,15 @@ export interface TaskBoard {
   toggleCompletion: (id: string) => void | Promise<void>
   /** Move overdue tasks to today; onlyIds narrows the operation to a filtered board. */
   rollForward: (todayStr: string, onlyIds?: ReadonlySet<string>) => void | Promise<void>
+  /**
+   * Apply one change to every selected Task (#270). Ids not on the board are ignored. Unlike the
+   * single-Task commands this reports an outcome, false when the write was refused or failed, so
+   * the board never announces a bulk change that did not happen. The failure itself is still
+   * surfaced by the data layer.
+   */
+  bulkUpdate: (ids: ReadonlySet<string>, change: BulkChange) => boolean | Promise<boolean>
+  /** Delete every selected Task; Occurrences are excluded from their Series. Same outcome contract. */
+  bulkDelete: (ids: ReadonlySet<string>) => boolean | Promise<boolean>
   /** Read the hidden template that owns a materialized recurring instance. */
   getTemplate: (parentId: string) => Task | undefined
 }

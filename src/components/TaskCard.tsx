@@ -9,6 +9,28 @@ import { useBoardActions } from './boardActionContext'
 import { useLabel } from '../labels/LabelDirectoryProvider'
 import { labelPresentation } from '../labels/presentation'
 
+// Theme-neutral, like the bulk action bar: a selected card must read as selected on every paper.
+const SELECTED_STYLE: CSSProperties = {
+  outline: '3px solid #2f80ed',
+  outlineOffset: 2,
+  position: 'relative',
+}
+const SELECTED_BADGE: CSSProperties = {
+  position: 'absolute',
+  top: -8,
+  left: -8,
+  width: 20,
+  height: 20,
+  borderRadius: '50%',
+  background: '#2f80ed',
+  color: '#fff',
+  fontSize: 12,
+  fontWeight: 700,
+  lineHeight: '20px',
+  textAlign: 'center',
+  zIndex: 2,
+}
+
 export interface TaskCardProps {
   task: Task
   variant: CardVariant
@@ -45,9 +67,18 @@ export function TaskCard({ task, variant, dragging, wrapStyle }: TaskCardProps) 
   const isInboxLike = variant === 'inbox' || variant === 'kanban'
   const isKanban = variant === 'kanban'
   const hasDesc = isInboxLike && task.description.trim().length > 0
+  const selected = actions?.selectedIds?.has(task.id) ?? false
 
   return (
-    <div style={{ ...s.wrap, ...wrapStyle }} onClick={() => onOpen?.(task)}>
+    <div
+      style={{ ...s.wrap, ...(selected && SELECTED_STYLE), ...wrapStyle }}
+      onClick={(e) => onOpen?.(task, { additive: e.metaKey || e.ctrlKey })}
+    >
+      {selected && (
+        <span aria-hidden="true" style={SELECTED_BADGE}>
+          ✓
+        </span>
+      )}
       {s.showPin && <div style={s.pinStyle} />}
       {s.showStamp && <div style={s.stampStyle}>COMPLETED</div>}
 

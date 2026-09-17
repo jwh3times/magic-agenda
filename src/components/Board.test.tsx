@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router'
 import { ThemeProvider } from '../theme/ThemeProvider'
 import { Board } from './Board'
 import { applyToggleCompletion } from '../data/selectors'
+import { planBulkUpdate } from '../data/bulk'
 import { makeMockTasks } from '../data/mockTasks'
 import { ymd } from '../lib/dates'
 import { OfflineContext } from '../data/offlineContext'
@@ -24,12 +25,15 @@ function Harness({
   canAssignLabels,
   seed,
   keyboardShortcuts,
+  bulkFails = false,
 }: {
   weekStart?: number
   initialView?: ViewName
   canAssignLabels?: boolean
   seed?: Task[]
   keyboardShortcuts?: boolean
+  /** The data layer refused or rolled back every bulk write. */
+  bulkFails?: boolean
 }) {
   const [tasks, setTasks] = useState<Task[]>(() => seed ?? makeMockTasks())
   const taskBoard: TaskBoard = {
@@ -51,6 +55,17 @@ function Harness({
     toggleCompletion: (id) =>
       setTasks((prev) => applyToggleCompletion(prev, id, '2026-09-03T15:00:00.000Z').tasks),
     rollForward: () => {},
+    // Plain Tasks only, like saveTask above; Series bulk semantics are tested in series.test.ts.
+    bulkUpdate: (ids, change) => {
+      if (bulkFails) return false
+      setTasks((prev) => planBulkUpdate(prev, ids, change, '2026-09-03T15:00:00.000Z').tasks)
+      return true
+    },
+    bulkDelete: (ids) => {
+      if (bulkFails) return false
+      setTasks((prev) => prev.filter((task) => !ids.has(task.id)))
+      return true
+    },
     getTemplate: () => undefined,
   }
   return (
@@ -539,5 +554,171 @@ describe('keyboard shortcuts and the command palette (#269)', () => {
     expect(screen.queryByRole('option', { name: 'New task' })).not.toBeInTheDocument()
     await user.keyboard('groceries')
     expect(screen.queryByRole('option', { name: /^Add task/ })).not.toBeInTheDocument()
+  })
+})
+
+// ——— bulk multi-select (#270) ———
+
+describe('selection mode', () => {
+  const toolbar = () => screen.getByRole('toolbar', { name: 'Bulk actions' })
+
+  test('Ctrl-click selects a card instead of opening it, and enters selection mode', async () => {
+    const user = userEvent.setup()
+    renderBoard()
+
+    await user.keyboard('{Control>}')
+    await user.click(screen.getByText('Finish Q3 deck'))
+    await user.keyboard('{/Control}')
+
+    expect(screen.queryByText('Edit task')).not.toBeInTheDocument()
+    expect(cardFor('Finish Q3 deck')).toHaveAttribute('aria-pressed', 'true')
+    expect(within(toolbar()).getByText('1 selected')).toBeInTheDocument()
+  })
+
+  test('the Select toggle makes plain clicks and Enter toggle selection, and disables drag', async () => {
+    const user = userEvent.setup()
+    renderBoard()
+
+    await user.click(screen.getByRole('button', { name: '☑ Select' }))
+    expect(within(toolbar()).getByText('0 selected')).toBeInTheDocument()
+    expect(within(toolbar()).getByRole('button', { name: 'Delete' })).toBeDisabled()
+    // Drag is off while selecting, but the card is an available toggle, so it must not be
+    // announced as a disabled button (dnd-kit's own aria-disabled is overridden here).
+    expect(cardFor('Call plumber')).not.toHaveAttribute('aria-disabled', 'true')
+    expect(cardFor('Call plumber')).toHaveAttribute('aria-pressed', 'false')
+
+    await user.click(screen.getByText('Call plumber'))
+    cardFor('Pay rent').focus()
+    await user.keyboard('{Enter}')
+    expect(screen.queryByText('Edit task')).not.toBeInTheDocument()
+    expect(within(toolbar()).getByText('2 selected')).toBeInTheDocument()
+
+    // Toggling again deselects.
+    await user.click(screen.getByText('Call plumber'))
+    expect(within(toolbar()).getByText('1 selected')).toBeInTheDocument()
+  })
+
+  test('Move sends the selection to the Inbox and says so', async () => {
+    const user = userEvent.setup()
+    renderBoard()
+    const inbox = screen.getByRole('complementary')
+    expect(within(inbox).queryByText('Call plumber')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '☑ Select' }))
+    await user.click(screen.getByText('Call plumber'))
+    await user.click(screen.getByText('Pay rent'))
+    await user.click(within(toolbar()).getByRole('button', { name: 'To Inbox' }))
+
+    expect(within(inbox).getByText('Call plumber')).toBeInTheDocument()
+    expect(within(inbox).getByText('Pay rent')).toBeInTheDocument()
+    expect(await screen.findByText('Moved 2 tasks to Inbox')).toBeInTheDocument()
+    // The selection survives an update, so actions can be chained.
+    expect(within(toolbar()).getByText('2 selected')).toBeInTheDocument()
+  })
+
+  test('status applies to every selected card and counts only the cards it changed', async () => {
+    const user = userEvent.setup()
+    renderBoard()
+    await user.click(screen.getByRole('button', { name: '☑ Select' }))
+    await user.click(screen.getByText('Call plumber'))
+    await user.click(screen.getByText('Pay rent'))
+
+    // "Pay rent" is already Completed in the seed board.
+    await user.selectOptions(within(toolbar()).getByLabelText('Set status'), 'completed')
+    expect(await screen.findByText('Set 1 task to Completed')).toBeInTheDocument()
+    for (const title of ['Call plumber', 'Pay rent']) {
+      expect(within(cardFor(title)).getByRole('button', { name: 'Reopen' })).toBeInTheDocument()
+    }
+  })
+
+  test('delete asks for confirmation, removes the selection, and leaves selection mode', async () => {
+    const user = userEvent.setup()
+    renderBoard()
+    await user.click(screen.getByRole('button', { name: '☑ Select' }))
+    await user.click(screen.getByText('Call plumber'))
+    await user.click(screen.getByText('Pay rent'))
+
+    await user.click(within(toolbar()).getByRole('button', { name: 'Delete' }))
+    expect(within(toolbar()).getByText('Delete 2 tasks?')).toBeInTheDocument()
+    await user.click(within(toolbar()).getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByText('Call plumber')).toBeInTheDocument()
+
+    await user.click(within(toolbar()).getByRole('button', { name: 'Delete' }))
+    await user.click(within(toolbar()).getByRole('button', { name: 'Confirm delete' }))
+    expect(screen.queryByText('Call plumber')).not.toBeInTheDocument()
+    expect(screen.queryByText('Pay rent')).not.toBeInTheDocument()
+    expect(await screen.findByText('Deleted 2 tasks')).toBeInTheDocument()
+    expect(screen.queryByRole('toolbar', { name: 'Bulk actions' })).not.toBeInTheDocument()
+  })
+
+  test('Escape while confirming a delete cancels the confirmation, not the selection', async () => {
+    const user = userEvent.setup()
+    renderBoard()
+    await user.click(screen.getByRole('button', { name: '☑ Select' }))
+    await user.click(screen.getByText('Call plumber'))
+    await user.click(within(toolbar()).getByRole('button', { name: 'Delete' }))
+    await user.keyboard('{Escape}')
+    expect(within(toolbar()).queryByText('Delete 1 task?')).not.toBeInTheDocument()
+    expect(within(toolbar()).getByText('1 selected')).toBeInTheDocument()
+  })
+
+  test('a refused bulk write announces nothing and keeps the selection', async () => {
+    const user = userEvent.setup()
+    render(<Harness bulkFails />)
+    await user.click(screen.getByRole('button', { name: '☑ Select' }))
+    await user.click(screen.getByText('Call plumber'))
+
+    await user.click(within(toolbar()).getByRole('button', { name: 'To Inbox' }))
+    await user.click(within(toolbar()).getByRole('button', { name: 'Delete' }))
+    await user.click(within(toolbar()).getByRole('button', { name: 'Confirm delete' }))
+
+    expect(screen.queryByText(/^Moved|^Deleted/)).not.toBeInTheDocument()
+    expect(within(toolbar()).getByText('1 selected')).toBeInTheDocument()
+  })
+
+  test('Escape in the search field is left to the field', async () => {
+    const user = userEvent.setup()
+    renderBoard()
+    await user.click(screen.getByRole('button', { name: '☑ Select' }))
+    await user.click(screen.getByLabelText('Search tasks'))
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('toolbar', { name: 'Bulk actions' })).toBeInTheDocument()
+  })
+
+  test('Escape and Done leave selection mode and clear the selection', async () => {
+    const user = userEvent.setup()
+    renderBoard()
+    await user.click(screen.getByRole('button', { name: '☑ Select' }))
+    await user.click(screen.getByText('Call plumber'))
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('toolbar', { name: 'Bulk actions' })).not.toBeInTheDocument()
+    expect(cardFor('Call plumber')).not.toHaveAttribute('aria-pressed')
+
+    await user.click(screen.getByRole('button', { name: '☑ Select' }))
+    expect(within(toolbar()).getByText('0 selected')).toBeInTheDocument()
+    await user.click(within(toolbar()).getByRole('button', { name: 'Done' }))
+    // A plain click opens the editor again.
+    await user.click(screen.getByText('Call plumber'))
+    expect(screen.getByText('Edit task')).toBeInTheDocument()
+  })
+
+  test('a card hidden by search is dropped from the selection', async () => {
+    const user = userEvent.setup()
+    renderBoard()
+    await user.click(screen.getByRole('button', { name: '☑ Select' }))
+    await user.click(screen.getByText('Call plumber'))
+    await user.click(screen.getByText('Pay rent'))
+    await user.type(screen.getByLabelText('Search tasks'), 'plumber')
+    expect(within(toolbar()).getByText('1 selected')).toBeInTheDocument()
+  })
+
+  test('a read-only board offers no selection at all', async () => {
+    const user = userEvent.setup()
+    renderOffline()
+    expect(screen.queryByRole('button', { name: '☑ Select' })).not.toBeInTheDocument()
+    await user.keyboard('{Control>}')
+    await user.click(screen.getByText('Renew passport'))
+    await user.keyboard('{/Control}')
+    expect(screen.queryByRole('toolbar', { name: 'Bulk actions' })).not.toBeInTheDocument()
   })
 })

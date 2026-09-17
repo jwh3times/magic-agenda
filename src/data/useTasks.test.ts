@@ -39,6 +39,8 @@ const h = vi.hoisted(() => {
   const deleteGt = vi.fn(ok)
   const deleteGte = vi.fn(ok)
   const deleteEq = vi.fn(() => Object.assign(ok(), { gt: deleteGt, gte: deleteGte }))
+  // `.delete().in('id', ids)`: bulk delete's one batched request (#270).
+  const deleteIn = vi.fn(ok)
   const channel: Record<string, unknown> = {}
   channel.on = vi.fn((_e: string, _f: unknown, cb: (p: unknown) => void) => {
     capture.handler = cb
@@ -59,6 +61,7 @@ const h = vi.hoisted(() => {
     deleteEq,
     deleteGt,
     deleteGte,
+    deleteIn,
     channel,
   }
 })
@@ -95,7 +98,7 @@ vi.mock('../lib/supabase', () => ({
       insert: h.insert,
       upsert: h.upsert,
       update: vi.fn(() => ({ eq: h.updateEq })),
-      delete: vi.fn(() => ({ eq: h.deleteEq })),
+      delete: vi.fn(() => ({ eq: h.deleteEq, in: h.deleteIn })),
     })),
     channel: vi.fn(() => h.channel),
     removeChannel: vi.fn(),
@@ -186,6 +189,8 @@ beforeEach(() => {
   h.deleteGt.mockImplementation(h.ok)
   h.deleteGte.mockReset()
   h.deleteGte.mockImplementation(h.ok)
+  h.deleteIn.mockReset()
+  h.deleteIn.mockImplementation(h.ok)
 })
 
 test('a stale echo of our own write does not clobber optimistic state', async () => {
@@ -1049,4 +1054,91 @@ test('the offline snapshot keeps Archived Tasks, both written and hydrated (#351
   expect(result.current.offline).toBe(true)
   expect(result.current.tasks.map((t) => t.id)).toEqual(['active', 'archived'])
   expect(result.current.tasks[1].archivedAt).toBe(ARCHIVED.archived_at)
+})
+
+test('bulkUpdate writes only the changed rows in one batch and reconciles a status change (#270)', async () => {
+  h.capture.rows = [
+    serverRow({ id: 't1', status: 'todo', korder: 0 }),
+    serverRow({
+      id: 't2',
+      status: 'completed',
+      reopen_status: 'todo',
+      completed_at: 'x',
+      korder: 0,
+    }),
+    serverRow({ id: 't3', status: 'doing', reopen_status: 'doing', korder: 1 }),
+  ]
+  h.capture.writeRows = [serverRow({ id: 't1', status: 'done', completed_at: 'server-time' })]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  h.upsert.mockClear()
+
+  await act(async () => {
+    await result.current.bulkUpdate(new Set(['t1', 't2']), { kind: 'status', status: 'completed' })
+  })
+
+  expect(h.upsert).toHaveBeenCalledTimes(1)
+  const [rows] = h.upsert.mock.calls[0] as unknown as [{ id: string }[]]
+  expect(rows.map((r) => r.id)).toEqual(['t1'])
+  expect(h.writeSelect).toHaveBeenCalled()
+  expect(result.current.tasks.find((t) => t.id === 't1')?.completedAt).toBe('server-time')
+  expect(result.current.tasks.find((t) => t.id === 't3')?.status).toBe('doing')
+})
+
+test('a failed bulkUpdate rolls every selected Task back and surfaces the error', async () => {
+  h.capture.rows = [
+    serverRow({ id: 't1', color: 'yellow' }),
+    serverRow({ id: 't2', color: 'blue' }),
+  ]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  h.upsert.mockRejectedValueOnce(new Error('nope'))
+
+  await act(async () => {
+    await result.current.bulkUpdate(new Set(['t1', 't2']), { kind: 'color', color: 'mint' })
+  })
+
+  expect(result.current.tasks.map((t) => t.color)).toEqual(['yellow', 'blue'])
+  expect(result.current.error).toBe('nope')
+})
+
+test('bulkDelete of plain Tasks is one batched delete, rolled back on failure', async () => {
+  h.capture.rows = [serverRow({ id: 't1' }), serverRow({ id: 't2' }), serverRow({ id: 't3' })]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  await act(async () => {
+    await result.current.bulkDelete(new Set(['t1', 't3']))
+  })
+  expect(h.deleteIn).toHaveBeenCalledWith('id', ['t1', 't3'])
+  expect(result.current.tasks.map((t) => t.id)).toEqual(['t2'])
+
+  h.deleteIn.mockRejectedValueOnce(new Error('denied'))
+  await act(async () => {
+    await result.current.bulkDelete(new Set(['t2']))
+  })
+  expect(result.current.tasks.map((t) => t.id)).toEqual(['t2'])
+  expect(result.current.error).toBe('denied')
+})
+
+test('bulkDelete of Occurrences writes one definition update and one batched row delete', async () => {
+  const today = ymd(new Date())
+  const next = ymd(addDays(parseDay(today), 1))
+  h.capture.rows = [
+    serverRow({ id: 'tpl1', recur_freq: 'daily', day: today }),
+    serverRow({ id: 'i1', recur_parent_id: 'tpl1', recur_origin_day: today, day: today }),
+    serverRow({ id: 'i2', recur_parent_id: 'tpl1', recur_origin_day: next, day: next }),
+  ]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  h.upsert.mockClear()
+
+  await act(async () => {
+    await result.current.bulkDelete(new Set(['i1', 'i2']))
+  })
+
+  expect(h.upsert).toHaveBeenCalledTimes(1)
+  const [rows] = h.upsert.mock.calls[0] as unknown as [{ id: string; recur_skip: string[] }[]]
+  expect(rows.map((r) => [r.id, r.recur_skip])).toEqual([['tpl1', [today, next]]])
+  expect(h.deleteIn).toHaveBeenCalledWith('id', ['i1', 'i2'])
 })

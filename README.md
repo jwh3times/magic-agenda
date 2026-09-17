@@ -20,6 +20,9 @@ of three hand‑built themes.
   shadows, and feel. Your choice persists.
 - **Drag‑and‑drop** — reorder within a day/column and move tasks across days, the week, columns, and the
   inbox, with a floating drag ghost (powered by [dnd‑kit](https://dndkit.com)).
+- **Bulk multi-select** — Ctrl/⌘-click cards or turn on **Select**, then move the selection to a day
+  or the Inbox, set its status or color, or delete it at once. Deleting recurring occurrences skips
+  them in their series rather than letting them come back.
 - **Rich task editor** — title, description, Note Color, an optional Board Label (or Unlabeled),
   checklist, status, schedule, an optional due time, and a pin toggle for priority.
   Tasks allow 500-character titles, 20,000-character descriptions, up to 200 checklist items within

@@ -31,7 +31,9 @@ while Label Directory consumers start from `fakeLabelDirectory()`
 (`src/labels/fakeLabelDirectory.ts`). These follow the same typed-fake precedent as `fakeUseTasks`
 and `fakeAuthGateway`, so interface additions cannot leave partial, untyped return objects behind.
 `useTasks` remains the single source of truth for board tasks: optimistic CRUD with rollback, plus
-`persistReorder` (upserts only the changed lanes). Its raw React setter is private; drag-over uses
+`persistReorder` (upserts only the changed lanes) and, since #270, `bulkUpdate` / `bulkDelete`.
+These are one batched write per selection, planned by `src/data/bulk.ts` and `planBulkDelete`; see
+[Recurrence](recurrence.md) for how bulk delete treats Occurrences. Its raw React setter is private; drag-over uses
 the narrower `previewReorder(next)` command.
 
 Board snapshots are an offline cache, so old data is repaired at its read seam as well as at the

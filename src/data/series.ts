@@ -269,6 +269,8 @@ const BEST_EFFORT: FailureHandling = { abort: false, recover: 'none' }
 
 export type DeletionTarget =
   | { by: 'id'; id: string }
+  /** Several rows by id in one request (bulk delete, #270). */
+  | { by: 'ids'; ids: string[] }
   /** Instances of a template whose Occurrence Date is strictly after `day`. */
   | { by: 'occurrence-after'; parentId: string; day: string }
   /** Instances of a template whose Occurrence Date is on or after `day`. */
@@ -507,6 +509,82 @@ export function planDeleteOccurrence(state: SeriesState, instance: Task): Series
     upsertOnFailure: BEST_EFFORT,
     deletions: [deletion],
     markIds: [template.id, instance.id],
+    materialize: [],
+  }
+}
+
+/**
+ * Delete a selection of board Tasks in one plan (#270): `planDeleteOccurrence`, at bulk scale.
+ *
+ * Plain Tasks and orphaned Occurrences are one batched deletion. Occurrences are grouped by Series,
+ * and each Series gets **one** definition write carrying every new Excluded Date rather than one
+ * write per card, because N sequential upserts of the same row race each other and the last one
+ * would win with only its own exclusion.
+ *
+ * A Series the selection spends is retired exactly as a single delete retires it (#231): the Rule
+ * is bounded, every date it can yield is now excluded, and no unselected Occurrence survives. Its
+ * definition is deleted and the database cascade removes its Occurrences, so those rows are left
+ * out of the batched deletion. Without this, bulk delete would become a new source of definitions
+ * that own nothing. The same whole-board precondition as `planDeleteOccurrence` applies.
+ *
+ * Failure handling matches the single-Occurrence plan: recording exclusions is best-effort, the
+ * row deletion rolls back, and a definition deletion (which cascades beyond this client's view)
+ * resyncs instead.
+ */
+export function planBulkDelete(state: SeriesState, ids: ReadonlySet<string>): SeriesPlan {
+  const targets = state.tasks.filter((task) => ids.has(task.id))
+  const tasks = state.tasks.filter((task) => !ids.has(task.id))
+
+  const exclusions = new Map<string, string[]>()
+  for (const task of targets) {
+    if (!task.recurParentId) continue
+    if (!state.templates.some((template) => template.id === task.recurParentId)) continue
+    const dates = exclusions.get(task.recurParentId) ?? []
+    dates.push(occurrenceDateOf(task))
+    exclusions.set(task.recurParentId, dates)
+  }
+
+  const retired = new Set<string>()
+  const upserts: SeriesDefinition[] = []
+  const templates: SeriesDefinition[] = []
+  for (const template of state.templates) {
+    const dates = exclusions.get(template.id)
+    if (!dates) {
+      templates.push(template)
+      continue
+    }
+    const nextTemplate: SeriesDefinition = {
+      ...template,
+      excludedDates: [...template.excludedDates, ...[...dates].sort()],
+    }
+    if (ruleIsSpent(nextTemplate) && !tasks.some((t) => t.recurParentId === template.id)) {
+      retired.add(template.id)
+      continue
+    }
+    upserts.push(nextTemplate)
+    templates.push(nextTemplate)
+  }
+
+  const rowIds = targets
+    .filter((task) => !(task.recurParentId && retired.has(task.recurParentId)))
+    .map((task) => task.id)
+  // A row deletion normally rolls back on failure. Not when a retired definition is deleted in the
+  // same plan: that deletion may succeed, and its cascade removes rows a rollback would restore on
+  // screen, where echo suppression would keep them until the next reload. Resync instead.
+  const rowFailure = retired.size > 0 ? RESYNC : ROLLBACK
+  const deletions: Deletion[] = [
+    ...(rowIds.length > 0
+      ? [{ target: { by: 'ids' as const, ids: rowIds }, onFailure: rowFailure }]
+      : []),
+    ...[...retired].map((id) => ({ target: { by: 'id' as const, id }, onFailure: RESYNC })),
+  ]
+
+  return {
+    state: { tasks, templates },
+    upserts,
+    upsertOnFailure: BEST_EFFORT,
+    deletions,
+    markIds: [...targets.map((task) => task.id), ...exclusions.keys()],
     materialize: [],
   }
 }

@@ -11,9 +11,18 @@ export interface SearchFilterBarProps {
   onChange: (q: FilterQuery) => void
   /** Lets the board focus the search field from the `/` keyboard shortcut (#269). */
   searchInputRef?: Ref<HTMLInputElement>
+  /** Selection mode (#270). The toggle is omitted when no handler is given (a read-only board). */
+  selecting?: boolean
+  onToggleSelect?: () => void
 }
 
-export function SearchFilterBar({ query, onChange, searchInputRef }: SearchFilterBarProps) {
+export function SearchFilterBar({
+  query,
+  onChange,
+  searchInputRef,
+  selecting = false,
+  onToggleSelect,
+}: SearchFilterBarProps) {
   const { theme, conf } = useTheme()
   const { labels } = useLabelDirectoryContext()
   const isMobile = useIsMobile()
@@ -93,6 +102,21 @@ export function SearchFilterBar({ query, onChange, searchInputRef }: SearchFilte
       >
         📌 Pinned
       </button>
+      {onToggleSelect && (
+        <button
+          type="button"
+          aria-pressed={selecting}
+          onClick={onToggleSelect}
+          style={{
+            ...control,
+            cursor: 'pointer',
+            fontWeight: 700,
+            ...(selecting ? { color: conf.accent, borderColor: conf.accent } : {}),
+          }}
+        >
+          ☑ Select
+        </button>
+      )}
       {active && (
         <button
           type="button"

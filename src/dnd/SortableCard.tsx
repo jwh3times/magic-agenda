@@ -26,7 +26,9 @@ export interface SortableCardProps {
 export function SortableCard({ task, variant }: SortableCardProps) {
   const disabled = useContext(DragDisabledContext)
   const { setNodeRef, attributes, listeners, isDragging } = useSortable({ id: task.id, disabled })
-  const onOpen = useBoardActions()?.onOpen
+  const actions = useBoardActions()
+  const onOpen = actions?.onOpen
+  const selectedIds = actions?.selectedIds
   const { conf } = useTheme()
   const [focused, setFocused] = useState(false)
 
@@ -65,6 +67,13 @@ export function SortableCard({ task, variant }: SortableCardProps) {
       onBlur={() => setFocused(false)}
       {...attributes}
       {...listeners}
+      // In selection mode Enter and click toggle instead of opening (Board decides), so the button
+      // reports its selected state and is not disabled: drag is off, but the toggle is available.
+      // Outside selection mode both stay dnd-kit's own, including its pressed state mid-drag.
+      {...(selectedIds && {
+        'aria-pressed': selectedIds.has(task.id),
+        'aria-disabled': undefined,
+      })}
       onKeyDown={onKeyDown}
     >
       <TaskCard
