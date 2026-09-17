@@ -21,6 +21,8 @@ export function fakeUseTasks(overrides: Partial<UseTasks> = {}): UseTasks {
     getTemplate: () => undefined,
     saveTask: noOpAsync,
     deleteTask: noOpAsync,
+    bulkUpdate: noOpAsync,
+    bulkDelete: noOpAsync,
     offline: false,
     fallbackReason: null,
     savedAt: null,

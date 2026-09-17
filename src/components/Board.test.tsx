@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router'
 import { ThemeProvider } from '../theme/ThemeProvider'
 import { Board } from './Board'
 import { applyToggleCompletion } from '../data/selectors'
+import { planBulkUpdate } from '../data/bulk'
 import { makeMockTasks } from '../data/mockTasks'
 import { ymd } from '../lib/dates'
 import { OfflineContext } from '../data/offlineContext'
@@ -51,6 +52,10 @@ function Harness({
     toggleCompletion: (id) =>
       setTasks((prev) => applyToggleCompletion(prev, id, '2026-09-03T15:00:00.000Z').tasks),
     rollForward: () => {},
+    // Plain Tasks only, like saveTask above; Series bulk semantics are tested in series.test.ts.
+    bulkUpdate: (ids, change) =>
+      setTasks((prev) => planBulkUpdate(prev, ids, change, '2026-09-03T15:00:00.000Z').tasks),
+    bulkDelete: (ids) => setTasks((prev) => prev.filter((task) => !ids.has(task.id))),
     getTemplate: () => undefined,
   }
   return (

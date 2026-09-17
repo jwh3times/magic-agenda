@@ -19,6 +19,7 @@ import { snapshotFallbackReason, type SnapshotFallbackReason } from './snapshotF
 import {
   instanceKey,
   pendingInstances,
+  planBulkDelete,
   planDeleteOccurrence,
   planDeleteSeriesFrom,
   planEditSeriesFrom,
@@ -32,6 +33,7 @@ import {
   type SaveModifiers,
   type SeriesPlan,
 } from './series'
+import { planBulkUpdate, type BulkChange } from './bulk'
 import { newId } from '../lib/id'
 import { ymd } from '../lib/dates'
 import { isSeriesDefinition, type SeriesDefinition, type Task, type TaskDraft } from '../types/task'
@@ -47,6 +49,11 @@ async function runDeletion(target: DeletionTarget): Promise<void> {
   const del = supabase.from('tasks').delete()
   if (target.by === 'id') {
     const { error } = await del.eq('id', target.id)
+    if (error) throw new Error(error.message)
+    return
+  }
+  if (target.by === 'ids') {
+    const { error } = await del.in('id', target.ids)
     if (error) throw new Error(error.message)
     return
   }
@@ -489,6 +496,35 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     [setTasks, markWrites, boardId],
   )
 
+  /**
+   * Apply one change to a selection (#270): optimistic, one batched upsert of only the rows the
+   * change altered, and a whole-selection rollback on failure. A status change re-selects its rows
+   * so the lifecycle trigger's Completion values replace the optimistic guesses, as a Kanban drag
+   * does.
+   */
+  const bulkUpdate = useCallback(
+    async (ids: ReadonlySet<string>, change: BulkChange) => {
+      const prev = tasksRef.current
+      const { tasks: next, changed } = planBulkUpdate(prev, ids, change, new Date().toISOString())
+      if (changed.length === 0) return
+      setTasks(next)
+      markWrites(changed.map((t) => t.id))
+      try {
+        const write = supabase.from('tasks').upsert(
+          changed.map((t) => taskToRow(t, boardId)),
+          { onConflict: 'id' },
+        )
+        const { data, error: err } = change.kind === 'status' ? await write.select() : await write
+        if (err) throw new Error(err.message)
+        reconcileReturnedRows(data)
+      } catch (e) {
+        setTasks(prev)
+        setError(errorMessage(e))
+      }
+    },
+    [setTasks, markWrites, boardId, reconcileReturnedRows],
+  )
+
   const clearError = useCallback(() => setError(null), [])
 
   const getTemplate = useCallback(
@@ -628,6 +664,32 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     [removeTask, runPlan, seriesState],
   )
 
+  /**
+   * Delete a selection (#270). A selection of plain Tasks is one batched delete with rollback. One
+   * that includes Occurrences goes through `runPlan`, because its exclusions and any Series it
+   * retires follow the same rules, failure handling, and complete-load gate as a single delete.
+   */
+  const bulkDelete = useCallback(
+    async (ids: ReadonlySet<string>) => {
+      const plan = planBulkDelete(seriesState(), ids)
+      if (plan.markIds.length === 0) return
+      const touchesSeries =
+        plan.upserts.length > 0 || plan.deletions.some((deletion) => deletion.target.by !== 'ids')
+      if (touchesSeries) return runPlan(plan)
+
+      const prev = tasksRef.current
+      setTasks([...plan.state.tasks])
+      markWrites(plan.markIds)
+      try {
+        for (const deletion of plan.deletions) await runDeletion(deletion.target)
+      } catch (e) {
+        setTasks(prev)
+        setError(errorMessage(e))
+      }
+    },
+    [seriesState, runPlan, setTasks, markWrites],
+  )
+
   return {
     tasks,
     loading,
@@ -644,6 +706,8 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     getTemplate,
     saveTask,
     deleteTask,
+    bulkUpdate,
+    bulkDelete,
     offline,
     fallbackReason,
     savedAt,

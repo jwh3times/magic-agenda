@@ -2,6 +2,7 @@ import { createContext, useContext } from 'react'
 import type { Mode } from '../dnd/reorder'
 import type { Task, TaskDraft } from '../types/task'
 import type { RecurScope, SaveModifiers } from './series'
+import type { BulkChange } from './bulk'
 
 /**
  * The board-facing half of useTasks. Commands own their failures, so consumers never coordinate
@@ -27,6 +28,10 @@ export interface TaskBoard {
   toggleCompletion: (id: string) => void | Promise<void>
   /** Move overdue tasks to today; onlyIds narrows the operation to a filtered board. */
   rollForward: (todayStr: string, onlyIds?: ReadonlySet<string>) => void | Promise<void>
+  /** Apply one change to every selected Task (#270). Ids not on the board are ignored. */
+  bulkUpdate: (ids: ReadonlySet<string>, change: BulkChange) => void | Promise<void>
+  /** Delete every selected Task; Occurrences are excluded from their Series (#270). */
+  bulkDelete: (ids: ReadonlySet<string>) => void | Promise<void>
   /** Read the hidden template that owns a materialized recurring instance. */
   getTemplate: (parentId: string) => Task | undefined
 }

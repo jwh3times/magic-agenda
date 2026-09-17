@@ -3,6 +3,7 @@ import {
   instanceKey,
   makeInstance,
   pendingInstances,
+  planBulkDelete,
   planDeleteOccurrence,
   planDeleteSeriesFrom,
   planEditSeriesFrom,
@@ -1231,5 +1232,95 @@ describe('an Archived Occurrence still occupies its Occurrence Date (#351)', () 
     const ended = planEndSeriesAt(state, editing(i3), editing(i3, { recurFreq: 'none' }))
     expect(ended.state.templates).toHaveLength(1)
     expect(ended.state.templates[0].recurUntil).toBe('2026-07-14')
+  })
+})
+
+describe('planBulkDelete', () => {
+  const ROLLBACK = { abort: false, recover: 'rollback' }
+  const RESYNC = { abort: false, recover: 'reload' }
+  const selected = (...values: string[]) => new Set(values)
+
+  it('deletes plain Tasks in one batched deletion, with no Series writes', () => {
+    const s = { templates: [], tasks: [t('a'), t('b'), t('c')] }
+    const plan = planBulkDelete(s, selected('a', 'c'))
+
+    expect(ids(plan.state.tasks)).toEqual(['b'])
+    expect(plan.upserts).toEqual([])
+    expect(plan.deletions).toEqual([
+      { target: { by: 'ids', ids: ['a', 'c'] }, onFailure: ROLLBACK },
+    ])
+    expect(plan.markIds).toEqual(['a', 'c'])
+  })
+
+  it('coalesces several Occurrences of one Series into a single definition write', () => {
+    const s = series()
+    // i2 was dragged to another day: the exclusion is still its Occurrence Date.
+    s.tasks[1] = { ...s.tasks[1], day: '2026-07-11' }
+    const plan = planBulkDelete(s, selected('i3', 'i2'))
+
+    expect(ids(plan.state.tasks)).toEqual(['i1'])
+    expect(plan.upserts).toHaveLength(1)
+    expect(plan.upserts[0].id).toBe('tmpl')
+    expect(plan.state.templates[0].excludedDates).toEqual(['2026-07-08', '2026-07-15'])
+    expect(plan.upsertOnFailure).toEqual({ abort: false, recover: 'none' })
+    expect(plan.deletions).toEqual([
+      { target: { by: 'ids', ids: ['i2', 'i3'] }, onFailure: ROLLBACK },
+    ])
+    expect(plan.markIds).toEqual(['i2', 'i3', 'tmpl'])
+  })
+
+  // #231 again, at bulk scale: deleting every Occurrence of a bounded Series must retire it.
+  it('removes a bounded definition the selection spends, relying on the cascade', () => {
+    const s = withTemplate(series(), { recurUntil: '2026-07-15' })
+    const plan = planBulkDelete(
+      { ...s, tasks: [...s.tasks, t('plain')] },
+      selected('i1', 'i2', 'i3', 'plain'),
+    )
+
+    expect(ids(plan.state.tasks)).toEqual([])
+    expect(plan.state.templates).toEqual([])
+    expect(plan.upserts).toEqual([])
+    // Only the plain row needs its own deletion; the definition's cascade covers its Occurrences.
+    expect(plan.deletions).toEqual([
+      { target: { by: 'ids', ids: ['plain'] }, onFailure: ROLLBACK },
+      { target: { by: 'id', id: 'tmpl' }, onFailure: RESYNC },
+    ])
+    expect(plan.markIds).toEqual(['i1', 'i2', 'i3', 'plain', 'tmpl'])
+  })
+
+  it('keeps a bounded definition while an unselected Occurrence survives', () => {
+    const s = withTemplate(series(), { recurUntil: '2026-07-15' })
+    const plan = planBulkDelete(s, selected('i1', 'i2'))
+    expect(plan.state.templates).toHaveLength(1)
+    expect(plan.upserts.map((x) => x.id)).toEqual(['tmpl'])
+  })
+
+  it('keeps an unbounded definition even when every materialized Occurrence goes', () => {
+    const s = series()
+    const plan = planBulkDelete(s, selected('i1', 'i2', 'i3'))
+    expect(plan.state.templates[0].excludedDates).toEqual([
+      '2026-07-01',
+      '2026-07-08',
+      '2026-07-15',
+    ])
+    expect(plan.deletions).toEqual([
+      { target: { by: 'ids', ids: ['i1', 'i2', 'i3'] }, onFailure: ROLLBACK },
+    ])
+  })
+
+  it('treats an orphaned Occurrence as a plain delete', () => {
+    const s = series()
+    const plan = planBulkDelete({ ...s, templates: [] }, selected('i2'))
+    expect(plan.upserts).toEqual([])
+    expect(plan.deletions).toEqual([{ target: { by: 'ids', ids: ['i2'] }, onFailure: ROLLBACK }])
+  })
+
+  it('plans nothing for ids no longer on the board', () => {
+    const s = series()
+    const plan = planBulkDelete(s, selected('gone'))
+    expect(plan.state.tasks).toEqual(s.tasks)
+    expect(plan.upserts).toEqual([])
+    expect(plan.deletions).toEqual([])
+    expect(plan.markIds).toEqual([])
   })
 })
