@@ -48,3 +48,11 @@ jobs:
           version: ${{ steps.cli.outputs.version }}
       - run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
       - run: supabase db push
+      # The required `RLS` check asserts this same posture against a FRESH LOCAL stack, which is the
+      # only database CI can reach — and production carries legacy default privileges a fresh stack
+      # does not, so it drifted with every check green (#384). This reads production directly,
+      # read-only, through the Management API. It runs after the push so a migration that fixes the
+      # posture is already applied.
+      # No setup-node: the runner's Node already runs the `node -p` step above, and this script is
+      # dependency-free (one fetch, one JSON file).
+      - run: node scripts/verify-function-grants.mjs

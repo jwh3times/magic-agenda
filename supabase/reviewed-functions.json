@@ -1,0 +1,88 @@
+{
+  "$comment": [
+    "The reviewed security posture of every application function, shared by two checks that",
+    "see different databases: tests/rls/baseline.test.ts (a fresh local stack, in the required",
+    "RLS job) and scripts/verify-function-grants.mjs (production, after Deploy Migrations).",
+    "Neither can see the other's database, and #384 was exactly the drift that gap allowed.",
+    "Read baseline.test.ts's docstring before changing an entry: it holds the reasoning for",
+    "each one, and for the rule that a new function migration must revoke from anon and",
+    "service_role explicitly, not just from public."
+  ],
+  "functions": {
+    "admin_stats()": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "authenticated"
+    },
+    "admin_users(integer,integer)": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "authenticated"
+    },
+    "app_private.is_admin()": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "authenticated"
+    },
+    "app_private.require_admin_session()": {
+      "secdef": false,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "(owner only)"
+    },
+    "create_board(text)": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "authenticated"
+    },
+    "enforce_reminder_preferences()": {
+      "secdef": false,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "(owner only)"
+    },
+    "enforce_task_completion_lifecycle()": {
+      "secdef": false,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "(owner only)"
+    },
+    "handle_account_deletion()": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "(owner only)"
+    },
+    "handle_new_user()": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "(owner only)"
+    },
+    "reminder_candidate_rows()": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "service_role"
+    },
+    "stamp_task_attribution()": {
+      "secdef": false,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "(owner only)"
+    },
+    "set_updated_at()": {
+      "secdef": false,
+      "config": "(none)",
+      "explicitAcl": true,
+      "executeGrantees": "(owner only)"
+    }
+  },
+  "platformOwned": {
+    "rls_auto_enable()": "Supabase platform function behind the ensure_rls event trigger. Created by the platform, not by this repo, exists in production but not on a local stack, returns event_trigger so it cannot be invoked directly. Not ours to revoke or drop."
+  }
+}
