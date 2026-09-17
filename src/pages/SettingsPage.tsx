@@ -16,6 +16,7 @@ import { Spinner } from '../components/Spinner'
 import { useSettingsContext } from '../data/SettingsProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { readLastUserId } from '../lib/lastUser'
+import { useRole } from '../access/useRole'
 import { useBoardDirectoryContext, useBoardSession } from '../board/BoardDirectoryProvider'
 import { DEFAULT_VIEW } from '../board/selection'
 import type { ViewName } from '../types/task'
@@ -76,6 +77,7 @@ export function SettingsPage() {
 function SettingsShell({ defaultView, onChangeView }: SectionContext) {
   const { conf } = useTheme()
   const isMobile = useIsMobile()
+  const { isAdmin } = useRole()
 
   const card: CSSProperties = {
     background: conf.cellBg,
@@ -112,6 +114,11 @@ function SettingsShell({ defaultView, onChangeView }: SectionContext) {
           <h1 style={{ fontFamily: conf.title, fontSize: isMobile ? 26 : 32, margin: 0 }}>
             Settings
           </h1>
+          {isAdmin && (
+            <Link to="/admin" style={{ color: 'inherit', marginLeft: 'auto' }}>
+              Admin
+            </Link>
+          )}
         </header>
 
         <main style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

@@ -165,6 +165,32 @@ provide session-scoped hints, refreshing on focus, reconnection, session change,
 Signed-out, offline, failed, and missing reads default to no admin role and disabled flags. See
 [the administration runbook](../runbooks/roles-and-feature-flags.md) for SQL seeding and usage.
 
+### The admin dashboard: counts, never content (#274)
+
+`/admin` (`src/pages/AdminPage.tsx`, reached from a Settings link shown only to admins) reads
+through `src/admin/adminApi.ts` and two `security definer` RPCs in `public`: `admin_stats()`
+(Account, Board, and Task totals plus a 30-day UTC series) and `admin_users(page_limit,
+page_offset)` (email, sign-up and last sign-in dates, MFA enrolment, admin role, and counts of
+owned Boards and Tasks, at most 100 rows per page). **No per-Account Task content is reachable, by
+design**: an admin dashboard on a personal task board is the easiest place in this codebase to
+build a surveillance surface, so neither function may ever select a title, description, checklist,
+label, or day. Task counts exclude hidden Series definitions, which `admin_stats()` reports apart.
+
+Both RPCs call `app_private.require_admin_session()`, which refuses with `42501` unless the caller
+holds a live admin role, the session JWT is `aal2`, **and** a verified factor existed before that
+session began (`auth.sessions` via the JWT's `session_id`). The last clause is not redundant: an
+Account with no verified factor can enrol one from a password-only session, and verifying it raises
+that same session to `aal2`, so a stolen session could otherwise mint its own second factor. A
+factor added mid-session counts only after a fresh sign-in. What no check can stop is a stolen
+password for an admin with no factor, so the runbook requires a verified factor before the role is
+granted. The helper has no grants, because only the definer bodies call it. The page's role check
+is cosmetic; it renders the database's refusal as a two-factor explanation. Flag toggles on the
+page use the ordinary `feature_flags` update policies (admin role, no two-factor requirement), and
+creating or deleting a flag stays in SQL.
+`tests/rls/admin_dashboard.test.ts` enrols a real TOTP factor and signs in again to reach `aal2`,
+then proves the anonymous, member, password-only-admin, and self-enrolled-session refusals, exact count deltas, the returned column set,
+paging bounds, and immediate revocation.
+
 ## The app layer matches it
 
 `BoardDirectoryProvider` (`src/board/BoardDirectoryProvider.tsx`, mounted

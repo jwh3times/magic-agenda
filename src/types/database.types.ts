@@ -502,6 +502,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_stats: { Args: never; Returns: Json }
+      admin_users: {
+        Args: { page_limit: number; page_offset: number }
+        Returns: {
+          created_at: string
+          email: string
+          has_mfa: boolean
+          id: string
+          is_admin: boolean
+          last_sign_in_at: string
+          owned_boards: number
+          owned_tasks: number
+          total_count: number
+        }[]
+      }
       create_board: { Args: { board_name: string }; Returns: string }
       reminder_candidate_rows: {
         Args: never

@@ -26,6 +26,7 @@ const BoardPage = lazy(() => import('./pages/BoardPage').then((m) => ({ default:
 const SettingsPage = lazy(() =>
   import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })),
 )
+const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })))
 
 /**
  * `/` serves two audiences: signed-out visitors get the marketing page, signed-in users get their
@@ -101,6 +102,17 @@ export default function App() {
                       <ProtectedRoute>
                         <Suspense fallback={<Spinner label="Loading…" />}>
                           <SettingsPage />
+                        </Suspense>
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* The role gate inside AdminPage is cosmetic; the admin RPCs are the boundary. */}
+                  <Route
+                    path="/admin"
+                    element={
+                      <ProtectedRoute>
+                        <Suspense fallback={<Spinner label="Loading…" />}>
+                          <AdminPage />
                         </Suspense>
                       </ProtectedRoute>
                     }

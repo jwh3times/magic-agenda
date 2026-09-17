@@ -29,8 +29,10 @@ const h = vi.hoisted(() => {
     unenrollFactor: vi.fn(),
   }
   const setDefaultView = vi.fn(() => Promise.resolve())
-  return { upsert, maybeSingle, channel, auth, setDefaultView }
+  return { upsert, maybeSingle, channel, auth, setDefaultView, isAdmin: false }
 })
+
+vi.mock('../access/useRole', () => ({ useRole: () => ({ isAdmin: h.isAdmin }) }))
 
 vi.mock('../lib/supabase', () => ({
   supabase: {
@@ -57,6 +59,7 @@ import { SettingsPage } from './SettingsPage'
 
 beforeEach(() => {
   h.upsert.mockClear()
+  h.isAdmin = false
   h.auth.user = { id: 'user-1' }
 })
 
@@ -89,6 +92,17 @@ test('changing the default view writes the Membership, and only the Membership',
   // asserts the absence rather than trusting it — two writers is how the two silently diverge.
   expect(h.setDefaultView).toHaveBeenCalledWith('b1', 'kanban')
   expect(h.upsert).not.toHaveBeenCalled()
+})
+
+test('only an admin sees the Admin link', async () => {
+  const { unmount } = renderPage()
+  await screen.findByRole('heading', { name: 'Settings' })
+  expect(screen.queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument()
+  unmount()
+
+  h.isAdmin = true
+  renderPage()
+  expect(await screen.findByRole('link', { name: 'Admin' })).toHaveAttribute('href', '/admin')
 })
 
 test('links to the legal pages from the footer', async () => {
