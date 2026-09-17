@@ -23,6 +23,9 @@ of three hand‑built themes.
 - **Bulk multi-select** — Ctrl/⌘-click cards or turn on **Select**, then move the selection to a day
   or the Inbox, set its status or color, or delete it at once. Deleting recurring occurrences skips
   them in their series rather than letting them come back.
+- **Undo** — completing, deleting, dragging, rolling forward, or a bulk change shows a toast with
+  **Undo** for six seconds. Undo restores your earlier version, even over a change made on another
+  device in the meantime, and says so.
 - **Rich task editor** — title, description, Note Color, an optional Board Label (or Unlabeled),
   checklist, status, schedule, an optional due time, and a pin toggle for priority.
   Tasks allow 500-character titles, 20,000-character descriptions, up to 200 checklist items within
