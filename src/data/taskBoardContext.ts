@@ -37,6 +37,15 @@ export interface TaskBoard {
   bulkUpdate: (ids: ReadonlySet<string>, change: BulkChange) => boolean | Promise<boolean>
   /** Delete every selected Task; Occurrences are excluded from their Series. Same outcome contract. */
   bulkDelete: (ids: ReadonlySet<string>) => boolean | Promise<boolean>
+  /**
+   * The latest action that can be undone (#271): Complete/Reopen, a plain or single-Occurrence
+   * delete, a drag, roll-forward, or a bulk change. Null once undone, dismissed, or superseded by
+   * any other write from this client. `id` changes with every new action.
+   */
+  lastUndo: { id: number; label: string } | null
+  /** Restore that action's rows. Resolves false when refused or failed (the error is surfaced). */
+  undo: () => boolean | Promise<boolean>
+  dismissUndo: () => void
   /** Read the hidden template that owns a materialized recurring instance. */
   getTemplate: (parentId: string) => Task | undefined
 }

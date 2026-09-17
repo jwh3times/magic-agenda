@@ -163,6 +163,12 @@ cut)`, which counts by Occurrence Date and requires `state.tasks` to be the whol
   plain Tasks straight to one `.delete().in('id', …)` and routes anything touching a Series through
   `runPlan`, so the complete-load gate still applies. Bulk move, status, and color
   (`src/data/bulk.ts`) change Occurrences as This Occurrence, exactly as a drag does.
+- **Undo (#271) covers single-Occurrence and bulk deletes, never Series-level operations.** The
+  undo entry records the definition as it was, so undo removes the new Excluded Dates, or
+  re-inserts a definition the delete retired, **before** re-inserting its Occurrences with their
+  original ids. The order matters: an Occurrence row references its definition. Editing or
+  deleting this-and-future, promotion, and ending a Series are not undoable. Their plans can
+  materialize or cascade over rows the client never recorded.
 - **`FailureHandling` is two independent questions** (`abort` and `recover`) because the original
   behaviour answered them independently: a failed content upsert aborts the trim that follows it,
   while a failed `excludedDates` write must _not_ stop the occurrence being deleted.

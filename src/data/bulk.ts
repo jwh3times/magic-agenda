@@ -1,4 +1,7 @@
 import { completionDecision } from './completion'
+import { countTasks } from './undo'
+import { formatAgendaDate } from '../lib/dates'
+import { STATUS } from '../theme/constants'
 import { INBOX, type Color, type Task, type WorkflowStatus } from '../types/task'
 
 /** One change applied to every selected Task (#270). Deletion is planned in `series.ts`. */
@@ -6,6 +9,19 @@ export type BulkChange =
   | { kind: 'day'; day: string }
   | { kind: 'status'; status: WorkflowStatus }
   | { kind: 'color'; color: Color }
+
+/** What a bulk change did, for its undo toast: "Moved 3 tasks to Inbox". */
+export function describeBulkChange(change: BulkChange, altered: number): string {
+  const count = countTasks(altered)
+  if (change.kind === 'day') {
+    return `Moved ${count} to ${change.day === INBOX ? 'Inbox' : formatAgendaDate(change.day)}`
+  }
+  if (change.kind === 'status') {
+    const label = STATUS.find((s) => s.key === change.status)?.label ?? change.status
+    return `Set ${count} to ${label}`
+  }
+  return `Recolored ${count}`
+}
 
 export interface BulkUpdatePlan {
   /** The whole board after the change. */

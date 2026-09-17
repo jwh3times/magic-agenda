@@ -1142,3 +1142,127 @@ test('bulkDelete of Occurrences writes one definition update and one batched row
   expect(rows.map((r) => [r.id, r.recur_skip])).toEqual([['tpl1', [today, next]]])
   expect(h.deleteIn).toHaveBeenCalledWith('id', ['i1', 'i2'])
 })
+
+// ——— undo (#271) ———
+
+test('completing offers undo; undo writes the prior row back and clears the offer', async () => {
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  await act(async () => {
+    await result.current.toggleCompletion('t1')
+  })
+  expect(result.current.lastUndo?.label).toBe('Completed “server”')
+  h.upsert.mockClear()
+
+  let ok = false
+  await act(async () => {
+    ok = await result.current.undo()
+  })
+  expect(ok).toBe(true)
+  expect(result.current.lastUndo).toBeNull()
+  expect(result.current.tasks.find((t) => t.id === 't1')?.status).toBe('todo')
+  const [rows] = h.upsert.mock.calls[0] as unknown as [{ id: string; status: string }[]]
+  expect(rows.map((r) => [r.id, r.status])).toEqual([['t1', 'todo']])
+})
+
+test('a failed action offers no undo, and any other write forgets a pending one', async () => {
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  h.writeSelect.mockRejectedValueOnce(new Error('network down'))
+  await act(async () => {
+    await result.current.toggleCompletion('t1')
+  })
+  expect(result.current.lastUndo).toBeNull()
+
+  await act(async () => {
+    await result.current.toggleCompletion('t1')
+  })
+  expect(result.current.lastUndo).not.toBeNull()
+  await act(async () => {
+    await result.current.updateTask({ ...result.current.tasks[0], title: 'edited' })
+  })
+  expect(result.current.lastUndo).toBeNull()
+})
+
+test('undoing a plain delete re-inserts the row with its original id', async () => {
+  h.capture.rows = [serverRow({ id: 't1', title: 'keep me' }), serverRow({ id: 't2' })]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  await act(async () => {
+    await result.current.deleteTask('t1')
+  })
+  expect(result.current.lastUndo?.label).toBe('Deleted “keep me”')
+  h.upsert.mockClear()
+  await act(async () => {
+    await result.current.undo()
+  })
+  expect(result.current.tasks.map((t) => t.id).sort()).toEqual(['t1', 't2'])
+  const [rows] = h.upsert.mock.calls[0] as unknown as [{ id: string; title: string }[]]
+  expect(rows.map((r) => [r.id, r.title])).toEqual([['t1', 'keep me']])
+})
+
+test('undoing a drag restores the pre-drag placement, not the last preview', async () => {
+  h.capture.rows = [
+    serverRow({ id: 't1', title: 'dragged', day: '2026-07-01', order_index: 0 }),
+    serverRow({ id: 't2', day: '2026-07-02', order_index: 0 }),
+  ]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  const board = result.current.tasks
+  const hover = board.map((t) => (t.id === 't1' ? { ...t, day: '2026-07-02', order: 1 } : t))
+  act(() => result.current.previewReorder(hover))
+  const drop = hover.map((t) => (t.id === 't1' ? { ...t, order: 0 } : { ...t, order: 1 }))
+  await act(async () => {
+    await result.current.persistReorder(drop, ['2026-07-01', '2026-07-02'], 'day')
+  })
+  expect(result.current.lastUndo?.label).toBe('Moved “dragged”')
+
+  await act(async () => {
+    await result.current.undo()
+  })
+  const t1 = result.current.tasks.find((t) => t.id === 't1')!
+  const t2 = result.current.tasks.find((t) => t.id === 't2')!
+  expect([t1.day, t1.order, t2.order]).toEqual(['2026-07-01', 0, 0])
+})
+
+test('undoing a bulk delete of Occurrences restores the definition before its Occurrences', async () => {
+  const today = ymd(new Date())
+  h.capture.rows = [
+    serverRow({ id: 'tpl1', recur_freq: 'daily', day: today, recur_until: today }),
+    serverRow({ id: 'i1', recur_parent_id: 'tpl1', recur_origin_day: today, day: today }),
+  ]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  await act(async () => {
+    await result.current.bulkDelete(new Set(['i1']))
+  })
+  expect(result.current.lastUndo?.label).toBe('Deleted 1 task')
+  h.upsert.mockClear()
+  await act(async () => {
+    await result.current.undo()
+  })
+
+  const calls = h.upsert.mock.calls as unknown as [{ id: string }[]][]
+  expect(calls.map(([rows]) => rows.map((r) => r.id))).toEqual([['tpl1'], ['i1']])
+  expect(result.current.tasks.map((t) => t.id)).toEqual(['i1'])
+  expect(result.current.getTemplate('tpl1')).toBeDefined()
+})
+
+test('undo refuses on a board that has not completed an authenticated load', async () => {
+  const { result } = renderHook(() => useTasks('u1', 'b1', false))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  await act(async () => {
+    await result.current.toggleCompletion('t1')
+  })
+  let ok = true
+  await act(async () => {
+    ok = await result.current.undo()
+  })
+  expect(ok).toBe(false)
+  expect(result.current.error).toBe('Reload the complete Board before undoing.')
+})

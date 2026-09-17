@@ -32,8 +32,10 @@ import {
   type RecurScope,
   type SaveModifiers,
   type SeriesPlan,
+  type SeriesState,
 } from './series'
-import { planBulkUpdate, type BulkChange } from './bulk'
+import { describeBulkChange, planBulkUpdate, type BulkChange } from './bulk'
+import { captureUndo, countTasks, planUndo, quoted, type UndoEntry } from './undo'
 import { newId } from '../lib/id'
 import { ymd } from '../lib/dates'
 import { isSeriesDefinition, type SeriesDefinition, type Task, type TaskDraft } from '../types/task'
@@ -72,7 +74,7 @@ export interface UseTasks extends TaskBoard {
   reload: () => Promise<void>
   createTask: (task: Task) => Promise<void>
   updateTask: (task: Task) => Promise<void>
-  removeTask: (id: string) => Promise<void>
+  removeTask: (id: string) => Promise<boolean>
   /** True when the board is showing the last-known local snapshot instead of a live server load. */
   offline: boolean
   /** Why the live read failed while this snapshot is shown. Null when the load is live. */
@@ -148,7 +150,33 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     [setTasks],
   )
 
-  const previewReorder = useCallback((next: Task[]) => setTasks(next), [setTasks])
+  // ——— undo (#271) ———
+  // One level: the latest undoable action. Any other write from this client forgets it, since
+  // undoing past a later edit would silently revert that edit too. Remote changes do not forget it;
+  // undo is last-write-wins against another device, and the toast says so.
+  const [undoable, setUndoable] = useState<{ id: number; entry: UndoEntry } | null>(null)
+  const undoSeq = useRef(0)
+  // The board as it was when the current drag began. `previewReorder` replaces state on every
+  // hover, so by the time a drop persists, `tasksRef` already holds the moved board.
+  const dragOrigin = useRef<Task[] | null>(null)
+
+  const offerUndo = useCallback((label: string, before: SeriesState, ids: Iterable<string>) => {
+    undoSeq.current += 1
+    setUndoable({ id: undoSeq.current, entry: captureUndo(label, before, ids) })
+  }, [])
+  const forgetUndo = useCallback(() => {
+    setUndoable(null)
+    dragOrigin.current = null
+  }, [])
+  const dismissUndo = useCallback(() => setUndoable(null), [])
+
+  const previewReorder = useCallback(
+    (next: Task[]) => {
+      dragOrigin.current ??= tasksRef.current
+      setTasks(next)
+    },
+    [setTasks],
+  )
 
   /**
    * Insert any missing instances for the given templates within the rolling horizon.
@@ -344,6 +372,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
 
   const createTask = useCallback(
     async (task: Task) => {
+      forgetUndo()
       if (isSeriesDefinition(task)) {
         templatesRef.current = [...templatesRef.current, task]
         bumpTemplatesVersion()
@@ -383,7 +412,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         setError(errorMessage(e))
       }
     },
-    [setTasks, materialize, boardId, markWrites, reconcileReturnedRows],
+    [setTasks, materialize, boardId, markWrites, reconcileReturnedRows, forgetUndo],
   )
 
   /**
@@ -396,6 +425,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
    */
   const updateTask = useCallback(
     async (task: Task) => {
+      forgetUndo()
       const prev = tasksRef.current
       setTasks((p) => p.map((t) => (t.id === task.id ? task : t)))
       markWrites([task.id])
@@ -411,20 +441,23 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         setError(errorMessage(e))
       }
     },
-    [setTasks, boardId, markWrites, reconcileReturnedRows],
+    [setTasks, boardId, markWrites, reconcileReturnedRows, forgetUndo],
   )
 
+  /** Delete one plain row. Resolves whether the delete landed; undo is offered by the caller. */
   const removeTask = useCallback(
-    async (id: string) => {
+    async (id: string): Promise<boolean> => {
       const prev = tasksRef.current
       setTasks((p) => p.filter((t) => t.id !== id))
       markWrites([id])
       try {
         const { error: err } = await supabase.from('tasks').delete().eq('id', id)
         if (err) throw new Error(err.message)
+        return true
       } catch (e) {
         setTasks(prev)
         setError(errorMessage(e))
+        return false
       }
     },
     [setTasks, markWrites],
@@ -432,7 +465,9 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
 
   const toggleCompletion = useCallback(
     async (id: string) => {
+      forgetUndo()
       const prev = tasksRef.current
+      const before = { tasks: prev, templates: templatesRef.current }
       const { tasks: next } = applyToggleCompletion(prev, id, new Date().toISOString())
       setTasks(next)
       const toggled = next.find((t) => t.id === id)
@@ -446,20 +481,23 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
           .select()
         if (err) throw new Error(err.message)
         reconcileReturnedRows(data)
+        const verb = toggled.status === 'completed' ? 'Completed' : 'Reopened'
+        offerUndo(`${verb} ${quoted(toggled)}`, before, [id])
       } catch (e) {
         setTasks(prev)
         setError(errorMessage(e))
       }
     },
-    [setTasks, boardId, markWrites, reconcileReturnedRows],
+    [setTasks, boardId, markWrites, reconcileReturnedRows, forgetUndo, offerUndo],
   )
 
   const persistReorder = useCallback(
     async (next: Task[], containers: string[], mode: Mode) => {
+      const origin = dragOrigin.current
+      forgetUndo()
       setTasks(next)
-      const rows = next
-        .filter((t) => containers.includes(mode === 'day' ? t.day : t.status))
-        .map((t) => taskToRow(t, boardId))
+      const moved = next.filter((t) => containers.includes(mode === 'day' ? t.day : t.status))
+      const rows = moved.map((t) => taskToRow(t, boardId))
       if (rows.length === 0) return
       markWrites(rows.map((r) => r.id))
       try {
@@ -467,17 +505,33 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         const { data, error: err } = mode === 'status' ? await write.select() : await write
         if (err) throw new Error(err.message)
         reconcileReturnedRows(data)
+        // Undo needs the pre-drag board; a drop without one (another write intervened) has none.
+        if (origin) {
+          const before = new Map(origin.map((t) => [t.id, t]))
+          const relocated = moved.filter((t) => {
+            const was = before.get(t.id)
+            return was && (mode === 'day' ? was.day !== t.day : was.status !== t.status)
+          })
+          const label = relocated.length === 1 ? `Moved ${quoted(relocated[0])}` : 'Reordered tasks'
+          offerUndo(
+            label,
+            { tasks: origin, templates: templatesRef.current },
+            moved.map((t) => t.id),
+          )
+        }
       } catch (e) {
         setError(errorMessage(e))
         void reload()
       }
     },
-    [setTasks, boardId, reload, markWrites, reconcileReturnedRows],
+    [setTasks, boardId, reload, markWrites, reconcileReturnedRows, forgetUndo, offerUndo],
   )
 
   const rollForward = useCallback(
     async (todayStr: string, onlyIds?: ReadonlySet<string>) => {
+      forgetUndo()
       const prev = tasksRef.current
+      const before = { tasks: prev, templates: templatesRef.current }
       const { tasks: next, changed } = applyRollForward(prev, todayStr, onlyIds)
       if (changed.length === 0) return
       setTasks(next)
@@ -488,12 +542,17 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
           { onConflict: 'id' },
         )
         if (err) throw new Error(err.message)
+        offerUndo(
+          `Rolled ${countTasks(changed.length)} forward to today`,
+          before,
+          changed.map((t) => t.id),
+        )
       } catch (e) {
         setTasks(prev)
         setError(errorMessage(e))
       }
     },
-    [setTasks, markWrites, boardId],
+    [setTasks, markWrites, boardId, forgetUndo, offerUndo],
   )
 
   /**
@@ -504,7 +563,9 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
    */
   const bulkUpdate = useCallback(
     async (ids: ReadonlySet<string>, change: BulkChange): Promise<boolean> => {
+      forgetUndo()
       const prev = tasksRef.current
+      const before = { tasks: prev, templates: templatesRef.current }
       const { tasks: next, changed } = planBulkUpdate(prev, ids, change, new Date().toISOString())
       if (changed.length === 0) return true
       setTasks(next)
@@ -517,6 +578,11 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         const { data, error: err } = change.kind === 'status' ? await write.select() : await write
         if (err) throw new Error(err.message)
         reconcileReturnedRows(data)
+        offerUndo(
+          describeBulkChange(change, changed.length),
+          before,
+          changed.map((t) => t.id),
+        )
         return true
       } catch (e) {
         setTasks(prev)
@@ -524,7 +590,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         return false
       }
     },
-    [setTasks, markWrites, boardId, reconcileReturnedRows],
+    [setTasks, markWrites, boardId, reconcileReturnedRows, forgetUndo, offerUndo],
   )
 
   const clearError = useCallback(() => setError(null), [])
@@ -633,6 +699,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       scope?: RecurScope,
       modifiers?: SaveModifiers,
     ) => {
+      forgetUndo()
       const op = resolveSave(orig, draft, isNew, scope)
       if (op.kind === 'create') return createTask(op.task)
       if (op.kind === 'promote-to-series') {
@@ -654,23 +721,30 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       // 'update-plain' and 'update-occurrence' differ only in the task `resolveSave` produced.
       return updateTask(op.task)
     },
-    [createTask, updateTask, runPlan, seriesState],
+    [createTask, updateTask, runPlan, seriesState, forgetUndo],
   )
 
   const deleteTask = useCallback(
     async (id: string, scope?: RecurScope) => {
+      forgetUndo()
       const task = tasksRef.current.find((t) => t.id === id)
       // Already gone — from another device, or a double-click. The row is deleted either way.
       if (!task) return
+      const before = seriesState()
       const op = resolveDelete(task, scope)
-      if (op.kind === 'delete-plain') return removeTask(op.id)
-      const plan =
-        op.kind === 'delete-occurrence'
-          ? planDeleteOccurrence(seriesState(), op.instance)
-          : planDeleteSeriesFrom(seriesState(), op.instance)
-      await runPlan(plan)
+      if (op.kind === 'delete-plain') {
+        if (await removeTask(op.id)) offerUndo(`Deleted ${quoted(task)}`, before, [op.id])
+        return
+      }
+      // Deleting this and every later Occurrence is a Series-level operation: not undoable (#271).
+      if (op.kind === 'delete-series-from') {
+        await runPlan(planDeleteSeriesFrom(before, op.instance))
+        return
+      }
+      const plan = planDeleteOccurrence(before, op.instance)
+      if (await runPlan(plan)) offerUndo(`Deleted ${quoted(task)}`, before, plan.markIds)
     },
-    [removeTask, runPlan, seriesState],
+    [removeTask, runPlan, seriesState, forgetUndo, offerUndo],
   )
 
   /**
@@ -680,17 +754,26 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
    */
   const bulkDelete = useCallback(
     async (ids: ReadonlySet<string>): Promise<boolean> => {
-      const plan = planBulkDelete(seriesState(), ids)
+      forgetUndo()
+      const before = seriesState()
+      const plan = planBulkDelete(before, ids)
       if (plan.markIds.length === 0) return true
+      const deleted = before.tasks.filter((t) => ids.has(t.id)).length
+      const offer = () => offerUndo(`Deleted ${countTasks(deleted)}`, before, plan.markIds)
       const touchesSeries =
         plan.upserts.length > 0 || plan.deletions.some((deletion) => deletion.target.by !== 'ids')
-      if (touchesSeries) return runPlan(plan)
+      if (touchesSeries) {
+        const ok = await runPlan(plan)
+        if (ok) offer()
+        return ok
+      }
 
       const prev = tasksRef.current
       setTasks([...plan.state.tasks])
       markWrites(plan.markIds)
       try {
         for (const deletion of plan.deletions) await runDeletion(deletion.target)
+        offer()
         return true
       } catch (e) {
         setTasks(prev)
@@ -698,8 +781,70 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         return false
       }
     },
-    [seriesState, runPlan, setTasks, markWrites],
+    [seriesState, runPlan, setTasks, markWrites, forgetUndo, offerUndo],
   )
+
+  /**
+   * Restore the latest undoable action's rows (#271). Definitions are written before Occurrences,
+   * and deleted rows return with their original ids through the same upsert (an INSERT to the
+   * database, which keeps their recorded Completion and Archive instants).
+   *
+   * Two limits, both deliberate. Undoing a Reopen is an UPDATE back to Completed, and the lifecycle
+   * trigger stamps that Completion afresh rather than trusting the client's instant (see
+   * docs/agents/completion.md). And it is last-write-wins: a change another device made to the
+   * same rows since is overwritten. It needs the same complete authenticated load as a Series plan,
+   * because it may restore a definition whose cascade reaches rows this client never loaded.
+   */
+  const undo = useCallback(async (): Promise<boolean> => {
+    const pending = undoable
+    if (!pending) return false
+    if (!hasSession || !hasLoadedFromServer.current) {
+      setError('Reload the complete Board before undoing.')
+      return false
+    }
+    forgetUndo()
+    const plan = planUndo(pending.entry, seriesState())
+    templatesRef.current = [...plan.state.templates]
+    bumpTemplatesVersion()
+    setTasks([...plan.state.tasks])
+    markWrites(plan.markIds)
+    try {
+      if (plan.upsertTemplates.length > 0) {
+        const { error: err } = await supabase.from('tasks').upsert(
+          plan.upsertTemplates.map((t) => taskToRow(t, boardId)),
+          { onConflict: 'id' },
+        )
+        if (err) throw new Error(err.message)
+      }
+      if (plan.upsertTasks.length > 0) {
+        const { data, error: err } = await supabase
+          .from('tasks')
+          .upsert(
+            plan.upsertTasks.map((t) => taskToRow(t, boardId)),
+            { onConflict: 'id' },
+          )
+          .select()
+        if (err) throw new Error(err.message)
+        reconcileReturnedRows(data)
+      }
+      return true
+    } catch (e) {
+      setError(errorMessage(e))
+      // Part of the restore may have landed; only the server knows which.
+      void reload()
+      return false
+    }
+  }, [
+    undoable,
+    hasSession,
+    forgetUndo,
+    seriesState,
+    setTasks,
+    markWrites,
+    boardId,
+    reconcileReturnedRows,
+    reload,
+  ])
 
   return {
     tasks,
@@ -719,6 +864,9 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     deleteTask,
     bulkUpdate,
     bulkDelete,
+    lastUndo: undoable ? { id: undoable.id, label: undoable.entry.label } : null,
+    undo,
+    dismissUndo,
     offline,
     fallbackReason,
     savedAt,
