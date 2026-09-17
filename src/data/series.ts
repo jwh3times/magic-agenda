@@ -568,9 +568,13 @@ export function planBulkDelete(state: SeriesState, ids: ReadonlySet<string>): Se
   const rowIds = targets
     .filter((task) => !(task.recurParentId && retired.has(task.recurParentId)))
     .map((task) => task.id)
+  // A row deletion normally rolls back on failure. Not when a retired definition is deleted in the
+  // same plan: that deletion may succeed, and its cascade removes rows a rollback would restore on
+  // screen, where echo suppression would keep them until the next reload. Resync instead.
+  const rowFailure = retired.size > 0 ? RESYNC : ROLLBACK
   const deletions: Deletion[] = [
     ...(rowIds.length > 0
-      ? [{ target: { by: 'ids' as const, ids: rowIds }, onFailure: ROLLBACK }]
+      ? [{ target: { by: 'ids' as const, ids: rowIds }, onFailure: rowFailure }]
       : []),
     ...[...retired].map((id) => ({ target: { by: 'id' as const, id }, onFailure: RESYNC })),
   ]

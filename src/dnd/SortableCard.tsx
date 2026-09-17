@@ -67,9 +67,13 @@ export function SortableCard({ task, variant }: SortableCardProps) {
       onBlur={() => setFocused(false)}
       {...attributes}
       {...listeners}
-      // In selection mode Enter toggles instead of opening (Board decides), and the button reports
-      // whether this card is selected. Outside it, no pressed state is claimed at all.
-      aria-pressed={selectedIds ? selectedIds.has(task.id) : undefined}
+      // In selection mode Enter and click toggle instead of opening (Board decides), so the button
+      // reports its selected state and is not disabled: drag is off, but the toggle is available.
+      // Outside selection mode both stay dnd-kit's own, including its pressed state mid-drag.
+      {...(selectedIds && {
+        'aria-pressed': selectedIds.has(task.id),
+        'aria-disabled': undefined,
+      })}
       onKeyDown={onKeyDown}
     >
       <TaskCard

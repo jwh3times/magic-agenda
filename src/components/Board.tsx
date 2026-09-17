@@ -33,7 +33,7 @@ import { CommandPalette, type PaletteCommand } from './CommandPalette'
 import { ShortcutHelp } from './ShortcutHelp'
 import { Toast } from './Toast'
 import { BulkActionBar } from './BulkActionBar'
-import type { BulkChange } from '../data/bulk'
+import { planBulkUpdate, type BulkChange } from '../data/bulk'
 import { STATUS } from '../theme/constants'
 import { useKeyboardShortcuts } from '../lib/useKeyboardShortcuts'
 import type { ShortcutAction } from '../lib/keyboardShortcuts'
@@ -162,6 +162,9 @@ export function Board({
   // Selection mode (#270). Ids are kept as chosen; `selection` below narrows them to what is shown.
   const [selecting, setSelecting] = useState(false)
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set())
+  // The action bar's measured height: the board reserves that much room below its lanes, and the
+  // toast rises above it, so neither the last cards nor the bar's own buttons are covered.
+  const [barHeight, setBarHeight] = useState(0)
   // Numeric quick-add dates ("3/4") follow the browser's locale, by the maintainer's decision.
   const dateOrder = useMemo(() => dateOrderForLocale(), [])
 
@@ -272,29 +275,41 @@ export function Board({
   }
 
   const plural = (n: number) => `${n} ${n === 1 ? 'task' : 'tasks'}`
+  // Both bulk actions announce only what actually happened: the count is the Tasks the change
+  // alters (not everything selected), and nothing is announced, and selection is not left, until
+  // the data layer reports the write succeeded. A refusal or rollback surfaces its own error.
   const applyBulk = (change: BulkChange) => {
     if (selection.size === 0) return
-    void taskBoard.bulkUpdate(selection, change)
-    const count = plural(selection.size)
-    setNotice(
+    const altered = planBulkUpdate(tasks, selection, change, new Date().toISOString()).changed
+      .length
+    if (altered === 0) {
+      setNotice('The selected tasks already have that.')
+      return
+    }
+    const count = plural(altered)
+    const message =
       change.kind === 'day'
         ? `Moved ${count} to ${whenLabel(change.day)}`
         : change.kind === 'status'
           ? `Set ${count} to ${STATUS.find((s) => s.key === change.status)?.label ?? change.status}`
-          : `Recolored ${count}`,
-    )
+          : `Recolored ${count}`
+    void Promise.resolve(taskBoard.bulkUpdate(selection, change)).then((ok) => {
+      if (ok) setNotice(message)
+    })
   }
   const deleteSelection = () => {
     if (selection.size === 0) return
     const occurrences = visibleTasks.filter((t) => selection.has(t.id) && t.recurParentId).length
-    void taskBoard.bulkDelete(selection)
-    setNotice(
+    const message =
       `Deleted ${plural(selection.size)}` +
-        (occurrences > 0
-          ? `. ${occurrences} recurring ${occurrences === 1 ? 'occurrence' : 'occurrences'} will not come back.`
-          : ''),
-    )
-    exitSelection()
+      (occurrences > 0
+        ? `. ${occurrences} recurring ${occurrences === 1 ? 'occurrence' : 'occurrences'} will not come back.`
+        : '')
+    void Promise.resolve(taskBoard.bulkDelete(selection)).then((ok) => {
+      if (!ok) return
+      setNotice(message)
+      exitSelection()
+    })
   }
 
   const actions: BoardActions = {
@@ -401,6 +416,14 @@ export function Board({
     if (!escapeExits) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented) return
+      // Escape inside a text field or menu belongs to that control (clearing a search, closing a
+      // Board-name input), even when the control does not claim it with preventDefault.
+      const target = e.target
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+      )
+        return
       setSelecting(false)
       setSelectedIds(new Set())
     }
@@ -474,6 +497,10 @@ export function Board({
                 flex: 1,
                 minHeight: 0,
                 padding: isMobile ? '10px 10px 12px' : '18px 22px 22px',
+                // Reserve the action bar's footprint (desktop floats it 20px up).
+                ...(selectionActive && {
+                  paddingBottom: barHeight + (isMobile ? 12 : 20 + 12),
+                }),
                 position: 'relative',
                 zIndex: 1,
               }}
@@ -549,6 +576,7 @@ export function Board({
             onApply={applyBulk}
             onDelete={deleteSelection}
             onDone={exitSelection}
+            onHeightChange={setBarHeight}
           />
         )}
         {notice && (
@@ -556,7 +584,7 @@ export function Board({
             tone="info"
             message={notice}
             onDismiss={() => setNotice(null)}
-            bottom={selectionActive ? (isMobile ? 150 : 90) : 20}
+            bottom={selectionActive ? barHeight + (isMobile ? 12 : 20 + 12) : 20}
           />
         )}
       </div>

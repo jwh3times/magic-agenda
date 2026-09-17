@@ -25,12 +25,15 @@ function Harness({
   canAssignLabels,
   seed,
   keyboardShortcuts,
+  bulkFails = false,
 }: {
   weekStart?: number
   initialView?: ViewName
   canAssignLabels?: boolean
   seed?: Task[]
   keyboardShortcuts?: boolean
+  /** The data layer refused or rolled back every bulk write. */
+  bulkFails?: boolean
 }) {
   const [tasks, setTasks] = useState<Task[]>(() => seed ?? makeMockTasks())
   const taskBoard: TaskBoard = {
@@ -53,9 +56,16 @@ function Harness({
       setTasks((prev) => applyToggleCompletion(prev, id, '2026-09-03T15:00:00.000Z').tasks),
     rollForward: () => {},
     // Plain Tasks only, like saveTask above; Series bulk semantics are tested in series.test.ts.
-    bulkUpdate: (ids, change) =>
-      setTasks((prev) => planBulkUpdate(prev, ids, change, '2026-09-03T15:00:00.000Z').tasks),
-    bulkDelete: (ids) => setTasks((prev) => prev.filter((task) => !ids.has(task.id))),
+    bulkUpdate: (ids, change) => {
+      if (bulkFails) return false
+      setTasks((prev) => planBulkUpdate(prev, ids, change, '2026-09-03T15:00:00.000Z').tasks)
+      return true
+    },
+    bulkDelete: (ids) => {
+      if (bulkFails) return false
+      setTasks((prev) => prev.filter((task) => !ids.has(task.id)))
+      return true
+    },
     getTemplate: () => undefined,
   }
   return (
@@ -572,7 +582,9 @@ describe('selection mode', () => {
     await user.click(screen.getByRole('button', { name: '☑ Select' }))
     expect(within(toolbar()).getByText('0 selected')).toBeInTheDocument()
     expect(within(toolbar()).getByRole('button', { name: 'Delete' })).toBeDisabled()
-    expect(cardFor('Call plumber')).toHaveAttribute('aria-disabled', 'true')
+    // Drag is off while selecting, but the card is an available toggle, so it must not be
+    // announced as a disabled button (dnd-kit's own aria-disabled is overridden here).
+    expect(cardFor('Call plumber')).not.toHaveAttribute('aria-disabled', 'true')
     expect(cardFor('Call plumber')).toHaveAttribute('aria-pressed', 'false')
 
     await user.click(screen.getByText('Call plumber'))
@@ -599,20 +611,21 @@ describe('selection mode', () => {
 
     expect(within(inbox).getByText('Call plumber')).toBeInTheDocument()
     expect(within(inbox).getByText('Pay rent')).toBeInTheDocument()
-    expect(screen.getByText('Moved 2 tasks to Inbox')).toBeInTheDocument()
+    expect(await screen.findByText('Moved 2 tasks to Inbox')).toBeInTheDocument()
     // The selection survives an update, so actions can be chained.
     expect(within(toolbar()).getByText('2 selected')).toBeInTheDocument()
   })
 
-  test('status and color apply to every selected card', async () => {
+  test('status applies to every selected card and counts only the cards it changed', async () => {
     const user = userEvent.setup()
     renderBoard()
     await user.click(screen.getByRole('button', { name: '☑ Select' }))
     await user.click(screen.getByText('Call plumber'))
     await user.click(screen.getByText('Pay rent'))
 
+    // "Pay rent" is already Completed in the seed board.
     await user.selectOptions(within(toolbar()).getByLabelText('Set status'), 'completed')
-    expect(screen.getByText('Set 2 tasks to Completed')).toBeInTheDocument()
+    expect(await screen.findByText('Set 1 task to Completed')).toBeInTheDocument()
     for (const title of ['Call plumber', 'Pay rent']) {
       expect(within(cardFor(title)).getByRole('button', { name: 'Reopen' })).toBeInTheDocument()
     }
@@ -634,8 +647,42 @@ describe('selection mode', () => {
     await user.click(within(toolbar()).getByRole('button', { name: 'Confirm delete' }))
     expect(screen.queryByText('Call plumber')).not.toBeInTheDocument()
     expect(screen.queryByText('Pay rent')).not.toBeInTheDocument()
-    expect(screen.getByText('Deleted 2 tasks')).toBeInTheDocument()
+    expect(await screen.findByText('Deleted 2 tasks')).toBeInTheDocument()
     expect(screen.queryByRole('toolbar', { name: 'Bulk actions' })).not.toBeInTheDocument()
+  })
+
+  test('Escape while confirming a delete cancels the confirmation, not the selection', async () => {
+    const user = userEvent.setup()
+    renderBoard()
+    await user.click(screen.getByRole('button', { name: '☑ Select' }))
+    await user.click(screen.getByText('Call plumber'))
+    await user.click(within(toolbar()).getByRole('button', { name: 'Delete' }))
+    await user.keyboard('{Escape}')
+    expect(within(toolbar()).queryByText('Delete 1 task?')).not.toBeInTheDocument()
+    expect(within(toolbar()).getByText('1 selected')).toBeInTheDocument()
+  })
+
+  test('a refused bulk write announces nothing and keeps the selection', async () => {
+    const user = userEvent.setup()
+    render(<Harness bulkFails />)
+    await user.click(screen.getByRole('button', { name: '☑ Select' }))
+    await user.click(screen.getByText('Call plumber'))
+
+    await user.click(within(toolbar()).getByRole('button', { name: 'To Inbox' }))
+    await user.click(within(toolbar()).getByRole('button', { name: 'Delete' }))
+    await user.click(within(toolbar()).getByRole('button', { name: 'Confirm delete' }))
+
+    expect(screen.queryByText(/^Moved|^Deleted/)).not.toBeInTheDocument()
+    expect(within(toolbar()).getByText('1 selected')).toBeInTheDocument()
+  })
+
+  test('Escape in the search field is left to the field', async () => {
+    const user = userEvent.setup()
+    renderBoard()
+    await user.click(screen.getByRole('button', { name: '☑ Select' }))
+    await user.click(screen.getByLabelText('Search tasks'))
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('toolbar', { name: 'Bulk actions' })).toBeInTheDocument()
   })
 
   test('Escape and Done leave selection mode and clear the selection', async () => {

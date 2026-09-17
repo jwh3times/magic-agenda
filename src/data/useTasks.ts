@@ -503,10 +503,10 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
    * does.
    */
   const bulkUpdate = useCallback(
-    async (ids: ReadonlySet<string>, change: BulkChange) => {
+    async (ids: ReadonlySet<string>, change: BulkChange): Promise<boolean> => {
       const prev = tasksRef.current
       const { tasks: next, changed } = planBulkUpdate(prev, ids, change, new Date().toISOString())
-      if (changed.length === 0) return
+      if (changed.length === 0) return true
       setTasks(next)
       markWrites(changed.map((t) => t.id))
       try {
@@ -517,9 +517,11 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         const { data, error: err } = change.kind === 'status' ? await write.select() : await write
         if (err) throw new Error(err.message)
         reconcileReturnedRows(data)
+        return true
       } catch (e) {
         setTasks(prev)
         setError(errorMessage(e))
+        return false
       }
     },
     [setTasks, markWrites, boardId, reconcileReturnedRows],
@@ -541,11 +543,11 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
    * rule that never persisted.
    */
   const runPlan = useCallback(
-    async (plan: SeriesPlan) => {
+    async (plan: SeriesPlan): Promise<boolean> => {
       // Snapshots (including snapshots made by older capped clients) do not prove completeness.
       if (!hasSession || !hasLoadedFromServer.current) {
         setError('Reload the complete Board before editing a Recurring Series.')
-        return
+        return false
       }
       const prevTasks = tasksRef.current
       const prevTemplates = templatesRef.current
@@ -556,8 +558,13 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
 
       // An object rather than a bare `let`: TypeScript narrows a captured `let` to its initial
       // literal type inside the closure below, which would make the comparisons unreachable.
-      const outcome = { recover: 'none' as FailureHandling['recover'], aborted: false }
+      const outcome = {
+        recover: 'none' as FailureHandling['recover'],
+        aborted: false,
+        failed: false,
+      }
       const failed = (e: unknown, handling: FailureHandling) => {
+        outcome.failed = true
         setError(errorMessage(e))
         // 'reload' outranks 'rollback': once any write may have landed, restoring the pre-plan
         // state is a guess, whereas resyncing from the server is always correct.
@@ -608,6 +615,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       if (!outcome.aborted && outcome.recover === 'none' && plan.materialize.length > 0) {
         await materialize(plan.materialize, [...plan.state.tasks])
       }
+      return !outcome.failed
     },
     [setTasks, markWrites, boardId, reload, materialize, reconcileReturnedRows, hasSession],
   )
@@ -634,7 +642,8 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         return
       }
       if (op.kind === 'end-series-at') {
-        return runPlan(planEndSeriesAt(seriesState(), op.instance, op.draft))
+        await runPlan(planEndSeriesAt(seriesState(), op.instance, op.draft))
+        return
       }
       if (op.kind === 'update-series-from') {
         const plan = planEditSeriesFrom(seriesState(), op.instance, op.draft, modifiers)
@@ -670,9 +679,9 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
    * retires follow the same rules, failure handling, and complete-load gate as a single delete.
    */
   const bulkDelete = useCallback(
-    async (ids: ReadonlySet<string>) => {
+    async (ids: ReadonlySet<string>): Promise<boolean> => {
       const plan = planBulkDelete(seriesState(), ids)
-      if (plan.markIds.length === 0) return
+      if (plan.markIds.length === 0) return true
       const touchesSeries =
         plan.upserts.length > 0 || plan.deletions.some((deletion) => deletion.target.by !== 'ids')
       if (touchesSeries) return runPlan(plan)
@@ -682,9 +691,11 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       markWrites(plan.markIds)
       try {
         for (const deletion of plan.deletions) await runDeletion(deletion.target)
+        return true
       } catch (e) {
         setTasks(prev)
         setError(errorMessage(e))
+        return false
       }
     },
     [seriesState, runPlan, setTasks, markWrites],

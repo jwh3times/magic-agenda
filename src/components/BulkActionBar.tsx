@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { COLORS, STATUS } from '../theme/constants'
 import type { BulkChange } from '../data/bulk'
@@ -11,6 +11,8 @@ export interface BulkActionBarProps {
   onApply: (change: BulkChange) => void
   onDelete: () => void
   onDone: () => void
+  /** Reports the bar's rendered height, so the board can keep its lanes clear of it. */
+  onHeightChange?: (height: number) => void
 }
 
 const COLOR_LABELS: Record<Color, string> = {
@@ -30,11 +32,44 @@ const COLOR_LABELS: Record<Color, string> = {
  * disabled while nothing is selected. Styling is theme-neutral on purpose, like `Toast`: the bar
  * floats over every theme's board and must stay legible on all three.
  */
-export function BulkActionBar({ count, today, onApply, onDelete, onDone }: BulkActionBarProps) {
+export function BulkActionBar({
+  count,
+  today,
+  onApply,
+  onDelete,
+  onDone,
+  onHeightChange,
+}: BulkActionBarProps) {
   const isMobile = useIsMobile()
+  const ref = useRef<HTMLDivElement>(null)
+
+  // The bar wraps to more rows on narrow screens and while confirming, so it is measured rather
+  // than guessed. ResizeObserver is absent in jsdom; the initial measurement still runs there.
+  useLayoutEffect(() => {
+    const node = ref.current
+    if (!node || !onHeightChange) return
+    onHeightChange(node.offsetHeight)
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => onHeightChange(node.offsetHeight))
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [onHeightChange])
   const [day, setDay] = useState(today)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const none = count === 0
+  const cancelRef = useRef<HTMLButtonElement>(null)
+  const deleteRef = useRef<HTMLButtonElement>(null)
+  const wasConfirming = useRef(false)
+
+  // The button that was pressed disappears when the confirmation swaps in (and back), so focus is
+  // placed deliberately: on the non-destructive Cancel while asking, and back on Delete after. Left
+  // to fall to <body>, a keyboard user would lose their place, and Escape would reach the board
+  // instead of this bar.
+  useEffect(() => {
+    if (confirmingDelete) cancelRef.current?.focus()
+    else if (wasConfirming.current) deleteRef.current?.focus()
+    wasConfirming.current = confirmingDelete
+  }, [confirmingDelete])
 
   const control: CSSProperties = {
     padding: '7px 10px',
@@ -50,8 +85,17 @@ export function BulkActionBar({ count, today, onApply, onDelete, onDone }: BulkA
 
   return (
     <div
+      ref={ref}
       role="toolbar"
       aria-label="Bulk actions"
+      // Escape while confirming cancels the confirmation only. preventDefault is what tells the
+      // board's own Escape handler (which would leave selection mode) that this one was handled.
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && confirmingDelete) {
+          e.preventDefault()
+          setConfirmingDelete(false)
+        }
+      }}
       style={{
         position: 'fixed',
         zIndex: 9400,
@@ -93,7 +137,12 @@ export function BulkActionBar({ count, today, onApply, onDelete, onDone }: BulkA
           >
             Confirm delete
           </button>
-          <button type="button" style={button} onClick={() => setConfirmingDelete(false)}>
+          <button
+            ref={cancelRef}
+            type="button"
+            style={button}
+            onClick={() => setConfirmingDelete(false)}
+          >
             Cancel
           </button>
         </>
@@ -158,6 +207,7 @@ export function BulkActionBar({ count, today, onApply, onDelete, onDone }: BulkA
             ))}
           </select>
           <button
+            ref={deleteRef}
             type="button"
             style={button}
             disabled={none}

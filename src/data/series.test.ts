@@ -1281,8 +1281,10 @@ describe('planBulkDelete', () => {
     expect(plan.state.templates).toEqual([])
     expect(plan.upserts).toEqual([])
     // Only the plain row needs its own deletion; the definition's cascade covers its Occurrences.
+    // It resyncs rather than rolls back: if it failed while the definition deletion succeeded, a
+    // rollback would redraw Occurrences the cascade already removed.
     expect(plan.deletions).toEqual([
-      { target: { by: 'ids', ids: ['plain'] }, onFailure: ROLLBACK },
+      { target: { by: 'ids', ids: ['plain'] }, onFailure: RESYNC },
       { target: { by: 'id', id: 'tmpl' }, onFailure: RESYNC },
     ])
     expect(plan.markIds).toEqual(['i1', 'i2', 'i3', 'plain', 'tmpl'])
