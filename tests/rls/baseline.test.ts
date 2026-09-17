@@ -64,16 +64,39 @@ import { withPg } from './helpers'
  *
  * This distinction was added with `create_board`; the single-case version of the rule above it
  * would have flagged a correct function as an error.
+ *
+ * `admin_stats()` and `admin_users(integer, integer)` (#274) are client-invoked definer RPCs of the
+ * second kind, returning aggregate counts and account identity but never Task content. Their shared
+ * check, `app_private.require_admin_session()`, carries **no** grant at all: it is called only from
+ * inside those definer bodies, where the executing role is the owner, so no API role needs it.
  */
 const REVIEWED_FUNCTIONS: Record<
   string,
   { secdef: boolean; config: string; explicitAcl: boolean; executeGrantees: string }
 > = {
+  'admin_stats()': {
+    secdef: true,
+    config: 'search_path=""',
+    explicitAcl: true,
+    executeGrantees: 'authenticated',
+  },
+  'admin_users(integer,integer)': {
+    secdef: true,
+    config: 'search_path=""',
+    explicitAcl: true,
+    executeGrantees: 'authenticated',
+  },
   'app_private.is_admin()': {
     secdef: true,
     config: 'search_path=""',
     explicitAcl: true,
     executeGrantees: 'authenticated',
+  },
+  'app_private.require_admin_session()': {
+    secdef: false,
+    config: 'search_path=""',
+    explicitAcl: true,
+    executeGrantees: '(owner only)',
   },
   'create_board(text)': {
     secdef: true,

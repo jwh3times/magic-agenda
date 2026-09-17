@@ -18,12 +18,21 @@ delete from public.user_roles where user_id = '<verified-account-uuid>'::uuid;
 ```
 
 Do not add the role to JWT claims. Deleting an Account cascades to its role. No administrator is
-seeded by migrations, and the app does not currently include an administrator management screen.
+seeded by migrations, and there is no screen for assigning roles.
+
+## Use the admin dashboard
+
+An administrator sees an **Admin** link in Settings, which opens `/admin`: aggregate statistics,
+the account list (email, dates, two-factor status, role, and owned Board and Task counts), and flag
+toggles. It never shows Task content. The statistics and account list require a two-factor
+session: turn on two-factor authentication in Settings, then sign in again. Without one, the page
+explains the refusal instead of showing data.
 
 ## Define a rollout flag
 
 An authenticated administrator may insert and delete flag definitions, or update their `enabled`
-and `description` fields. Keys are immutable through the Data API. Trusted SQL can also manage
+and `description` fields. The admin dashboard edits the latter two; creation and deletion stay in
+SQL. Keys are immutable through the Data API. Trusted SQL can also manage
 definitions:
 
 ```sql
