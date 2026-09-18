@@ -12,6 +12,27 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.14.7] - 2026-09-18
+
+### Changed
+
+- **Settings reads and writes do less work per row (#385).** The three `user_settings` security
+  policies — the oldest in the schema — evaluated the signed-in account once for every row they
+  examined. They now evaluate it once per statement, and name the signed-in role explicitly instead
+  of being checked for signed-out visitors too. Who can read or write a settings row is unchanged:
+  still your own row and no one else's.
+- **Deleting an account or a Task no longer scans the whole Task table to find what to update
+  (#385).** Four foreign keys had no covering index, so each deletion fell back to a full scan —
+  twice over for an account deletion. All four are indexed now.
+
+### Internal
+
+- With `user_settings` retargeted, no security policy in the database applies to the public role any
+  more, so the baseline that tracked the exceptions asserts the stronger property directly: a policy
+  that forgets to name its roles now fails a test rather than being added to a list.
+- The advisor's `unused_index` results are deliberately not acted on. Production has 7 accounts,
+  which is too little traffic to read as evidence that an index is dead.
+
 ## [1.14.6] - 2026-09-18
 
 ### Internal
@@ -3580,7 +3601,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.6...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.7...HEAD
+[1.14.7]: https://github.com/jwh3times/magic-agenda/compare/v1.14.6...v1.14.7
 [1.14.6]: https://github.com/jwh3times/magic-agenda/compare/v1.14.5...v1.14.6
 [1.14.5]: https://github.com/jwh3times/magic-agenda/compare/v1.14.4...v1.14.5
 [1.14.4]: https://github.com/jwh3times/magic-agenda/compare/v1.14.3...v1.14.4

@@ -62,11 +62,14 @@ because it names no role. `set_updated_at` was the last function EXECUTE-able by
 PostgreSQL's default; #384 made it owner-only with the other invoker trigger functions, and #390
 gave it the empty `search_path` it was still missing — so the `search_path` column is now uniform
 across every entry, and a new one without it reads as the anomaly rather than as one more
-exception to remember. The remaining known weakness is that the three
-legacy policies on `user_settings` still
-target `PUBLIC` (the four `tasks` policies and the seven Board policies — five from the authorization
-cutover plus `boards_delete_owner` and `boards_update_owner` — all name `authenticated` explicitly instead; the `tasks` ones
-only since that cutover, which is when this list shrank from seven to three). This paragraph used
+exception to remember. **The `PUBLIC`-policy baseline is now empty as well**: it was seven, then
+three after the authorization cutover replaced the `tasks` policies with Board ones naming
+`authenticated`, and #385 retargeted the last three (`user_settings`, the oldest policies in the
+schema) while giving them `(select auth.uid())` for the advisor's `auth_rls_initplan` lint. So that
+assertion has become the strong form — no policy in `public` applies to `PUBLIC` at all — and a new
+policy that omits its `to` clause fails a test instead of being added to a list. Retargeting is the
+half worth re-checking rather than assuming: `anon` was already denied by predicate, so excluding it
+by role must not turn "zero rows" into a `42501`, which `useSettings` branches on. This paragraph used
 to also record `handle_new_user` as `security
 definer` with `search_path=public` rather than the empty path a definer should have, and as
 EXECUTE-able by `PUBLIC` — that was the
