@@ -18,12 +18,14 @@ async function contentsOf(boardId: string) {
       memberships: string
       labels: string
       tasks: string
+      attachments: string
     }>(
       `select
          (select count(*) from public.boards where id = $1) as boards,
          (select count(*) from public.board_memberships where board_id = $1) as memberships,
          (select count(*) from public.labels where board_id = $1) as labels,
-         (select count(*) from public.tasks where board_id = $1) as tasks`,
+         (select count(*) from public.tasks where board_id = $1) as tasks,
+         (select count(*) from public.task_attachments where board_id = $1) as attachments`,
       [boardId],
     )
     const r = result.rows[0]
@@ -32,6 +34,7 @@ async function contentsOf(boardId: string) {
       memberships: Number(r.memberships),
       labels: Number(r.labels),
       tasks: Number(r.tasks),
+      attachments: Number(r.attachments),
     }
   })
 }
@@ -39,7 +42,23 @@ async function contentsOf(boardId: string) {
 async function seedBoard(user: TestUser, name: string): Promise<string> {
   const { data, error } = await user.client.rpc('create_board', { board_name: name })
   if (error || !data) throw new Error(`create_board failed: ${error?.message}`)
-  await user.client.from('tasks').insert(boardTaskInsert(data, { title: `task in ${name}` }))
+  const { data: task } = await user.client
+    .from('tasks')
+    .insert(boardTaskInsert(data, { title: `task in ${name}` }))
+    .select('id')
+    .single()
+
+  // `task_attachments` reaches the Board only through `tasks`, so its cascade is two hops rather
+  // than one: deleting the Board cascades to the Task, which cascades to this row. A child table
+  // that is merely *transitively* reachable is the kind that gets forgotten, which is exactly why
+  // `contentsOf` counts it and asserts with a strict `toEqual`.
+  await user.client.from('task_attachments').insert({
+    board_id: data,
+    task_id: task!.id,
+    filename: `attached to ${name}.png`,
+    mime_type: 'image/png',
+    size_bytes: 1024,
+  })
   return data
 }
 
@@ -55,7 +74,7 @@ test('deleting a Board destroys its tasks, labels, and membership through the ca
   const boardId = await seedBoard(owner, 'Doomed')
 
   const before = await contentsOf(boardId)
-  expect(before).toEqual({ boards: 1, memberships: 1, labels: 5, tasks: 1 })
+  expect(before).toEqual({ boards: 1, memberships: 1, labels: 5, tasks: 1, attachments: 1 })
 
   const { error } = await owner.client.from('boards').delete().eq('id', boardId)
   expect(error).toBeNull()
@@ -63,7 +82,13 @@ test('deleting a Board destroys its tasks, labels, and membership through the ca
   // Referential actions are not subject to RLS — they run as the referencing table's owner — so
   // the caller's policies on `tasks` and `labels` neither permit nor prevent this. Asserted rather
   // than assumed: a cascade that silently failed would leave rows pointing at a Board that is gone.
-  expect(await contentsOf(boardId)).toEqual({ boards: 0, memberships: 0, labels: 0, tasks: 0 })
+  expect(await contentsOf(boardId)).toEqual({
+    boards: 0,
+    memberships: 0,
+    labels: 0,
+    tasks: 0,
+    attachments: 0,
+  })
 })
 
 test('deletion is confined to the Board deleted', async () => {
@@ -72,8 +97,20 @@ test('deletion is confined to the Board deleted', async () => {
 
   await owner.client.from('boards').delete().eq('id', drop)
 
-  expect(await contentsOf(drop)).toEqual({ boards: 0, memberships: 0, labels: 0, tasks: 0 })
-  expect(await contentsOf(keep)).toEqual({ boards: 1, memberships: 1, labels: 5, tasks: 1 })
+  expect(await contentsOf(drop)).toEqual({
+    boards: 0,
+    memberships: 0,
+    labels: 0,
+    tasks: 0,
+    attachments: 0,
+  })
+  expect(await contentsOf(keep)).toEqual({
+    boards: 1,
+    memberships: 1,
+    labels: 5,
+    tasks: 1,
+    attachments: 1,
+  })
 })
 
 /**
@@ -173,12 +210,37 @@ test('deleting a Board cannot reach another Account content', async () => {
   try {
     const mine = await seedBoard(owner, 'Mine')
     const theirs = await currentBoardId(other.id)
-    await other.client.from('tasks').insert(boardTaskInsert(theirs, { title: 'theirs' }))
+    const { data: theirTask } = await other.client
+      .from('tasks')
+      .insert(boardTaskInsert(theirs, { title: 'theirs' }))
+      .select('id')
+      .single()
+    // Seeded here too, so the blast-radius assertion below covers attachments rather than merely
+    // counting zero of them on both sides.
+    await other.client.from('task_attachments').insert({
+      board_id: theirs,
+      task_id: theirTask!.id,
+      filename: 'theirs.png',
+      mime_type: 'image/png',
+      size_bytes: 1024,
+    })
 
     await owner.client.from('boards').delete().eq('id', mine)
 
-    expect(await contentsOf(mine)).toEqual({ boards: 0, memberships: 0, labels: 0, tasks: 0 })
-    expect(await contentsOf(theirs)).toEqual({ boards: 1, memberships: 1, labels: 5, tasks: 1 })
+    expect(await contentsOf(mine)).toEqual({
+      boards: 0,
+      memberships: 0,
+      labels: 0,
+      tasks: 0,
+      attachments: 0,
+    })
+    expect(await contentsOf(theirs)).toEqual({
+      boards: 1,
+      memberships: 1,
+      labels: 5,
+      tasks: 1,
+      attachments: 1,
+    })
   } finally {
     await deleteTestUser(other)
   }
