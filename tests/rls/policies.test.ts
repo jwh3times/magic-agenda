@@ -5,6 +5,7 @@ import {
   deleteTestUser,
   boardTaskInsert,
   currentBoardId,
+  withPg,
   type TestUser,
 } from './helpers'
 
@@ -158,4 +159,70 @@ test('an anonymous client cannot write', async () => {
   // NULL column, a check constraint) would satisfy `not.toBeNull()` just as well and mask a
   // missing or broken policy.
   expect(error?.code).toBe('42501')
+})
+
+/**
+ * The structural half of #385, asserted separately from the behavioural tests above.
+ *
+ * Those tests prove *who can reach a row*, and they passed before this migration too — the three
+ * `user_settings` policies were already safe, because `auth.uid()` is null for a signed-out caller
+ * and a null comparison is not true. What they cannot see is *how* that safety is achieved, and
+ * that is exactly what #385 changed:
+ *
+ *   - `to authenticated` means `anon` is excluded by role, one step earlier than the predicate.
+ *     The anonymous test above still passing is the load-bearing part — excluding the role must not
+ *     turn "zero rows" into a `42501`, because `useSettings` branches on that difference.
+ *   - `(select auth.uid())` makes PostgreSQL evaluate the call once per statement (an InitPlan)
+ *     rather than once per row, which is the advisor's `auth_rls_initplan` lint. `auth.uid()` is
+ *     STABLE, so the result is identical; only the call count changes.
+ *
+ * Asserting on the policy definition rather than on a timing measurement is deliberate: a
+ * per-row-vs-per-statement difference is invisible at test scale and a benchmark here would be
+ * noise, so the durable property is the shape of the predicate.
+ */
+test('the user_settings policies name authenticated and hoist auth.uid() (#385)', async () => {
+  const rows = await withPg(async (pg) => {
+    const res = await pg.query<{
+      polname: string
+      roles: string
+      qual: string | null
+      withcheck: string | null
+    }>(
+      `select p.polname,
+              coalesce(
+                (select string_agg(r.rolname, ',' order by r.rolname)
+                   from pg_roles r where r.oid = any(p.polroles)),
+                'PUBLIC'
+              ) as roles,
+              pg_get_expr(p.polqual, p.polrelid) as qual,
+              pg_get_expr(p.polwithcheck, p.polrelid) as withcheck
+         from pg_policy p
+         join pg_class c on c.oid = p.polrelid
+         join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public' and c.relname = 'user_settings'
+        order by p.polname`,
+    )
+    return res.rows
+  })
+
+  expect(rows.map((r) => r.polname)).toEqual([
+    'user_settings_insert_own',
+    'user_settings_select_own',
+    'user_settings_update_own',
+  ])
+
+  for (const row of rows) {
+    // Not `PUBLIC`, and not some other role that happens to be non-public.
+    expect(row.roles).toBe('authenticated')
+
+    // `(select auth.uid())` renders with the subquery intact; a bare call does not.
+    const expressions = [row.qual, row.withcheck].filter((e): e is string => e !== null)
+    expect(expressions.length).toBeGreaterThan(0)
+    for (const expression of expressions) {
+      expect(expression).toContain('( SELECT auth.uid()')
+    }
+  }
+
+  // There is still no DELETE policy: default-deny, and the `auth.users` cascade is the only remover.
+  expect(rows).toHaveLength(3)
 })
