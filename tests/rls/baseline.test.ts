@@ -209,28 +209,26 @@ test('only the reviewed schemas are reachable by the Data API roles', async () =
 /**
  * Policies that do not name their roles, and therefore apply to `PUBLIC`.
  *
- * A policy with no `to` clause targets `PUBLIC`, which includes `anon`. The three below are
- * behaviourally safe because each compares `auth.uid()` to a column and `auth.uid()` is null for a
- * signed-out caller — null comparisons are not true, so anon reads return zero rows. They are
- * listed anyway because "safe by virtue of what the predicate happens to be" is a much weaker
- * property than "never evaluated for anon at all", and the difference stops being academic once
- * policies get predicates more complicated than one equality.
+ * **This list is now empty, and that is the whole point of it.** A policy with no `to` clause
+ * targets `PUBLIC`, which includes `anon`. Such a policy can still be behaviourally safe — each of
+ * the ones that used to be listed here compared `auth.uid()` to a column, and `auth.uid()` is null
+ * for a signed-out caller, so anon reads returned zero rows. But "safe by virtue of what the
+ * predicate happens to be" is a much weaker property than "never evaluated for anon at all", and
+ * the difference stops being academic once a predicate grows past one equality.
  *
- * **This list was seven until the authorization cutover.** The four `tasks` policies were replaced
- * by board-membership ones that name `authenticated` explicitly, so they left it — a baseline
- * shrinking is the intended direction here, and committing the smaller set is what keeps the
- * assertion honest rather than a ceiling drifting above reality.
+ * **It was seven, then three, now none.** The authorization cutover replaced the four `tasks`
+ * policies with board-membership ones naming `authenticated`; #385 retargeted the last three
+ * (`user_settings`, the oldest policies in the schema) in the same migration that gave them
+ * `(select auth.uid())` for the advisor's `auth_rls_initplan` lint. Neither change altered who can
+ * read or write a row.
  *
- * The three that remain are `user_settings`, which the board work does not touch. This list must
- * never grow; it reaches empty when those are retargeted.
+ * So the assertion below is now the strong form: **no policy in `public` applies to `PUBLIC` at
+ * all.** Keep it that way — an entry appearing here is a new policy that forgot its `to` clause,
+ * and the empty list is what turns that from a judgement call into a failing test.
  */
-const POLICIES_TARGETING_PUBLIC = [
-  'user_settings.user_settings_insert_own',
-  'user_settings.user_settings_select_own',
-  'user_settings.user_settings_update_own',
-]
+const POLICIES_TARGETING_PUBLIC: string[] = []
 
-test('no policy outside the legacy set applies to PUBLIC', async () => {
+test('no policy applies to PUBLIC', async () => {
   const rows = await withPg(async (pg) => {
     const res = await pg.query<{ qualified: string }>(
       `select c.relname || '.' || p.polname as qualified
