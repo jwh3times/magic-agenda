@@ -12,6 +12,26 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.14.3] - 2026-09-18
+
+### Security
+
+- **The last database function without a fixed `search_path` now has one (#390).** `set_updated_at()`
+  — the trigger that stamps `updated_at` on nine tables — ran with a mutable `search_path`, which the
+  Supabase security advisor reports. Nothing was exploitable: the function is `security invoker`, so
+  it borrows no privilege, and since #384 no API role can execute it at all. The value of closing it
+  is future-tense — a mutable `search_path` is what would turn a later edit to that body into a
+  hijack surface — and it means every function in `public` and `app_private` now carries the same
+  hardening, so a new one that omits it stands out instead of joining a list of exceptions.
+
+## [1.14.2] - 2026-09-18
+
+### Internal
+
+- Dev-dependency bumps: `oxlint` 1.82 → 1.83 and `@testing-library/dom` 10.4.1 → 10.4.2. No
+  application code changed. Recorded here after the fact — the automated dependency merge that
+  minted this version carried no changelog section of its own.
+
 ## [1.14.1] - 2026-09-17
 
 ### Security

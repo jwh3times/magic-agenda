@@ -77,7 +77,7 @@
     },
     "set_updated_at()": {
       "secdef": false,
-      "config": "(none)",
+      "config": "search_path=\"\"",
       "explicitAcl": true,
       "executeGrantees": "(owner only)"
     }
