@@ -211,6 +211,16 @@ get the schema in place before regenerating types. Regenerate `src/types/databas
 `mappers.ts` conventions above intact.
 Prefer test-first for pure logic in `src/data` and `src/dnd` (these have thorough unit tests).
 
+**A new function migration must revoke EXECUTE from `anon` and `service_role` explicitly, never
+only from `public` (#384).** `revoke ... from public` drops PostgreSQL's built-in PUBLIC grant and
+nothing else. Production additionally carries legacy `pg_default_acl` entries granting all three
+API roles EXECUTE on every function created in `public`, which a fresh local stack does not have —
+so seven functions drifted while the required `RLS` check stayed green, because it can only see a
+local stack. `supabase/reviewed-functions.json` is the shared expectation:
+`tests/rls/baseline.test.ts` asserts it locally and `scripts/verify-function-grants.mjs` asserts it
+against **production** in `Deploy Migrations`. Fix a failure there with a migration, never by
+editing the expectation.
+
 Two standing rules for any table in the `supabase_realtime` publication (today `tasks`,
 `user_settings`, and `labels`): **never put a secret or semantically meaningful value in the primary key**, because
 DELETE events are fanned out to every subscriber without an owner check (Postgres cannot check access
