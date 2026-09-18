@@ -3556,7 +3556,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.1...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.3...HEAD
+[1.14.3]: https://github.com/jwh3times/magic-agenda/compare/v1.14.2...v1.14.3
+[1.14.2]: https://github.com/jwh3times/magic-agenda/compare/v1.14.1...v1.14.2
 [1.14.1]: https://github.com/jwh3times/magic-agenda/compare/v1.14.0...v1.14.1
 [1.14.0]: https://github.com/jwh3times/magic-agenda/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/jwh3times/magic-agenda/compare/v1.12.16...v1.13.0
