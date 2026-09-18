@@ -12,6 +12,20 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.14.5] - 2026-09-18
+
+### Docs
+
+- Backfills the `## [1.14.4]` section below. No application code changed in this release.
+
+## [1.14.4] - 2026-09-18
+
+### Internal
+
+- Dev-dependency bump: `vitest` 5.0.0 → 5.0.1. No application code changed. Recorded here after the
+  fact — the automated dependency merge that minted this version carried no changelog section of
+  its own.
+
 ## [1.14.3] - 2026-09-18
 
 ### Security
@@ -3556,7 +3570,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.3...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.5...HEAD
+[1.14.5]: https://github.com/jwh3times/magic-agenda/compare/v1.14.4...v1.14.5
+[1.14.4]: https://github.com/jwh3times/magic-agenda/compare/v1.14.3...v1.14.4
 [1.14.3]: https://github.com/jwh3times/magic-agenda/compare/v1.14.2...v1.14.3
 [1.14.2]: https://github.com/jwh3times/magic-agenda/compare/v1.14.1...v1.14.2
 [1.14.1]: https://github.com/jwh3times/magic-agenda/compare/v1.14.0...v1.14.1
