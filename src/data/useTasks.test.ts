@@ -704,7 +704,12 @@ test('a successful load writes a snapshot', async () => {
   h.capture.rows = [serverRow()]
   const { result } = renderHook(() => useTasks('u1', 'b1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
-  await waitFor(() => expect(localStorage.getItem('ma-snapshot-board.b1')).not.toBeNull())
+  // The snapshot write is debounced, so the default 1000ms waitFor races it under CI load -- this
+  // test failed exactly that way on main at 1088ms. The three other snapshot assertions in this
+  // file already wait 2000ms; this was the one that did not.
+  await waitFor(() => expect(localStorage.getItem('ma-snapshot-board.b1')).not.toBeNull(), {
+    timeout: 2000,
+  })
   const snap = readBoardSnapshot('u1', 'b1')
   expect(snap).not.toBeNull()
   expect(snap?.tasks).toHaveLength(1)

@@ -12,6 +12,16 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.14.6] - 2026-09-18
+
+### Internal
+
+- **Fixed a flaky unit test (#393).** `useTasks`' "a successful load writes a snapshot" asserted on
+  the debounced offline-snapshot write with testing-library's default 1000 ms `waitFor`, and lost
+  that race under CI load — it failed once on `main` at 1088 ms. It now waits 2000 ms, matching the
+  three other snapshot assertions in the same file. No application behaviour changed; the test's
+  timing assumption was the only thing wrong.
+
 ## [1.14.5] - 2026-09-18
 
 ### Docs
@@ -3570,7 +3580,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.5...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.6...HEAD
+[1.14.6]: https://github.com/jwh3times/magic-agenda/compare/v1.14.5...v1.14.6
 [1.14.5]: https://github.com/jwh3times/magic-agenda/compare/v1.14.4...v1.14.5
 [1.14.4]: https://github.com/jwh3times/magic-agenda/compare/v1.14.3...v1.14.4
 [1.14.3]: https://github.com/jwh3times/magic-agenda/compare/v1.14.2...v1.14.3
