@@ -46,8 +46,10 @@ import reviewed from '../../supabase/reviewed-functions.json'
  * EXECUTE, tolerated because an invoker trigger function borrows no privilege and a direct call
  * fails for want of a trigger context. #384 retired that exception: it is owner-only now, like the
  * four other invoker trigger functions here, which is possible because EXECUTE on a trigger
- * function is checked when the trigger is created rather than each time it fires. Its
- * `search_path` is still unset, which the Supabase advisor reports and this baseline records.
+ * function is checked when the trigger is created rather than each time it fires. #390 retired the
+ * second half of it, so **every** function below now carries `search_path=""`. That is why the
+ * `config` column is worth reading as a rule rather than per-entry: a new entry without it is the
+ * anomaly, and the Supabase security advisor reports the same thing independently.
  *
  * `create_board(text)` is `security definer` in `public`, and that is deliberate rather than a
  * lapse. It must insert a `boards` row and its Owner `board_memberships` row together — a Board

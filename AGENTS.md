@@ -221,6 +221,14 @@ local stack. `supabase/reviewed-functions.json` is the shared expectation:
 against **production** in `Deploy Migrations`. Fix a failure there with a migration, never by
 editing the expectation.
 
+**A new function in `public` or `app_private` must also carry `set search_path = ''` and
+schema-qualify every _schema object_ its body names (#390)** — PL/pgSQL variables like `new` are not
+schema objects and stay bare, and `pg_catalog` is qualified for the rule rather than from necessity,
+since it is on the implicit path regardless. That is now true of every reviewed function without
+exception, so a new one without it is the anomaly, not one more case to weigh. The same
+`reviewed-functions.json` / `baseline.test.ts` / `verify-function-grants.mjs` trio above enforces
+this too, via the `config` field.
+
 Two standing rules for any table in the `supabase_realtime` publication (today `tasks`,
 `user_settings`, and `labels`): **never put a secret or semantically meaningful value in the primary key**, because
 DELETE events are fanned out to every subscriber without an owner check (Postgres cannot check access

@@ -59,8 +59,10 @@ them: every function in `public` with its definer flag / `search_path` / whether
 ACL / exact non-owner `EXECUTE` grantees, every schema reachable by the Data API roles, and every
 policy that applies to `PUBLIC`
 because it names no role. `set_updated_at` was the last function EXECUTE-able by `PUBLIC` via
-PostgreSQL's default; #384 made it owner-only with the other invoker trigger functions (its unset
-`search_path` remains, recorded rather than fixed). The remaining known weakness is that the three
+PostgreSQL's default; #384 made it owner-only with the other invoker trigger functions, and #390
+gave it the empty `search_path` it was still missing — so the `search_path` column is now uniform
+across every entry, and a new one without it reads as the anomaly rather than as one more
+exception to remember. The remaining known weakness is that the three
 legacy policies on `user_settings` still
 target `PUBLIC` (the four `tasks` policies and the seven Board policies — five from the authorization
 cutover plus `boards_delete_owner` and `boards_update_owner` — all name `authenticated` explicitly instead; the `tasks` ones
