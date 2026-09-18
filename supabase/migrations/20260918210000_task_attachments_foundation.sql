@@ -29,7 +29,16 @@ values (
   10485760, -- 10 MiB, matching task_attachments_size_within_limit below
   array['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'application/pdf']
 )
-on conflict (id) do nothing;
+-- **`do update`, not `do nothing`.** A pre-existing `attachments` bucket -- dashboard-created,
+-- possibly `public = true`, possibly with no MIME restriction -- would otherwise be kept as-is
+-- while the four policies below were applied to it, making them decorative in exactly the way this
+-- comment claims they are not. That is the #384 shape verbatim: the local stack always takes the
+-- INSERT branch, so no local test can observe the conflict branch, and production is where the
+-- divergence would live. Converging is the only version of this that is true on both.
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
 
 -- ---------------------------------------------------------------------------
 -- 2. Object policies, keyed on the path prefix
@@ -56,6 +65,7 @@ create policy attachments_select_member on storage.objects
   for select to authenticated
   using (
     bucket_id = 'attachments'
+    and array_length(storage.foldername(name), 1) = 2
     and (storage.foldername(name))[1] in (
       select m.board_id::text from public.board_memberships m
        where m.account_id = (select auth.uid()) and m.ended_at is null
@@ -68,6 +78,7 @@ create policy attachments_insert_editor on storage.objects
   for insert to authenticated
   with check (
     bucket_id = 'attachments'
+    and array_length(storage.foldername(name), 1) = 2
     and (storage.foldername(name))[1] in (
       select m.board_id::text from public.board_memberships m
        where m.account_id = (select auth.uid())
@@ -84,6 +95,7 @@ create policy attachments_update_editor on storage.objects
   for update to authenticated
   using (
     bucket_id = 'attachments'
+    and array_length(storage.foldername(name), 1) = 2
     and (storage.foldername(name))[1] in (
       select m.board_id::text from public.board_memberships m
        where m.account_id = (select auth.uid())
@@ -93,6 +105,7 @@ create policy attachments_update_editor on storage.objects
   )
   with check (
     bucket_id = 'attachments'
+    and array_length(storage.foldername(name), 1) = 2
     and (storage.foldername(name))[1] in (
       select m.board_id::text from public.board_memberships m
        where m.account_id = (select auth.uid())
@@ -105,6 +118,7 @@ create policy attachments_delete_editor on storage.objects
   for delete to authenticated
   using (
     bucket_id = 'attachments'
+    and array_length(storage.foldername(name), 1) = 2
     and (storage.foldername(name))[1] in (
       select m.board_id::text from public.board_memberships m
        where m.account_id = (select auth.uid())
@@ -127,17 +141,21 @@ create table public.task_attachments (
   -- UPDATE point the row at another Board's object while leaving `board_id` alone -- which the
   -- policies below would then happily authorize, because they read `board_id`. Generated STORED
   -- removes that gap by construction rather than by a CHECK someone could relax later.
+  -- `not null` because three NOT NULL uuids concatenated cannot produce one. Without it the
+  -- generated TypeScript types land as `string | null` and every client read has to handle a case
+  -- that cannot occur.
   storage_path text generated always as (
     board_id::text || '/' || task_id::text || '/' || id::text
-  ) stored,
+  ) stored not null,
 
   filename text not null,
   mime_type text not null,
   size_bytes bigint not null,
 
-  -- Attribution, not authorization. `on delete set null` so a deleted account leaves the
-  -- attachment reachable by the Board rather than cascading a file away from people still using
-  -- it -- the same call `tasks.author_id` makes.
+  -- Attribution, not authorization, and therefore **stamped by a trigger rather than supplied**
+  -- -- see `task_attachments_stamp_uploader` below. `on delete set null` so a deleted account
+  -- leaves the attachment reachable by the Board rather than cascading a file away from people
+  -- still using it, the same call `tasks.author_id` makes.
   uploaded_by uuid references auth.users (id) on delete set null,
   created_at timestamptz not null default now(),
 
@@ -242,6 +260,15 @@ create policy task_attachments_delete_editor on public.task_attachments
 -- `reminder_deliveries`), and `useSettings` already branches on exactly that difference -- an error
 -- means "fall back to the offline snapshot", zero rows means "there is nothing here". A table that
 -- errors where its neighbours filter is a trap for the next client that reads it.
+-- **`revoke all` first, exactly as `labels` does.** Without it the table keeps the `pg_default_acl`
+-- inheritance from `postgres`, which includes **TRUNCATE** -- measured here as
+-- `authenticated=rdDxtm`, and `set role authenticated; truncate public.task_attachments;`
+-- succeeds, wiping every Board's rows and bypassing RLS entirely. PostgREST cannot issue TRUNCATE
+-- today, so this is defence in depth rather than a live hole, but `labels`, `feature_flags`, and
+-- `user_roles` all carry this revoke and a new table claiming to follow them must too. #384 is the
+-- standing reminder that an inherited grant is the one nobody reads.
+revoke all on table public.task_attachments from anon, authenticated, service_role;
+
 grant select on table public.task_attachments to anon, authenticated;
 
 -- Writes are **column-level**, following `labels`. This is the tighter half of the design and it
@@ -255,7 +282,17 @@ grant select on table public.task_attachments to anon, authenticated;
 --     the only edit that makes sense. This also means the UPDATE policy's `with check` on
 --     `board_id` can never fire through the Data API; it stays because the grant is a Data API
 --     concern and the policy is the boundary, and a boundary should not depend on a grant to hold.
-grant insert (board_id, task_id, filename, mime_type, size_bytes, uploaded_by)
+-- `id` **is** grantable, and deliberately so -- the same call `tasks` makes for the same reason.
+-- `storage_path` derives from `id`, so a client that cannot choose `id` cannot know the object path
+-- until after the row exists, forcing INSERT -> RETURNING -> upload. Every failed upload would then
+-- leave a row describing a file that does not exist, and a connection lost mid-sequence leaves it
+-- unrecoverable. Granting `id` lets PR 2 generate the uuid, upload first, and insert only on
+-- success -- so the surviving failure mode is an orphaned object, which is the one the issue
+-- already accepts. The generated column still defends `storage_path` itself.
+--
+-- `uploaded_by` is **absent**: it is attribution, and attribution is evidence about a write rather
+-- than a client assertion (`20260906173252_task_attribution.sql`). The trigger below stamps it.
+grant insert (id, board_id, task_id, filename, mime_type, size_bytes)
   on table public.task_attachments to authenticated;
 grant update (filename) on table public.task_attachments to authenticated;
 grant delete on table public.task_attachments to authenticated;
@@ -265,3 +302,35 @@ grant delete on table public.task_attachments to authenticated;
 -- disable RLS. This table's primary key is a uuid and would satisfy the first, but there is no
 -- client subscribing to attachments yet -- adding it now would fan DELETE events out to every
 -- subscriber for a feature nothing consumes. Revisit with PR 2 if the UI needs live updates.
+
+-- ---------------------------------------------------------------------------
+-- 4. Attribution is stamped, never asserted
+-- ---------------------------------------------------------------------------
+-- The same rule and the same shape as `stamp_task_attribution`: "attribution is evidence about a
+-- write, never a client assertion or an authorization input". Withholding `uploaded_by` from the
+-- INSERT grant is half of it; this trigger is the other half, because a column nobody may write is
+-- a column that would otherwise always be NULL.
+--
+-- `security invoker` and an empty `search_path`, per the rule #390 made uniform. Left alone on
+-- UPDATE: `filename` is the only updatable column, a rename is not a re-upload, and the FK must
+-- still be able to SET NULL when an uploader deletes their account.
+create function public.stamp_attachment_uploader()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  new.uploaded_by := auth.uid();
+  return new;
+end;
+$$;
+
+-- Revoked from all three API roles explicitly, not only from `public` (#384). A trigger function
+-- returning `trigger` cannot be called directly anyway; the grant is what would be inherited.
+revoke execute on function public.stamp_attachment_uploader()
+  from public, anon, authenticated, service_role;
+
+create trigger task_attachments_stamp_uploader
+before insert on public.task_attachments
+for each row execute function public.stamp_attachment_uploader();

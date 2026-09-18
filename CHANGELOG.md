@@ -12,6 +12,20 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.14.8] - 2026-09-18
+
+### Internal
+
+- **Groundwork for Task attachments (#278), with nothing user-visible yet.** Adds a private
+  `attachments` storage bucket, the object policies that decide who may read or write a file, and a
+  `task_attachments` table. Files are addressed by Board and Task, and access follows Board
+  membership exactly as Tasks do: any current member can read, only Owners and Editors can change
+  anything, and a former member loses both at once. The upload UI arrives separately.
+- Attachment attribution is recorded by the database rather than accepted from the client, matching
+  how Task authorship already works.
+- The security baseline now also watches the storage schema, not just `public` — these are the
+  first policies this project has outside `public`, and the existing checks could not see them.
+
 ## [1.14.7] - 2026-09-18
 
 ### Changed
@@ -3601,7 +3615,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.7...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.8...HEAD
+[1.14.8]: https://github.com/jwh3times/magic-agenda/compare/v1.14.7...v1.14.8
 [1.14.7]: https://github.com/jwh3times/magic-agenda/compare/v1.14.6...v1.14.7
 [1.14.6]: https://github.com/jwh3times/magic-agenda/compare/v1.14.5...v1.14.6
 [1.14.5]: https://github.com/jwh3times/magic-agenda/compare/v1.14.4...v1.14.5

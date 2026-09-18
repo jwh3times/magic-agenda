@@ -63,6 +63,22 @@ async function grantBob(role: 'owner' | 'editor' | 'viewer') {
   )
 }
 
+/**
+ * **End** bob's membership rather than deleting it -- the distinction this file got wrong once.
+ * `revokeBob` DELETEs the row, so a caller has no membership at all and the policies deny on the
+ * `account_id` join; only setting `ended_at` exercises the `ended_at is null` clause. A test that
+ * uses the wrong one passes whether or not that clause exists.
+ */
+async function endBobMembership() {
+  await withPg((pg) =>
+    pg.query(
+      `update public.board_memberships set ended_at = now(), end_reason = 'removed'
+        where board_id = $1 and account_id = $2 and ended_at is null`,
+      [aliceBoardId, bob.id],
+    ),
+  )
+}
+
 async function revokeBob() {
   await withPg((pg) =>
     pg.query(`delete from public.board_memberships where board_id = $1 and account_id = $2`, [
@@ -189,13 +205,7 @@ test('a former member loses attachment access when their membership ends', async
     .eq('id', seeded!.id)
   expect(whileMember).toHaveLength(1) // sanity: the fixture actually granted access
 
-  await withPg((pg) =>
-    pg.query(
-      `update public.board_memberships set ended_at = now(), end_reason = 'removed'
-        where board_id = $1 and account_id = $2 and ended_at is null`,
-      [aliceBoardId, bob.id],
-    ),
-  )
+  await endBobMembership()
 
   const { data: after } = await bob.client
     .from('task_attachments')
@@ -391,13 +401,14 @@ test('object access follows board membership, by path prefix', async () => {
     })
   expect(viewerWrite.error).not.toBeNull()
 
+  // End the membership rather than deleting it, so this actually exercises `ended_at is null` on
+  // the object policies. With a DELETE the download would fail because bob has no membership at
+  // all, and dropping that clause from all four storage policies would not fail a single test.
+  await endBobMembership()
+  const afterEnded = await bob.client.storage.from('attachments').download(alicePath)
+  expect(afterEnded.error).not.toBeNull()
+
   await revokeBob()
-
-  // And loses the read again once the membership ends -- the `ended_at is null` clause, on the
-  // object side this time.
-  const afterRemoval = await bob.client.storage.from('attachments').download(alicePath)
-  expect(afterRemoval.error).not.toBeNull()
-
   await alice.client.storage.from('attachments').remove([alicePath])
 })
 
@@ -415,4 +426,126 @@ test('an editor cannot upload into a board they do not belong to', async () => {
   // And the file really is absent, rather than written and merely reported as failed.
   const check = await alice.client.storage.from('attachments').download(forgedPath)
   expect(check.error).not.toBeNull()
+})
+
+// ---------------------------------------------------------------------------
+// Claims the migration makes that would otherwise have no coverage
+// ---------------------------------------------------------------------------
+
+test('uploaded_by is stamped from the session, not supplied by the client', async () => {
+  // "Attribution is evidence about a write, never a client assertion." Two halves, both asserted:
+  // the column is absent from the INSERT grant, and a trigger fills it. An earlier draft of this
+  // migration granted the column and had no trigger, so a caller could attribute their upload to
+  // any account at all -- including one with no membership on the Board.
+  const { data, error } = await alice.client
+    .from('task_attachments')
+    .insert(attachmentRow())
+    .select('id, uploaded_by')
+    .single()
+  expect(error).toBeNull()
+  expect(data?.uploaded_by).toBe(alice.id)
+
+  // Naming it is refused by the grant rather than quietly ignored.
+  const forged = await alice.client
+    .from('task_attachments')
+    .insert(attachmentRow({ uploaded_by: bob.id }))
+  expect(forged.error).not.toBeNull()
+
+  await alice.client.from('task_attachments').delete().eq('id', data!.id)
+})
+
+test('only filename is updatable; the rest of the row is immutable', async () => {
+  // The column-level UPDATE grant is the whole guarantee here -- a different file is a different
+  // attachment. Without coverage, widening that grant later would break nothing visible.
+  const { data } = await alice.client
+    .from('task_attachments')
+    .insert(attachmentRow())
+    .select('id')
+    .single()
+
+  const rename = await alice.client
+    .from('task_attachments')
+    .update({ filename: 'renamed.png' })
+    .eq('id', data!.id)
+  expect(rename.error).toBeNull()
+
+  for (const patch of [
+    { board_id: bobBoardId },
+    { task_id: crypto.randomUUID() },
+    { mime_type: 'application/pdf' },
+    { size_bytes: 4096 },
+  ]) {
+    const result = await alice.client.from('task_attachments').update(patch).eq('id', data!.id)
+    expect(result.error).not.toBeNull() // refused by the grant, not by RLS
+  }
+
+  await alice.client.from('task_attachments').delete().eq('id', data!.id)
+})
+
+test('authenticated cannot TRUNCATE the table', async () => {
+  // TRUNCATE bypasses RLS entirely, and `pg_default_acl` inheritance from `postgres` grants it
+  // unless a migration revokes it. `labels`, `feature_flags`, and `user_roles` all carry that
+  // revoke; this asserts the new table does too. Not reachable through PostgREST -- defence in
+  // depth, and exactly the kind of inherited grant #384 was about.
+  const granted = await withPg(async (pg) => {
+    const res = await pg.query<{ can: boolean }>(
+      `select has_table_privilege('authenticated', 'public.task_attachments', 'TRUNCATE') as can`,
+    )
+    return res.rows[0].can
+  })
+  expect(granted).toBe(false)
+
+  for (const role of ['anon', 'service_role'] as const) {
+    const other = await withPg(async (pg) => {
+      const res = await pg.query<{ can: boolean }>(
+        `select has_table_privilege($1, 'public.task_attachments', 'TRUNCATE') as can`,
+        [role],
+      )
+      return res.rows[0].can
+    })
+    expect(other).toBe(false)
+  }
+})
+
+test('an object path that is not <board>/<task>/<file> is refused', async () => {
+  // The policies require exactly two folder segments, so the path shape the migration documents is
+  // actually enforced rather than merely described. The no-slash case is the important one: it is
+  // where `storage.foldername` returns NULL, and the whole text-comparison argument rests on that
+  // failing closed rather than erroring.
+  const png = new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], { type: 'image/png' })
+
+  for (const path of [
+    'loose.png', // no folder at all -- foldername yields NULL
+    `${aliceBoardId}/only-one-segment.png`, // board but no task
+    `${aliceBoardId}/${aliceTaskId}/nested/deeper.png`, // too many segments
+  ]) {
+    const result = await alice.client.storage
+      .from('attachments')
+      .upload(path, png, { contentType: 'image/png' })
+    expect(result.error).not.toBeNull()
+  }
+})
+
+test('a viewer cannot move an object, and an editor cannot move it across boards', async () => {
+  // `attachments_update_editor` is justified as the thing that stops a file being renamed into
+  // another Board's prefix. Nothing exercised it before.
+  const path = `${aliceBoardId}/${aliceTaskId}/${crypto.randomUUID()}`
+  const png = new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], { type: 'image/png' })
+  await alice.client.storage.from('attachments').upload(path, png, { contentType: 'image/png' })
+
+  await grantBob('viewer')
+  const viewerMove = await bob.client.storage
+    .from('attachments')
+    .move(path, `${aliceBoardId}/${aliceTaskId}/${crypto.randomUUID()}`)
+  expect(viewerMove.error).not.toBeNull()
+  await revokeBob()
+
+  // Alice may edit her own Board but has no membership on bob's, so the `with check` refuses the
+  // destination even though the `using` side admits the source.
+  const crossBoard = await alice.client.storage
+    .from('attachments')
+    .move(path, `${bobBoardId}/${aliceTaskId}/${crypto.randomUUID()}`)
+  expect(crossBoard.error).not.toBeNull()
+
+  await alice.client.storage.from('attachments').remove([path])
 })

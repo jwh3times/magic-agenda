@@ -225,6 +225,12 @@ test('only the reviewed schemas are reachable by the Data API roles', async () =
  * So the assertion below is now the strong form: **no policy in `public` applies to `PUBLIC` at
  * all.** Keep it that way — an entry appearing here is a new policy that forgot its `to` clause,
  * and the empty list is what turns that from a judgement call into a failing test.
+ *
+ * **It covers `storage` as well as `public`, since #278.** Attachments introduced this project's
+ * first policies outside `public`, and every structural net here was scoped to `nspname = 'public'`
+ * — so a `storage.objects` policy that forgot its `to` clause would have been caught by nothing at
+ * all. Widening the query is the cheap half of closing that; `structure.test.ts`'s catch-alls are
+ * still `public`-only and a storage table added later would sit outside them.
  */
 const POLICIES_TARGETING_PUBLIC: string[] = []
 
@@ -235,7 +241,7 @@ test('no policy applies to PUBLIC', async () => {
          from pg_policy p
          join pg_class c on c.oid = p.polrelid
          join pg_namespace n on n.oid = c.relnamespace
-        where n.nspname = 'public'
+        where n.nspname in ('public', 'storage')
           and 0 = any(p.polroles)
         order by 1`,
     )

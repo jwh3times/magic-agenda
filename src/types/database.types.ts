@@ -339,7 +339,7 @@ export type Database = {
           id: string
           mime_type: string
           size_bytes: number
-          storage_path: string | null
+          storage_path: string
           task_id: string
           uploaded_by: string | null
         }
@@ -350,7 +350,7 @@ export type Database = {
           id?: string
           mime_type: string
           size_bytes: number
-          storage_path?: string | null
+          storage_path?: string
           task_id: string
           uploaded_by?: string | null
         }
@@ -361,7 +361,7 @@ export type Database = {
           id?: string
           mime_type?: string
           size_bytes?: number
-          storage_path?: string | null
+          storage_path?: string
           task_id?: string
           uploaded_by?: string | null
         }
