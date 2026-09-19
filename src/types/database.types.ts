@@ -331,6 +331,50 @@ export type Database = {
           },
         ]
       }
+      task_attachments: {
+        Row: {
+          board_id: string
+          created_at: string
+          filename: string
+          id: string
+          mime_type: string
+          size_bytes: number
+          storage_path: string
+          task_id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          board_id: string
+          created_at?: string
+          filename: string
+          id?: string
+          mime_type: string
+          size_bytes: number
+          storage_path?: string
+          task_id: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          board_id?: string
+          created_at?: string
+          filename?: string
+          id?: string
+          mime_type?: string
+          size_bytes?: number
+          storage_path?: string
+          task_id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'task_attachments_task_same_board'
+            columns: ['board_id', 'task_id']
+            isOneToOne: false
+            referencedRelation: 'tasks'
+            referencedColumns: ['board_id', 'id']
+          },
+        ]
+      }
       tasks: {
         Row: {
           archived_at: string | null
