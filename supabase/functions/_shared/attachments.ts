@@ -55,7 +55,9 @@ export async function listBoardObjectPaths(
       continue;
     }
     for (const file of await listPage(admin, `${boardId}/${taskFolder.name}`)) {
-      if (file.id !== null) paths.push(`${boardId}/${taskFolder.name}/${file.name}`);
+      if (file.id !== null) {
+        paths.push(`${boardId}/${taskFolder.name}/${file.name}`);
+      }
     }
   }
 
@@ -67,7 +69,7 @@ async function listPage(
   prefix: string,
 ): Promise<{ name: string; id: string | null }[]> {
   const all: { name: string; id: string | null }[] = [];
-  for (let offset = 0; ; offset += LIST_PAGE) {
+  for (let offset = 0;; offset += LIST_PAGE) {
     const { data, error } = await admin.storage
       .from(ATTACHMENTS_BUCKET)
       .list(prefix, { limit: LIST_PAGE, offset });
@@ -102,8 +104,12 @@ export async function removeBoardAttachments(
     const paths = await listBoardObjectPaths(admin, boardId);
     for (let i = 0; i < paths.length; i += REMOVE_BATCH) {
       const batch = paths.slice(i, i + REMOVE_BATCH);
-      const { error } = await admin.storage.from(ATTACHMENTS_BUCKET).remove(batch);
-      if (error) throw new Error(`remove ${batch.length} object(s): ${error.message}`);
+      const { error } = await admin.storage.from(ATTACHMENTS_BUCKET).remove(
+        batch,
+      );
+      if (error) {
+        throw new Error(`remove ${batch.length} object(s): ${error.message}`);
+      }
       removed += batch.length;
     }
   }

@@ -89,7 +89,10 @@ export async function handler(req: Request): Promise<Response> {
  * trigger's definition of a Private Board ever changes, this has to change with it, or the sweep
  * and the cascade stop agreeing about which Boards are going away.
  */
-async function privateBoardIds(admin: Admin, accountId: string): Promise<string[]> {
+async function privateBoardIds(
+  admin: Admin,
+  accountId: string,
+): Promise<string[]> {
   // `.returns<>()` because this client is untyped -- it has no generated Database generic, so
   // PostgREST rows infer as `never` and every field access is a type error.
   const { data, error } = await admin

@@ -84,7 +84,10 @@ export async function handler(req: Request): Promise<Response> {
     return json({ error: "Deletion failed" }, 500);
   }
 
-  const { error: deleteError } = await admin.from("boards").delete().eq("id", boardId);
+  const { error: deleteError } = await admin.from("boards").delete().eq(
+    "id",
+    boardId,
+  );
   if (deleteError) {
     // The objects are already gone and the Board is not. That is the one inconsistent state this
     // can produce, and it is the harmless direction: a retry deletes the Board, and the attachment
@@ -97,5 +100,7 @@ export async function handler(req: Request): Promise<Response> {
 }
 
 function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value,
+  );
 }

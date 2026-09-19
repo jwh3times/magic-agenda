@@ -67,7 +67,10 @@ jobs:
         with:
           deno-version: v2.x
       - run: deno fmt --check
-      - run: deno check delete-account/index.ts send-reminders/index.ts
+      # Explicit list, so a new function is type-checked only if it is added here. `delete-board`
+      # joined it with #399; `deno test` alone would not have caught a type error in a handler no
+      # test imports.
+      - run: deno check delete-account/index.ts delete-board/index.ts send-reminders/index.ts
       - run: deno test
 
   # Two generated trees, opposite directions: .codex/agents is generated from

@@ -7,12 +7,16 @@ import { handler } from "./handler.ts";
 // asserting the mock.
 
 Deno.test("OPTIONS preflight succeeds", async () => {
-  const res = await handler(new Request("http://localhost/", { method: "OPTIONS" }));
+  const res = await handler(
+    new Request("http://localhost/", { method: "OPTIONS" }),
+  );
   assertEquals(res.status, 200);
 });
 
 Deno.test("rejects non-POST methods with 405", async () => {
-  const res = await handler(new Request("http://localhost/", { method: "GET" }));
+  const res = await handler(
+    new Request("http://localhost/", { method: "GET" }),
+  );
   assertEquals(res.status, 405);
 });
 

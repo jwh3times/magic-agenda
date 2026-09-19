@@ -27,7 +27,10 @@ function fakeStorage(tree: Record<string, Entry[]>) {
           list(path: string, options: { limit: number; offset: number }) {
             listCalls.push(path);
             if (failList === path) {
-              return Promise.resolve({ data: null, error: { message: "boom" } });
+              return Promise.resolve({
+                data: null,
+                error: { message: "boom" },
+              });
             }
             const all = tree[path] ?? [];
             return Promise.resolve({
@@ -79,14 +82,23 @@ Deno.test("collects every file two levels down, and nothing else", async () => {
 Deno.test("a stray file directly under the Board prefix is still collected", async () => {
   // The object policies refuse a one-segment path, so this should not exist -- but if one ever
   // does, leaving it behind would be leaving something permanently undeletable.
-  const { client } = fakeStorage({ b1: [file("stray.png"), folder("t1")], "b1/t1": [file("a")] });
-  assertEquals(await listBoardObjectPaths(client, "b1"), ["b1/stray.png", "b1/t1/a"]);
+  const { client } = fakeStorage({
+    b1: [file("stray.png"), folder("t1")],
+    "b1/t1": [file("a")],
+  });
+  assertEquals(await listBoardObjectPaths(client, "b1"), [
+    "b1/stray.png",
+    "b1/t1/a",
+  ]);
 });
 
 Deno.test("pagination is followed past the first page", async () => {
   // 250 files in one Task folder: three pages at the 100 default. A loop that stopped at the first
   // page would leave 150 objects stranded, and every one of them undeletable afterwards.
-  const many = Array.from({ length: 250 }, (_, i) => file(`f${String(i).padStart(3, "0")}`));
+  const many = Array.from(
+    { length: 250 },
+    (_, i) => file(`f${String(i).padStart(3, "0")}`),
+  );
   const { client } = fakeStorage({ b1: [folder("t1")], "b1/t1": many });
 
   const paths = await listBoardObjectPaths(client, "b1");
@@ -97,7 +109,10 @@ Deno.test("pagination is followed past the first page", async () => {
 
 Deno.test("removal batches, and reports the total", async () => {
   const many = Array.from({ length: 250 }, (_, i) => file(`f${i}`));
-  const { client, removed } = fakeStorage({ b1: [folder("t1")], "b1/t1": many });
+  const { client, removed } = fakeStorage({
+    b1: [folder("t1")],
+    "b1/t1": many,
+  });
 
   assertEquals(await removeBoardAttachments(client, ["b1"]), 250);
   assertEquals(removed.map((batch) => batch.length), [100, 100, 50]);
@@ -125,7 +140,10 @@ Deno.test("a failed remove throws, so the caller leaves the rows alone", async (
   // The whole ordering guarantee rests on this: if the sweep cannot finish, the Board must survive
   // so the operation can be retried. Swallowing the error here would delete the Board anyway and
   // strand the files permanently.
-  const { client, breakRemove } = fakeStorage({ b1: [folder("t1")], "b1/t1": [file("a")] });
+  const { client, breakRemove } = fakeStorage({
+    b1: [folder("t1")],
+    "b1/t1": [file("a")],
+  });
   breakRemove("storage unavailable");
 
   await assertRejects(
@@ -138,8 +156,15 @@ Deno.test("a failed remove throws, so the caller leaves the rows alone", async (
 Deno.test("a failed list throws rather than reporting an empty board", async () => {
   // The dangerous failure: treating a list error as "no objects" would sweep nothing, report
   // success, and let the caller delete the Board.
-  const { client, breakList } = fakeStorage({ b1: [folder("t1")], "b1/t1": [file("a")] });
+  const { client, breakList } = fakeStorage({
+    b1: [folder("t1")],
+    "b1/t1": [file("a")],
+  });
   breakList("b1/t1");
 
-  await assertRejects(() => removeBoardAttachments(client, ["b1"]), Error, "list b1/t1");
+  await assertRejects(
+    () => removeBoardAttachments(client, ["b1"]),
+    Error,
+    "list b1/t1",
+  );
 });
