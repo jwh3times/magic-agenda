@@ -11,6 +11,7 @@ import { editorChrome } from './editorChrome'
 import { ScopePrompt } from './ScopePrompt'
 import type { RecurFreq, TaskDraft } from '../types/task'
 import { useLabelDirectoryContext } from '../labels/LabelDirectoryProvider'
+import { AttachmentsSection } from './AttachmentsSection'
 import { UNLABELED_DOT_COLOR } from '../labels/presentation'
 
 export interface TaskEditorProps {
@@ -32,6 +33,16 @@ export interface TaskEditorProps {
   /** True while hydrated from an offline snapshot: every field is disabled and there is no way
    * to save or delete, since a write against a dead network would fail silently. */
   readOnly?: boolean
+  /**
+   * The Board this Task belongs to, needed to address its attachments.
+   *
+   * A prop rather than `useBoardDirectoryContext()`, deliberately: reaching for that context here
+   * would make `TaskEditor` unrenderable without `BoardDirectoryProvider`, and neither
+   * `Board.test.tsx` nor `TaskEditor.test.tsx` mounts one. Threading it from `BoardPage`, which
+   * already holds `selectedBoardId`, keeps the editor a component you can render on its own.
+   * Absent means the attachments section shows its hint instead.
+   */
+  boardId?: string | null
   /** Board capability: Viewers may edit other fields only when separately allowed, never Labels. */
   canAssignLabels?: boolean
 }
@@ -45,6 +56,7 @@ export function TaskEditor({
   onClose,
   readOnly,
   canAssignLabels = true,
+  boardId = null,
 }: TaskEditorProps) {
   const { theme, conf } = useTheme()
   const isMobile = useIsMobile()
@@ -484,6 +496,25 @@ export function TaskEditor({
               />
             </div>
           </div>
+
+          <div style={fieldLabel}>Attachments</div>
+          {isNew || !boardId ? (
+            /*
+             * A new Task has no row yet, and `task_attachments` carries a composite foreign key to
+             * `tasks (board_id, id)` -- so there is nothing to attach to until the first save.
+             * Saying so is better than a disabled control with no explanation.
+             */
+            <span style={{ font: ctlFont, color: sub }}>
+              Save this task first, then you can attach files to it.
+            </span>
+          ) : (
+            <AttachmentsSection
+              boardId={boardId}
+              taskId={draft.id}
+              readOnly={readOnly === true}
+              chrome={{ fg, sub, fieldBg, border, ctlFont, btn }}
+            />
+          )}
 
           <div style={fieldLabel}>Workflow Status</div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>

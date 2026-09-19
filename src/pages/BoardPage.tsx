@@ -93,6 +93,7 @@ export function BoardPage() {
             <TaskBoardContext.Provider value={t}>
               <DueClockProvider tasks={t.tasks} timezone={settings.timezone}>
                 <Board
+                  boardId={selectedBoardId}
                   initialView={board?.defaultView ?? DEFAULT_VIEW}
                   weekStart={settings.weekStart}
                   onSignOut={() => void signOut()}

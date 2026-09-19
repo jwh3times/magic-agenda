@@ -71,6 +71,8 @@ export interface BoardProps {
   canAssignLabels?: boolean
   /** The account's single-letter keyboard shortcuts preference (#269). Ctrl/Cmd+K ignores it. */
   keyboardShortcuts?: boolean
+  /** Forwarded to the editor so a Task's attachments can be addressed. See `TaskEditorProps`. */
+  boardId?: string | null
 }
 
 /**
@@ -146,6 +148,7 @@ export function Board({
   onOpenSettings,
   canAssignLabels = true,
   keyboardShortcuts = true,
+  boardId = null,
 }: BoardProps) {
   const taskBoard = useTaskBoard()
   const { tasks } = taskBoard
@@ -546,6 +549,7 @@ export function Board({
             onClose={() => setEditing(null)}
             readOnly={readOnly}
             canAssignLabels={canAssignLabels}
+            boardId={boardId}
           />
         )}
 
