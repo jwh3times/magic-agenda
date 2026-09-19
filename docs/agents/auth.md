@@ -127,8 +127,9 @@ all — a generated, collision-free name is cheaper than asking the user for one
 about. `qrDataUri` percent-encodes GoTrue's raw SVG rather than following its docstring's
 `data:image/svg+xml;utf-8,` shorthand literally: a `#` in the SVG (a fill colour) starts a URL
 fragment and truncates the image, and `;utf-8` is not a media-type parameter the data-URL grammar
-defines. `public/_headers`' `img-src 'self' data:` already admits the result; no CSP change was
-needed.
+defines. `public/_headers`' `img-src` already admits `data:`, so no CSP change was needed for this.
+(That directive gained `https://*.supabase.co` in #278 for attachment thumbnails, which does not
+affect the QR code either way.)
 
 **`AuthProvider` publishes `stepUpRequired: boolean | null`, keyed by user id rather than held as a
 bare boolean, and the keying is what makes two awkward cases fall out for free.** A token refresh

@@ -12,6 +12,34 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.14.10] - 2026-09-19
+
+### Added
+
+- **Tasks can carry attachments (#278).** Open a task and use the new Attachments section to add
+  PNG, JPEG, GIF, WebP, or PDF files up to 10 MB each. Images show a thumbnail; everything opens in
+  a new tab. Anyone who can see the board can see its attachments, and anyone who can edit it can
+  add or remove them.
+- Files are private. Each view is granted through a link that expires after an hour, so an
+  attachment cannot be reached by URL alone.
+
+### Internal
+
+- The content security policy now allows images from the Supabase project host. Thumbnails are
+  fetched through signed storage URLs on that host, and an `<img>` is governed by `img-src` alone —
+  which had not been widened. Without this every thumbnail would have been refused in production
+  while passing every test, since jsdom enforces no CSP.
+
+### Notes
+
+- Attachments can only be added to a task that has been saved at least once, because a file has to
+  belong to something. A new task says so rather than offering a control that cannot work yet.
+- Deleting a task removes its attachments from the task, but the stored files are cleaned up later
+  rather than immediately — deleting them straight away would make an undoable delete
+  irreversible. Deleting the board or the account removes them for good, in order.
+- Attachments are not included in an export, and undoing a task deletion does not bring them back.
+  Both are tracked (#398, #404).
+
 ## [1.14.9] - 2026-09-18
 
 ### Changed
@@ -3638,7 +3666,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.9...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.10...HEAD
+[1.14.10]: https://github.com/jwh3times/magic-agenda/compare/v1.14.9...v1.14.10
 [1.14.9]: https://github.com/jwh3times/magic-agenda/compare/v1.14.8...v1.14.9
 [1.14.8]: https://github.com/jwh3times/magic-agenda/compare/v1.14.7...v1.14.8
 [1.14.7]: https://github.com/jwh3times/magic-agenda/compare/v1.14.6...v1.14.7

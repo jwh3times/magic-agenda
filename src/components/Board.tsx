@@ -71,6 +71,10 @@ export interface BoardProps {
   canAssignLabels?: boolean
   /** The account's single-letter keyboard shortcuts preference (#269). Ctrl/Cmd+K ignores it. */
   keyboardShortcuts?: boolean
+  /** Forwarded to the editor so a Task's attachments can be addressed. See `TaskEditorProps`. */
+  boardId?: string | null
+  /** `capabilitiesFor(...).editContent` — whether this account may change content here. */
+  canEditContent?: boolean
 }
 
 /**
@@ -146,6 +150,8 @@ export function Board({
   onOpenSettings,
   canAssignLabels = true,
   keyboardShortcuts = true,
+  boardId = null,
+  canEditContent = true,
 }: BoardProps) {
   const taskBoard = useTaskBoard()
   const { tasks } = taskBoard
@@ -159,6 +165,23 @@ export function Board({
   const [anchor, setAnchor] = useState(() => parseDay(today))
   const [popId, setPopId] = useState<string | null>(null)
   const [editing, setEditing] = useState<Editing | null>(null)
+
+  /**
+   * Close the editor if the selected Board changes underneath it.
+   *
+   * The editor is a full-screen overlay, so the switcher is not clickable while it is open — but
+   * the directory can reselect without the user: the selected Board deleted from another device,
+   * or a directory reload resolving differently. `boardId` is passed to the editor for
+   * attachments, so a stale pairing would address a file as `newBoard/oldTask/<id>`: the storage
+   * policy accepts it (the account is an Editor on the new Board) and the composite foreign key
+   * then refuses the row, surfacing as a raw constraint error. Closing is the honest response —
+   * the Task being edited is not on this Board any more.
+   */
+  const lastBoardId = useRef(boardId)
+  if (lastBoardId.current !== boardId) {
+    lastBoardId.current = boardId
+    if (editing) setEditing(null)
+  }
   const [filter, setFilter] = useState<FilterQuery>(EMPTY_FILTER)
   const popTimer = useRef<number | undefined>(undefined)
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -546,6 +569,8 @@ export function Board({
             onClose={() => setEditing(null)}
             readOnly={readOnly}
             canAssignLabels={canAssignLabels}
+            boardId={boardId}
+            canEditContent={canEditContent}
           />
         )}
 
