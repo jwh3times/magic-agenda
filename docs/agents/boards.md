@@ -96,10 +96,20 @@ administration carries invariants a direct table write cannot enforce, so `board
 INSERT grant or policy at all and never will have a self-serve one. What has since been added to
 `boards` is three things, and the asymmetry between them is the point:
 
-- **`grant delete`, with an Owner-only DELETE policy.** Deletion writes one row and the contents
-  follow through `on delete cascade`, so there is nothing to make atomic that Postgres is not
-  already making atomic and a definer function would add privilege for nothing. DELETE takes no
-  column list — PostgreSQL does not column-scope it — so the policy is the whole boundary there.
+- **Deletion is a command, and no API role holds `DELETE` (#399).** This bullet used to read
+  "`grant delete`, with an Owner-only DELETE policy … the policy is the whole boundary there", and
+  the reasoning was that deletion writes one row while the contents follow through
+  `on delete cascade`, so there was nothing to make atomic that Postgres was not already making
+  atomic. **Attachments broke that premise.** A Board's files live in storage, outside the
+  transaction, and the object policies authorize by matching the path's first segment against
+  `board_memberships` — so once the Board row is gone, nobody can authorize the file delete ever
+  again. The files must go _first_, which is exactly the ordering a plain DELETE cannot express.
+  The `delete-board` Edge Function removes the objects and then the row; the grant is revoked so
+  that path cannot be bypassed. `boards_delete_owner` is kept as defence in depth — the handler's
+  service-role client bypasses RLS and checks Ownership itself, so the policy is what would still
+  refuse a non-Owner if the grant ever returned. This restores the symmetry with `create_board`:
+  creation is a command because a Board and its Membership must appear together, and deletion is
+  one because they must disappear together, in order.
 - **`grant update (name)`, with an Owner-only UPDATE policy.** Column-scoped for the same reason as
   `board_memberships.default_view` and `account_profiles.display_name`: RLS cannot express "only
   this column changed", because a policy cannot see the old row. The grant is what keeps `id`,
@@ -116,8 +126,8 @@ INSERT grant or policy at all and never will have a self-serve one. What has sin
 **Deleting a Board destroys everything in it, and no policy says so.** `tasks.board_id`,
 `labels.board_id`, and `board_memberships.board_id` are each `on delete cascade`, and referential
 actions are **not** subject to RLS — they run as the referencing table's owner — so the caller's
-policies on `tasks` and `labels` neither permit nor prevent any of it. `boards_delete_owner` is the
-only thing standing in front of the lot. `tests/rls/board_deletion.test.ts` asserts the cascade
+policies on `tasks` and `labels` neither permit nor prevent any of it. The `delete-board` command's
+Owner check is what stands in front of the lot, with `boards_delete_owner` behind it. `tests/rls/board_deletion.test.ts` asserts the cascade
 actually reaches every child table rather than assuming it, and that the blast radius stops at the
 Board deleted.
 

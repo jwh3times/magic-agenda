@@ -281,8 +281,14 @@ export function useBoardDirectory(userId: string, hasSession: boolean): UseBoard
    * follow through `on delete cascade` on `tasks`, `labels`, and `board_memberships`. That is also
    * why this is the most destructive call in the app — every Task in the Board (recurrence
    * templates and instances included) and its whole Label vocabulary go with it, and referential
-   * actions are not subject to RLS, so nothing downstream gets a say. The Owner-only DELETE policy
-   * is the entire boundary; `can.deleteBoard` only hides the control.
+   * actions are not subject to RLS, so nothing downstream gets a say.
+   *
+   * **Where the boundary now lives, since #399.** This used to be a Data API DELETE guarded by
+   * `boards_delete_owner`, and that policy was the whole of it. It is a command now, and its
+   * handler holds a service-role client that bypasses RLS entirely — so the Owner check the
+   * endpoint performs against the verified caller *is* the boundary, and the policy behind it is
+   * defence in depth for any caller that still reaches the table directly. `can.deleteBoard` only
+   * ever hid the control.
    *
    * Not optimistic. Removing the Board from local state before the server agrees would, on
    * failure, have to restore a Board the user just watched disappear — and if that Board was the
@@ -293,11 +299,28 @@ export function useBoardDirectory(userId: string, hasSession: boolean): UseBoard
     async (boardId: string): Promise<string | null> => {
       if (!hasSession) return 'You need to be signed in to delete a board.'
 
-      const { error: deleteError } = await supabase.from('boards').delete().eq('id', boardId)
-      if (deleteError) return deleteError.message
+      // A command, not a Data API DELETE (#399). The Board's attachment objects have to go with
+      // it, in that order: the object policies authorize by matching the path's first segment
+      // against `board_memberships`, so once the Board row is gone nobody can ever authorize the
+      // file delete. A client-driven sequence could be interrupted between the two; the endpoint
+      // does both server-side and leaves the Board intact if the sweep fails, so a retry finishes.
+      //
+      // This is the mirror of `create_board`: creation is an RPC because a Board and its Owner
+      // Membership must appear together, and deletion is a command because they must disappear
+      // together.
+      const response = await supabase.functions.invoke<unknown>('delete-board', {
+        method: 'POST',
+        body: { boardId },
+      })
+      const invokeError: unknown = response.error
+      if (invokeError) {
+        return invokeError instanceof Error
+          ? invokeError.message
+          : 'Could not delete that board. Please try again.'
+      }
 
-      // A refused DELETE is not an error — RLS makes it match zero rows and return success — so
-      // reload and let the server's list be the answer rather than assuming this worked.
+      // Reload rather than trusting the response: the server's list is the answer, and it also
+      // purges any Board the server no longer returns from the offline snapshot.
       await reload()
       return null
     },

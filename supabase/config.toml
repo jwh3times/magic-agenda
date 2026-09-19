@@ -451,6 +451,12 @@ enabled = true
 [functions.delete-account]
 verify_jwt = true
 
+# Deletes one Board: its attachment objects first, then the row. A command rather than a Data API
+# DELETE because the two must disappear together, in order (#399). The handler checks Ownership
+# itself, because its service-role client bypasses RLS.
+[functions.delete-board]
+verify_jwt = true
+
 # Invoked only by pg_cron with a dedicated bearer secret checked inside the handler. Supabase's JWT
 # gateway cannot validate that opaque secret, so gateway verification is off for this one function.
 [functions.send-reminders]

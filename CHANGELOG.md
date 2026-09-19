@@ -12,6 +12,29 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.14.9] - 2026-09-18
+
+### Changed
+
+- **Deleting a board now deletes its attachments too, in the right order (#399).** Board deletion
+  became a server-side command rather than a direct delete, because a board's files have to go
+  before the board record does — once the board is gone, nothing can prove you were allowed to
+  delete its files, and they would sit there unreachable forever. If the file cleanup fails the
+  board is left intact so you can simply try again, rather than half-deleted.
+- **Deleting your account clears its files as well.** Same ordering, applied to the boards that
+  account deletion removes. This keeps the promise on the Privacy page accurate now that tasks can
+  carry attachments.
+
+### Internal
+
+- `boards` no longer grants `DELETE` to any API role, so the command is the only path and the
+  ordering cannot be bypassed. This restores the symmetry with `create_board`: creation is a
+  command because a board and its owner membership must appear together, deletion because they must
+  disappear together.
+- The board-deletion tests say which mechanism refuses them. With the grant withdrawn, the
+  non-owner cases are refused before any policy is consulted, so they would have stayed green with
+  the policy deleted — the grant and the policy are now pinned separately.
+
 ## [1.14.8] - 2026-09-18
 
 ### Internal
@@ -3615,7 +3638,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.8...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.9...HEAD
+[1.14.9]: https://github.com/jwh3times/magic-agenda/compare/v1.14.8...v1.14.9
 [1.14.8]: https://github.com/jwh3times/magic-agenda/compare/v1.14.7...v1.14.8
 [1.14.7]: https://github.com/jwh3times/magic-agenda/compare/v1.14.6...v1.14.7
 [1.14.6]: https://github.com/jwh3times/magic-agenda/compare/v1.14.5...v1.14.6

@@ -39,6 +39,20 @@ async function contentsOf(boardId: string) {
   })
 }
 
+/**
+ * Delete a Board the way `delete-board` does: past RLS, as the table owner.
+ *
+ * Since #399 no API role holds `DELETE` on `boards` -- deletion is a command, because the Board's
+ * attachment objects must go first and a client-driven sequence cannot guarantee that. So these
+ * cascade tests can no longer drive the delete through the Data API, and driving it as `postgres`
+ * is the honest stand-in for the endpoint's service-role client. What is being asserted here is the
+ * **cascade**, which is a property of the foreign keys and runs as the referencing table's owner
+ * regardless of who issued the statement.
+ */
+async function deleteBoardAsCommand(boardId: string) {
+  await withPg((pg) => pg.query(`delete from public.boards where id = $1`, [boardId]))
+}
+
 async function seedBoard(user: TestUser, name: string): Promise<string> {
   const { data, error } = await user.client.rpc('create_board', { board_name: name })
   if (error || !data) throw new Error(`create_board failed: ${error?.message}`)
@@ -76,8 +90,7 @@ test('deleting a Board destroys its tasks, labels, and membership through the ca
   const before = await contentsOf(boardId)
   expect(before).toEqual({ boards: 1, memberships: 1, labels: 5, tasks: 1, attachments: 1 })
 
-  const { error } = await owner.client.from('boards').delete().eq('id', boardId)
-  expect(error).toBeNull()
+  await deleteBoardAsCommand(boardId)
 
   // Referential actions are not subject to RLS — they run as the referencing table's owner — so
   // the caller's policies on `tasks` and `labels` neither permit nor prevent this. Asserted rather
@@ -95,7 +108,7 @@ test('deletion is confined to the Board deleted', async () => {
   const keep = await seedBoard(owner, 'Kept')
   const drop = await seedBoard(owner, 'Dropped')
 
-  await owner.client.from('boards').delete().eq('id', drop)
+  await deleteBoardAsCommand(drop)
 
   expect(await contentsOf(drop)).toEqual({
     boards: 0,
@@ -120,6 +133,62 @@ test('deletion is confined to the Board deleted', async () => {
  * `error` here would pass for the wrong reason on a policy that permitted everything, so every case
  * below asserts the Board is *still there* instead.
  */
+/**
+ * **What refuses a Data API delete changed with #399, and these tests must say so.**
+ *
+ * The three tests below assert that an Editor, a Viewer, a stranger, and a former Owner cannot
+ * delete a Board through the Data API. They passed before because `boards_delete_owner` filtered
+ * the row; they pass now because **no API role holds `DELETE` on `boards` at all**, which refuses
+ * the statement before any policy is consulted.
+ *
+ * That means each of them would stay green with `boards_delete_owner` deleted entirely -- the
+ * "passes for the wrong reason" shape. They are kept because the property they name is still the
+ * one users care about, and the two tests immediately below pin the mechanisms separately: the
+ * grant, which is what actually refuses today, and the policy, which is the defence in depth that
+ * would refuse if the grant ever came back.
+ */
+test('no API role can delete a Board through the Data API (#399)', async () => {
+  // The Owner included -- that is the point. Deletion is a command now, so even the person
+  // entitled to delete cannot do it by this route, and the attachment sweep cannot be skipped.
+  const boardId = await seedBoard(owner, 'Command only')
+
+  const { error } = await owner.client.from('boards').delete().eq('id', boardId)
+  expect(error).not.toBeNull()
+  expect(error?.code).toBe('42501')
+  expect((await contentsOf(boardId)).boards).toBe(1)
+
+  const grants = await withPg(async (pg) => {
+    const result = await pg.query<{ role: string; can: boolean }>(
+      `select r as role, has_table_privilege(r, 'public.boards', 'DELETE') as can
+         from unnest(array['anon', 'authenticated', 'service_role']) r`,
+    )
+    return result.rows
+  })
+  expect(grants.every((g) => !g.can)).toBe(true)
+
+  await deleteBoardAsCommand(boardId)
+})
+
+test('boards_delete_owner survives as defence in depth', async () => {
+  // Unreachable through the Data API now that the grant is gone, and kept deliberately: a boundary
+  // should not depend on a grant to hold. Asserted structurally, because no role that could
+  // exercise it can still reach the table.
+  const policy = await withPg(async (pg) => {
+    const result = await pg.query<{ polname: string; cmd: string; qual: string | null }>(
+      `select p.polname, p.polcmd::text as cmd, pg_get_expr(p.polqual, p.polrelid) as qual
+         from pg_policy p
+         join pg_class c on c.oid = p.polrelid
+        where c.relname = 'boards' and p.polname = 'boards_delete_owner'`,
+    )
+    return result.rows
+  })
+
+  expect(policy).toHaveLength(1)
+  expect(policy[0].cmd).toBe('d')
+  expect(policy[0].qual).toContain('board_memberships')
+  expect(policy[0].qual).toContain('owner')
+})
+
 test('an Editor and a Viewer cannot delete the Board', async () => {
   for (const role of ['editor', 'viewer'] as const) {
     const member = await createTestUser()
@@ -181,8 +250,7 @@ test('an Owner may delete their last Board, leaving the Account with none', asyn
   const soloUser = await createTestUser()
   try {
     const only = await currentBoardId(soloUser.id)
-    const { error } = await soloUser.client.from('boards').delete().eq('id', only)
-    expect(error).toBeNull()
+    await deleteBoardAsCommand(only)
 
     const remaining = await withPg(async (pg) => {
       const result = await pg.query<{ n: string }>(
@@ -225,7 +293,7 @@ test('deleting a Board cannot reach another Account content', async () => {
       size_bytes: 1024,
     })
 
-    await owner.client.from('boards').delete().eq('id', mine)
+    await deleteBoardAsCommand(mine)
 
     expect(await contentsOf(mine)).toEqual({
       boards: 0,
