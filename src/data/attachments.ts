@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { newId } from '../lib/id'
 import { attachmentFileError } from './attachmentLimits'
 
 export const ATTACHMENTS_BUCKET = 'attachments'
@@ -77,7 +78,7 @@ export async function uploadAttachment(
   const rejection = attachmentFileError(file)
   if (rejection) throw new Error(rejection)
 
-  const id = crypto.randomUUID()
+  const id = newId()
   const storagePath = `${boardId}/${taskId}/${id}`
 
   const { error: uploadError } = await supabase.storage
@@ -101,13 +102,17 @@ export async function uploadAttachment(
     .single()
 
   if (error) {
-    // The row was refused, so the object we just wrote describes nothing. Best-effort removal
-    // keeps the common case tidy; if it fails too, the Board sweep will collect it, because that
-    // enumerates storage rather than rows. Never mask the original error with this one.
-    await supabase.storage
-      .from(ATTACHMENTS_BUCKET)
-      .remove([storagePath])
-      .catch(() => undefined)
+    // **Delete the row before removing the object, and do it unconditionally.**
+    //
+    // An error here does not prove the insert failed: a timeout, an aborted request, or a 5xx
+    // after commit all report an error for a row that landed. Removing the object without this
+    // would then produce a row describing a file that does not exist -- the state this module
+    // claims it cannot reach, permanent, and visible to the user only as a file that will never
+    // open. The id is ours, so the delete is a cheap no-op when the insert really did fail.
+    await supabase.from('task_attachments').delete().eq('id', id)
+    await supabase.storage.from(ATTACHMENTS_BUCKET).remove([storagePath])
+    // Always the original failure. What went wrong with the attachment is what the caller needs,
+    // not whatever the tidying up reported.
     throw new Error(error.message)
   }
 
@@ -127,13 +132,23 @@ export async function uploadAttachment(
  * orphans explicitly and leaves a scheduled cleanup for later.
  */
 export async function removeAttachment(attachment: Attachment): Promise<void> {
-  const { error } = await supabase.from('task_attachments').delete().eq('id', attachment.id)
+  // **`.select()` is what tells a refusal from a success.** RLS denies a DELETE by matching zero
+  // rows, not by erroring -- so without this a Viewer's delete would return success, the object
+  // removal would be refused and ignored, and the attachment would simply reappear on the next
+  // load with no explanation. Asking for the deleted row back makes the refusal observable.
+  const { data, error } = await supabase
+    .from('task_attachments')
+    .delete()
+    .eq('id', attachment.id)
+    .select('id')
   if (error) throw new Error(error.message)
+  if (!data || data.length === 0) {
+    throw new Error('You do not have permission to remove that attachment.')
+  }
 
-  await supabase.storage
-    .from(ATTACHMENTS_BUCKET)
-    .remove([attachment.storagePath])
-    .catch(() => undefined)
+  // Best-effort, and genuinely ignorable: the row is gone, which is what was asked for. storage-js
+  // resolves its failures as `{ error }` rather than rejecting, so this is checked, not caught.
+  await supabase.storage.from(ATTACHMENTS_BUCKET).remove([attachment.storagePath])
 }
 
 /**

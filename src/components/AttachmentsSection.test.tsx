@@ -41,8 +41,16 @@ const attachment = (over: Partial<Attachment> = {}): Attachment => ({
   ...over,
 })
 
-const renderSection = (readOnly = false) =>
-  render(<AttachmentsSection boardId="b1" taskId="t1" readOnly={readOnly} chrome={CHROME} />)
+const renderSection = ({ canEdit = true, offline = false } = {}) =>
+  render(
+    <AttachmentsSection
+      boardId="b1"
+      taskId="t1"
+      canEdit={canEdit}
+      offline={offline}
+      chrome={CHROME}
+    />,
+  )
 
 beforeEach(() => {
   h.listAttachments.mockReset().mockResolvedValue([])
@@ -74,8 +82,9 @@ test('attachments are listed with their size', async () => {
   expect(screen.getByText('1.0 MB')).toBeTruthy()
 })
 
-test('only images get a signed thumbnail; a PDF gets a label instead', async () => {
-  // Signing a URL for a PDF would spend a request on something we never render as an image.
+test('every attachment is signed at load, so filenames are real links', async () => {
+  // Signing on click would put `window.open` after an await, which Safari blocks -- and with
+  // `noopener` the return value is null, so the code could not even tell. Links avoid all of it.
   h.listAttachments.mockResolvedValue([
     attachment(),
     attachment({ id: 'a2', filename: 'spec.pdf', mimeType: 'application/pdf' }),
@@ -83,9 +92,22 @@ test('only images get a signed thumbnail; a PDF gets a label instead', async () 
   renderSection()
 
   await screen.findByText('diagram.png')
-  await waitFor(() => expect(h.signedUrl).toHaveBeenCalledTimes(1))
-  expect(h.signedUrl).toHaveBeenCalledWith('b1/t1/a1')
+  await waitFor(() => expect(h.signedUrl).toHaveBeenCalledTimes(2))
+
+  const link = screen.getByText('diagram.png').closest('a')
+  expect(link?.getAttribute('href')).toBe('https://signed.example/x')
+  expect(link?.getAttribute('rel')).toBe('noopener noreferrer')
+  // Only the image gets a thumbnail; the PDF gets its label.
   expect(screen.getByText('PDF')).toBeTruthy()
+})
+
+test('an attachment with no signed URL is not offered as a link', async () => {
+  h.listAttachments.mockResolvedValue([attachment()])
+  h.signedUrl.mockResolvedValue(null)
+  renderSection()
+
+  await screen.findByText('diagram.png')
+  expect(screen.getByText('diagram.png').closest('a')).toBeNull()
 })
 
 test('an oversized file is refused without an upload', async () => {
@@ -162,7 +184,7 @@ test('read-only offers no way to add or remove', async () => {
   // The board falls back to read-only on an offline snapshot, and a Viewer is read-only too. The
   // database refuses either way; this is about not offering a control that cannot work.
   h.listAttachments.mockResolvedValue([attachment()])
-  renderSection(true)
+  renderSection({ canEdit: false })
 
   await screen.findByText('diagram.png')
   expect(screen.queryByRole('button', { name: /^Remove/ })).toBeNull()
@@ -170,10 +192,52 @@ test('read-only offers no way to add or remove', async () => {
   expect(screen.queryByTestId('attachment-input')).toBeNull()
 })
 
-test('a failed load reports it rather than looking empty', async () => {
-  // "No attachments yet" for a load that failed would be a lie, and the user would not know to
-  // retry.
-  h.listAttachments.mockRejectedValue(new Error('offline'))
+test('a failed load reports it and does NOT claim there are none', async () => {
+  // "No attachments yet." beside the error would tell the user there are none when we could not
+  // find out. This asserts the absence too -- the earlier version of this test checked only the
+  // alert and so passed while the contradiction was on screen.
+  h.listAttachments.mockRejectedValue(new Error('server said no'))
   renderSection()
-  expect(await screen.findByRole('alert')).toHaveTextContent('offline')
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('server said no')
+  expect(screen.queryByText('No attachments yet.')).toBeNull()
+  expect(screen.queryByText('Loading…')).toBeNull()
+})
+
+test('a recovered load clears the previous error', async () => {
+  // A stale red alert standing over a list that loaded fine is its own small lie.
+  h.listAttachments.mockRejectedValueOnce(new Error('transient'))
+  renderSection()
+  await screen.findByRole('alert')
+
+  h.listAttachments.mockResolvedValue([attachment()])
+  // Any successful reload does it; removing is the cheapest trigger available here.
+  await userEvent.click(screen.getByRole('button', { name: 'Add attachment' }))
+  const input = screen.getByTestId('attachment-input') as HTMLInputElement
+  await userEvent.upload(input, new File(['x'], 'diagram.png', { type: 'image/png' }))
+
+  await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+})
+
+test('offline says so and makes no request at all', async () => {
+  // The board is served from a snapshot, so this request could only fail -- and a raw
+  // `FetchError: Failed to fetch` in the editor helps nobody.
+  renderSection({ offline: true, canEdit: false })
+
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    /unavailable while this board is offline/,
+  )
+  expect(h.listAttachments).not.toHaveBeenCalled()
+  expect(screen.queryByText('No attachments yet.')).toBeNull()
+})
+
+test('a Viewer gets no add or remove control', async () => {
+  // `canEdit` is `capabilitiesFor(...).editContent`, not the offline flag. A Viewer is online and
+  // reads fine; the database refuses their writes, and the UI should not offer them.
+  h.listAttachments.mockResolvedValue([attachment()])
+  renderSection({ canEdit: false })
+
+  await screen.findByText('diagram.png')
+  expect(screen.queryByRole('button', { name: /^Remove/ })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Add attachment' })).toBeNull()
 })

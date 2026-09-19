@@ -23,6 +23,13 @@ No unreleased changes.
 - Files are private. Each view is granted through a link that expires after an hour, so an
   attachment cannot be reached by URL alone.
 
+### Internal
+
+- The content security policy now allows images from the Supabase project host. Thumbnails are
+  fetched through signed storage URLs on that host, and an `<img>` is governed by `img-src` alone —
+  which had not been widened. Without this every thumbnail would have been refused in production
+  while passing every test, since jsdom enforces no CSP.
+
 ### Notes
 
 - Attachments can only be added to a task that has been saved at least once, because a file has to

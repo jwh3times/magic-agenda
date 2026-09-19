@@ -99,6 +99,7 @@ export function BoardPage() {
                   onSignOut={() => void signOut()}
                   onOpenSettings={() => void navigate('/settings')}
                   canAssignLabels={can.assignLabels}
+                  canEditContent={can.editContent}
                   keyboardShortcuts={settings.keyboardShortcuts}
                 />
               </DueClockProvider>

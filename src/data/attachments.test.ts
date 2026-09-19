@@ -14,7 +14,8 @@ const h = vi.hoisted(() => {
     uploadError: null as { message: string } | null,
     insertError: null as { message: string } | null,
     deleteError: null as { message: string } | null,
-    removeRejects: false,
+    deleteMatches: true,
+    removeFails: false,
     rows: [] as unknown[],
     insertedRow: null as Record<string, unknown> | null,
   }
@@ -23,11 +24,13 @@ const h = vi.hoisted(() => {
     calls.push(`upload:${path}`)
     return Promise.resolve({ error: state.uploadError })
   })
+  // storage-js RESOLVES its failures as `{ data: null, error }` -- including network errors, which
+  // it wraps as StorageUnknownError -- and only throws for a non-StorageError. `shouldThrowOnError`
+  // is not enabled on this client. An earlier version of these tests mocked a rejection, which
+  // meant both "cleanup failed" tests passed against a path the real client cannot take.
   const remove = vi.fn((paths: string[]) => {
     calls.push(`remove:${paths.join(',')}`)
-    return state.removeRejects
-      ? Promise.reject(new Error('remove blew up'))
-      : Promise.resolve({ error: null })
+    return Promise.resolve({ error: state.removeFails ? { message: 'storage unavailable' } : null })
   })
   const createSignedUrl = vi.fn(() =>
     Promise.resolve({ data: { signedUrl: 'https://signed.example/x' }, error: null }),
@@ -57,7 +60,15 @@ vi.mock('../lib/supabase', () => ({
       delete: vi.fn(() => ({
         eq: vi.fn(() => {
           h.calls.push('deleteRow')
-          return Promise.resolve({ error: h.state.deleteError })
+          const result = {
+            data: h.state.deleteMatches ? [{ id: 'a1' }] : [],
+            error: h.state.deleteError,
+          }
+          // `.eq()` is awaited directly by the upload cleanup and chained with `.select()` by
+          // removeAttachment, so it must be both a thenable and a builder.
+          return Object.assign(Promise.resolve(result), {
+            select: () => Promise.resolve(result),
+          })
         }),
       })),
     })),
@@ -105,7 +116,8 @@ beforeEach(() => {
   h.state.uploadError = null
   h.state.insertError = null
   h.state.deleteError = null
-  h.state.removeRejects = false
+  h.state.deleteMatches = true
+  h.state.removeFails = false
   h.state.rows = []
   h.state.insertedRow = row()
   h.upload.mockClear()
@@ -162,7 +174,7 @@ test('a refused row removes the object it had already written', async () => {
 
 test('a cleanup failure does not mask the original error', async () => {
   h.state.insertError = { message: 'row refused' }
-  h.state.removeRejects = true
+  h.state.removeFails = true
   // The caller needs to know why the attachment failed, not that tidying up also failed.
   await expect(uploadAttachment(BOARD, TASK, pngFile())).rejects.toThrow('row refused')
 })
@@ -194,9 +206,21 @@ test('a failed row delete does not remove the object', async () => {
   expect(h.remove).not.toHaveBeenCalled()
 })
 
+test('a DELETE that matches no row is reported as a refusal, not a success', async () => {
+  // RLS denies a DELETE by matching zero rows, not by erroring. Without `.select()` a Viewer's
+  // remove would return success, the object removal would be refused and ignored, and the
+  // attachment would silently reappear on the next load with no explanation.
+  h.state.deleteMatches = false
+  await expect(
+    removeAttachment({ id: 'a1', storagePath: `${BOARD}/${TASK}/a1` } as Attachment),
+  ).rejects.toThrow(/do not have permission/)
+  expect(h.remove).not.toHaveBeenCalled()
+})
+
 test('a failed object removal is not surfaced', async () => {
-  // The row is gone, which is what the user asked for. The orphan is accepted by the issue.
-  h.state.removeRejects = true
+  // The row is gone, which is what the user asked for. The orphan is accepted by the issue, and
+  // storage-js reports this as a resolved `{ error }` rather than a rejection.
+  h.state.removeFails = true
   await expect(
     removeAttachment({ id: 'a1', storagePath: `${BOARD}/${TASK}/a1` } as Attachment),
   ).resolves.toBeUndefined()

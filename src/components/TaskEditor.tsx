@@ -43,6 +43,14 @@ export interface TaskEditorProps {
    * Absent means the attachments section shows its hint instead.
    */
   boardId?: string | null
+  /**
+   * Whether this account may change content on this Board — `capabilitiesFor(...).editContent`.
+   *
+   * Distinct from `readOnly`, which means "hydrated from an offline snapshot". A Viewer is online
+   * and can read fine; they simply may not write. Conflating the two offered a Viewer an "Add
+   * attachment" button the database would refuse.
+   */
+  canEditContent?: boolean
   /** Board capability: Viewers may edit other fields only when separately allowed, never Labels. */
   canAssignLabels?: boolean
 }
@@ -57,6 +65,7 @@ export function TaskEditor({
   readOnly,
   canAssignLabels = true,
   boardId = null,
+  canEditContent = true,
 }: TaskEditorProps) {
   const { theme, conf } = useTheme()
   const isMobile = useIsMobile()
@@ -498,6 +507,8 @@ export function TaskEditor({
           </div>
 
           <div style={fieldLabel}>Attachments</div>
+          {/* The section renders the format/size hint and the list; this fieldLabel is the only
+              heading, matching every other section in this panel. */}
           {isNew || !boardId ? (
             /*
              * A new Task has no row yet, and `task_attachments` carries a composite foreign key to
@@ -511,7 +522,8 @@ export function TaskEditor({
             <AttachmentsSection
               boardId={boardId}
               taskId={draft.id}
-              readOnly={readOnly === true}
+              canEdit={canEditContent && readOnly !== true}
+              offline={readOnly === true}
               chrome={{ fg, sub, fieldBg, border, ctlFont, btn }}
             />
           )}
