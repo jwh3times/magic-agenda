@@ -549,3 +549,93 @@ test('a viewer cannot move an object, and an editor cannot move it across boards
 
   await alice.client.storage.from('attachments').remove([path])
 })
+
+// ---------------------------------------------------------------------------
+// Undo's restore (#404)
+// ---------------------------------------------------------------------------
+// Undo re-inserts the rows a Task delete cascaded away, keeping their ids so the generated
+// `storage_path` lands back on the file that was never deleted. Two database facts have to hold
+// for that to work, and neither is reachable from a unit test.
+
+test('an attachment row re-inserted with its original id addresses the surviving object', async () => {
+  const { data: task } = await alice.client
+    .from('tasks')
+    .insert({ title: 'deleted then undone', board_id: aliceBoardId })
+    .select('id')
+    .single()
+
+  const id = crypto.randomUUID()
+  const { data: original, error: insertError } = await alice.client
+    .from('task_attachments')
+    .insert(attachmentRow({ id, task_id: task!.id }))
+    .select('storage_path')
+    .single()
+  expect(insertError).toBeNull()
+
+  const png = new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], { type: 'image/png' })
+  const uploaded = await alice.client.storage
+    .from('attachments')
+    .upload(original!.storage_path, png, { contentType: 'image/png' })
+  expect(uploaded.error).toBeNull()
+
+  // The delete cascades the row away. The client deliberately leaves the object alone -- that is
+  // the decision in `attachments.ts` that makes this restorable at all.
+  await alice.client.from('tasks').delete().eq('id', task!.id)
+
+  // Undo: the Task row first, with its original id, then the attachment.
+  await alice.client
+    .from('tasks')
+    .insert({ id: task!.id, title: 'restored', board_id: aliceBoardId })
+  const { data: restored, error: restoreError } = await alice.client
+    .from('task_attachments')
+    .insert(attachmentRow({ id, task_id: task!.id }))
+    .select('storage_path')
+    .single()
+  expect(restoreError).toBeNull()
+  // Identical, because `storage_path` is generated from the id we kept.
+  expect(restored?.storage_path).toBe(original!.storage_path)
+
+  // And the file is still there, so the restored row is not describing a hole.
+  const signed = await alice.client.storage
+    .from('attachments')
+    .createSignedUrl(restored!.storage_path, 60)
+  expect(signed.error).toBeNull()
+
+  await alice.client.storage.from('attachments').remove([restored!.storage_path])
+  await alice.client.from('tasks').delete().eq('id', task!.id)
+})
+
+test('restoring a row that never left is ignored, not refused', async () => {
+  // An undo entry covers every id its action touched, not only the ones deleted, so a restore can
+  // include rows that are still present. `ignoreDuplicates` is how that becomes a no-op -- and it
+  // is the only shape available, because UPDATE on this table grants `filename` alone: the update
+  // half of a real upsert would be refused on `board_id`, `task_id`, `mime_type`, `size_bytes`.
+  const id = crypto.randomUUID()
+  const { error: first } = await alice.client.from('task_attachments').insert(attachmentRow({ id }))
+  expect(first).toBeNull()
+
+  const ignored = await alice.client
+    .from('task_attachments')
+    .upsert([attachmentRow({ id, filename: 'renamed.png' })], {
+      onConflict: 'id',
+      ignoreDuplicates: true,
+    })
+  expect(ignored.error).toBeNull()
+
+  // Ignored means ignored: the existing row is untouched, not overwritten with the captured copy.
+  const { data: after } = await alice.client
+    .from('task_attachments')
+    .select('filename')
+    .eq('id', id)
+    .single()
+  expect(after?.filename).toBe('diagram.png')
+
+  // The same statement without `ignoreDuplicates` is the shape that must NOT be used: PostgREST
+  // resolves it as an UPDATE, which the column grants refuse.
+  const merged = await alice.client
+    .from('task_attachments')
+    .upsert([attachmentRow({ id, filename: 'renamed.png' })], { onConflict: 'id' })
+  expect(merged.error).not.toBeNull()
+
+  await alice.client.from('task_attachments').delete().eq('id', id)
+})

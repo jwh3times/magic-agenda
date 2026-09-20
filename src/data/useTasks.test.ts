@@ -11,6 +11,13 @@ const h = vi.hoisted(() => {
     selectStatus: number
     failLaterPage: boolean
     writeRows: unknown[] | null
+    /** What `captureTaskAttachments` resolves with (#404). */
+    attachments: { id: string; taskId: string }[]
+    /**
+     * Ordered log of the writes that have a *sequence* contract: an attachment capture has to
+     * happen before the DELETE that cascades it away, and a restore after the Task is back.
+     */
+    trace: string[]
   } = {
     handler: null,
     rows: [],
@@ -18,6 +25,8 @@ const h = vi.hoisted(() => {
     selectStatus: 200,
     failLaterPage: false,
     writeRows: null,
+    attachments: [],
+    trace: [],
   }
   const ok = () => Promise.resolve({ data: null, error: null })
   const writeSelect = vi.fn(() => Promise.resolve({ data: capture.writeRows, error: null }))
@@ -27,7 +36,10 @@ const h = vi.hoisted(() => {
   }
   // Stable spies so tests can assert on the rows reload/materialize/updateSeries write.
   const insert = vi.fn(selectable)
-  const upsert = vi.fn(selectable)
+  const upsert = vi.fn(() => {
+    capture.trace.push('upsertTasks')
+    return selectable()
+  })
   // Stable spy behind `.update(...).eq(...)` so a test can force it to reject (throw),
   // proving a throw takes the same rollback + setError path as a resolved `{ error }`.
   const updateEq = vi.fn(selectable)
@@ -38,9 +50,15 @@ const h = vi.hoisted(() => {
   // and spy-able `.gt`/`.gte` legs (so a test can force just that leg to reject).
   const deleteGt = vi.fn(ok)
   const deleteGte = vi.fn(ok)
-  const deleteEq = vi.fn(() => Object.assign(ok(), { gt: deleteGt, gte: deleteGte }))
+  const deleteEq = vi.fn(() => {
+    capture.trace.push('deleteTask')
+    return Object.assign(ok(), { gt: deleteGt, gte: deleteGte })
+  })
   // `.delete().in('id', ids)`: bulk delete's one batched request (#270).
-  const deleteIn = vi.fn(ok)
+  const deleteIn = vi.fn(() => {
+    capture.trace.push('deleteTasks')
+    return ok()
+  })
   const channel: Record<string, unknown> = {}
   channel.on = vi.fn((_e: string, _f: unknown, cb: (p: unknown) => void) => {
     capture.handler = cb
@@ -50,6 +68,18 @@ const h = vi.hoisted(() => {
     cb?.('SUBSCRIBED')
     return channel
   })
+  // The attachment data layer is mocked as a module rather than through the Supabase stub above:
+  // `supabase.from` here ignores the table name, so a real `captureTaskAttachments` would read the
+  // `tasks` fixtures. What these tests are about is *when* it is called, not how it queries.
+  const captureTaskAttachments = vi.fn((ids: readonly string[]) => {
+    capture.trace.push(`captureAttachments:${[...ids].join(',')}`)
+    return Promise.resolve(capture.attachments)
+  })
+  const restoreAttachments = vi.fn((rows: readonly { id: string }[]) => {
+    capture.trace.push(`restoreAttachments:${rows.map((r) => r.id).join(',')}`)
+    return Promise.resolve()
+  })
+
   return {
     capture,
     ok,
@@ -63,6 +93,8 @@ const h = vi.hoisted(() => {
     deleteGte,
     deleteIn,
     channel,
+    captureTaskAttachments,
+    restoreAttachments,
   }
 })
 
@@ -103,6 +135,11 @@ vi.mock('../lib/supabase', () => ({
     channel: vi.fn(() => h.channel),
     removeChannel: vi.fn(),
   },
+}))
+
+vi.mock('./attachments', () => ({
+  captureTaskAttachments: h.captureTaskAttachments,
+  restoreAttachments: h.restoreAttachments,
 }))
 
 import { useTasks } from './useTasks'
@@ -189,8 +226,11 @@ beforeEach(() => {
   h.deleteGt.mockImplementation(h.ok)
   h.deleteGte.mockReset()
   h.deleteGte.mockImplementation(h.ok)
-  h.deleteIn.mockReset()
-  h.deleteIn.mockImplementation(h.ok)
+  h.deleteIn.mockClear()
+  h.capture.attachments = []
+  h.capture.trace = []
+  h.captureTaskAttachments.mockClear()
+  h.restoreAttachments.mockClear()
 })
 
 test('a stale echo of our own write does not clobber optimistic state', async () => {
@@ -1353,4 +1393,131 @@ test('a drag origin left by a cancelled drag is not inherited after a reload', a
   })
   // Restored to where the reload put it, not to the stale pre-cancel origin.
   expect(result.current.tasks.find((t) => t.id === 't1')?.day).toBe('2026-07-05')
+})
+
+// ——— undo restores attachments (#404) ———
+// The delete cascade takes `task_attachments` rows with the Task. Undo re-inserted only the Task,
+// so the attachments were gone while their files sat in storage, reachable by nothing. What these
+// assert is *sequence*: the rows have to be read before the DELETE and written back after the
+// Task is, and neither order is visible in a diff.
+
+const attachment = (id: string, taskId: string) => ({
+  id,
+  taskId,
+  boardId: 'b1',
+  storagePath: `b1/${taskId}/${id}`,
+  filename: `${id}.png`,
+  mimeType: 'image/png',
+  sizeBytes: 10,
+  uploadedBy: 'u1',
+  createdAt: '',
+})
+
+test('a plain delete reads its attachments before the DELETE, and undo writes them back after the Task', async () => {
+  h.capture.rows = [serverRow({ id: 't1', title: 'has files' })]
+  h.capture.attachments = [attachment('a1', 't1')]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  h.capture.trace = []
+
+  await act(async () => {
+    await result.current.deleteTask('t1')
+  })
+  // Before, not after: once the DELETE lands the cascade has taken the rows.
+  expect(h.capture.trace).toEqual(['captureAttachments:t1', 'deleteTask'])
+
+  h.capture.trace = []
+  await act(async () => {
+    await result.current.undo()
+  })
+  // After, not before: the composite foreign key has nowhere to point until the Task is back.
+  expect(h.capture.trace).toEqual(['upsertTasks', 'restoreAttachments:a1'])
+})
+
+test('the attachment read happens after the Task has already left the board, not before', async () => {
+  h.capture.rows = [serverRow({ id: 't1' })]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  // Hold the capture open. Every delete pays for this read, so it must not be what the user waits
+  // on: the optimistic removal has to have happened already.
+  let release!: () => void
+  h.captureTaskAttachments.mockImplementationOnce(
+    () => new Promise((resolve) => (release = () => resolve([]))),
+  )
+  let deleting!: void | Promise<void>
+  // The synchronous form: the optimistic removal happens before `deleteTask`'s first await, so
+  // this flushes it without letting the held-open capture resolve.
+  act(() => {
+    deleting = result.current.deleteTask('t1')
+  })
+  expect(result.current.tasks).toEqual([])
+  expect(h.deleteEq).not.toHaveBeenCalled()
+
+  await act(async () => {
+    release()
+    await deleting
+  })
+  expect(h.deleteEq).toHaveBeenCalled()
+})
+
+test('an attachment read that fails still deletes the Task and still offers undo', async () => {
+  h.capture.rows = [serverRow({ id: 't1', title: 'unreadable' })]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  // `captureTaskAttachments` swallows its own failures; this proves the caller does not reintroduce
+  // one. A delete that failed because an attachment read did would be a far worse bug than #404.
+  h.captureTaskAttachments.mockResolvedValueOnce([])
+  await act(async () => {
+    await result.current.deleteTask('t1')
+  })
+  expect(result.current.tasks).toEqual([])
+  expect(result.current.error).toBeNull()
+  expect(result.current.lastUndo?.label).toBe('Deleted “unreadable”')
+
+  h.capture.trace = []
+  await act(async () => {
+    await result.current.undo()
+  })
+  // Nothing captured, so nothing to put back — and `restoreAttachments` is still called, because
+  // "no attachments" is its own no-op rather than a branch the caller has to remember.
+  expect(h.capture.trace).toEqual(['upsertTasks', 'restoreAttachments:'])
+})
+
+test('a bulk delete captures every id the undo entry covers, not only the deleted ones', async () => {
+  const today = ymd(new Date())
+  h.capture.rows = [
+    serverRow({ id: 'tpl1', recur_freq: 'daily', day: today, recur_until: today }),
+    serverRow({ id: 'i1', recur_parent_id: 'tpl1', recur_origin_day: today, day: today }),
+  ]
+  h.capture.attachments = [attachment('a1', 'i1')]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  await act(async () => {
+    await result.current.bulkDelete(new Set(['i1']))
+  })
+  // The definition is in the entry because deleting its last Occurrence retires it. Capturing its
+  // attachments too costs one predicate and means the entry can never be short of a row it
+  // restores; `restoreAttachments` ignores the ones whose Task never left.
+  const [ids] = h.captureTaskAttachments.mock.calls[0] as unknown as [string[]]
+  expect([...ids].sort()).toEqual(['i1', 'tpl1'])
+})
+
+test('an action that deletes nothing captures nothing', async () => {
+  h.capture.rows = [serverRow({ id: 't1' })]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  await act(async () => {
+    await result.current.toggleCompletion('t1')
+  })
+  expect(h.captureTaskAttachments).not.toHaveBeenCalled()
+
+  h.capture.trace = []
+  await act(async () => {
+    await result.current.undo()
+  })
+  expect(h.restoreAttachments).toHaveBeenCalledWith([])
 })

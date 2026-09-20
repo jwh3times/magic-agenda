@@ -1,4 +1,5 @@
 import type { SeriesState } from './series'
+import type { Attachment } from './attachments'
 import type { SeriesDefinition, Task } from '../types/task'
 
 /** A Task's title as undo labels quote it. */
@@ -23,14 +24,31 @@ export interface UndoEntry {
   label: string
   tasks: Task[]
   templates: SeriesDefinition[]
+  /**
+   * Attachment rows the action's deletes cascaded away (#404).
+   *
+   * **The one thing here that does not come from `before`.** The board state this module snapshots
+   * holds Tasks and definitions; attachments are not in it, and are not loaded until an editor asks
+   * for them. So they are read from the server by the caller, in the window between the optimistic
+   * removal and the DELETE, and handed in. An action that deletes nothing leaves this empty.
+   */
+  attachments: Attachment[]
 }
 
-export function captureUndo(label: string, before: SeriesState, ids: Iterable<string>): UndoEntry {
+export function captureUndo(
+  label: string,
+  before: SeriesState,
+  ids: Iterable<string>,
+  attachments: readonly Attachment[] = [],
+): UndoEntry {
   const wanted = new Set(ids)
   return {
     label,
     tasks: before.tasks.filter((task) => wanted.has(task.id)),
     templates: before.templates.filter((template) => wanted.has(template.id)),
+    // Filtered by the same ids as everything else, so the entry cannot restore an attachment
+    // belonging to a Task this action never touched.
+    attachments: attachments.filter((attachment) => wanted.has(attachment.taskId)),
   }
 }
 
@@ -40,6 +58,8 @@ export interface UndoPlan {
   /** Written first: an Occurrence cannot be re-inserted before the definition it references. */
   upsertTemplates: SeriesDefinition[]
   upsertTasks: Task[]
+  /** Written last: the composite foreign key means the Task has to be back first (#404). */
+  insertAttachments: Attachment[]
   markIds: string[]
 }
 
@@ -60,6 +80,9 @@ export function planUndo(entry: UndoEntry, current: SeriesState): UndoPlan {
     },
     upsertTemplates: entry.templates,
     upsertTasks: entry.tasks,
+    // Not part of `state`: attachments live outside the board snapshot, and the editor reads them
+    // fresh when it opens. There is nothing optimistic to update.
+    insertAttachments: entry.attachments,
     markIds: [...entry.templates.map((row) => row.id), ...entry.tasks.map((row) => row.id)],
   }
 }

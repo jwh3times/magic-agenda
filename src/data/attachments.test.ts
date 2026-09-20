@@ -18,7 +18,33 @@ const h = vi.hoisted(() => {
     removeFails: false,
     rows: [] as unknown[],
     insertedRow: null as Record<string, unknown> | null,
+    /** Rows `captureTaskAttachments` pages through, keyed by nothing: it filters by task id. */
+    captureRows: [] as Record<string, unknown>[],
+    captureError: null as { message: string } | null,
+    upsertError: null as { message: string } | null,
   }
+
+  /** `.select().in().order().range()` — the capture's paged read (#404). */
+  const captureIn = vi.fn((_column: string, ids: string[]) => {
+    calls.push(`capture:${ids.join(',')}`)
+    return {
+      order: () => ({
+        range: (from: number, to: number) => {
+          const matching = state.captureRows.filter((r) => ids.includes(r.task_id as string))
+          return Promise.resolve(
+            state.captureError
+              ? { data: null, error: state.captureError }
+              : { data: matching.slice(from, to + 1), error: null },
+          )
+        },
+      }),
+    }
+  })
+
+  const upsert = vi.fn((rows: Record<string, unknown>[], options: Record<string, unknown>) => {
+    calls.push(`upsert:${rows.map((r) => r.id as string).join(',')}`)
+    return Promise.resolve({ error: state.upsertError, options })
+  })
 
   const upload = vi.fn((path: string) => {
     calls.push(`upload:${path}`)
@@ -45,7 +71,7 @@ const h = vi.hoisted(() => {
     )
   })
 
-  return { calls, state, upload, remove, createSignedUrl, single }
+  return { calls, state, upload, remove, createSignedUrl, single, captureIn, upsert }
 })
 
 vi.mock('../lib/supabase', () => ({
@@ -55,7 +81,9 @@ vi.mock('../lib/supabase', () => ({
         eq: vi.fn(() => ({
           order: vi.fn(() => Promise.resolve({ data: h.state.rows, error: null })),
         })),
+        in: h.captureIn,
       })),
+      upsert: h.upsert,
       insert: vi.fn(() => ({ select: vi.fn(() => ({ single: h.single })) })),
       delete: vi.fn(() => ({
         eq: vi.fn(() => {
@@ -83,8 +111,10 @@ vi.mock('../lib/supabase', () => ({
 }))
 
 import {
+  captureTaskAttachments,
   listAttachments,
   removeAttachment,
+  restoreAttachments,
   signedUrl,
   uploadAttachment,
   type Attachment,
@@ -120,8 +150,13 @@ beforeEach(() => {
   h.state.removeFails = false
   h.state.rows = []
   h.state.insertedRow = row()
+  h.state.captureRows = []
+  h.state.captureError = null
+  h.state.upsertError = null
   h.upload.mockClear()
   h.remove.mockClear()
+  h.captureIn.mockClear()
+  h.upsert.mockClear()
 })
 
 test('rows are mapped out of snake_case', async () => {
@@ -229,4 +264,88 @@ test('a failed object removal is not surfaced', async () => {
 test('a signed URL failure degrades to null rather than throwing', async () => {
   h.createSignedUrl.mockResolvedValueOnce({ data: null, error: { message: 'nope' } } as never)
   expect(await signedUrl('b/t/a')).toBeNull()
+})
+
+// ——— the undo capture and restore (#404) ———
+
+const captureRow = (id: string, taskId: string) => row({ id, task_id: taskId })
+
+test('a capture pages until a short page, because a full one may be the API cap', async () => {
+  // The same trap `loadBoardTasks` pages around: PostgREST answers 200 with fewer rows than exist.
+  h.state.captureRows = Array.from({ length: 1001 }, (_, i) =>
+    captureRow(`id-${String(i).padStart(4, '0')}`, TASK),
+  )
+  const captured = await captureTaskAttachments([TASK])
+  expect(captured).toHaveLength(1001)
+  expect(h.captureIn).toHaveBeenCalledTimes(2)
+})
+
+test('a capture chunks its task ids, which travel in the URL', async () => {
+  const ids = Array.from({ length: 51 }, (_, i) => `task-${i}`)
+  h.state.captureRows = [captureRow('a1', 'task-50')]
+  const captured = await captureTaskAttachments(ids)
+  // Chunked, and every chunk asked for: the 51st id is in the second request, and its row is here.
+  expect(h.captureIn).toHaveBeenCalledTimes(2)
+  expect(captured.map((a) => a.id)).toEqual(['a1'])
+})
+
+test('a failed capture yields no rows rather than throwing', async () => {
+  // The caller is mid-delete. A read that cannot answer must cost the undo its attachments, never
+  // cost the user their delete.
+  h.state.captureError = { message: 'read timed out' }
+  await expect(captureTaskAttachments([TASK])).resolves.toEqual([])
+})
+
+test('an empty capture asks the server nothing', async () => {
+  await captureTaskAttachments([])
+  expect(h.captureIn).not.toHaveBeenCalled()
+})
+
+test('a restore re-inserts the captured id, so the row addresses the file that survived', async () => {
+  const captured: Attachment[] = [
+    {
+      id: 'a1',
+      taskId: TASK,
+      boardId: BOARD,
+      storagePath: `${BOARD}/${TASK}/a1`,
+      filename: 'diagram.png',
+      mimeType: 'image/png',
+      sizeBytes: 2048,
+      uploadedBy: 'someone',
+      createdAt: '2026-09-19T00:00:00Z',
+    },
+  ]
+  await restoreAttachments(captured)
+  const [rows, options] = h.upsert.mock.calls[0]
+  // `storage_path` is generated from `id`, so the original id is the whole point: a new one would
+  // produce a row pointing at an object that was never written.
+  expect(rows).toEqual([
+    {
+      id: 'a1',
+      board_id: BOARD,
+      task_id: TASK,
+      filename: 'diagram.png',
+      mime_type: 'image/png',
+      size_bytes: 2048,
+    },
+  ])
+  // Neither `storage_path` nor `uploaded_by` is sent: one is generated, the other is stamped.
+  expect(Object.keys(rows[0])).not.toContain('storage_path')
+  expect(Object.keys(rows[0])).not.toContain('uploaded_by')
+  // ON CONFLICT DO NOTHING. An entry covers ids the action touched, not only the ones it deleted,
+  // so a row that never left must be a no-op -- and UPDATE on this table grants `filename` alone,
+  // which is why a real upsert could not be used even if a conflict were wanted.
+  expect(options).toEqual({ onConflict: 'id', ignoreDuplicates: true })
+})
+
+test('an empty restore writes nothing', async () => {
+  await restoreAttachments([])
+  expect(h.upsert).not.toHaveBeenCalled()
+})
+
+test('a failed restore is surfaced, unlike a failed capture', async () => {
+  // The Task is already back by this point. Silently dropping its attachments again would be the
+  // bug this fix exists to remove.
+  h.state.upsertError = { message: 'insert refused' }
+  await expect(restoreAttachments([{ id: 'a1' } as Attachment])).rejects.toThrow('insert refused')
 })

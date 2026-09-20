@@ -49,12 +49,28 @@ generation closes the in-flight race: an action may offer undo only if no later 
 while it awaited, or undoing it would revert that later write. An entry also records its Board,
 and switching Boards hides and refuses it, because undo writes with the current `board_id`. A
 re-inserted row is new to the attribution trigger, so an undone delete is re-authored by whoever
-clicked Undo. Undo writes definitions before Occurrences, reconciles returned rows, needs the
-same complete authenticated load as a Series plan, and reloads on failure. It is last-write-wins
+clicked Undo. Undo writes definitions before Occurrences, reconciles returned rows, writes
+attachments last, needs the same complete authenticated load as a Series plan, and reloads on
+failure. It is last-write-wins
 against other devices, and the post-undo notice (`UNDONE_NOTICE`) says so. Series-level
 operations (edit or delete this-and-future, promotion, ending a Series) are excluded, as is any
 editor save. Its raw React setter is private; drag-over uses
 the narrower `previewReorder(next)` command.
+
+**An undo entry also carries the attachment rows a delete cascaded away (#404).** They are the one
+thing in it that does not come from the board snapshot: `task_attachments` is not part of client
+state and is not read until an editor asks for it. So a delete reads them from the server, in the
+window **after the optimistic removal and before the DELETE** — the only moment where the rows
+still exist and the user has already seen the Task go. `removeTask` and `runPlan` each take a
+`beforeWrites`-shaped callback for exactly that, and the capture
+(`captureTaskAttachments`, `src/data/attachments.ts`) **never throws**: a read that cannot answer
+costs the undo its attachments, never the user their delete. Restoring goes last, because the
+composite foreign key gives the rows nowhere to point until the Task is back, and it is an
+`ON CONFLICT DO NOTHING` insert — an entry covers every id its action touched rather than only the
+deleted ones, and UPDATE on that table grants `filename` alone, so a merging upsert would be
+refused outright. The original ids come back with the rows, which is what matters: `storage_path`
+is generated from `id`, so a restored row addresses the same object — and it is still there
+because deleting a Task deliberately leaves its files in storage.
 
 Board snapshots are an offline cache, so old data is repaired at its read seam as well as at the
 database mapper. A current-version snapshot written before #369 may contain Inbox plus Due Time;
