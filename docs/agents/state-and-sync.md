@@ -49,8 +49,9 @@ generation closes the in-flight race: an action may offer undo only if no later 
 while it awaited, or undoing it would revert that later write. An entry also records its Board,
 and switching Boards hides and refuses it, because undo writes with the current `board_id`. A
 re-inserted row is new to the attribution trigger, so an undone delete is re-authored by whoever
-clicked Undo. Undo writes definitions before Occurrences, then attachments, reconciles returned
-rows, needs the same complete authenticated load as a Series plan, and reloads on failure. It is last-write-wins
+clicked Undo. Undo writes definitions before Occurrences, reconciles returned rows, writes
+attachments last, needs the same complete authenticated load as a Series plan, and reloads on
+failure. It is last-write-wins
 against other devices, and the post-undo notice (`UNDONE_NOTICE`) says so. Series-level
 operations (edit or delete this-and-future, promotion, ending a Series) are excluded, as is any
 editor save. Its raw React setter is private; drag-over uses

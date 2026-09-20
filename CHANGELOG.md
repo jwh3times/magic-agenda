@@ -12,6 +12,21 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.14.12] - 2026-09-20
+
+### Fixed
+
+- **Undoing a task deletion now brings its attachments back (#404).** Deleting a task removed its
+  attachment records along with it, and Undo restored only the task — so the task reappeared with
+  an empty Attachments section, while the files themselves sat in storage with nothing pointing at
+  them. Undo now restores the attachments too, and because deleting a task deliberately leaves its
+  files alone, they are the same files: thumbnails and downloads work exactly as they did before
+  the delete. Deleting is unchanged in speed — the task still disappears the moment you click, and
+  an attachment record that cannot be read costs the undo its attachments rather than costing you
+  the delete.
+- The uploader and upload time on a restored attachment become whoever clicked Undo, and now, for
+  the same reason a restored task is re-authored: to the database it is a new record.
+
 ## [1.14.11] - 2026-09-20
 
 ### Internal
@@ -3677,7 +3692,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.10...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.12...HEAD
+[1.14.12]: https://github.com/jwh3times/magic-agenda/compare/v1.14.11...v1.14.12
+[1.14.11]: https://github.com/jwh3times/magic-agenda/compare/v1.14.10...v1.14.11
 [1.14.10]: https://github.com/jwh3times/magic-agenda/compare/v1.14.9...v1.14.10
 [1.14.9]: https://github.com/jwh3times/magic-agenda/compare/v1.14.8...v1.14.9
 [1.14.8]: https://github.com/jwh3times/magic-agenda/compare/v1.14.7...v1.14.8
