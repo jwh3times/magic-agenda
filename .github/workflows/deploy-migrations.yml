@@ -56,3 +56,8 @@ jobs:
       # No setup-node: the runner's Node already runs the `node -p` step above, and this script is
       # dependency-free (one fetch, one JSON file).
       - run: node scripts/verify-function-grants.mjs
+      # The same argument, for RLS and index posture (#397). `tests/rls/production_posture.test.ts`
+      # runs these exact queries against the local stack on every PR, so a failure HERE is drift in
+      # production rather than a problem with the branch. Both steps run after the push and are
+      # therefore an alarm on a state that already exists, not a gate that prevents it.
+      - run: node scripts/verify-schema-posture.mjs
