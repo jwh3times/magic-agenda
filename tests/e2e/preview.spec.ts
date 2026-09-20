@@ -1,4 +1,5 @@
 import { expect, test, type ConsoleMessage, type Page } from '@playwright/test'
+import { cspSources } from '../../scripts/csp'
 
 /**
  * These probes intentionally run against the deployed Cloudflare Pages preview. Authenticated app
@@ -34,6 +35,23 @@ test('landing renders with no console errors', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Your week, on sticky notes.' })).toBeVisible()
   expect(errors).toEqual([])
+})
+
+test('the served CSP still admits attachment thumbnails', async ({ page }) => {
+  // The durable half of #407. `scripts/csp-headers.test.ts` asserts the same directive in
+  // `public/_headers`; this one asserts what Cloudflare actually sent, so it also covers the file
+  // being renamed, not copied into `dist/`, or overridden by a rule added elsewhere. The source
+  // test cannot see any of that.
+  //
+  // Thumbnails are `<img>` elements whose `src` is a signed Supabase Storage URL, and an `<img>`
+  // is governed by `img-src` alone. Rendering a real one is deliberately out of scope: it needs an
+  // authenticated upload against the live bucket and leaves objects behind. The header carries the
+  // risk, and the failure it guards is invisible — `AttachmentsSection`'s `onError` degrades a
+  // refused image to the same `FILE` placeholder a PDF attachment shows.
+  const response = await page.goto('/')
+  const policy = response?.headers()['content-security-policy']
+  expect(policy, 'Pages served no Content-Security-Policy at all').toBeTruthy()
+  expect(cspSources(policy!, 'img-src')).toContain('https://*.supabase.co')
 })
 
 test('Turnstile loads under the deployed CSP', async ({ page }) => {

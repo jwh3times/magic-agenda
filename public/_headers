@@ -17,6 +17,9 @@
 #                              connect-src already trusted that host; img-src did not, and an <img>
 #                              is governed by img-src alone. Without this every thumbnail is refused
 #                              in production while passing every jsdom test, which enforces no CSP.
+#                              ASSERTED, since #407, by scripts/csp-headers.test.ts (this file) and
+#                              tests/e2e/preview.spec.ts (the header Cloudflare serves). Narrowing
+#                              or deleting img-src now fails both; do not "fix" them to match.
 # If the Cloudflare preview deploy shows CSP violations in the console, relax the offending
 # directive (or switch to Content-Security-Policy-Report-Only to observe first).
 #

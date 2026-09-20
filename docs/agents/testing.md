@@ -119,6 +119,21 @@ workflow is the supported orchestration and `scripts/e2e-local-setup.ts` deliber
 `GITHUB_ENV`; mirror those workflow steps only when diagnosing the authenticated adapter locally.
 The preview command above is independently runnable and needs no account credentials.
 
+**The Content-Security-Policy is asserted at two layers, and neither replaces the other (#407).**
+`scripts/csp-headers.test.ts` parses the policy as written in `public/_headers` and asserts, case
+by case, the directives individual features depend on — it names the feature rather than the
+directive, because a reader tightening the policy can already see the directive and not what dies.
+It runs in `npm test`, so it fails in seconds on the branch. `tests/e2e/preview.spec.ts` asserts the
+same `img-src` directive on the header **Cloudflare actually served**, which additionally covers the
+file being renamed, not copied into `dist/`, or overridden elsewhere. Both call `cspSources` from
+`scripts/csp.ts`, deliberately shared so the two cannot drift.
+
+Why it needs asserting at all: **jsdom enforces no CSP**, so the entire component suite passes
+against a policy that refuses the resources those components load. Attachment thumbnails are the
+live example — they are `<img>` elements pointed at signed Supabase Storage URLs, governed by
+`img-src` alone, and `AttachmentsSection`'s `onError` degrades a refused image to the same `FILE`
+placeholder a PDF shows, so a wholly broken board still looks approximately right.
+
 The Turnstile preview probe requires the final challenge script response and a challenge frame in
 Playwright's frame tree, then rejects failed challenge-host requests or console errors. The frame
 lives in a closed shadow root, so a DOM locator cannot see it. Do not replace the browser probe with
