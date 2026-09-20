@@ -12,6 +12,26 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.14.15] - 2026-09-20
+
+### Internal
+
+- **The nightly backup now captures the attachments bucket and its access rules (#401).** Two
+  things the attachments feature added were in no backup at all: the bucket's own configuration —
+  that it is private, its 10 MiB limit, the file types it accepts — and the four policies that
+  decide who may read or write a file. A restore rebuilt the attachment records while the bucket
+  came back either missing or with no rules attached, and **nothing failed**, which is the worst
+  outcome: the feature ends up unprotected or quietly broken rather than obviously absent. The
+  bundle now carries a third file, `storage.sql`, and the job refuses to upload a backup whose
+  bucket line is missing, whose policies number fewer than four, or which would restore the bucket
+  as public.
+- **The files themselves are still in no backup, and a restore loses every attached file.** That is
+  a deliberate, recorded decision rather than an oversight — tracked as #411 — because backing up
+  user-uploaded bytes is unbounded in size, costs egress on the free tier, and must keep the
+  encrypt-before-upload shape every artifact here requires. The restore runbook now tells whoever
+  is running it to say so out loud, since "all data restored" would be false for anyone who had
+  attachments.
+
 ## [1.14.14] - 2026-09-20
 
 ### Internal
@@ -3728,7 +3748,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.14...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.15...HEAD
+[1.14.15]: https://github.com/jwh3times/magic-agenda/compare/v1.14.14...v1.14.15
 [1.14.14]: https://github.com/jwh3times/magic-agenda/compare/v1.14.13...v1.14.14
 [1.14.13]: https://github.com/jwh3times/magic-agenda/compare/v1.14.12...v1.14.13
 [1.14.12]: https://github.com/jwh3times/magic-agenda/compare/v1.14.11...v1.14.12
