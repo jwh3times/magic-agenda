@@ -12,6 +12,22 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.14.13] - 2026-09-20
+
+### Internal
+
+- **The Content-Security-Policy is now asserted, at the source and on the served header (#407).**
+  Attachment thumbnails render only because `img-src` in `public/_headers` trusts the Supabase
+  host, and nothing checked it: the unit suite runs under jsdom, which enforces no CSP at all, and
+  the deployed-preview probes made no `img-src` assertion. A later change narrowing the policy would
+  have refused every thumbnail in production with all nine required checks green — and would not
+  have looked like a failure, because a refused image degrades to the same placeholder a PDF
+  attachment shows. `scripts/csp-headers.test.ts` now asserts the directives features depend on,
+  naming the feature rather than the directive, and `tests/e2e/preview.spec.ts` asserts the same one
+  on the header Cloudflare actually served — which additionally covers the file being renamed, not
+  copied into the build, or overridden elsewhere. Nothing about the policy itself changed; it was
+  already correct and verified on production.
+
 ## [1.14.12] - 2026-09-20
 
 ### Fixed
@@ -3692,7 +3708,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.12...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.13...HEAD
+[1.14.13]: https://github.com/jwh3times/magic-agenda/compare/v1.14.12...v1.14.13
 [1.14.12]: https://github.com/jwh3times/magic-agenda/compare/v1.14.11...v1.14.12
 [1.14.11]: https://github.com/jwh3times/magic-agenda/compare/v1.14.10...v1.14.11
 [1.14.10]: https://github.com/jwh3times/magic-agenda/compare/v1.14.9...v1.14.10
