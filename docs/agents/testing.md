@@ -100,6 +100,37 @@ verified 2026-07-29 against the ruleset and six consecutive successful `RLS` job
 through `npx`, which ignores a PATH binary in favour of a local one and otherwise installs
 `latest`.
 
+**A fourth thing runs where none of these can reach: production itself (#384, #397).** Every
+posture assertion above is made against a _freshly migrated local stack_, which is the only
+database CI can reach — and that is a weaker claim than it looks. Production carries legacy
+`pg_default_acl` entries a fresh stack does not, which is how seven functions drifted while the
+required `RLS` check stayed green. Two dependency-free scripts run in `Deploy Migrations`, after
+`supabase db push`, reading production read-only through the Management API:
+`scripts/verify-function-grants.mjs` for function posture against `supabase/reviewed-functions.json`,
+and `scripts/verify-schema-posture.mjs` for RLS being enabled with a policy behind it, policy role
+targeting and hoisted `auth.*()` calls, and every foreign key having a covering index.
+
+Three things about that second script are worth knowing before changing it:
+
+- **The local suite imports its queries and its comparisons rather than restating them**
+  (`tests/rls/production_posture.test.ts`). The first failure mode of a production check is the
+  obvious one — local proves nothing about production. The second is quieter: a production query
+  that asks a subtly different question from the local one, so the two disagree and nobody can tell
+  which is right. Sharing the text removes that by construction, and it means the required `RLS`
+  check proves the SQL parses before it is ever pointed at production.
+- **A foreign key is covered when an index's leading key columns equal its columns as a set.**
+  Comparing per column falsely reports `tasks.label_id` and `tasks.recur_parent_id` — both belong
+  to composite keys led by `board_id` — and comparing sequences falsely reports an index whose
+  leading columns are the right ones in a different order, which a btree serves identically because
+  the lookup constrains every column with equality.
+- **The workflow fires on `supabase/migrations/**`,** so production is verified on every _migration_
+  deploy. Drift introduced with no migration is caught on the next one rather than when it happens;
+  closing that would mean a scheduled run, which has not been decided.
+
+Both steps run _after_ the push, so a failure is an alarm on a state that already exists rather than
+a gate that prevented it. Fix production with a migration; never widen an expectation to match what
+production happens to have.
+
 Playwright is the **third layer**, split at the deployment seam because the two adapters prove
 different things:
 

@@ -12,6 +12,26 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.14.14] - 2026-09-20
+
+### Internal
+
+- **Production's RLS and index posture is now verified on every migration deploy (#397).** Until
+  now exactly one check in this repository could see the production database — the function-grants
+  check added after seven functions drifted there while every required check stayed green. Three
+  other properties were asserted only against a freshly built local database, which is a weaker
+  claim than it looks: production carries legacy settings a fresh one does not. A new step in
+  `Deploy Migrations` now reads production directly, read-only, and fails if row-level security is
+  off on any table or has no policy behind it, if any policy applies to `PUBLIC` or re-evaluates
+  `auth.uid()` for every row, or if any foreign key lacks a covering index. Nothing about production
+  changed; this reports on it.
+- **The local test suite runs the same queries and the same comparisons**
+  (`tests/rls/production_posture.test.ts` imports them from the script). A production check whose
+  query asks a subtly different question from the local one is the quieter half of the problem it
+  exists to solve, and sharing the text removes it. It also means the required `RLS` check proves
+  the SQL is valid before it is ever pointed at production — which caught a real defect while this
+  was being written.
+
 ## [1.14.13] - 2026-09-20
 
 ### Internal
@@ -3708,7 +3728,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.13...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.14...HEAD
+[1.14.14]: https://github.com/jwh3times/magic-agenda/compare/v1.14.13...v1.14.14
 [1.14.13]: https://github.com/jwh3times/magic-agenda/compare/v1.14.12...v1.14.13
 [1.14.12]: https://github.com/jwh3times/magic-agenda/compare/v1.14.11...v1.14.12
 [1.14.11]: https://github.com/jwh3times/magic-agenda/compare/v1.14.10...v1.14.11
