@@ -18,7 +18,8 @@ An operator needs dashboard access or an API token with **Account Filter Lists E
 
 The desired redirect items are recorded in
 [production-redirects.json](../cloudflare/production-redirects.json). The live configuration is
-managed through Cloudflare Bulk Redirects; consult #299 for activation status. Changing this file alone does not deploy it.
+managed through Cloudflare Bulk Redirects, and has been active since 2026-09-09, when #299 was
+closed against a passing run of the verifier below. Changing this file alone does not deploy it.
 
 1. Find or create the account-level redirect list `magic_agenda_canonical` (kind `redirect`).
 2. Apply the two items from the JSON file and wait for the list's bulk operation to complete.

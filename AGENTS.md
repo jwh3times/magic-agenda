@@ -67,7 +67,9 @@ Version computation, the `Changelog` backfill rule, the two-PRs-one-version clas
 **When changing production host redirects or checking preview routing**, read the
 [canonical-host runbook](docs/runbooks/canonical-host.md). It describes account-level Bulk Redirects for the two production aliases while
 keeping deployment preview subdomains direct. The redirect JSON records the desired configuration;
-merge does not deploy it. Check #299 and run the live verifier before treating it as active.
+merge does not deploy it. The two redirects have been live since 2026-09-09 (#299); confirm
+with `node scripts/check-canonical-hosts.mjs <preview-url>`, which is the only thing that
+shows what the edge is actually doing.
 
 Pure SPA -> Supabase, no server of our own. Postgres **Row-Level Security is the only authorization
 boundary** (every table default-denies; `user_settings` scopes to `auth.uid() = user_id`, while

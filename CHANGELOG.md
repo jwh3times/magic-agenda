@@ -12,6 +12,17 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.14.11] - 2026-09-20
+
+### Internal
+
+- `AGENTS.md` and the canonical-host runbook both sent a reader to #299 for the redirects'
+  activation status. That issue closed on 2026-09-09, when the two account-level redirects were
+  applied and `scripts/check-canonical-hosts.mjs` passed all 20 live checks — so the pointer
+  had outlived its answer and, in `AGENTS.md`, read as though activation were still pending. Both
+  now state that the redirects are live and name the verifier as the way to confirm, since it is
+  the only thing that reports what the edge is actually doing.
+
 ## [1.14.10] - 2026-09-19
 
 ### Added
