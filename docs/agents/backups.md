@@ -1,7 +1,8 @@
 # Backups
 
 The free Supabase tier has **no automated backups**, so `.github/workflows/backup.yml` takes a
-nightly logical dump: `schema.sql` (DDL for `public`) plus `data.sql`, which carries **both** the
+nightly logical dump: `schema.sql` (DDL for `public`), `storage.sql` (the attachments bucket and
+its object policies — see below), plus `data.sql`, which carries **both** the
 `public` and `auth` rows — `supabase db dump --data-only` includes Supabase-managed schemas even
 though the schema dump excludes them. Do not "helpfully" add a separate `--schema auth` data dump;
 one existed until v1.2.27 and was a strict subset that made restores fail on duplicate `auth.users`
@@ -12,6 +13,40 @@ bundle. The verify step requires `public.tasks`, `auth.users`, and `auth.identit
 of those six excluded tables before encryption/upload. `scripts/backup.test.ts` exercises the
 workflow's actual verification shell with both INSERT and COPY fixtures. Older encrypted bundles
 still contain the auth state captured when they were made; this change does not rewrite them.
+
+**`storage.sql` is the third file, and it exists because `schema.sql` covers `public` only
+(#401).** Two things the attachments feature added were in no backup at all: the `storage.buckets`
+row for `attachments` — its `public = false`, size limit, and MIME allow-list — and the four
+`storage.objects` policies, which are the entire object-side authorization boundary. A restore
+without them rebuilt `task_attachments` rows pointing at a bucket that either did not exist or
+existed with no policies, and **nothing failed** — the worst shape, because the feature is simply
+unprotected or broken rather than loudly absent.
+
+`scripts/dump-storage-metadata.mjs` reads both from production through the Management API and emits
+idempotent SQL: `insert ... on conflict do update` for the bucket, and `drop policy if exists` +
+`create policy` for each policy. Read from production rather than trusted from
+`20260918210000_task_attachments_foundation.sql`, which creates all of it — migrations do replay on
+a rebuilt project, so in practice it would come back, but that is an assumption and #384 is what
+this repository learned about assuming production matches its migrations.
+
+Widening the existing dumps to `storage` would have been wrong twice, which is why this is a
+separate generator rather than a flag: the schema half would capture platform-managed tables a
+Supabase project provisions itself, and the data half would capture every `storage.objects` row —
+metadata for files whose bytes are in no backup, so a restore would rebuild rows pointing at
+objects that do not exist. That is the silent-breakage shape, not a fix for it.
+
+The verify step asserts the bucket line is present, that at least four object policies are, and
+**that the bucket is restored as private** — a bucket restored with `public = true` makes every
+object policy decorative, because the object URL alone serves the file, and it restores perfectly
+cleanly. The generator itself refuses to write a file with no bucket row or no policies, so
+"attachments are backed up" cannot be recorded for a bundle that restores nothing.
+
+**The object BYTES remain in no backup of any kind, deliberately (#401).** A restore brings back
+the bucket, its configuration, its policies, and the `task_attachments` rows — and every attached
+file is gone. That decision is deferred rather than settled: backing up bytes is unbounded in size,
+costs egress on the free tier, and **every artifact this repository uploads must be treated as
+public**, so it would have to keep the encrypt-on-runner shape. Until it is taken, the honest
+statement is the one in the runbook: attachments do not survive a restore.
 
 It also asserts the three Board tables are in `data.sql` and that `schema.sql` defines
 `handle_new_user`, `handle_account_deletion`, `create_board`,

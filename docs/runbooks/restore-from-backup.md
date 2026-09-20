@@ -19,10 +19,11 @@ outage.
 
 ## What is in the bundle
 
-| File         | Contents                                                                                                                   | Why it matters                                                                                                                                          |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schema.sql` | DDL for the `public` schema **only**                                                                                       | Nearly a substitute for `supabase/migrations/` — but it omits `on_auth_user_created` and `on_auth_user_deleted`, both triggers on `auth.users`. See 3.1 |
-| `data.sql`   | Board data in `public` (including Labels) plus durable `auth` data (`auth.users`, `auth.identities`, enrolled MFA factors) | Restores accounts and their Boards; sessions and temporary auth state are excluded                                                                      |
+| File          | Contents                                                                                                                   | Why it matters                                                                                                                                          |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema.sql`  | DDL for the `public` schema **only**                                                                                       | Nearly a substitute for `supabase/migrations/` — but it omits `on_auth_user_created` and `on_auth_user_deleted`, both triggers on `auth.users`. See 3.1 |
+| `data.sql`    | Board data in `public` (including Labels) plus durable `auth` data (`auth.users`, `auth.identities`, enrolled MFA factors) | Restores accounts and their Boards; sessions and temporary auth state are excluded                                                                      |
+| `storage.sql` | The `attachments` bucket's configuration and the four `storage.objects` policies                                           | Rebuilds the object-side authorization boundary. **Not the files.** Load it last — see 3.4                                                              |
 
 `data.sql` holds the `auth` rows as well as the `public` ones — `supabase db dump --data-only`
 includes Supabase-managed schemas even though the schema dump excludes them. There is one data file
@@ -121,7 +122,7 @@ gh run list --workflow Backup --limit 10
 gh run download <run-id> -n supabase-backup-YYYY-MM-DD
 
 gpg --decrypt --output backup.tar.gz supabase-backup-YYYY-MM-DD.tar.gz.gpg
-tar -xzf backup.tar.gz          # -> schema.sql, data.sql (v1.2.25-26 bundles add auth.sql; ignore it)
+tar -xzf backup.tar.gz          # -> schema.sql, data.sql, storage.sql (v1.2.25-26 bundles add auth.sql; ignore it; bundles before v1.14.15 have no storage.sql)
 ```
 
 If `gpg` reports a bad passphrase, stop — you have the wrong one, and nothing else in this runbook
@@ -263,6 +264,37 @@ remember the setting also sits on **line 1 of `data.sql`**, so the load aborts i
 too, though that one is far less likely to fire mid-load (nothing in `data.sql` deletes from
 `auth.users`). Dropping the trigger(s) alone is sufficient — the foreign-key ordering is a non-issue,
 as above — which the rehearsal confirmed for `on_auth_user_created`.
+
+### 3.4 Attachments storage — the boundary, not the files
+
+**Load this last, and read the next paragraph before you promise anyone their files are coming
+back.**
+
+```bash
+psql "$PGURI" -v ON_ERROR_STOP=1 -f storage.sql
+```
+
+`storage.buckets` and `storage.objects` are provisioned by the Supabase platform, so this file
+assumes those tables already exist — which they do in any real project. It is idempotent: the
+bucket is an `insert ... on conflict do update`, and each policy is preceded by
+`drop policy if exists`, so running it twice, or onto a project that already has some of it, is
+safe.
+
+**The files themselves are NOT in the bundle and never have been.** This restores the bucket's
+configuration (`public = false`, the 10 MiB limit, the MIME allow-list) and the four object
+policies. `data.sql` restores the `task_attachments` rows. Every one of those rows will point at an
+object that does not exist, so in the app each attachment renders as a placeholder and will not
+open.
+
+That is a deliberate, recorded gap (#401), not an oversight in this runbook. If it matters for the
+incident you are handling, say so explicitly when you report the restore — "all data restored" is
+false if anyone had attachments.
+
+**If `storage.sql` is missing from your bundle**, it predates v1.14.15. Recreate the bucket and the
+policies by applying `supabase/migrations/20260918210000_task_attachments_foundation.sql`, which is
+where both originally come from. Do not leave the bucket absent and do not create it from the
+dashboard without the policies: a bucket with no policy is default-deny (the feature breaks
+silently), and a bucket created `public` makes every policy decorative.
 
 ## 4. Verify before declaring victory
 

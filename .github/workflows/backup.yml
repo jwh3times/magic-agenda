@@ -102,6 +102,19 @@ jobs:
             -x auth.one_time_tokens \
             -x auth.flow_state
 
+      # Third file: the attachments bucket's configuration and the storage.objects policies (#401).
+      # Neither is in the two dumps above -- `db dump` takes DDL for `public`, and `storage` is a
+      # platform-managed schema. Without this a restore rebuilds `task_attachments` rows pointing at
+      # a bucket that either does not exist or exists with NO POLICIES -- silently, which is the
+      # worst shape: nothing fails, and the feature is simply unprotected or broken.
+      #
+      # NOT the object bytes. Those remain in no backup of any kind: unbounded size, egress cost on
+      # the free tier, and every artifact this repository uploads must be treated as public. That
+      # half is deferred and recorded as deferred on #401 -- a restore loses every attached file,
+      # and the runbook says so.
+      - name: Dump attachments storage metadata
+        run: node scripts/dump-storage-metadata.mjs backup/storage.sql
+
       # The failure mode that actually bites is a *successful* empty dump: the job stays green for
       # months while backing up nothing. Assert on content, not just exit codes.
       - name: Verify the dumps contain what a restore needs
@@ -142,7 +155,7 @@ jobs:
           }
           has_function() { functions "$1" | grep -qx "$2"; }
 
-          for f in schema data; do
+          for f in schema data storage; do
             [ -s "backup/$f.sql" ] || fail "backup/$f.sql is empty or missing"
           done
 
@@ -208,6 +221,19 @@ jobs:
           [ "${policy_count:-0}" -ge 12 ] \
             || fail "schema.sql defines only ${policy_count:-0} policies — expected at least 12; the authorization boundary was not captured"
 
+          # The object side of the same boundary (#401). `schema.sql` covers `public` only, so
+          # nothing above can see these. The bucket line matters as much as the policies: restoring
+          # policies onto a bucket that is missing, or that exists with `public = true`, is not a
+          # partial restore of the boundary -- it is no boundary at all, because the object URL
+          # alone would then serve the file.
+          grep -q 'insert into storage.buckets' backup/storage.sql \
+            || fail "storage.sql does not configure the attachments bucket — a restore would leave it missing or dashboard-default"
+          storage_policies=$(grep -c '^create policy' backup/storage.sql || true)
+          [ "${storage_policies:-0}" -ge 4 ] \
+            || fail "storage.sql defines only ${storage_policies:-0} storage.objects policies — expected at least 4; the object authorization boundary was not captured"
+          grep -qE 'values [(].*, *false, *' backup/storage.sql \
+            || fail "storage.sql does not restore the attachments bucket as private"
+
           echo "Dump sizes (bytes):"
           wc -c backup/*.sql
 
@@ -231,8 +257,8 @@ jobs:
           printf '%s' "$BACKUP_GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback \
             --passphrase-fd 0 --decrypt -o roundtrip.tar.gz "$bundle.gpg"
           entries="$(tar -tzf roundtrip.tar.gz | grep -c '\.sql$')"
-          if [ "$entries" -ne 2 ]; then
-            echo "::error::Round-trip check expected 2 .sql files, found $entries."
+          if [ "$entries" -ne 3 ]; then
+            echo "::error::Round-trip check expected 3 .sql files, found $entries."
             exit 1
           fi
 
