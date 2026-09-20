@@ -231,6 +231,17 @@ exception, so a new one without it is the anomaly, not one more case to weigh. T
 `reviewed-functions.json` / `baseline.test.ts` / `verify-function-grants.mjs` trio above enforces
 this too, via the `config` field.
 
+**A new foreign key needs a covering index, and a new table needs RLS enabled with at least one
+policy — both are checked against production too.** `scripts/verify-schema-posture.mjs` runs
+alongside `verify-function-grants.mjs` in `Deploy Migrations`, asserting RLS-with-a-policy, policy
+role targeting and hoisted `auth.*()` calls, and foreign-key index coverage directly against
+production (#397). `tests/rls/production_posture.test.ts` imports the same queries and comparisons
+and runs them against the local stack, so the two can never ask different questions. **Which one
+fails tells you what is wrong:** locally it is this branch's own migrations — a new table without
+RLS, a new key without an index — and in `Deploy Migrations` it is production drift. Fix either
+with a migration, never by widening an expectation. Detail: [Testing layers and lint
+policy](docs/agents/testing.md).
+
 Two standing rules for any table in the `supabase_realtime` publication (today `tasks`,
 `user_settings`, and `labels`): **never put a secret or semantically meaningful value in the primary key**, because
 DELETE events are fanned out to every subscriber without an owner check (Postgres cannot check access
@@ -254,12 +265,14 @@ Three layers, and each exists because the one below it cannot reach the failure:
 against a real local stack — where the authorization boundary is actually exercised), and
 Playwright E2E. CI runs authenticated browser behavior against an isolated local Supabase stack and
 the branch build, then runs `tests/e2e/preview.spec.ts` against the real Pages preview for
-Cloudflare-specific headers, CSP, and service-worker behavior.
+Cloudflare-specific headers, CSP, and service-worker behavior. None of the three ever reads
+production; two dependency-free scripts do that separately, after every migration deploy (see
+"When changing the schema" above).
 
 What belongs in each layer, the RLS structural/baseline split, the E2E preview-URL and
 encrypted-trace machinery, the a11y baseline's strict-equality rule, the visual canary merge gate
-and Linux-baseline refresh, and the explicit Data API grants:
-[Testing layers and lint policy](docs/agents/testing.md).
+and Linux-baseline refresh, the explicit Data API grants, and what the production posture scripts
+assert: [Testing layers and lint policy](docs/agents/testing.md).
 
 ## When changing Supabase config
 
