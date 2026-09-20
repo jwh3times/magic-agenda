@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { captureUndo, planUndo } from './undo'
+import type { Attachment } from './attachments'
 import {
   asTask,
   isSeriesDefinition,
@@ -36,6 +37,20 @@ function def(id: string, excludedDates: string[] = []): SeriesDefinition {
   return task
 }
 
+function attachment(id: string, taskId: string): Attachment {
+  return {
+    id,
+    taskId,
+    boardId: 'b1',
+    storagePath: `b1/${taskId}/${id}`,
+    filename: `${id}.png`,
+    mimeType: 'image/png',
+    sizeBytes: 10,
+    uploadedBy: null,
+    createdAt: '2026-09-17T00:00:00Z',
+  }
+}
+
 describe('captureUndo', () => {
   test('records the prior version of each touched row, routed to tasks or definitions', () => {
     const before = { tasks: [t('a'), t('b')], templates: [def('s')] }
@@ -43,6 +58,25 @@ describe('captureUndo', () => {
     expect(entry.label).toBe('Deleted')
     expect(entry.tasks).toEqual([before.tasks[0]])
     expect(entry.templates).toEqual([before.templates[0]])
+  })
+
+  test('an action with no attachments records none', () => {
+    const before = { tasks: [t('a')], templates: [] }
+    expect(captureUndo('Completed', before, ['a']).attachments).toEqual([])
+  })
+
+  test('attachments are filtered by the same ids as the rows (#404)', () => {
+    // The caller captures for every id the entry covers, and may be handed rows for a Task the
+    // action did not touch -- a stale read, or a caller passing a wider set. The entry is the
+    // boundary: it can only restore attachments belonging to rows it is also restoring.
+    const before = { tasks: [t('a'), t('b')], templates: [] }
+    const entry = captureUndo(
+      'Deleted',
+      before,
+      ['a'],
+      [attachment('att-a', 'a'), attachment('att-b', 'b')],
+    )
+    expect(entry.attachments.map((x) => x.id)).toEqual(['att-a'])
   })
 })
 
@@ -95,5 +129,15 @@ describe('planUndo', () => {
     const plan = planUndo(entry, current)
     expect(plan.state.templates).toEqual([def('s')])
     expect(plan.upsertTemplates).toEqual([def('s')])
+  })
+
+  test('carries the attachments through for the caller to write last (#404)', () => {
+    // Not part of `state`: attachments are outside the board snapshot, so there is nothing
+    // optimistic to restore -- only a write, and one that must follow the Task's.
+    const before = { tasks: [t('a')], templates: [] }
+    const entry = captureUndo('Deleted', before, ['a'], [attachment('att-a', 'a')])
+    const plan = planUndo(entry, { tasks: [], templates: [] })
+    expect(plan.insertAttachments).toEqual([attachment('att-a', 'a')])
+    expect(plan.state.tasks).toEqual([t('a')])
   })
 })

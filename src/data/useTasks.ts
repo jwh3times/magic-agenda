@@ -36,6 +36,7 @@ import {
 } from './series'
 import { describeBulkChange, planBulkUpdate, type BulkChange } from './bulk'
 import { captureUndo, countTasks, planUndo, quoted, type UndoEntry } from './undo'
+import { captureTaskAttachments, restoreAttachments, type Attachment } from './attachments'
 import { newId } from '../lib/id'
 import { ymd } from '../lib/dates'
 import { isSeriesDefinition, type SeriesDefinition, type Task, type TaskDraft } from '../types/task'
@@ -74,7 +75,7 @@ export interface UseTasks extends TaskBoard {
   reload: () => Promise<void>
   createTask: (task: Task) => Promise<void>
   updateTask: (task: Task) => Promise<void>
-  removeTask: (id: string) => Promise<boolean>
+  removeTask: (id: string, beforeDelete?: () => Promise<void>) => Promise<boolean>
   /** True when the board is showing the last-known local snapshot instead of a live server load. */
   offline: boolean
   /** Why the live read failed while this snapshot is shown. Null when the load is live. */
@@ -197,10 +198,21 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     return writeGen.current
   }, [])
   const offerUndo = useCallback(
-    (generation: number, label: string, before: SeriesState, ids: Iterable<string>) => {
+    (
+      generation: number,
+      label: string,
+      before: SeriesState,
+      ids: Iterable<string>,
+      // Only a delete has any: an action that writes no DELETE cascades nothing away (#404).
+      attachments: readonly Attachment[] = [],
+    ) => {
       if (generation !== writeGen.current) return
       undoSeq.current += 1
-      setUndoable({ id: undoSeq.current, boardId, entry: captureUndo(label, before, ids) })
+      setUndoable({
+        id: undoSeq.current,
+        boardId,
+        entry: captureUndo(label, before, ids, attachments),
+      })
     },
     [boardId],
   )
@@ -489,13 +501,20 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     [setTasks, boardId, markWrites, reconcileReturnedRows, forgetUndo],
   )
 
-  /** Delete one plain row. Resolves whether the delete landed; undo is offered by the caller. */
+  /**
+   * Delete one plain row. Resolves whether the delete landed; undo is offered by the caller.
+   *
+   * `beforeDelete` runs after the optimistic removal and before the DELETE — the only window in
+   * which a caller can still read rows the cascade is about to take (#404). It must not throw:
+   * anything it fails at is the caller's to absorb, not a reason to abandon the delete.
+   */
   const removeTask = useCallback(
-    async (id: string): Promise<boolean> => {
+    async (id: string, beforeDelete?: () => Promise<void>): Promise<boolean> => {
       const prev = tasksRef.current
       setTasks((p) => p.filter((t) => t.id !== id))
       markWrites([id])
       try {
+        await beforeDelete?.()
         const { error: err } = await supabase.from('tasks').delete().eq('id', id)
         if (err) throw new Error(err.message)
         return true
@@ -664,9 +683,13 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
    * each step's `FailureHandling`. Steps run in order — upserts, then deletions — and an `abort`
    * stops the rest, which is what keeps a failed content upsert from trimming a series down to a
    * rule that never persisted.
+   *
+   * `beforeWrites` runs after the optimistic state and before the first write, for the same reason
+   * `removeTask`'s does: it is the last moment a caller can read rows a deletion in this plan is
+   * about to cascade away (#404). It must not throw.
    */
   const runPlan = useCallback(
-    async (plan: SeriesPlan): Promise<boolean> => {
+    async (plan: SeriesPlan, beforeWrites?: () => Promise<void>): Promise<boolean> => {
       // Snapshots (including snapshots made by older capped clients) do not prove completeness.
       if (!hasSession || !hasLoadedFromServer.current) {
         setError('Reload the complete Board before editing a Recurring Series.')
@@ -678,6 +701,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       templatesRef.current = [...plan.state.templates]
       bumpTemplatesVersion()
       setTasks([...plan.state.tasks])
+      await beforeWrites?.()
 
       // An object rather than a bare `let`: TypeScript narrows a captured `let` to its initial
       // literal type inside the closure below, which would make the comparisons unreachable.
@@ -789,19 +813,29 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       if (!task) return
       const before = seriesState()
       const op = resolveDelete(task, scope)
+      // Filled in by the capture below, which runs inside the write and therefore cannot return
+      // its result: the row read has to sit between the optimistic removal and the DELETE (#404).
+      let attachments: Attachment[] = []
       if (op.kind === 'delete-plain') {
-        if (await removeTask(op.id))
-          offerUndo(generation, `Deleted ${quoted(task)}`, before, [op.id])
+        const capture = async () => {
+          attachments = await captureTaskAttachments([op.id])
+        }
+        if (await removeTask(op.id, capture))
+          offerUndo(generation, `Deleted ${quoted(task)}`, before, [op.id], attachments)
         return
       }
       // Deleting this and every later Occurrence is a Series-level operation: not undoable (#271).
+      // Nothing to capture, because nothing will be offered to put back.
       if (op.kind === 'delete-series-from') {
         await runPlan(planDeleteSeriesFrom(before, op.instance))
         return
       }
       const plan = planDeleteOccurrence(before, op.instance)
-      if (await runPlan(plan))
-        offerUndo(generation, `Deleted ${quoted(task)}`, before, plan.markIds)
+      const capture = async () => {
+        attachments = await captureTaskAttachments(plan.markIds)
+      }
+      if (await runPlan(plan, capture))
+        offerUndo(generation, `Deleted ${quoted(task)}`, before, plan.markIds, attachments)
     },
     [removeTask, runPlan, seriesState, forgetUndo, offerUndo],
   )
@@ -818,12 +852,19 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       const plan = planBulkDelete(before, ids)
       if (plan.markIds.length === 0) return true
       const deleted = before.tasks.filter((t) => ids.has(t.id)).length
+      // Every id the entry covers, not only the ones being deleted: a selection that retires a
+      // Series also records rows it merely updated. Capturing an attachment whose Task survives
+      // is harmless — `restoreAttachments` puts back only what is missing (#404).
+      let attachments: Attachment[] = []
+      const capture = async () => {
+        attachments = await captureTaskAttachments(plan.markIds)
+      }
       const offer = () =>
-        offerUndo(generation, `Deleted ${countTasks(deleted)}`, before, plan.markIds)
+        offerUndo(generation, `Deleted ${countTasks(deleted)}`, before, plan.markIds, attachments)
       const touchesSeries =
         plan.upserts.length > 0 || plan.deletions.some((deletion) => deletion.target.by !== 'ids')
       if (touchesSeries) {
-        const ok = await runPlan(plan)
+        const ok = await runPlan(plan, capture)
         if (ok) offer()
         return ok
       }
@@ -832,6 +873,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       setTasks([...plan.state.tasks])
       markWrites(plan.markIds)
       try {
+        await capture()
         for (const deletion of plan.deletions) await runDeletion(deletion.target)
         offer()
         return true
@@ -852,7 +894,8 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
    * Two limits, both deliberate. Undoing a Reopen is an UPDATE back to Completed, and the lifecycle
    * trigger stamps that Completion afresh rather than trusting the client's instant (see
    * docs/agents/completion.md). A re-inserted row is also a new row to the attribution trigger:
-   * its author becomes whoever clicked Undo, with a fresh revision and creation time. And it is
+   * its author becomes whoever clicked Undo, with a fresh revision and creation time — which is
+   * true of a restored attachment's `uploaded_by` and `created_at` for the same reason. And it is
    * last-write-wins: a change another device made to the
    * same rows since is overwritten. It needs the same complete authenticated load as a Series plan,
    * because it may restore a definition whose cascade reaches rows this client never loaded.
@@ -889,6 +932,9 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         if (err) throw new Error(err.message)
         reconcileReturnedRows(data)
       }
+      // Last, and only now: `task_attachments` has a composite foreign key to `tasks
+      // (board_id, id)`, so these rows have nowhere to point until the upserts above have landed.
+      await restoreAttachments(plan.insertAttachments)
       return true
     } catch (e) {
       setError(errorMessage(e))

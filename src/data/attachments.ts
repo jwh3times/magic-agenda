@@ -31,6 +31,10 @@ type AttachmentRow = {
   created_at: string
 }
 
+/** Named once: every read of this table returns the same shape, including undo's capture. */
+const ATTACHMENT_COLUMNS =
+  'id, task_id, board_id, storage_path, filename, mime_type, size_bytes, uploaded_by, created_at'
+
 const rowToAttachment = (row: AttachmentRow): Attachment => ({
   id: row.id,
   taskId: row.task_id,
@@ -47,9 +51,7 @@ const rowToAttachment = (row: AttachmentRow): Attachment => ({
 export async function listAttachments(taskId: string): Promise<Attachment[]> {
   const { data, error } = await supabase
     .from('task_attachments')
-    .select(
-      'id, task_id, board_id, storage_path, filename, mime_type, size_bytes, uploaded_by, created_at',
-    )
+    .select(ATTACHMENT_COLUMNS)
     .eq('task_id', taskId)
     .order('created_at', { ascending: true })
   if (error) throw new Error(error.message)
@@ -96,9 +98,7 @@ export async function uploadAttachment(
       mime_type: file.type,
       size_bytes: file.size,
     })
-    .select(
-      'id, task_id, board_id, storage_path, filename, mime_type, size_bytes, uploaded_by, created_at',
-    )
+    .select(ATTACHMENT_COLUMNS)
     .single()
 
   if (error) {
@@ -179,5 +179,93 @@ export async function signedUrl(storagePath: string): Promise<string | null> {
  * collects them — it enumerates storage rather than rows, so it finds exactly these. That is the
  * same class of cost #400 already tracks, and it destroys nothing.
  *
- * The row-level loss is real and separate; it is filed rather than hidden here.
+ * **This is what makes #404 fixable**, and the two functions below are the fix: the bytes are
+ * still there, so undo only has to put the rows back. Deleting the files here would have made that
+ * impossible, and no later change should start doing so without answering undo first.
  */
+
+/** One page of a capture. PostgREST caps a response; a full page is never proof of the last one. */
+const CAPTURE_PAGE = 1000
+/** How many task ids go into one `in (...)`, which travels in the URL. */
+const CAPTURE_CHUNK = 50
+
+async function capturePage(taskIds: readonly string[]): Promise<Attachment[]> {
+  const out: Attachment[] = []
+  for (let from = 0; ; from += CAPTURE_PAGE) {
+    const { data, error } = await supabase
+      .from('task_attachments')
+      .select(ATTACHMENT_COLUMNS)
+      .in('task_id', taskIds)
+      .order('id', { ascending: true })
+      .range(from, from + CAPTURE_PAGE - 1)
+    if (error) throw new Error(error.message)
+    const rows = data ?? []
+    out.push(...rows.map(rowToAttachment))
+    // A short page is the only proof there is no next one: a full page may be the API's cap
+    // rather than the end of the table, which is the same trap `loadBoardTasks` pages around.
+    if (rows.length < CAPTURE_PAGE) return out
+  }
+}
+
+/**
+ * The attachment rows of Tasks that are about to be deleted, so undo can put them back (#404).
+ *
+ * Read **between the optimistic removal and the DELETE**, which is the only window where both
+ * things are true: the rows still exist, and the user has already seen the Task go. Reading before
+ * the optimistic removal would make every delete wait a round-trip for an answer that is almost
+ * always "none"; reading after the DELETE is too late, because the cascade has taken them.
+ *
+ * **Never throws, and an error yields no capture rather than a partial one.** A delete must not
+ * fail because the attachment read did — the cost of returning empty is exactly the behaviour
+ * shipped before this fix, a Task that comes back without its attachments, which is a worse undo
+ * and not a broken delete. All-or-nothing keeps the entry's meaning simple: what it holds is what
+ * undo restores.
+ */
+export async function captureTaskAttachments(taskIds: readonly string[]): Promise<Attachment[]> {
+  if (taskIds.length === 0) return []
+  try {
+    const out: Attachment[] = []
+    for (let i = 0; i < taskIds.length; i += CAPTURE_CHUNK) {
+      out.push(...(await capturePage(taskIds.slice(i, i + CAPTURE_CHUNK))))
+    }
+    return out
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Re-insert captured attachment rows once undo has restored the Tasks they belong to (#404).
+ *
+ * **Order matters: the Tasks first.** `task_attachments` carries a composite foreign key to
+ * `tasks (board_id, id)`, so a row inserted before its Task is refused.
+ *
+ * **INSERT ... ON CONFLICT DO NOTHING, not a plain upsert**, for two reasons that point the same
+ * way. An undo entry covers the ids the *action* touched, not only the ids it deleted — a bulk
+ * delete that retires a Series also records rows it merely updated — so some captured attachments
+ * may still be present, and putting them back must be a no-op rather than a conflict. And UPDATE
+ * on this table grants `filename` and nothing else, so the update half of a real upsert would be
+ * refused on `board_id`, `task_id`, `mime_type`, and `size_bytes` anyway.
+ *
+ * `storage_path` is generated from `id`, and the id is the captured one — so a restored row
+ * addresses the file that was never deleted. `uploaded_by` and `created_at` are stamped afresh,
+ * the same limit a restored Task's attribution already carries (see `undo` in `useTasks.ts`).
+ */
+export async function restoreAttachments(attachments: readonly Attachment[]): Promise<void> {
+  if (attachments.length === 0) return
+  const { error } = await supabase.from('task_attachments').upsert(
+    // Every row names every column, so PostgREST's key-union rule cannot turn an omitted column
+    // into an explicit NULL here (see AGENTS.md, "A `not null default` does not protect a
+    // multi-row insert").
+    attachments.map((a) => ({
+      id: a.id,
+      board_id: a.boardId,
+      task_id: a.taskId,
+      filename: a.filename,
+      mime_type: a.mimeType,
+      size_bytes: a.sizeBytes,
+    })),
+    { onConflict: 'id', ignoreDuplicates: true },
+  )
+  if (error) throw new Error(error.message)
+}
