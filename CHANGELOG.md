@@ -12,7 +12,7 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
-## [1.14.19] - 2026-09-22
+## [1.14.20] - 2026-09-22
 
 ### Changed
 
@@ -39,6 +39,13 @@ No unreleased changes.
 - A failed or absent count shows no number at all rather than a wrong one, and the count is stored
   with the Board it was read for, so switching Boards cannot briefly show the previous Board's
   total under the new Board's name.
+
+## [1.14.19] - 2026-09-22
+
+### Internal
+
+- Dependabot: bumped `@types/node` 26.6.1 → 26.6.2 in the `npm-minor-and-patch` group (#417).
+  Backfilled by this release, per the changelog guard's Dependabot exemption.
 
 ## [1.14.18] - 2026-09-22
 
@@ -3830,7 +3837,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.19...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.20...HEAD
+[1.14.20]: https://github.com/jwh3times/magic-agenda/compare/v1.14.19...v1.14.20
 [1.14.19]: https://github.com/jwh3times/magic-agenda/compare/v1.14.18...v1.14.19
 [1.14.18]: https://github.com/jwh3times/magic-agenda/compare/v1.14.17...v1.14.18
 [1.14.17]: https://github.com/jwh3times/magic-agenda/compare/v1.14.16...v1.14.17
