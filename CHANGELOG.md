@@ -26,6 +26,12 @@ No unreleased changes.
   mean "someone can pick this up now", which is the claim being withdrawn. The board's `Gate` field and
   a real dependency edge remain where the reason and the unblocking condition live; the label only
   makes the state findable.
+- **The private companion's name and remote URL are recorded as not secret; only its contents are.**
+  The rule said otherwise while two files in this repository named it — a historical plan and, more
+  awkwardly, `scripts/sync-main.mjs`, whose usage example is the natural thing to write. A private
+  repository answers 404 without access, so the name discloses nothing an outsider can use, and a rule
+  contradicted by the files it governs protects nothing while teaching readers to discount it. Closes a
+  documentation finding from the 2026-09-04 security review.
 
 ## [1.14.17] - 2026-09-22
 
