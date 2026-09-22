@@ -12,6 +12,39 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.14.17] - 2026-09-22
+
+### Docs
+
+- **The two-factor lockout runbook's identity check is now decided policy rather than a proposal.**
+  Section 0 — what support must confirm before removing someone's second factor — shipped with a
+  blockquote saying it awaited sign-off, because it was the one part of the runbook established by
+  judgement rather than by rehearsal. It is now signed off as written: the request must come from, or
+  be confirmed by a reply to, the address on file; that address is looked up rather than accepted
+  from the requester; and anything inconsistent earns a delay.
+- **What the bar accepts is written down beside it.** Removal on this evidence stacks on top of
+  password reset, so **control of an account's mailbox is control of the account** — which is the
+  case two-factor otherwise exists to survive. That is accepted deliberately, because no account here
+  carries a phone number, a billing relationship, or any second channel to verify against, and a bar
+  that cannot be met pushes recoveries outside the runbook instead of stopping them. A stricter
+  option that was considered and declined is recorded too, so it is reopened as a decision rather
+  than rediscovered as an oversight.
+- **Each removal is now logged.** A new step 5 records the date, the account, and which address the
+  request arrived from, in the private companion rather than here, since it names accounts.
+  `auth.mfa_factors` keeps no history, so after the delete nothing says a factor ever existed — the
+  log is the only thing that makes a second request on the same account look different from the
+  first.
+- The auth area guide now carries the mailbox consequence, so it is visible to anyone reasoning about
+  what enrolling actually protects rather than only to whoever opens the runbook.
+
+## [1.14.16] - 2026-09-21
+
+### Internal
+
+- Dependabot: bumped the `npm-minor-and-patch` group — React Router 8.3.1 → 8.4.0, Node types
+  26.5.1 → 26.6.1, jsdom 30.0.1 → 30.1.0, `oxlint-tsgolint` 7.0.2001 → 7.0.2002, and Prettier
+  3.9.6 → 3.9.8 (#413). Backfilled by this release, per the changelog guard's Dependabot exemption.
+
 ## [1.14.15] - 2026-09-20
 
 ### Internal
@@ -3748,7 +3781,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.15...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.17...HEAD
+[1.14.17]: https://github.com/jwh3times/magic-agenda/compare/v1.14.16...v1.14.17
+[1.14.16]: https://github.com/jwh3times/magic-agenda/compare/v1.14.15...v1.14.16
 [1.14.15]: https://github.com/jwh3times/magic-agenda/compare/v1.14.14...v1.14.15
 [1.14.14]: https://github.com/jwh3times/magic-agenda/compare/v1.14.13...v1.14.14
 [1.14.13]: https://github.com/jwh3times/magic-agenda/compare/v1.14.12...v1.14.13

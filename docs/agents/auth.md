@@ -179,6 +179,14 @@ and removing the factor **does not release a user already sitting on this screen
 `getAssuranceLevel()` reads the stored JWT rather than the server — they stay gated until they sign
 out or their token refreshes.
 
+That runbook's step 0 — the identity bar support must clear before removing anyone's factor — became
+decided policy on 2026-09-22, and it carries an accepted consequence worth knowing before you reason
+about what two-factor protects here: **control of an account's mailbox is control of the account.**
+The bar is the address on file, which is also all a password reset needs, so the two stack into a
+full takeover for whoever holds the inbox. That is accepted deliberately, for the reason the runbook
+states — no account has a phone number, a billing relationship, or any second channel to verify
+against. Do not describe enrollment as surviving mailbox compromise; it does not.
+
 `src/components/TwoFactorSection.tsx` is enrollment, mounted on `SettingsPage` as `security` /
 "Two-factor authentication" between `data` and `danger`. Two rules there are easy to get backwards:
 **an abandoned enrollment must be unenrolled, not merely forgotten** — `enrollTotp` writes a real,
