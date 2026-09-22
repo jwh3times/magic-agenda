@@ -57,6 +57,7 @@ export type Database = {
           default_view: string
           end_reason: string | null
           ended_at: string | null
+          ical_token: string
           id: string
           joined_at: string
           role: string
@@ -69,6 +70,7 @@ export type Database = {
           default_view?: string
           end_reason?: string | null
           ended_at?: string | null
+          ical_token?: string
           id?: string
           joined_at?: string
           role: string
@@ -81,6 +83,7 @@ export type Database = {
           default_view?: string
           end_reason?: string | null
           ended_at?: string | null
+          ical_token?: string
           id?: string
           joined_at?: string
           role?: string
@@ -562,6 +565,7 @@ export type Database = {
         }[]
       }
       create_board: { Args: { board_name: string }; Returns: string }
+      ical_feed: { Args: { p_token: string }; Returns: Json }
       reminder_candidate_rows: {
         Args: never
         Returns: {
@@ -579,6 +583,7 @@ export type Database = {
           timezone: string
         }[]
       }
+      rotate_ical_token: { Args: { p_board_id: string }; Returns: string }
     }
     Enums: {
       [_ in never]: never

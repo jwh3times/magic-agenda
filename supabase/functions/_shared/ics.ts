@@ -19,6 +19,9 @@
  *   all. Hand-written VTIMEZONE is a large surface to get subtly wrong for every past and future
  *   DST rule; `dueMomentAtZone` already resolves the wall clock to an instant the rest of the app
  *   agrees with, including through gaps and overlaps.
+ *   The one exception is an Automatic Account Timezone (`null`), which has no zone to resolve
+ *   through: it is emitted as floating local time, the RFC 5545 form that means "this wall clock,
+ *   wherever you are" -- which is what Automatic means in the app.
  */
 import { dueMomentAtZone } from "../../../src/data/dueMomentCore.ts";
 
@@ -35,8 +38,11 @@ export interface IcsTask {
 
 export interface IcsOptions {
   calendarName: string;
-  /** The Account Timezone, an IANA name. An unusable one drops timed events rather than guessing. */
-  timezone: string;
+  /**
+   * The Account Timezone, an IANA name. An unusable one drops timed events rather than guessing.
+   * `null` is Automatic -- follow the device -- and emits floating local time instead.
+   */
+  timezone: string | null;
   /** Injected so output is reproducible; defaults to now. */
   now?: Date;
   productId?: string;
@@ -46,6 +52,7 @@ const DEFAULT_PRODUCT_ID = "-//Magic Agenda//Board feed//EN";
 const UID_DOMAIN = "magicagenda.app";
 const DAY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const MAX_OCTETS = 75;
+const CLOCK_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 /**
  * Escape a TEXT value per RFC 5545 §3.3.11.
@@ -127,7 +134,11 @@ function utcStamp(epochMs: number): string {
   }Z`;
 }
 
-function eventLines(task: IcsTask, timezone: string, stamp: string): string[] {
+function eventLines(
+  task: IcsTask,
+  timezone: string | null,
+  stamp: string,
+): string[] {
   if (task.day === null || !DAY_RE.test(task.day)) return [];
 
   const when: string[] = [];
@@ -138,6 +149,13 @@ function eventLines(task: IcsTask, timezone: string, stamp: string): string[] {
       `DTSTART;VALUE=DATE:${basicDate(task.day)}`,
       `DTEND;VALUE=DATE:${end}`,
     );
+  } else if (timezone === null) {
+    // Automatic: RFC 5545 §3.3.5 floating time, the same wall clock in whatever zone the calendar
+    // is viewed in -- which is what "follow the device" means. It bypasses the zone resolver, so
+    // the clock needs its own check or a malformed one would be pasted into DTSTART verbatim.
+    const clock = CLOCK_RE.exec(task.atTime);
+    if (clock === null) return [];
+    when.push(`DTSTART:${basicDate(task.day)}T${clock[1]}${clock[2]}00`);
   } else {
     // A timed Task that cannot be resolved to an instant — an unusable timezone, or a wall clock
     // the zone does not have — is dropped rather than emitted at a guessed offset. A calendar

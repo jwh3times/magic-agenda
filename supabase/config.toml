@@ -461,3 +461,9 @@ verify_jwt = true
 # gateway cannot validate that opaque secret, so gateway verification is off for this one function.
 [functions.send-reminders]
 verify_jwt = false
+
+# The read-only calendar feed (#277). A calendar client cannot sign in, so the URL's token is the
+# capability and there is no JWT to verify: `ical_feed` resolves it to a current Membership in SQL.
+# Gateway verification off is the design here, not a shortcut.
+[functions.ical]
+verify_jwt = false

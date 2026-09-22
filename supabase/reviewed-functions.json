@@ -63,11 +63,23 @@
       "explicitAcl": true,
       "executeGrantees": "(owner only)"
     },
+    "ical_feed(uuid)": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "service_role"
+    },
     "reminder_candidate_rows()": {
       "secdef": true,
       "config": "search_path=\"\"",
       "explicitAcl": true,
       "executeGrantees": "service_role"
+    },
+    "rotate_ical_token(uuid)": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "authenticated"
     },
     "stamp_task_attribution()": {
       "secdef": false,

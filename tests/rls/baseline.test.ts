@@ -83,6 +83,13 @@ import reviewed from '../../supabase/reviewed-functions.json'
  * second kind, returning aggregate counts and account identity but never Task content. Their shared
  * check, `app_private.require_admin_session()`, carries **no** grant at all: it is called only from
  * inside those definer bodies, where the executing role is the owner, so no API role needs it.
+ *
+ * `ical_feed(uuid)` and `rotate_ical_token(uuid)` (#277) are the calendar feed's two commands.
+ * `ical_feed` is granted to `service_role` **only**, like `reminder_candidate_rows()`, so that a
+ * feed token is never a Data API credential by itself — the `ical` Edge Function is its one caller
+ * and the definer is that function's whole reach, since `service_role` holds no Board table grant.
+ * `rotate_ical_token` is a client-invoked RPC of the second kind above: it takes a Board, never an
+ * account, and draws the new token server-side so the client cannot choose a weak one.
  */
 type ReviewedFunction = {
   secdef: boolean

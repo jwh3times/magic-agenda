@@ -14,7 +14,7 @@ function task(overrides: Partial<IcsTask> = {}): IcsTask {
   };
 }
 
-function ics(tasks: IcsTask[], timezone = "UTC"): string {
+function ics(tasks: IcsTask[], timezone: string | null = "UTC"): string {
   return tasksToIcs(tasks, { calendarName: "My Board", timezone, now: AT });
 }
 
@@ -89,6 +89,28 @@ Deno.test("a timed Task on a DST spring-forward day is still a real instant", ()
   const start = lines.find((l) => l.startsWith("DTSTART:"));
   assertEquals(typeof start, "string");
   assertEquals(/^DTSTART:\d{8}T\d{6}Z$/.test(start!), true);
+});
+
+Deno.test("an Automatic timezone emits floating local time, not a dropped event", () => {
+  // `timezone is null` is the Account choosing Automatic -- follow the device. RFC 5545 §3.3.5
+  // floating time (no `Z`, no `TZID`) means exactly that: the same wall clock in whatever zone the
+  // calendar is viewed in. Dropping these, as an unusable zone is dropped, would silently empty the
+  // timed half of the feed for every Account that never picked a zone.
+  const lines = logicalLines(
+    ics([task({ day: "2026-09-22", atTime: "09:30" })], null),
+  );
+  assertEquals(lines.includes("DTSTART:20260922T093000"), true);
+  assertEquals(lines.some((l) => l.startsWith("DTEND")), false);
+  // Untimed Tasks never depended on a zone, and still do not.
+  const allDay = logicalLines(ics([task({ id: "t2", atTime: null })], null));
+  assertEquals(allDay.includes("DTSTART;VALUE=DATE:20260922"), true);
+});
+
+Deno.test("an Automatic timezone still refuses a malformed wall clock", () => {
+  // Floating time skips the zone resolver, which is also what validated the clock. Without its
+  // own check, "9:3" would be pasted into DTSTART as an unparseable value.
+  const lines = logicalLines(ics([task({ atTime: "9:3" })], null));
+  assertEquals(lines.filter((l) => l === "BEGIN:VEVENT").length, 0);
 });
 
 Deno.test("TEXT values escape backslash, semicolon, comma and newline — and not the colon", () => {
