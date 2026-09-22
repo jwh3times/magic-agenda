@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { serializeExport, type LegacyTask } from '../data/exportImport'
@@ -11,6 +11,8 @@ import type { Label } from '../types/label'
 
 const h = vi.hoisted(() => {
   const inserted: unknown[][] = []
+  /** What the head+exact count read answers. `{}` is the no-count-header case. */
+  const attachmentCount: { count?: number | null; error?: { message: string } | null } = {}
   const roles: BoardRole[] = ['owner']
   return {
     inserted,
@@ -20,6 +22,13 @@ const h = vi.hoisted(() => {
       Promise.resolve({ data: [] as unknown[], error: null }),
     ),
     selectLabels: vi.fn(() => Promise.resolve({ data: [] as unknown[], error: null })),
+    attachmentCount,
+    /** Observed so a negative assertion can wait for the read instead of racing it. */
+    attachmentCountRead: vi.fn(),
+    /** Switched mid-test to prove a count never outlives the Board it was read for. */
+    selectedBoardId: 'b1',
+    /** Set to hold a read open, so the window before a count arrives can be observed. */
+    heldCount: null as Promise<unknown> | null,
     insert: vi.fn((rows: unknown[]): Promise<{ error: { message: string } | null }> => {
       inserted.push(rows)
       return Promise.resolve({ error: null })
@@ -49,13 +58,22 @@ vi.mock('../lib/supabase', () => ({
             })),
             insert: h.insert,
           }
-        : { select: vi.fn(() => ({ eq: h.selectLabels })) },
+        : table === 'task_attachments'
+          ? {
+              select: vi.fn(() => ({
+                eq: () => {
+                  h.attachmentCountRead()
+                  return h.heldCount ?? Promise.resolve(h.attachmentCount)
+                },
+              })),
+            }
+          : { select: vi.fn(() => ({ eq: h.selectLabels })) },
     ),
   },
 }))
 
 vi.mock('../board/BoardDirectoryProvider', () => ({
-  useBoardDirectoryContext: () => fakeBoardDirectory(),
+  useBoardDirectoryContext: () => fakeBoardDirectory({ selectedBoardId: h.selectedBoardId }),
   useBoardSession: () => fakeBoardSession(fakeBoardSummary({ role: h.role })),
 }))
 vi.mock('../labels/LabelDirectoryProvider', () => ({
@@ -170,6 +188,10 @@ beforeEach(() => {
   ]
   h.selectTasks.mockReset().mockResolvedValue({ data: [], error: null })
   h.selectLabels.mockReset().mockResolvedValue({ data: [], error: null })
+  h.attachmentCount = { count: 0, error: null }
+  h.attachmentCountRead.mockClear()
+  h.selectedBoardId = 'b1'
+  h.heldCount = null
   h.insert.mockReset().mockImplementation((rows: unknown[]) => {
     h.inserted.push(rows)
     return Promise.resolve({ error: null })
@@ -399,4 +421,86 @@ test('a later export page failure never downloads a partial Board', async () => 
   await waitFor(() => expect(button).toBeEnabled())
   expect(exportedBlob).toBeNull()
   expect(screen.getByText('Could not load your data. Please try again.')).toBeInTheDocument()
+})
+
+/**
+ * The export dialog names what it will leave behind (#398).
+ *
+ * The static sentence is unconditional because it is unconditionally true; the count is the part
+ * that makes it land, and it has to be on screen before the click rather than in a notice after the
+ * file has already downloaded.
+ */
+test('the export copy always says attachments are excluded, and names the count when there is one', async () => {
+  h.attachmentCount = { count: 3, error: null }
+  render(<DataSection />)
+  expect(screen.getByText(/attachments are not included/i)).toBeInTheDocument()
+  expect(await screen.findByText(/This Board has 3 attachments/)).toBeInTheDocument()
+})
+
+test('one attachment reads as singular', async () => {
+  h.attachmentCount = { count: 1, error: null }
+  render(<DataSection />)
+  expect(await screen.findByText(/This Board has 1 attachment,/)).toBeInTheDocument()
+})
+
+/**
+ * Wait until the count read has happened *and* its state update has flushed.
+ *
+ * `waitFor` around a negative assertion is not enough and quietly proves nothing: it succeeds on
+ * its first poll, before the resolved read has set state, so the line it claims is absent has
+ * simply not been rendered yet. Both no-line tests below passed against a deliberately broken
+ * guard until this existed.
+ */
+const settleAttachmentCount = async () => {
+  await waitFor(() => expect(h.attachmentCountRead).toHaveBeenCalled())
+  await act(async () => {})
+}
+
+test('a Board with no attachments gets no count line, only the standing sentence', async () => {
+  h.attachmentCount = { count: 0, error: null }
+  render(<DataSection />)
+  await settleAttachmentCount()
+  expect(screen.getByText(/attachments are not included/i)).toBeInTheDocument()
+  expect(screen.queryByText(/This Board has/)).not.toBeInTheDocument()
+})
+
+test('a success with no count header renders no line, not a placeholder number', async () => {
+  // The failure mode pinned here is not a missing line but a present, wrong one. An absent count
+  // header arrives as `undefined`, which a `=== null` guard typechecks against supabase-js's
+  // `number | null` and still lets through — to be interpolated into the copy as "undefined".
+  // This case carries no error on purpose: an error short-circuits first and would not reach it.
+  h.attachmentCount = {}
+  render(<DataSection />)
+  await settleAttachmentCount()
+  expect(screen.getByText(/attachments are not included/i)).toBeInTheDocument()
+  expect(screen.queryByText(/This Board has/)).not.toBeInTheDocument()
+  expect(screen.queryByText(/undefined/)).not.toBeInTheDocument()
+})
+
+test('a failed count degrades to the standing sentence', async () => {
+  h.attachmentCount = { error: { message: 'refused' } }
+  render(<DataSection />)
+  await settleAttachmentCount()
+  expect(screen.getByText(/attachments are not included/i)).toBeInTheDocument()
+  expect(screen.queryByText(/This Board has/)).not.toBeInTheDocument()
+})
+
+test('a count never outlives the Board it was read for', async () => {
+  // The hazard is the *window* between switching Boards and the new count arriving, so the second
+  // read is held open to observe it. Asserting only the settled state proves nothing: both a paired
+  // and an unpaired count end up agreeing once the second read resolves, which is how an earlier
+  // version of this test passed against the unpaired implementation.
+  //
+  // Held open, an unpaired count leaves the first Board's 3 sitting under the second Board's name —
+  // a specific, confident, wrong number, which is worse than showing none.
+  h.attachmentCount = { count: 3, error: null }
+  const { rerender } = render(<DataSection />)
+  expect(await screen.findByText(/This Board has 3 attachments/)).toBeInTheDocument()
+
+  h.heldCount = new Promise(() => {})
+  h.selectedBoardId = 'b2'
+  h.attachmentCountRead.mockClear()
+  rerender(<DataSection />)
+  await settleAttachmentCount()
+  expect(screen.queryByText(/This Board has 3 attachments/)).not.toBeInTheDocument()
 })

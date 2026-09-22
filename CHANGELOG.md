@@ -12,6 +12,34 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.14.19] - 2026-09-22
+
+### Changed
+
+- **Export now says that attachments are not included, and how many you have (#398).** A Board
+  export has never carried attachments, and nothing said so — an export/import round-trip dropped
+  them silently, which is worst for anyone treating the file as a backup, because the omission is
+  invisible at exactly the moment it matters. The Data section now states the exclusion
+  unconditionally, and when the Board has attachments it names the number beside the Export button:
+  "This Board has 3 attachments, which the file will not contain." A generic disclaimer is easy to
+  read past; a count is not.
+- **The number appears before you export, not after.** It is read when the Board is selected rather
+  than when Export is clicked, because a warning that arrives with the downloaded file warns about
+  something already done.
+- **Attachments are still not restorable from a file, and that is unchanged and deliberate.** Doing
+  so needs a new format version and a decision about bytes versus metadata, weighed against the
+  unenforced storage quota in #400. What this release fixes is the word _silently_.
+
+### Internal
+
+- The count is a head request with an exact count rather than a read whose rows are counted.
+  PostgREST caps a response at `max_rows` and still returns success, so a row length is a floor
+  rather than a total — the same trap `loadBoardTasks` pages around. Asking the server to count
+  removes the possibility instead of guarding against it.
+- A failed or absent count shows no number at all rather than a wrong one, and the count is stored
+  with the Board it was read for, so switching Boards cannot briefly show the previous Board's
+  total under the new Board's name.
+
 ## [1.14.18] - 2026-09-22
 
 ### Docs
@@ -3802,7 +3830,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.18...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.19...HEAD
+[1.14.19]: https://github.com/jwh3times/magic-agenda/compare/v1.14.18...v1.14.19
 [1.14.18]: https://github.com/jwh3times/magic-agenda/compare/v1.14.17...v1.14.18
 [1.14.17]: https://github.com/jwh3times/magic-agenda/compare/v1.14.16...v1.14.17
 [1.14.16]: https://github.com/jwh3times/magic-agenda/compare/v1.14.15...v1.14.16

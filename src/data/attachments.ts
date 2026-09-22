@@ -269,3 +269,41 @@ export async function restoreAttachments(attachments: readonly Attachment[]): Pr
   )
   if (error) throw new Error(error.message)
 }
+
+/**
+ * How many attachments the Board holds, for the export dialog to name (#398).
+ *
+ * A head request with an exact count, **not** a select whose rows are then counted. That is not a
+ * micro-optimisation: PostgREST caps a response at `max_rows` and still returns success, so a
+ * length is a floor rather than a total — the same trap `loadBoardTasks` pages around and
+ * `captureTaskAttachments` above checks for. Asking the server to count removes the possibility
+ * instead of guarding against it.
+ *
+ * **Returns null instead of throwing**, which is deliberately unlike every other read in this
+ * module. The number is an addition to copy that is already true without it, so a failed count must
+ * degrade to that copy rather than block an export or, worse, report a wrong total.
+ */
+export async function countBoardAttachments(boardId: string): Promise<number | null> {
+  const { count, error } = await supabase
+    .from('task_attachments')
+    .select('*', { count: 'exact', head: true })
+    .eq('board_id', boardId)
+  // A missing count is as unusable as an error: PostgREST omits the header unless asked for it, and
+  // reading that absence as zero is the one wrong answer this function must not give. The test is
+  // `typeof`, not `=== null`: supabase-js types this `number | null`, but an absent header arrives
+  // as `undefined`, which a null check lets through to be interpolated into copy as "undefined".
+  if (error || typeof count !== 'number') return null
+  return count
+}
+
+/**
+ * The clause naming what an export will leave behind, or null when there is nothing to name.
+ *
+ * Null for both zero and an unknown count, and the reasons differ: zero is silence because nothing
+ * would be lost, while unknown is silence because the caller's static sentence already says
+ * attachments are not included and a guessed number would make it false.
+ */
+export function excludedAttachmentsNotice(count: number | null): string | null {
+  if (typeof count !== 'number' || count <= 0) return null
+  return `This Board has ${count} ${count === 1 ? 'attachment' : 'attachments'}, which the file will not contain.`
+}
