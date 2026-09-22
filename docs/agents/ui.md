@@ -33,7 +33,11 @@ and on `visibilitychange`, so a board left open across midnight rolls over on it
 `user_settings.timezone` is an IANA id where **NULL means "follow the browser"**, which is what
 every pre-4.1 row means and why a single-device user sees no change. Item 3.2's server-side sender
 cannot read NULL as "browser" — it has no browser — so that flow must prompt for a concrete zone
-rather than auto-capturing one here.
+rather than auto-capturing one here. The calendar feed (#277,
+[Boards](boards.md#the-calendar-feeds-capability-token-277)) is a second server-side reader of the
+same NULL and resolves it differently: RFC 5545 floating local time, the wall-clock form that
+names no zone at all, rather than a prompt — the right choice there because a calendar client picks
+its own display zone, unlike a one-shot notification.
 
 Two settings, two delivery mechanisms, on purpose: `today` goes through a **context** because
 `TaskCard` is four levels deep (`CalendarView → DayCell → SortableCard → TaskCard`), while

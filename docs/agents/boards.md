@@ -159,6 +159,34 @@ the grant half of a column-half-only migration cannot be deferred to the client'
 foreign key must still be able to SET NULL when an author deletes their account. `tests/rls/task_attribution.test.ts` covers canonical
 writes and upserts, protected-column forgery, account deletion, and concurrent revision increments.
 
+## The calendar feed's capability token (#277)
+
+`board_memberships.ical_token uuid not null default gen_random_uuid()`, unique-indexed, backs a
+read-only iCalendar feed of one Board. The endpoint shipped (v1.14.22) before any UI to discover
+or rotate a URL, so until the per-Board rotate-link screen lands it is live but nothing in the app
+hands a token out. It lives on the Membership rather
+than the Board or the Account for the reason argued throughout this file: `ical_feed(p_token uuid)`
+(`security definer`, granted to `service_role` alone — no other role may call it) resolves the
+token to a Membership with `ended_at is null`, so **ending a Membership revokes its feed for
+free**, and rotating one member's token (`rotate_ical_token(p_board_id uuid)`, `security definer`,
+granted to `authenticated`, the caller's own current Membership only, no account parameter — the
+same shape as `create_board`) never touches another member's URL. An unknown token and a revoked
+one both resolve to NULL from `ical_feed`, so the `ical` Edge Function
+(`supabase/functions/ical/`, `verify_jwt = false` since a calendar client cannot sign in) answers
+both with the same 404 and `Cache-Control: no-store`, and never logs the token. The feed carries
+the Board's scheduled, unarchived Tasks — completed included, archived and Inbox Tasks excluded,
+hidden Series definitions excluded since their Occurrences already carry the schedule — alongside
+the Board name and Account Timezone.
+
+**`ical_token` rides on the table's existing `board_memberships_select_own` policy, with no
+column-level withholding of its own.** #279's planned co-member clause, letting a Viewer see who
+else is on their Board, would — written as the obvious `board_id in (select ...)` addition to that
+policy — hand every member every other member's token too: a working read capability for a Board
+they may later be removed from, since the token does not die with _their_ Membership ending, only
+with its own. Withhold the column first — a column-scoped SELECT grant, or move the token behind a
+command — before adding that clause. `tests/rls/ical_feed.test.ts` pins the policy's exact current
+shape as a tripwire for this, not as documentation to remember by hand.
+
 ## Account administration and feature flags
 
 `user_roles` is Account-scoped; an `admin` row is assigned and revoked through SQL only. Even
