@@ -12,6 +12,28 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.14.21] - 2026-09-22
+
+### Internal
+
+- **The iCal feed's serializer, with nothing attached to it yet (#277).**
+  `supabase/functions/_shared/ics.ts` turns Occurrences into an RFC 5545 calendar. It is pure — no
+  network, no Supabase, no clock of its own — so the whole mapping is tested under the existing
+  `Functions` job with no stack running. Nothing is served yet: there is no endpoint, no token, and
+  no schema change, which is deliberate, since this is the half of the feature with no security
+  surface.
+- **Board scoping was the decision that unblocked it, and it moved.** The feed is one subscription
+  per person per Board, with the token on `board_memberships` rather than `user_settings` as the
+  issue first proposed — Board-scoped data with an Account-scoped key is the trap `docs/agents/boards.md`
+  warns about, and it would not have survived shared Boards. Ending a Membership now revokes that
+  person's feed for free, rather than needing a rotation that would kick every member out.
+- Timed Tasks are emitted as UTC instants through the shared `dueMomentAtZone`, so the file carries
+  no `VTIMEZONE` block — a large surface to get subtly wrong across every past and future DST rule.
+  All-day Tasks get an exclusive `DTEND` on the following day, computed through `Date.UTC` so a year
+  end does not produce `20261232`. Text values are escaped per §3.3.11 and lines folded at 75
+  **octets**, not characters, which is what keeps a title with an emoji from arriving with a
+  replacement character in it.
+
 ## [1.14.20] - 2026-09-22
 
 ### Changed
@@ -3837,7 +3859,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.20...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.21...HEAD
+[1.14.21]: https://github.com/jwh3times/magic-agenda/compare/v1.14.20...v1.14.21
 [1.14.20]: https://github.com/jwh3times/magic-agenda/compare/v1.14.19...v1.14.20
 [1.14.19]: https://github.com/jwh3times/magic-agenda/compare/v1.14.18...v1.14.19
 [1.14.18]: https://github.com/jwh3times/magic-agenda/compare/v1.14.17...v1.14.18
