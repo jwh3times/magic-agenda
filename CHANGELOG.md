@@ -12,6 +12,37 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.14.22] - 2026-09-22
+
+### Internal
+
+- **The iCal feed's token, its two commands, and its endpoint, shipped dark (#277).** Nothing in the
+  app shows a feed URL yet; the per-Board rotate-link UI is the next release. What landed is the
+  half with the security surface:
+  - `board_memberships.ical_token`: one capability per person per Board, drawn at random for every
+    existing Membership by the migration, and unique.
+  - `ical_feed(token)`: a `security definer` only `service_role` may execute. It resolves the token
+    to a Membership with `ended_at is null` and returns that Board's scheduled, unarchived Tasks.
+    Completed Tasks stay, as in the calendar view; Inbox Tasks and hidden Series definitions do
+    not. An unknown token and a revoked one both return NULL, so nothing downstream can tell them
+    apart. `service_role` still holds no grant on the Board tables: this definer is the endpoint's
+    whole reach.
+  - `rotate_ical_token(board_id)`: a member draws a fresh token for their own Membership. The
+    server generates it, so a client cannot choose a weak one, and it takes no account parameter.
+  - The `ical` Edge Function serves `text/calendar` with no JWT (`verify_jwt = false`), because a
+    calendar client cannot sign in and the URL is the credential. It answers only GET and HEAD, and
+    every refusal is the same uncached 404. A malformed token never reaches the database. A
+    successful response is cached privately for five minutes, and the token is never written to a
+    log.
+- **An Account on the Automatic timezone keeps its timed Tasks in the feed.** With no zone to
+  resolve through, the serializer used to drop them. They are now emitted as RFC 5545 floating
+  time: that wall-clock time in whatever zone the calendar is viewed in, which is what Automatic
+  means in the app.
+- The RLS suite pins each refusal beside a success, so a command that refused everything would
+  still fail it. It also includes a tripwire for shared Boards (#279): `board_memberships` must stay
+  readable only through its own-rows policy, because a co-member SELECT clause would hand every
+  member every other member's feed token. That token would outlive the reader's own removal.
+
 ## [1.14.21] - 2026-09-22
 
 ### Internal
@@ -3859,7 +3890,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.21...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.22...HEAD
+[1.14.22]: https://github.com/jwh3times/magic-agenda/compare/v1.14.21...v1.14.22
 [1.14.21]: https://github.com/jwh3times/magic-agenda/compare/v1.14.20...v1.14.21
 [1.14.20]: https://github.com/jwh3times/magic-agenda/compare/v1.14.19...v1.14.20
 [1.14.19]: https://github.com/jwh3times/magic-agenda/compare/v1.14.18...v1.14.19
