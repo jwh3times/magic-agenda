@@ -317,7 +317,10 @@ Issues and specs live in GitHub Issues for jwh3times/magic-agenda. See `docs/age
 
 ### Triage labels
 
-Default five-role vocabulary (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix), used as-is. See `docs/agents/triage-labels.md`.
+The default five-role vocabulary (needs-triage, needs-info, ready-for-agent, ready-for-human,
+wontfix) **plus a sixth of our own, `deferred`** — decided and deliberately not now, a state the five
+cannot express and that this project reaches often. `deferred` replaces `ready-for-agent` or
+`ready-for-human` rather than joining them. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
