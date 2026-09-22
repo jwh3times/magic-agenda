@@ -33,11 +33,9 @@ attacker who has the password and not the phone is precisely the person two-fact
 "I lost my authenticator, please turn it off" is what they will say. What follows is irreversible in
 the sense that matters: once the factor is gone, the password alone is enough.
 
-> **This section is a proposal and needs the maintainer's sign-off — it is the one part of this
-> runbook not established by rehearsal.** Everything from step 1 onward was measured; this is a
-> policy call about how much proof is enough, and it belongs to whoever carries the risk.
-
-Suggested bar, pending that decision:
+**This is decided policy, signed off 2026-09-22.** Every point is required. Unlike step 1 onward it
+rests on a risk-acceptance judgement rather than rehearsal, which is why what it concedes is written
+down immediately after it rather than left to be discovered.
 
 - The request must arrive from, or be confirmed by a reply to, **the account's own email address**.
   Control of that mailbox is already enough to reset the password, so requiring it concedes nothing
@@ -46,6 +44,25 @@ Suggested bar, pending that decision:
   account up yourself and reply to the address on file.
 - Prefer a delay over a fast turnaround whenever anything is inconsistent. Nobody is harmed by
   waiting; the failure on the other side is total.
+
+### What this bar accepts
+
+**Control of the mailbox is control of the account.** Password reset already turns on that mailbox,
+and removal on the same evidence stacks on top of it: whoever holds the inbox can take the password
+and then have the factor taken off, which is the case two-factor exists to survive. Support is
+therefore the weakest link in the factor it protects, and that is accepted rather than overlooked.
+
+It is accepted because there is nothing else to verify against. No account here carries a phone
+number, a billing relationship, or any second channel, so a stricter bar would have to be met with
+evidence that does not exist — and a bar that cannot be met does not stop recoveries, it pushes them
+outside the runbook, decided ad hoc by whoever is under pressure at the time.
+
+**One stricter option was considered and not adopted (2026-09-22):** asking the requester for a fact
+only prior app access reveals, such as a label on their board, checked from `psql`. It does
+discriminate — the gate means an attacker has never seen the board, while the locked-out owner has —
+and what it asks in exchange is reading a user's data on every request. It is recorded here because
+it works, so that a later session reopens it as a decision rather than rediscovering it as an
+oversight. Revisit it, and the bar as a whole, if a second channel to an account ever exists.
 
 ## 1. Find the account and its factors
 
@@ -160,6 +177,20 @@ Do not stop at "the row is gone" — confirm the gate is actually down.
 3. Encourage them to enrol again from **Settings → Two-factor authentication**, and to keep the
    secret somewhere they will still have it if the device is lost. There are no backup codes; the
    next lockout costs another one of these.
+
+## 5. Record the removal
+
+Append a dated entry to `private/two-factor-removals.md` in the private companion: the date, the
+account, which address the request arrived from, and whether that was the address on file or a reply
+to it. No reasoning, no message contents — the four facts are the whole entry.
+
+**Nothing else remembers this happened.** `auth.mfa_factors` keeps no history, so once the delete
+lands there is no record that a factor ever existed, let alone why it went. The entry is what makes a
+**second** request on the same account look different from the first, and a repeat is the pattern
+most worth catching — a bar met once by whoever holds the mailbox is met just as easily the next
+time.
+
+Keep it in the private companion rather than here: it names accounts.
 
 ## Rehearsal record — 2026-09-11
 
