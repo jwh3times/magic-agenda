@@ -22,6 +22,10 @@ const h = vi.hoisted(() => {
     captureRows: [] as Record<string, unknown>[],
     captureError: null as { message: string } | null,
     upsertError: null as { message: string } | null,
+    countResult: { count: 2, error: null } as {
+      count: number | null
+      error: { message: string } | null
+    },
   }
 
   /** `.select().in().order().range()` — the capture's paged read (#404). */
@@ -78,9 +82,13 @@ vi.mock('../lib/supabase', () => ({
   supabase: {
     from: vi.fn(() => ({
       select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          order: vi.fn(() => Promise.resolve({ data: h.state.rows, error: null })),
-        })),
+        eq: vi.fn(() =>
+          // Both a thenable and a builder: the Board count awaits `.eq()` directly, while
+          // `listAttachments` chains `.order()` onto it.
+          Object.assign(Promise.resolve(h.state.countResult), {
+            order: vi.fn(() => Promise.resolve({ data: h.state.rows, error: null })),
+          }),
+        ),
         in: h.captureIn,
       })),
       upsert: h.upsert,
@@ -112,6 +120,8 @@ vi.mock('../lib/supabase', () => ({
 
 import {
   captureTaskAttachments,
+  countBoardAttachments,
+  excludedAttachmentsNotice,
   listAttachments,
   removeAttachment,
   restoreAttachments,
@@ -153,6 +163,7 @@ beforeEach(() => {
   h.state.captureRows = []
   h.state.captureError = null
   h.state.upsertError = null
+  h.state.countResult = { count: 2, error: null }
   h.upload.mockClear()
   h.remove.mockClear()
   h.captureIn.mockClear()
@@ -348,4 +359,50 @@ test('a failed restore is surfaced, unlike a failed capture', async () => {
   // bug this fix exists to remove.
   h.state.upsertError = { message: 'insert refused' }
   await expect(restoreAttachments([{ id: 'a1' } as Attachment])).rejects.toThrow('insert refused')
+})
+
+/**
+ * The export dialog's attachment count (#398).
+ *
+ * The count is asked of the server rather than derived from rows, and these tests pin that: a
+ * length would be a floor, because PostgREST caps a response at `max_rows` and still returns
+ * success -- the trap `loadBoardTasks` pages around.
+ */
+test('the Board attachment count comes from the server, not from a row length', async () => {
+  h.state.countResult = { count: 2, error: null }
+  // Rows are deliberately left empty. A count read asks for no rows at all, so an implementation
+  // that counted `data` would answer 0 here and pass a naive test that seeded rows to match.
+  h.state.rows = []
+  expect(await countBoardAttachments('b1')).toBe(2)
+})
+
+test('a failed count is null rather than a throw or a zero', async () => {
+  // Zero would be a lie the export dialog then tells the user, and a throw would have to be caught
+  // at a call site whose static copy is already true without the number.
+  h.state.countResult = { count: null, error: { message: 'refused' } }
+  expect(await countBoardAttachments('b1')).toBeNull()
+})
+
+test('a successful count with no count header is also null', async () => {
+  // PostgREST omits the header unless asked; treating a missing count as 0 would be the same lie.
+  h.state.countResult = { count: null, error: null }
+  expect(await countBoardAttachments('b1')).toBeNull()
+})
+
+test('a response with no count header at all is null, not undefined', async () => {
+  // supabase-js types `count` as `number | null`, so a `=== null` guard typechecks and still lets
+  // `undefined` through — straight into the dialog copy as the word "undefined". The guard is
+  // `typeof` for exactly this.
+  h.state.countResult = {} as { count: number | null; error: { message: string } | null }
+  expect(await countBoardAttachments('b1')).toBeNull()
+})
+
+test('the notice names the count, and stays silent when there is nothing to name', () => {
+  expect(excludedAttachmentsNotice(3)).toContain('3 attachments')
+  expect(excludedAttachmentsNotice(1)).toContain('1 attachment,')
+  // Zero and unknown are both silence, for different reasons: nothing to lose, versus a static
+  // sentence that is already true and that a guess would falsify.
+  expect(excludedAttachmentsNotice(0)).toBeNull()
+  expect(excludedAttachmentsNotice(null)).toBeNull()
+  expect(excludedAttachmentsNotice(undefined as unknown as null)).toBeNull()
 })

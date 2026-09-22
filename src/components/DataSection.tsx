@@ -1,4 +1,4 @@
-import { useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
 import { useBoardDirectoryContext, useBoardSession } from '../board/BoardDirectoryProvider'
@@ -14,6 +14,7 @@ import {
 } from '../data/exportImport'
 import { rowToTask } from '../data/mappers'
 import { loadBoardTasks } from '../data/loadBoardTasks'
+import { countBoardAttachments, excludedAttachmentsNotice } from '../data/attachments'
 import { isTemplate } from '../types/task'
 import { ymd } from '../lib/dates'
 
@@ -52,11 +53,37 @@ export function DataSection() {
   const [importProgress, setImportProgress] = useState<ImportProgress | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [counted, setCounted] = useState<{ boardId: string; count: number | null } | null>(null)
   const resuming = importProgress !== null
   const sourceLabels = pending ? referencedSourceLabels(pending) : []
   const mappingComplete = sourceLabels.every((label) => labelMapping.has(label.id))
   const canImport = Boolean(userId && boardId && can.transferContent)
   const importUnavailable = !canImport || labelsLoading || labelsOffline || Boolean(labelsError)
+
+  /**
+   * What this Board would leave behind on export (#398).
+   *
+   * Read on the Board rather than at click time, so the number is on screen *before* the decision to
+   * export rather than in a notice afterwards — a warning that arrives with the downloaded file warns
+   * about something already done. A failed read leaves it null and the standing sentence below
+   * carries the truth unaided, which is why `countBoardAttachments` returns null rather than
+   * throwing.
+   *
+   * **The Board id is stored with the count, rather than the count being cleared when the Board
+   * changes.** Clearing would mean a `setState` during the effect, and more to the point the window
+   * between switching Boards and the new count arriving would show the *previous* Board's number as
+   * if it were this one's. Pairing them makes a mismatched count unusable by construction.
+   */
+  useEffect(() => {
+    if (!boardId || !can.exportBoard) return
+    let current = true
+    void countBoardAttachments(boardId).then((count) => {
+      if (current) setCounted({ boardId, count })
+    })
+    return () => {
+      current = false
+    }
+  }, [boardId, can.exportBoard])
 
   const btn = (disabled: boolean): CSSProperties => ({
     alignSelf: 'flex-start',
@@ -195,6 +222,9 @@ export function DataSection() {
   }
 
   const exportDisabled = busy || !can.exportBoard || !boardId
+  const attachmentNotice = excludedAttachmentsNotice(
+    counted?.boardId === boardId ? counted.count : null,
+  )
   const importFileDisabled = busy || importUnavailable
   const confirmDisabled = busy || importUnavailable || !mappingComplete
 
@@ -202,9 +232,14 @@ export function DataSection() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 520 }}>
       <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5 }}>
         Export this Board's tasks, repeating series, and Label definitions as JSON, or import a
-        previous export. Account preferences are not included. Import is additive — nothing is
-        overwritten, and importing the same file twice creates duplicates.
+        previous export. Account preferences and attachments are not included. Import is additive —
+        nothing is overwritten, and importing the same file twice creates duplicates.
       </p>
+      {attachmentNotice && (
+        <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5, fontWeight: 600 }}>
+          {attachmentNotice} Download them from each task first if you need them.
+        </p>
+      )}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <button
           type="button"

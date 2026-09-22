@@ -87,6 +87,28 @@ template-first batch cursor for retry, freezes mapping after a partial write, an
 `transferContent` for import versus Owner-only `exportBoard` for export. Separate Task/Label export
 reads fail closed if a concurrent vocabulary change would create a dangling reference.
 
+**Attachments are not in the file, and the dialog says so with a number (#398).** The format stays
+v4; nothing about attachments is written or read. What changed is that the omission stopped being
+silent, which was the defect — the export copy states unconditionally that attachments are excluded,
+and when the Board has any, `excludedAttachmentsNotice()` adds the count beside the Export button.
+
+Two things about that are load-bearing rather than incidental. The count comes from
+`countBoardAttachments()`, a **head request with an exact count** rather than a select whose rows are
+counted, because PostgREST caps a response at `max_rows` and still returns success — a length is a
+floor, the same trap `loadBoardTasks` pages around. And it is read **on the Board, not at click
+time**, so the number is on screen before the decision; a warning delivered with the downloaded file
+warns about something already done. `countBoardAttachments()` returns `null` rather than throwing,
+which is unlike every other read in `attachments.ts`, precisely so a failed count degrades to the
+standing sentence instead of blocking an export or reporting a wrong total — and its guard is
+`typeof count !== 'number'`, because supabase-js types `count` as `number | null` while an absent
+header arrives as `undefined`, which a null check would pass through into the copy as the word
+"undefined".
+
+Restoring attachments through a file remains out of scope and is not the same question: it needs a
+v5 and a decision about bytes versus metadata, weighed against #400's unenforced storage quota.
+Together with #411 — object bytes are in no backup either — it means attachment bytes currently have
+no copy anywhere, which is the fact that should drive whether that work is scheduled.
+
 `parseExport()` also owns cross-field Task invariants shared by every supported file version. In
 particular, a Task with Inbox placement and a Due Time is rejected before import planning;
 `taskToRow()` remains a defensive persistence seam, not permission for the file parser to repair an
