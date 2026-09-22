@@ -12,6 +12,27 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.14.18] - 2026-09-22
+
+### Docs
+
+- **The triage vocabulary gains a sixth label, `deferred` (#414).** A decided-but-not-now issue
+  matched no label query at all: `wontfix` is wrong because the work is expected, `needs-triage` is
+  wrong because it has been triaged, and `ready-for-agent` actively promises a queue reader a
+  resolution the issue does not contain. The 2026-09-20 label audit made that mistake on two issues,
+  after which three consecutive sessions each rediscovered it before doing any work. The state is now
+  visible to `gh issue list --label deferred`, which "carry no label and rely on the board" never was.
+- **`deferred` replaces `ready-for-agent` or `ready-for-human`, never joins them** — both of those
+  mean "someone can pick this up now", which is the claim being withdrawn. The board's `Gate` field and
+  a real dependency edge remain where the reason and the unblocking condition live; the label only
+  makes the state findable.
+- **The private companion's name and remote URL are recorded as not secret; only its contents are.**
+  The rule said otherwise while two files in this repository named it — a historical plan and, more
+  awkwardly, `scripts/sync-main.mjs`, whose usage example is the natural thing to write. A private
+  repository answers 404 without access, so the name discloses nothing an outsider can use, and a rule
+  contradicted by the files it governs protects nothing while teaching readers to discount it. Closes a
+  documentation finding from the 2026-09-04 security review.
+
 ## [1.14.17] - 2026-09-22
 
 ### Docs
@@ -3781,7 +3802,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.17...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.18...HEAD
+[1.14.18]: https://github.com/jwh3times/magic-agenda/compare/v1.14.17...v1.14.18
 [1.14.17]: https://github.com/jwh3times/magic-agenda/compare/v1.14.16...v1.14.17
 [1.14.16]: https://github.com/jwh3times/magic-agenda/compare/v1.14.15...v1.14.16
 [1.14.15]: https://github.com/jwh3times/magic-agenda/compare/v1.14.14...v1.14.15

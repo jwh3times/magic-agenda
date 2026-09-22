@@ -95,10 +95,14 @@ load-bearing and ask before changing them — **its absence never authorizes wea
 The companion's rules, in brief (`private/OPERATING-POLICY.md` is authoritative once it is
 present): `private/.git` existing is the test for "installed", not the directory existing; pull it
 `--ff-only` at the start of a session before trusting its index; never force-push it or
-auto-resolve a divergence; and nothing in it — content, remote URL — may enter this repository, an
-issue, a PR, a log, or a chat transcript. **The one exception is the commit SHA of a push you just
-made**, which the operating policy requires you to report so the maintainer can confirm the push
-landed; a bare SHA of a repository they alone can read discloses nothing. Its staged diff is
+auto-resolve a divergence; and nothing in it — its **contents** — may enter this repository, an
+issue, a PR, a log, or a chat transcript. **Its name and remote URL are not secret** (decided
+2026-09-22): a private repository answers 404 to anyone without access, so the name discloses nothing
+an outsider can use, and pretending otherwise was already false — `docs/plans/2026-08-25-private-companion-repository.md`
+and `scripts/sync-main.mjs` both name it, and the second is a live script whose usage example is the
+natural thing to write. A rule contradicted by the files it governs protects nothing and teaches
+readers to discount it. **The commit SHA of a push you just made** is likewise reportable, and the
+operating policy requires it so the maintainer can confirm the push landed. Its staged diff is
 likewise **inspected, not printed** — describe what changed and hand over the command, and the
 maintainer reads it locally. Its durable records stay Markdown.
 **1Password is the credential authority**, reached through the `op` CLI: `op://` secret
@@ -317,7 +321,10 @@ Issues and specs live in GitHub Issues for jwh3times/magic-agenda. See `docs/age
 
 ### Triage labels
 
-Default five-role vocabulary (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix), used as-is. See `docs/agents/triage-labels.md`.
+The default five-role vocabulary (needs-triage, needs-info, ready-for-agent, ready-for-human,
+wontfix) **plus a sixth of our own, `deferred`** — decided and deliberately not now, a state the five
+cannot express and that this project reaches often. `deferred` replaces `ready-for-agent` or
+`ready-for-human` rather than joining them. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
