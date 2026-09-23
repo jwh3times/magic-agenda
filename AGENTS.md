@@ -7,12 +7,13 @@ what applies to **every** change; the detail for one area lives in `docs/agents/
 ## What this is
 
 Magic Agenda is a drag-and-drop task board (calendar / week / agenda / kanban views — the four
-`ViewName`s — recurring tasks, three visual themes) built as a pure React + TypeScript SPA on Supabase
-(Postgres + Auth), deployed to Cloudflare Pages at [magicagenda.app](https://magicagenda.app). Pages
-live in `src/pages/`: `BoardPage` (the app), `SettingsPage`, `AdminPage` (aggregate-only, admins on
-an `aal2` session), `Landing` (the public marketing page at
-`/` for signed-out visitors), `Login`, `AuthCallback`, `AuthConfirm`, `ResetPassword`, and the static
-legal pages `Privacy` / `Terms` (both rendered through `src/components/LegalLayout.tsx`).
+`ViewName`s — recurring tasks, three visual themes, a per-Board calendar feed) built as a pure
+React + TypeScript SPA on Supabase (Postgres + Auth), deployed to Cloudflare Pages at
+[magicagenda.app](https://magicagenda.app). Pages live in `src/pages/`: `BoardPage` (the app),
+`SettingsPage`, `AdminPage` (aggregate-only, admins on an `aal2` session), `Landing` (the public
+marketing page at `/` for signed-out visitors), `Login`, `AuthCallback`, `AuthConfirm`,
+`ResetPassword`, and the static legal pages `Privacy` / `Terms` (both rendered through
+`src/components/LegalLayout.tsx`).
 
 ## Commands
 
