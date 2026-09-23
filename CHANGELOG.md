@@ -12,6 +12,18 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.15.1] - 2026-09-23
+
+### Internal
+
+- **Every Edge Function is now type-checked by CI the moment it exists (#420).** The `Functions`
+  job ran `deno check` against a hand-kept list of entry points, so a new function was checked only
+  by whatever a test happened to import until someone remembered to add it. `delete-board` joined
+  a release late (#399), and `ical` only made it in time because the handoff called the list out.
+  The job now runs `deno check */index.ts` from `supabase/functions`: every function directory has
+  an `index.ts`, and `_shared/` has none, so it is excluded without a rule. Verified before
+  merging: a probe function with a type error passed the old list and fails the glob.
+
 ## [1.15.0] - 2026-09-22
 
 ### Added
@@ -3912,7 +3924,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.0...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.1...HEAD
+[1.15.1]: https://github.com/jwh3times/magic-agenda/compare/v1.15.0...v1.15.1
 [1.15.0]: https://github.com/jwh3times/magic-agenda/compare/v1.14.22...v1.15.0
 [1.14.22]: https://github.com/jwh3times/magic-agenda/compare/v1.14.21...v1.14.22
 [1.14.21]: https://github.com/jwh3times/magic-agenda/compare/v1.14.20...v1.14.21
