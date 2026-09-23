@@ -67,10 +67,13 @@ jobs:
         with:
           deno-version: v2.x
       - run: deno fmt --check
-      # Explicit list, so a new function is type-checked only if it is added here. `delete-board`
-      # joined it with #399; `deno test` alone would not have caught a type error in a handler no
-      # test imports.
-      - run: deno check delete-account/index.ts delete-board/index.ts ical/index.ts send-reminders/index.ts
+      # The glob IS the enforcement (#420): every Edge Function is a directory with an `index.ts`, so
+      # a new one is type-checked the moment it exists, and `_shared/` (no `index.ts`) is excluded
+      # for free. Do not expand it back into a list. The list it replaced had to be extended by hand,
+      # so a function was type-checked only by whatever a test happened to import until someone
+      # remembered; `delete-board` joined it a release late (#399). With no match the glob stays
+      # literal and `deno check` fails, which is the right outcome for an empty directory.
+      - run: deno check */index.ts
       - run: deno test
 
   # Two generated trees, opposite directions: .codex/agents is generated from
