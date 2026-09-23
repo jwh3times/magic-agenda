@@ -7,9 +7,9 @@ import {
   type RecurFreq,
   type Task,
   type WorkflowStatus,
-} from '../types/task'
-import { isScheduled } from '../lib/dates'
-import type { Database, Json } from '../types/database.types'
+} from '../types/task.ts'
+import { isScheduled } from '../lib/dates.ts'
+import type { Database, Json } from '../types/database.types.ts'
 
 type TaskRow = Database['public']['Tables']['tasks']['Row']
 type TaskInsert = Database['public']['Tables']['tasks']['Insert']

@@ -1,4 +1,4 @@
-import { addDays, parseDay, ymd } from '../lib/dates'
+import { addDays, parseDay, ymd } from '../lib/dates.ts'
 import {
   asOccurrence,
   asTask,
@@ -10,21 +10,21 @@ import {
   type SeriesDefinition,
   type Task,
   type TaskDraft,
-} from '../types/task'
+} from '../types/task.ts'
 import {
   allOccurrenceDates,
   isBoundedRule,
   isFromOccurrenceOnward,
   missingInstances,
   occurrenceDateOf,
-} from './recurrence'
-import { reconcileSteps } from './checklistSteps'
+} from './recurrence.ts'
+import { reconcileSteps } from './checklistSteps.ts'
 import {
   PER_OCCURRENCE_FIELDS,
   RULE_EDITABLE_FIELDS,
   SERIES_CONTENT_FIELDS,
   pick,
-} from './fieldOwnership'
+} from './fieldOwnership.ts'
 
 /**
  * Everything the app knows about recurring series, as pure functions over plain data.
@@ -77,6 +77,13 @@ export function instanceKey(t: {
   return `${t.recurParentId}|${occurrenceDateOf(t)}`
 }
 
+/**
+ * What `pendingInstances` needs to know about an existing instance: whose it is and which
+ * occurrence it covers. A full `Task` satisfies it, and so does the narrow row the server-side
+ * materializer reads (#424), which is why the parameter is this and not `Task`.
+ */
+export type InstanceIdentity = Parameters<typeof instanceKey>[0]
+
 /** Builds one instance of a template for `day`. `nextId` is injected so tests are deterministic. */
 export function makeInstance(tmpl: Task, day: string, nextId: () => string): Occurrence {
   return {
@@ -120,7 +127,7 @@ export function makeInstance(tmpl: Task, day: string, nextId: () => string): Occ
  */
 export function pendingInstances(
   templates: readonly Task[],
-  board: readonly Task[],
+  board: readonly InstanceIdentity[],
   todayStr: string,
   nextId: () => string,
 ): Task[] {

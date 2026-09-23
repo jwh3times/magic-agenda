@@ -1,5 +1,5 @@
-import type { RecurFreq } from '../types/task'
-import { addDays, addMonths, isScheduled, parseDay, ymd } from '../lib/dates'
+import type { RecurFreq } from '../types/task.ts'
+import { addDays, addMonths, isScheduled, parseDay, ymd } from '../lib/dates.ts'
 
 export const RECUR_HORIZON_DAYS = 90
 

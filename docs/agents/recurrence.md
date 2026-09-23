@@ -26,6 +26,30 @@ in a per-template `excludedDates` array so they are never regenerated. `reload()
 because React StrictMode double-invokes the load effect, which otherwise double-inserts instances and
 trips the `(recur_parent_id, day)` unique index (Postgres 23505).
 
+**Since #424, a daily server job materializes too, so an idle Board still gets its horizon.**
+`supabase/functions/materialize-series` runs the same `pendingInstances` from this module, plus
+`rowToTask`/`taskToRow` from `mappers.ts` — one definition of "which Occurrences are missing", not
+two — against every Board, not just one a client has open. `pendingInstances`' `board` parameter is
+typed `readonly InstanceIdentity[]` (id, parent, Occurrence Date, day — exported alongside it) rather
+than `readonly Task[]` precisely so the job's narrow state, read via the SQL function
+`series_materialization_state`, satisfies it without a second shape. Its clock is UTC: the planner's
+`today` is UTC tomorrow, so the one-day grace floor (`MATERIALIZE_GRACE_DAYS` in `recurrence.ts`,
+see [UI](ui.md) for why the client keeps a cheap browser-local clock at its own call site) lands on
+UTC today, and no zone's local date runs more than a day ahead of UTC — so the job never creates an
+Occurrence older than a client would. Both writers rely on the same `(recur_parent_id,
+recur_origin_day)` partial unique index to stay safe running concurrently: the client's plain insert
+can 23505 on it (the StrictMode guard above exists for that same index), while the job's write
+function, `insert_materialized_occurrences`, does an untargeted `on conflict do nothing` (a partial
+index can't be a PostgREST `on_conflict` target) and just skips a row already there. Both SQL functions are
+`security invoker` with EXECUTE limited to `service_role`; schema and cron schedule are in
+`supabase/migrations/20260923120000_series_materialization.sql`. Because the Edge Function imports
+these files verbatim under Deno, every import inside this module's own graph (`series.ts`,
+`recurrence.ts`, `dates.ts`, `checklistSteps.ts`, `fieldOwnership.ts`, `mappers.ts`) now uses an
+explicit `.ts` specifier — Deno rejects an extensionless one — and `tsconfig.test.json` carries
+`allowImportingTsExtensions` so Vitest resolves the same files unchanged. A new extensionless import
+anywhere in that graph still passes `npm run build`; only `deno check` (the `Functions` CI job)
+catches it.
+
 **`src/data/series.ts` owns this model, and everything it decides is pure.** It holds `instanceKey`
 (occurrence identity), `makeInstance`, `pendingInstances`, the scope resolvers (`resolveSave` /
 `resolveDelete`), and a **plan** for each series operation — the next board, the next templates, the
