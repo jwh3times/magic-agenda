@@ -69,6 +69,12 @@
       "explicitAcl": true,
       "executeGrantees": "service_role"
     },
+    "insert_materialized_occurrences(jsonb)": {
+      "secdef": false,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "service_role"
+    },
     "reminder_candidate_rows()": {
       "secdef": true,
       "config": "search_path=\"\"",
@@ -92,6 +98,12 @@
       "config": "search_path=\"\"",
       "explicitAcl": true,
       "executeGrantees": "(owner only)"
+    },
+    "series_materialization_state(date)": {
+      "secdef": false,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "service_role"
     },
     "set_updated_at()": {
       "secdef": false,

@@ -467,3 +467,8 @@ verify_jwt = false
 # Gateway verification off is the design here, not a shortcut.
 [functions.ical]
 verify_jwt = false
+
+# The daily Series materializer (#424). Invoked only by pg_cron with the same bearer secret as
+# `send-reminders`, checked in the handler; the gateway cannot validate that opaque secret.
+[functions.materialize-series]
+verify_jwt = false

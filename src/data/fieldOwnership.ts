@@ -1,4 +1,4 @@
-import type { Task, TaskDraft } from '../types/task'
+import type { Task, TaskDraft } from '../types/task.ts'
 
 /**
  * Who owns each field of a `Task` — the single classification behind both editing scopes.

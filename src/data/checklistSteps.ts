@@ -1,4 +1,4 @@
-import type { ChecklistItem, Task } from '../types/task'
+import type { ChecklistItem, Task } from '../types/task.ts'
 
 /**
  * Reconciling Checklist Steps when a Recurring Series' Checklist changes.

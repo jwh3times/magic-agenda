@@ -566,6 +566,10 @@ export type Database = {
       }
       create_board: { Args: { board_name: string }; Returns: string }
       ical_feed: { Args: { p_token: string }; Returns: Json }
+      insert_materialized_occurrences: {
+        Args: { p_rows: Json }
+        Returns: number
+      }
       reminder_candidate_rows: {
         Args: never
         Returns: {
@@ -584,6 +588,7 @@ export type Database = {
         }[]
       }
       rotate_ical_token: { Args: { p_board_id: string }; Returns: string }
+      series_materialization_state: { Args: { p_from: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never

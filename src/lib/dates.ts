@@ -1,4 +1,4 @@
-import { INBOX } from '../types/task'
+import { INBOX } from '../types/task.ts'
 
 export const MONTHS_SHORT = [
   'Jan',
