@@ -12,6 +12,28 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.15.0] - 2026-09-22
+
+### Added
+
+- **Subscribe to a Board from your calendar app (#277).** Settings → Boards now has a **Calendar
+  feed…** button on every Board, for every role (Viewers included, since reading the Board is what
+  a Viewer can do). It opens your own feed link for that Board, with **Copy link**, a **Subscribe**
+  link that hands the feed to Google Calendar, Apple Calendar, or Outlook as a live subscription
+  (`webcal://`), and **Rotate link…**. The calendar shows the Board's scheduled Tasks: untimed ones
+  as all-day events, timed ones at their Due Time. Inbox and archived Tasks are left out.
+- **The link is a password, and the panel says so beside it.** Anyone with it can see the Board's
+  scheduled Tasks without signing in, calendar apps store it unprotected, and rotating it is the only
+  way to cut off a copy you have shared. Rotation asks first, because it breaks every calendar
+  already subscribed, your own included. Leaving a Board revokes your link to it automatically.
+
+### Security
+
+- The feed token is read only when you open its panel and is held only while the panel is open. It
+  is never written to the offline snapshot of your Boards, so a shared or stolen device's
+  `localStorage` does not carry a working read credential for any Board. Only one Board's panel is
+  open at a time, so at most one link is on screen.
+
 ## [1.14.22] - 2026-09-22
 
 ### Internal
@@ -3890,7 +3912,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.14.22...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.0...HEAD
+[1.15.0]: https://github.com/jwh3times/magic-agenda/compare/v1.14.22...v1.15.0
 [1.14.22]: https://github.com/jwh3times/magic-agenda/compare/v1.14.21...v1.14.22
 [1.14.21]: https://github.com/jwh3times/magic-agenda/compare/v1.14.20...v1.14.21
 [1.14.20]: https://github.com/jwh3times/magic-agenda/compare/v1.14.19...v1.14.20

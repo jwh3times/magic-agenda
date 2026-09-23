@@ -162,10 +162,14 @@ writes and upserts, protected-column forgery, account deletion, and concurrent r
 ## The calendar feed's capability token (#277)
 
 `board_memberships.ical_token uuid not null default gen_random_uuid()`, unique-indexed, backs a
-read-only iCalendar feed of one Board. The endpoint shipped (v1.14.22) before any UI to discover
-or rotate a URL, so until the per-Board rotate-link screen lands it is live but nothing in the app
-hands a token out. It lives on the Membership rather
-than the Board or the Account for the reason argued throughout this file: `ical_feed(p_token uuid)`
+read-only iCalendar feed of one Board. The endpoint shipped (v1.14.22) before any UI to discover or
+rotate a URL; the UI landed in v1.15.0 as `CalendarFeedPanel`, reached from a "Calendar feed…"
+button on every Board row in Settings → Boards for every role, Viewer included. The client seam
+(`src/board/calendarFeed.ts`) reads the token only when the panel opens and holds it only in
+component state — deliberately not part of `useBoardDirectory`, whose directory is snapshotted to
+`localStorage` for offline boot, so the token must never be written there. It lives on the
+Membership rather than the Board or the Account for the reason argued throughout this file:
+`ical_feed(p_token uuid)`
 (`security definer`, granted to `service_role` alone — no other role may call it) resolves the
 token to a Membership with `ended_at is null`, so **ending a Membership revokes its feed for
 free**, and rotating one member's token (`rotate_ical_token(p_board_id uuid)`, `security definer`,

@@ -9,6 +9,15 @@ import type { BoardSummary } from '../board/selection'
 import type { UseBoardDirectory } from '../board/useBoardDirectory'
 import { BoardsSection } from './BoardsSection'
 
+const readCalendarFeedToken = vi.fn((boardId: string) =>
+  Promise.resolve({ ok: true as const, value: `token-for-${boardId}` }),
+)
+
+vi.mock('../board/calendarFeed', async (importActual) => ({
+  ...(await importActual<typeof import('../board/calendarFeed')>()),
+  readCalendarFeedToken: (id: string) => readCalendarFeedToken(id),
+}))
+
 const TWO_BOARDS: BoardSummary[] = [
   fakeBoardSummary({ id: 'b1', name: 'Personal', role: 'owner' }),
   fakeBoardSummary({ id: 'b2', name: 'Work', role: 'owner' }),
@@ -260,4 +269,47 @@ test('Editors and Viewers get no rename control either', () => {
     />,
   )
   expect(screen.queryByRole('button', { name: 'Rename' })).not.toBeInTheDocument()
+})
+
+test('every role, Viewer included, is offered its own calendar feed', () => {
+  // The feed reads the caller's own Membership, and reading the Board is what Viewer means.
+  render(
+    <Harness
+      initial={[
+        fakeBoardSummary({ id: 'b1', name: 'Mine', role: 'owner' }),
+        fakeBoardSummary({ id: 'b2', name: 'Shared', role: 'editor' }),
+        fakeBoardSummary({ id: 'b3', name: 'Readonly', role: 'viewer' }),
+      ]}
+    />,
+  )
+  expect(screen.getAllByRole('button', { name: 'Calendar feed…' })).toHaveLength(3)
+})
+
+test('the feed link is read only when asked for, and only for that Board', async () => {
+  // The token is a credential: nothing fetches it until the user opens the panel, so rendering
+  // Settings never puts one on screen or in memory.
+  const user = userEvent.setup()
+  render(<Harness />)
+  expect(readCalendarFeedToken).not.toHaveBeenCalled()
+
+  await user.click(screen.getAllByRole('button', { name: 'Calendar feed…' })[1])
+  const field = await screen.findByLabelText<HTMLInputElement>('Calendar feed link for Work')
+  expect(field.value).toContain('token-for-b2')
+  expect(readCalendarFeedToken).toHaveBeenCalledExactlyOnceWith('b2')
+  expect(screen.queryByLabelText('Calendar feed link for Personal')).not.toBeInTheDocument()
+})
+
+test('opening another Board’s feed closes the first, so one token is on screen at a time', async () => {
+  const user = userEvent.setup()
+  render(<Harness />)
+
+  await user.click(screen.getAllByRole('button', { name: 'Calendar feed…' })[0])
+  await screen.findByLabelText('Calendar feed link for Personal')
+  await user.click(screen.getByRole('button', { name: 'Calendar feed…' }))
+  await screen.findByLabelText('Calendar feed link for Work')
+  expect(screen.queryByLabelText('Calendar feed link for Personal')).not.toBeInTheDocument()
+
+  await user.click(screen.getByRole('button', { name: 'Hide' }))
+  expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  expect(document.body.innerHTML).not.toContain('token-for-')
 })

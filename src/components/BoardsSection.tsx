@@ -3,6 +3,7 @@ import { useBoardDirectoryContext } from '../board/BoardDirectoryProvider'
 import { BOARD_NAME_MAX_LENGTH } from '../board/boardName'
 import { capabilitiesFor } from '../board/role'
 import type { BoardSummary } from '../board/selection'
+import { CalendarFeedPanel } from './CalendarFeedPanel'
 
 const hint: CSSProperties = { fontSize: 12, opacity: 0.7 }
 const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }
@@ -18,11 +19,16 @@ const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flex
  * That is a deliberate difference rather than an inconsistency: an Account has exactly one account
  * to delete, so "delete" is unambiguous there, but it has several Boards, and a generic confirmation
  * would read identically for the Board you meant and the one above it in the list.
+ *
+ * The calendar feed is offered on **every** row, whatever the role: it reads the caller's own
+ * Membership, and reading the Board is what every role, Viewer included, already has. Only one feed
+ * panel is open at a time, so at most one token is on screen.
  */
 export function BoardsSection() {
   const { boards, selectedBoardId, deleteBoard, renameBoard } = useBoardDirectoryContext()
   const [pending, setPending] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
+  const [feedOpen, setFeedOpen] = useState<string | null>(null)
   const [confirm, setConfirm] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -88,6 +94,11 @@ export function BoardsSection() {
                 )}
                 {board.id === selectedBoardId && <span style={hint}>current</span>}
                 <div style={{ flex: 1 }} />
+                {!confirming && renaming !== board.id && feedOpen !== board.id && (
+                  <button type="button" onClick={() => setFeedOpen(board.id)} disabled={busy}>
+                    Calendar feed…
+                  </button>
+                )}
                 {can.configureBoard && !confirming && renaming !== board.id && (
                   <button
                     type="button"
@@ -119,6 +130,10 @@ export function BoardsSection() {
                 <div role="alert" style={{ color: '#b42318', fontSize: 13 }}>
                   {error}
                 </div>
+              )}
+
+              {feedOpen === board.id && (
+                <CalendarFeedPanel board={board} onClose={() => setFeedOpen(null)} />
               )}
 
               {confirming && (

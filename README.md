@@ -77,6 +77,10 @@ of three hand‑built themes.
   Rename a Board you own from Settings → Boards, or delete it there behind a
   type‑the‑Board's‑name confirmation — deletion destroys everything in it. Deleting your last Board
   is allowed; you land on a screen offering to create a new one.
+- **Calendar feed** — subscribe to a Board from Google Calendar, Apple Calendar, or Outlook with a
+  read‑only iCalendar link from Settings → Boards → Calendar feed, available to every role including
+  Viewer. The link is a capability — anyone holding it can read the board's scheduled tasks without
+  signing in — so rotate it to cut off a copy you've shared.
 - **Works on your phone** — responsive layouts for every view (stacked week, swipeable kanban,
   collapsible inbox, bottom‑sheet editor) and long‑press touch drag‑and‑drop.
 - **Installable, and readable offline** — add it to your Home Screen for a standalone app; with no
