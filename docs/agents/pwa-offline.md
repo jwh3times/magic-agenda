@@ -42,7 +42,9 @@ The Edge Function requires `VAPID_SUBJECT`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_K
 the handler compares the opaque cron bearer secret itself, while ordinary users have neither table
 access to delivery state nor execute access to the narrow `reminder_candidate_rows()` service RPC.
 Deploy the function and its tables before adding the `pg_cron` invocation; that staging keeps a
-release from scheduling code or credentials that do not exist yet.
+release from scheduling code or credentials that do not exist yet. The constant-time compare and the
+bearer-header parse are `supabase/functions/_shared/bearer.ts`, shared with `materialize-series`
+below.
 
 The production schedule is named `send-task-reminders` and runs every five minutes. Its
 `cron.job.command` contains only the Supabase Vault names `reminder_function_url` and
@@ -50,6 +52,14 @@ The production schedule is named `send-task-reminders` and runs every five minut
 log, or chat. The URL is the full `/functions/v1/send-reminders` endpoint. Keep the Vault bearer
 value identical to the Edge Function's `REMINDER_CRON_SECRET`. A 401 from a manual unauthenticated
 POST and an aggregate-only 200 from the Vault-backed invocation are the activation checks.
+
+**`REMINDER_CRON_SECRET` and the `reminder_cron_secret` Vault entry are no longer
+`send-reminders`-only.** Since #424 the daily `materialize-series` job (see
+[Recurrence](recurrence.md)) is invoked by `pg_cron` with the same secret and the same
+`reminder_function_url` entry, its function name swapped in at call time — deliberately, rather than
+provisioning a second secret for a job whose worst case is an idempotent, bounded insert. Rotating
+`reminder_cron_secret` now rotates both jobs' credential at once; redeploying only one function's
+`REMINDER_CRON_SECRET` after a rotation leaves the other one 401ing every run.
 
 `src/sw.ts` is **hand-authored, not generated.** `vite-plugin-pwa` runs in `injectManifest` mode
 (`vite.config.ts`), which only supplies `self.__WB_MANIFEST` (the precache URL list) — none of

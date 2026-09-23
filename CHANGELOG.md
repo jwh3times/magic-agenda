@@ -12,6 +12,35 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.15.2] - 2026-09-23
+
+### Fixed
+
+- **A recurring Series keeps its future Occurrences even when nobody opens the Board (#424).** The
+  app used to extend each Series' rolling 90-day horizon only when someone opened the Board, so a
+  Board left alone for three months ran out of upcoming Occurrences. A daily server job now does the
+  same work. It uses the **same planner** as the app rather than a second copy, so the two can never
+  disagree about which Occurrences should exist. Excluded Dates stay excluded, and an Occurrence
+  you moved to another day still counts as covering its original date. This is also the first
+  build dependency of Shared Boards (#279), where a Viewer cannot extend the horizon.
+
+### Internal
+
+- `materialize-series` Edge Function, run daily at 03:17 UTC by `pg_cron` with the reminder cron's
+  Vault URL and bearer secret. Its planner "today" is UTC tomorrow, so its floor is UTC today and it
+  never creates an Occurrence older than the client itself would.
+- Two `service_role`-only `security invoker` commands:
+  - `series_materialization_state` returns the state as one jsonb value, so PostgREST's row cap
+    cannot truncate it.
+  - `insert_materialized_occurrences` inserts with an untargeted `on conflict do nothing`, so it
+    can race a client's own insert without failing. It only admits Occurrences of a current
+    definition on the same Board.
+- The planner's import graph now uses explicit `.ts` specifiers so Deno can load it unchanged
+  (`tsconfig.test.json` gains `allowImportingTsExtensions`), and the constant-time cron bearer check
+  moved to `_shared/bearer.ts` for both cron functions.
+- Verified locally end to end against a real stack: the first run inserted 92 Occurrences
+  (UTC today to today+91), and a second run inserted none.
+
 ## [1.15.1] - 2026-09-23
 
 ### Internal
@@ -3924,7 +3953,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.1...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.2...HEAD
+[1.15.2]: https://github.com/jwh3times/magic-agenda/compare/v1.15.1...v1.15.2
 [1.15.1]: https://github.com/jwh3times/magic-agenda/compare/v1.15.0...v1.15.1
 [1.15.0]: https://github.com/jwh3times/magic-agenda/compare/v1.14.22...v1.15.0
 [1.14.22]: https://github.com/jwh3times/magic-agenda/compare/v1.14.21...v1.14.22
