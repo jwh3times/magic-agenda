@@ -38,9 +38,11 @@ see [UI](ui.md) for why the client keeps a cheap browser-local clock at its own 
 UTC today, and no zone's local date runs more than a day ahead of UTC — so the job never creates an
 Occurrence older than a client would. Both writers rely on the same `(recur_parent_id,
 recur_origin_day)` partial unique index to stay safe running concurrently: the client's plain insert
-can 23505 on it (the StrictMode guard above exists for that same index), while the job's write
-function, `insert_materialized_occurrences`, does an untargeted `on conflict do nothing` (a partial
-index can't be a PostgREST `on_conflict` target) and just skips a row already there. Both SQL functions are
+can 23505 on it (the StrictMode guard above exists for that same index), in which case `useTasks`
+repeats its complete Board read and replaces the failed optimistic batch rather than showing an
+error. The job's write function, `insert_materialized_occurrences`, does an untargeted
+`on conflict do nothing` (a partial index can't be a PostgREST `on_conflict` target) and just skips
+a row already there. Both SQL functions are
 `security invoker` with EXECUTE limited to `service_role`; schema and cron schedule are in
 `supabase/migrations/20260923120000_series_materialization.sql`. Because the Edge Function imports
 these files verbatim under Deno, every import inside this module's own graph (`series.ts`,
