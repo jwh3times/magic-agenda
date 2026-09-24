@@ -57,9 +57,8 @@ describe('renderStorageMetadata', () => {
   })
 
   test('emits both clauses for an UPDATE policy', () => {
-    // `using` decides which objects may be targeted, `with check` what they may become. Dropping
-    // the second on restore would let a file be renamed into another Board's prefix — the exact
-    // thing attachments_update_editor exists to stop.
+    // The generator captures every storage.objects policy, including future buckets. For UPDATE,
+    // `using` decides which objects may be targeted and `with check` what they may become.
     const sql = renderStorageMetadata(
       [bucket()],
       [policy({ policyname: 'attachments_update_editor', cmd: 'UPDATE', with_check: 'true' })],

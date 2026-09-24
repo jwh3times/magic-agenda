@@ -32,7 +32,7 @@ const excluded = [
 ]
 
 /**
- * A healthy `storage.sql` (#401): the bucket restored as private, plus the four object policies.
+ * A healthy `storage.sql` (#401): the bucket restored as private, plus the two object policies.
  * Built here rather than imported from the generator on purpose. These tests are about what the
  * workflow REFUSES, and a fixture that tracked the generator would keep passing even if the
  * generator started emitting something useless.
@@ -41,7 +41,7 @@ const healthyStorage = [
   'insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)',
   "values ('attachments', 'attachments', false, 10485760, array['image/png']::text[])",
   'on conflict (id) do update set public = excluded.public;',
-  ...['select_member', 'insert_editor', 'update_editor', 'delete_editor'].map(
+  ...['select_member', 'delete_editor'].map(
     (name) => `create policy "attachments_${name}" on storage.objects to "authenticated";`,
   ),
 ].join('\n')
@@ -133,14 +133,24 @@ test('refuses a backup that restores no attachments bucket', () => {
   expect(result.stdout).toContain('does not configure the attachments bucket')
 })
 
-test('refuses a backup with fewer than the four object policies', () => {
+test('refuses a backup without a required object policy', () => {
   const result = check(
     required,
     'INSERT INTO',
     withoutLines((line) => line.startsWith('create policy "attachments_delete_editor"')),
   )
   expect(result.status).not.toBe(0)
-  expect(result.stdout).toContain('storage.objects policies')
+  expect(result.stdout).toContain('attachments_delete_editor')
+})
+
+test('refuses a backup that restores a direct attachment write policy', () => {
+  const result = check(
+    required,
+    'INSERT INTO',
+    `${healthyStorage}\ncreate policy "attachments_insert_editor" on storage.objects to "authenticated";`,
+  )
+  expect(result.status).not.toBe(0)
+  expect(result.stdout).toContain('uploads must cross the quota command')
 })
 
 test('refuses a backup that would restore the bucket as public', () => {

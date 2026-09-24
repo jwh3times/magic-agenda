@@ -16,7 +16,7 @@ still contain the auth state captured when they were made; this change does not 
 
 **`storage.sql` is the third file, and it exists because `schema.sql` covers `public` only
 (#401).** Two things the attachments feature added were in no backup at all: the `storage.buckets`
-row for `attachments` — its `public = false`, size limit, and MIME allow-list — and the four
+row for `attachments` — its `public = false`, size limit, and MIME allow-list — and its
 `storage.objects` policies, which are the entire object-side authorization boundary. A restore
 without them rebuilt `task_attachments` rows pointing at a bucket that either did not exist or
 existed with no policies, and **nothing failed** — the worst shape, because the feature is simply
@@ -35,8 +35,9 @@ Supabase project provisions itself, and the data half would capture every `stora
 metadata for files whose bytes are in no backup, so a restore would rebuild rows pointing at
 objects that do not exist. That is the silent-breakage shape, not a fix for it.
 
-The verify step asserts the bucket line is present, that at least four object policies are, and
-**that the bucket is restored as private** — a bucket restored with `public = true` makes every
+The verify step asserts the bucket line is present, that the membership-scoped SELECT and DELETE
+policies are present, that no direct attachment INSERT/UPDATE policy is restored, and **that the
+bucket is restored as private** — a bucket restored with `public = true` makes every
 object policy decorative, because the object URL alone serves the file, and it restores perfectly
 cleanly. The generator itself refuses to write a file with no bucket row or no policies, so
 "attachments are backed up" cannot be recorded for a bundle that restores nothing.

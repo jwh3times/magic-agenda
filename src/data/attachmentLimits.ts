@@ -1,15 +1,17 @@
 /**
  * What the database and the storage bucket will accept for an attachment (#278).
  *
- * These mirror three server-side rules, and none of them is the boundary: the bucket's own
- * `file_size_limit` and `allowed_mime_types` refuse the bytes, and `task_attachments`'
+ * These mirror three server-side rules, and none of them is the boundary: the upload command
+ * detects the actual file type, the bucket's own `file_size_limit` and `allowed_mime_types` refuse
+ * the bytes, and `task_attachments`'
  * `task_attachments_size_within_limit` / `_mime_allowed` / `_filename_nonempty` refuse the row.
  * This module exists so the editor can say *why* before spending an upload on a rejection the
  * server was always going to make, in the same spirit as `taskLimits.ts`.
  *
- * Keep the numbers in step with `20260918210000_task_attachments_foundation.sql`. Changing one
- * without the other means the editor either blocks a file the server would take, or promises one
- * it will refuse.
+ * Keep the numbers in step with `20260918210000_task_attachments_foundation.sql` and the
+ * `upload-attachment` Edge Function. Changing one without the others means the editor either blocks
+ * a file the server would take, or promises one it will refuse. Board-wide limits (100 MiB and
+ * 1,000 objects) are enforced transactionally by `reserve_attachment_upload`, not this file.
  */
 
 /** 10 MiB, the same literal the bucket and the CHECK constraint use. */

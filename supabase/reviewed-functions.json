@@ -33,6 +33,12 @@
       "explicitAcl": true,
       "executeGrantees": "(owner only)"
     },
+    "cancel_attachment_upload(uuid,uuid)": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "service_role"
+    },
     "create_board(text)": {
       "secdef": true,
       "config": "search_path=\"\"",
@@ -76,6 +82,12 @@
       "executeGrantees": "service_role"
     },
     "reminder_candidate_rows()": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "service_role"
+    },
+    "reserve_attachment_upload(uuid,uuid,uuid,uuid,text,text,bigint)": {
       "secdef": true,
       "config": "search_path=\"\"",
       "explicitAcl": true,

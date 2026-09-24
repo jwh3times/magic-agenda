@@ -142,6 +142,27 @@ content is not its call, whereas here the caller is the Owner and that is what O
 Practical consequence for fixtures: a test that reaches for the service client to create a Board
 gets a permission error; seed through direct SQL or `create_board`, never by widening the grant.
 
+## Attachments are a Board-scoped command (#400)
+
+Attachment reads and deletes follow current Membership, but uploads do not write Storage directly.
+Supabase Storage checks INSERT RLS before authoritative object metadata exists and completes the
+write as its superuser, so a client-supplied size cannot safely enforce an aggregate quota. The
+`upload-attachment` Edge Function is therefore the only writer: it authenticates first, detects
+PNG/JPEG/GIF/WebP/PDF from the bytes, then calls the service-role-only
+`reserve_attachment_upload` RPC before uploading with the service role. Authenticated users have
+no `storage.objects` INSERT or UPDATE policy.
+
+The reservation command verifies an Owner or Editor Membership and serializes by Board with a
+transaction advisory lock. Its 100 MiB / 1,000-object limits count authoritative
+`storage.objects.metadata` plus recent reservations whose object has not landed yet; an object and
+its matching row are counted exactly once, while storage orphans still consume quota. A failed
+upload calls `cancel_attachment_upload`, which removes the reservation only when the object is
+absent—important when Storage reports an error after committing the bytes.
+
+Direct `task_attachments` INSERT remains only for Undo. Its policy requires the generated object
+path to exist already and the row's size and MIME to match Storage metadata exactly. This preserves
+restoring a cascaded row with its original id without reopening a client upload path.
+
 **Task attribution is stamped by the database (#291).** The invoker trigger
 `stamp_task_attribution` sets `author_id = auth.uid()`, `author_kind = 'author'`, and `revision = 1`
 on INSERT; every UPDATE increments the stored revision, and both paths stamp `last_editor_id`.

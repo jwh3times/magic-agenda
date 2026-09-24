@@ -457,6 +457,11 @@ verify_jwt = true
 [functions.delete-board]
 verify_jwt = true
 
+# Attachment bytes and their authoritative row are one server-side command (#400). The gateway
+# verifies the caller's JWT before the service-role adapter reserves Board quota and writes bytes.
+[functions.upload-attachment]
+verify_jwt = true
+
 # Invoked only by pg_cron with a dedicated bearer secret checked inside the handler. Supabase's JWT
 # gateway cannot validate that opaque secret, so gateway verification is off for this one function.
 [functions.send-reminders]

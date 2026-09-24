@@ -1,11 +1,11 @@
 import { beforeEach, expect, test, vi } from 'vitest'
 
 /**
- * The ordering contracts in `attachments.ts`, which are the whole substance of the module.
+ * The command and ordering contracts in `attachments.ts`, which are the substance of the module.
  *
- * Every assertion here is about *sequence*, not about data shape: upload before insert, row before
- * object on delete, and what is cleaned up when the second step fails. Those are exactly the
- * properties that look arbitrary in a diff and cost a permanently stranded file when reversed.
+ * Upload crosses one server command; deletion still removes the row before the object. These are
+ * exactly the properties that look arbitrary in a diff and cost a permanently stranded file when
+ * bypassed or reversed.
  */
 
 const h = vi.hoisted(() => {
@@ -26,6 +26,8 @@ const h = vi.hoisted(() => {
       count: number | null
       error: { message: string } | null
     },
+    invokeResult: null as null | { ok: false; error: string },
+    invokeError: null as null | { message: string },
   }
 
   /** `.select().in().order().range()` — the capture's paged read (#404). */
@@ -54,6 +56,13 @@ const h = vi.hoisted(() => {
     calls.push(`upload:${path}`)
     return Promise.resolve({ error: state.uploadError })
   })
+  const invoke = vi.fn((_name: string, _options: { method: string; body: FormData }) => {
+    calls.push('invoke')
+    return Promise.resolve({
+      data: state.invokeResult ?? { ok: true, attachment: state.insertedRow },
+      error: state.invokeError,
+    })
+  })
   // storage-js RESOLVES its failures as `{ data: null, error }` -- including network errors, which
   // it wraps as StorageUnknownError -- and only throws for a non-StorageError. `shouldThrowOnError`
   // is not enabled on this client. An earlier version of these tests mocked a rejection, which
@@ -75,7 +84,7 @@ const h = vi.hoisted(() => {
     )
   })
 
-  return { calls, state, upload, remove, createSignedUrl, single, captureIn, upsert }
+  return { calls, state, upload, invoke, remove, createSignedUrl, single, captureIn, upsert }
 })
 
 vi.mock('../lib/supabase', () => ({
@@ -115,6 +124,7 @@ vi.mock('../lib/supabase', () => ({
         createSignedUrl: h.createSignedUrl,
       })),
     },
+    functions: { invoke: h.invoke },
   },
 }))
 
@@ -148,7 +158,7 @@ const row = (over: Record<string, unknown> = {}) => ({
 
 const pngFile = (over: Partial<{ name: string; size: number; type: string }> = {}) => {
   const spec = { name: 'diagram.png', size: 2048, type: 'image/png', ...over }
-  return { ...spec, arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)) } as unknown as File
+  return new File([new Uint8Array(spec.size)], spec.name, { type: spec.type })
 }
 
 beforeEach(() => {
@@ -164,7 +174,10 @@ beforeEach(() => {
   h.state.captureError = null
   h.state.upsertError = null
   h.state.countResult = { count: 2, error: null }
+  h.state.invokeResult = null
+  h.state.invokeError = null
   h.upload.mockClear()
+  h.invoke.mockClear()
   h.remove.mockClear()
   h.captureIn.mockClear()
   h.upsert.mockClear()
@@ -186,43 +199,43 @@ test('rows are mapped out of snake_case', async () => {
   })
 })
 
-test('the object is uploaded BEFORE the row is inserted', async () => {
-  // The reason `id` is granted on INSERT. The other order means a failed upload leaves a row
-  // describing a file that does not exist, and a lost connection strands it permanently.
-  await uploadAttachment(BOARD, TASK, pngFile())
-  // Only the sequence matters here; the path itself is pinned by the test below.
-  expect(h.calls.map((call) => call.split(':')[0])).toEqual(['upload', 'insert'])
+test('upload crosses the attachment command and returns its authoritative row', async () => {
+  const file = pngFile()
+  const attachment = await uploadAttachment(BOARD, TASK, file)
+
+  expect(h.invoke).toHaveBeenCalledOnce()
+  const [functionName, options] = h.invoke.mock.calls[0]
+  expect(functionName).toBe('upload-attachment')
+  expect(options.method).toBe('POST')
+  const body = options.body
+  expect(body.get('boardId')).toBe(BOARD)
+  expect(body.get('taskId')).toBe(TASK)
+  expect(body.get('file')).toBe(file)
+  expect(attachment).toEqual({
+    id: '33333333-3333-4333-8333-333333333333',
+    taskId: TASK,
+    boardId: BOARD,
+    storagePath: `${BOARD}/${TASK}/33333333-3333-4333-8333-333333333333`,
+    filename: 'diagram.png',
+    mimeType: 'image/png',
+    sizeBytes: 2048,
+    uploadedBy: 'someone',
+    createdAt: '2026-09-19T00:00:00Z',
+  })
+  expect(h.upload).not.toHaveBeenCalled()
 })
 
-test('the path is board/task/id, and the id is the one inserted', async () => {
-  await uploadAttachment(BOARD, TASK, pngFile())
-  const path = h.upload.mock.calls[0][0]
-  const [board, task, id] = path.split('/')
-  expect(board).toBe(BOARD)
-  expect(task).toBe(TASK)
-  // The id must match the row's, or the generated `storage_path` would name a different object.
-  expect(id).toMatch(/^[0-9a-f-]{36}$/)
+test('a command refusal reaches the attachment UI as its domain message', async () => {
+  h.state.invokeResult = {
+    ok: false,
+    error: 'This Board has reached its 100 MiB attachment limit.',
+  }
+  await expect(uploadAttachment(BOARD, TASK, pngFile())).rejects.toThrow('100 MiB')
 })
 
-test('a failed upload does not insert a row', async () => {
-  h.state.uploadError = { message: 'network down' }
+test('a function transport failure is surfaced', async () => {
+  h.state.invokeError = { message: 'network down' }
   await expect(uploadAttachment(BOARD, TASK, pngFile())).rejects.toThrow('network down')
-  expect(h.calls.filter((c) => c === 'insert')).toEqual([])
-})
-
-test('a refused row removes the object it had already written', async () => {
-  // Otherwise the object survives with nothing describing it -- invisible to the UI and to any
-  // quota query, and only collectable by the Board sweep much later.
-  h.state.insertError = { message: 'row refused' }
-  await expect(uploadAttachment(BOARD, TASK, pngFile())).rejects.toThrow('row refused')
-  expect(h.calls.filter((c) => c.startsWith('remove:'))).toHaveLength(1)
-})
-
-test('a cleanup failure does not mask the original error', async () => {
-  h.state.insertError = { message: 'row refused' }
-  h.state.removeFails = true
-  // The caller needs to know why the attachment failed, not that tidying up also failed.
-  await expect(uploadAttachment(BOARD, TASK, pngFile())).rejects.toThrow('row refused')
 })
 
 test('an invalid file is refused without touching storage', async () => {

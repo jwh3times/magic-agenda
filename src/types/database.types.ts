@@ -564,6 +564,10 @@ export type Database = {
           total_count: number
         }[]
       }
+      cancel_attachment_upload: {
+        Args: { p_account_id: string; p_attachment_id: string }
+        Returns: undefined
+      }
       create_board: { Args: { board_name: string }; Returns: string }
       ical_feed: { Args: { p_token: string }; Returns: Json }
       insert_materialized_occurrences: {
@@ -586,6 +590,34 @@ export type Database = {
           task_updated_at: string
           timezone: string
         }[]
+      }
+      reserve_attachment_upload: {
+        Args: {
+          p_account_id: string
+          p_attachment_id: string
+          p_board_id: string
+          p_filename: string
+          p_mime_type: string
+          p_size_bytes: number
+          p_task_id: string
+        }
+        Returns: {
+          board_id: string
+          created_at: string
+          filename: string
+          id: string
+          mime_type: string
+          size_bytes: number
+          storage_path: string
+          task_id: string
+          uploaded_by: string | null
+        }
+        SetofOptions: {
+          from: '*'
+          to: 'task_attachments'
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       rotate_ical_token: { Args: { p_board_id: string }; Returns: string }
       series_materialization_state: { Args: { p_from: string }; Returns: Json }

@@ -1,5 +1,12 @@
 import { afterAll, beforeAll, expect, test } from 'vitest'
-import { anonClient, createTestUser, currentBoardId, withPg, type TestUser } from './helpers'
+import {
+  anonClient,
+  createTestUser,
+  currentBoardId,
+  serviceClient,
+  withPg,
+  type TestUser,
+} from './helpers'
 
 /**
  * The authorization boundary for Task attachments (#278), exercised against a real stack.
@@ -97,22 +104,264 @@ const attachmentRow = (over: Record<string, unknown> = {}) => ({
   ...over,
 })
 
+const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+
+type ReservedAttachment = {
+  id: string
+  board_id: string
+  task_id: string
+  storage_path: string
+  filename: string
+  mime_type: string
+  size_bytes: number
+  uploaded_by: string | null
+  created_at: string
+}
+
+async function reserveAttachment(
+  over: {
+    accountId?: string
+    id?: string
+    boardId?: string
+    taskId?: string
+    filename?: string
+    mimeType?: string
+    sizeBytes?: number
+  } = {},
+) {
+  const id = over.id ?? crypto.randomUUID()
+  const boardId = over.boardId ?? aliceBoardId
+  const taskId = over.taskId ?? aliceTaskId
+  const result = await serviceClient()
+    .rpc('reserve_attachment_upload', {
+      p_account_id: over.accountId ?? alice.id,
+      p_attachment_id: id,
+      p_board_id: boardId,
+      p_filename: over.filename ?? 'diagram.png',
+      p_mime_type: over.mimeType ?? 'image/png',
+      p_size_bytes: over.sizeBytes ?? pngBytes.byteLength,
+      p_task_id: taskId,
+    })
+    .single()
+
+  const data = result.data as unknown as ReservedAttachment | null
+
+  return { data, error: result.error, id, boardId, taskId }
+}
+
+async function seedAttachment(over: Parameters<typeof reserveAttachment>[0] = {}) {
+  const reserved = await reserveAttachment(over)
+  if (reserved.error) throw new Error(`attachment reservation failed: ${reserved.error.message}`)
+
+  const path = `${reserved.boardId}/${reserved.taskId}/${reserved.id}`
+  const uploaded = await serviceClient()
+    .storage.from('attachments')
+    .upload(path, new Blob([pngBytes], { type: 'image/png' }), { contentType: 'image/png' })
+  if (uploaded.error) throw new Error(`attachment upload failed: ${uploaded.error.message}`)
+
+  if (!reserved.data) throw new Error('attachment reservation returned no row')
+  return { ...reserved.data, path }
+}
+
 // ---------------------------------------------------------------------------
 // task_attachments rows
 // ---------------------------------------------------------------------------
 
-test('an owner can attach to their own task, and storage_path is derived', async () => {
-  const { data, error } = await alice.client
-    .from('task_attachments')
-    .insert(attachmentRow())
-    .select('id, storage_path, board_id, task_id')
-    .single()
+test('an owner can reserve an attachment, and storage_path is derived', async () => {
+  const { data, error } = await reserveAttachment()
 
   expect(error).toBeNull()
   // The path is generated, never supplied. This is what ties the row to exactly one object.
   expect(data?.storage_path).toBe(`${aliceBoardId}/${aliceTaskId}/${data?.id}`)
 
   await alice.client.from('task_attachments').delete().eq('id', data!.id)
+})
+
+test('the service upload command reserves quota and creates the authoritative row', async () => {
+  const id = crypto.randomUUID()
+  const { data, error } = await reserveAttachment({ id, sizeBytes: 2048 })
+
+  expect(error).toBeNull()
+  expect(data).toMatchObject({
+    id,
+    board_id: aliceBoardId,
+    task_id: aliceTaskId,
+    storage_path: `${aliceBoardId}/${aliceTaskId}/${id}`,
+    filename: 'diagram.png',
+    mime_type: 'image/png',
+    size_bytes: 2048,
+    uploaded_by: alice.id,
+  })
+
+  await alice.client.from('task_attachments').delete().eq('id', id)
+})
+
+test('upload cleanup removes only a reservation whose object never landed', async () => {
+  const missingId = crypto.randomUUID()
+  await serviceClient().rpc('reserve_attachment_upload', {
+    p_account_id: alice.id,
+    p_attachment_id: missingId,
+    p_board_id: aliceBoardId,
+    p_filename: 'missing.png',
+    p_mime_type: 'image/png',
+    p_size_bytes: 8,
+    p_task_id: aliceTaskId,
+  })
+  const missingCancel = await serviceClient().rpc('cancel_attachment_upload', {
+    p_account_id: alice.id,
+    p_attachment_id: missingId,
+  })
+  expect(missingCancel.error).toBeNull()
+
+  const landedId = crypto.randomUUID()
+  const landedPath = `${aliceBoardId}/${aliceTaskId}/${landedId}`
+  await serviceClient().rpc('reserve_attachment_upload', {
+    p_account_id: alice.id,
+    p_attachment_id: landedId,
+    p_board_id: aliceBoardId,
+    p_filename: 'landed.png',
+    p_mime_type: 'image/png',
+    p_size_bytes: 8,
+    p_task_id: aliceTaskId,
+  })
+  const png = new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])], {
+    type: 'image/png',
+  })
+  await serviceClient()
+    .storage.from('attachments')
+    .upload(landedPath, png, { contentType: 'image/png' })
+  const landedCancel = await serviceClient().rpc('cancel_attachment_upload', {
+    p_account_id: alice.id,
+    p_attachment_id: landedId,
+  })
+  expect(landedCancel.error).toBeNull()
+
+  const { data: rows } = await alice.client
+    .from('task_attachments')
+    .select('id')
+    .in('id', [missingId, landedId])
+  expect(rows?.map((row) => row.id)).toEqual([landedId])
+
+  await alice.client.from('task_attachments').delete().eq('id', landedId)
+  await serviceClient().storage.from('attachments').remove([landedPath])
+})
+
+test('the byte quota counts orphaned objects and in-flight reservations exactly once', async () => {
+  const orphanId = crypto.randomUUID()
+  const orphanPath = `${aliceBoardId}/${aliceTaskId}/${orphanId}`
+  const orphan = new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])], {
+    type: 'image/png',
+  })
+  const uploaded = await serviceClient()
+    .storage.from('attachments')
+    .upload(orphanPath, orphan, { contentType: 'image/png' })
+  expect(uploaded.error).toBeNull()
+
+  // 90 MiB + (10 MiB - the 8-byte orphan) leaves the Board at exactly 100 MiB. These rows model
+  // reservations whose object upload has not completed yet, so a second concurrent command must
+  // count them even though storage.objects does not.
+  await withPg(async (pg) => {
+    for (let i = 0; i < 10; i++) {
+      const size = i === 9 ? 10 * 1024 * 1024 - 8 : 10 * 1024 * 1024
+      await pg.query(
+        `insert into public.task_attachments
+           (id, board_id, task_id, filename, mime_type, size_bytes, uploaded_by)
+         values ($1, $2, $3, $4, 'image/png', $5, $6)`,
+        [crypto.randomUUID(), aliceBoardId, aliceTaskId, `reservation-${i}.png`, size, alice.id],
+      )
+    }
+  })
+
+  const refused = await serviceClient().rpc('reserve_attachment_upload', {
+    p_account_id: alice.id,
+    p_attachment_id: crypto.randomUUID(),
+    p_board_id: aliceBoardId,
+    p_filename: 'one-more.png',
+    p_mime_type: 'image/png',
+    p_size_bytes: 1,
+    p_task_id: aliceTaskId,
+  })
+  expect(refused.error?.message).toBe('attachment_byte_quota_exceeded')
+
+  await serviceClient().storage.from('attachments').remove([orphanPath])
+  await withPg((pg) =>
+    pg.query(`delete from public.task_attachments where board_id = $1`, [aliceBoardId]),
+  )
+})
+
+test('the object quota refuses the 1,001st attachment on a Board', async () => {
+  await withPg((pg) =>
+    pg.query(
+      `insert into public.task_attachments
+         (id, board_id, task_id, filename, mime_type, size_bytes, uploaded_by)
+       select gen_random_uuid(), $1, $2, 'tiny-' || n || '.png', 'image/png', 1, $3
+         from generate_series(1, 1000) n`,
+      [aliceBoardId, aliceTaskId, alice.id],
+    ),
+  )
+
+  const refused = await serviceClient().rpc('reserve_attachment_upload', {
+    p_account_id: alice.id,
+    p_attachment_id: crypto.randomUUID(),
+    p_board_id: aliceBoardId,
+    p_filename: 'one-more.png',
+    p_mime_type: 'image/png',
+    p_size_bytes: 1,
+    p_task_id: aliceTaskId,
+  })
+  expect(refused.error?.message).toBe('attachment_object_quota_exceeded')
+
+  await withPg((pg) =>
+    pg.query(`delete from public.task_attachments where board_id = $1`, [aliceBoardId]),
+  )
+})
+
+test('concurrent reservations cannot both consume the final byte', async () => {
+  await withPg(async (pg) => {
+    for (let i = 0; i < 10; i++) {
+      const size = i === 9 ? 10 * 1024 * 1024 - 1 : 10 * 1024 * 1024
+      await pg.query(
+        `insert into public.task_attachments
+           (id, board_id, task_id, filename, mime_type, size_bytes, uploaded_by)
+         values ($1, $2, $3, $4, 'image/png', $5, $6)`,
+        [crypto.randomUUID(), aliceBoardId, aliceTaskId, `reserved-${i}.png`, size, alice.id],
+      )
+    }
+  })
+
+  const call = `select (public.reserve_attachment_upload(
+    $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::text, 'image/png'::text, 1::bigint
+  )).id`
+
+  await withPg(async (first) => {
+    await withPg(async (second) => {
+      await first.query('begin')
+      await second.query('begin')
+      await first.query('set local role service_role')
+      await second.query('set local role service_role')
+
+      const firstId = crypto.randomUUID()
+      const secondId = crypto.randomUUID()
+      await first.query(call, [alice.id, firstId, aliceBoardId, aliceTaskId, 'first.png'])
+
+      const secondResult = second
+        .query(call, [alice.id, secondId, aliceBoardId, aliceTaskId, 'second.png'])
+        .then(() => null)
+        .catch((error: { message?: string }) => error.message ?? '')
+
+      // Keep the first reservation uncommitted long enough for the second connection to reach the
+      // same command. Without Board-scoped serialization it cannot see the first row and succeeds.
+      await first.query('select pg_sleep(0.05)')
+      await first.query('commit')
+
+      expect(await secondResult).toBe('attachment_byte_quota_exceeded')
+      await second.query('rollback')
+    })
+  })
+
+  await withPg((pg) =>
+    pg.query(`delete from public.task_attachments where board_id = $1`, [aliceBoardId]),
+  )
 })
 
 test('storage_path cannot be supplied by the client', async () => {
@@ -125,17 +374,42 @@ test('storage_path cannot be supplied by the client', async () => {
   expect(error).not.toBeNull()
 })
 
-test('a non-member cannot read or write attachments on another board', async () => {
-  const { data: seeded } = await alice.client
+test('a client cannot forge the size or MIME recorded for an existing object', async () => {
+  const id = crypto.randomUUID()
+  const path = `${aliceBoardId}/${aliceTaskId}/${id}`
+  const png = new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])], {
+    type: 'image/png',
+  })
+  const uploaded = await serviceClient()
+    .storage.from('attachments')
+    .upload(path, png, { contentType: 'image/png' })
+  expect(uploaded.error).toBeNull()
+
+  const forged = await alice.client.from('task_attachments').insert(
+    attachmentRow({
+      id,
+      mime_type: 'application/pdf',
+      size_bytes: 1,
+    }),
+  )
+  expect(forged.error?.code).toBe('42501')
+
+  const accurate = await alice.client
     .from('task_attachments')
-    .insert(attachmentRow())
-    .select('id')
-    .single()
+    .insert(attachmentRow({ id, mime_type: 'image/png', size_bytes: 8 }))
+  expect(accurate.error).toBeNull()
+
+  await alice.client.from('task_attachments').delete().eq('id', id)
+  await serviceClient().storage.from('attachments').remove([path])
+})
+
+test('a non-member cannot read or write attachments on another board', async () => {
+  const seeded = await seedAttachment()
 
   const { data: read, error: readError } = await bob.client
     .from('task_attachments')
     .select('id')
-    .eq('id', seeded!.id)
+    .eq('id', seeded.id)
   expect(readError).toBeNull()
   expect(read).toEqual([]) // filtered, not errored -- RLS denies by returning no rows
 
@@ -143,43 +417,40 @@ test('a non-member cannot read or write attachments on another board', async () 
   expect(writeError).not.toBeNull()
   expect(writeError?.code).toBe('42501')
 
-  await alice.client.from('task_attachments').delete().eq('id', seeded!.id)
+  await alice.client.from('task_attachments').delete().eq('id', seeded.id)
+  await serviceClient().storage.from('attachments').remove([seeded.path])
 })
 
 test('a viewer may read an attachment row but not create or delete one', async () => {
-  const { data: seeded } = await alice.client
-    .from('task_attachments')
-    .insert(attachmentRow())
-    .select('id')
-    .single()
+  const seeded = await seedAttachment()
   await grantBob('viewer')
 
-  const { data: read } = await bob.client.from('task_attachments').select('id').eq('id', seeded!.id)
+  const { data: read } = await bob.client.from('task_attachments').select('id').eq('id', seeded.id)
   expect(read).toHaveLength(1) // Viewers read. That is what Viewer means.
 
   const { error: insertError } = await bob.client.from('task_attachments').insert(attachmentRow())
   expect(insertError?.code).toBe('42501')
 
   // DELETE denies by filtering rather than erroring, so assert the row survived.
-  await bob.client.from('task_attachments').delete().eq('id', seeded!.id)
+  await bob.client.from('task_attachments').delete().eq('id', seeded.id)
   const { data: stillThere } = await alice.client
     .from('task_attachments')
     .select('id')
-    .eq('id', seeded!.id)
+    .eq('id', seeded.id)
   expect(stillThere).toHaveLength(1)
 
   await revokeBob()
-  await alice.client.from('task_attachments').delete().eq('id', seeded!.id)
+  await alice.client.from('task_attachments').delete().eq('id', seeded.id)
+  await serviceClient().storage.from('attachments').remove([seeded.path])
 })
 
-test('an editor may create and delete attachments', async () => {
+test('an editor may reserve and delete attachments through the upload command', async () => {
   await grantBob('editor')
 
-  const { data, error } = await bob.client
-    .from('task_attachments')
-    .insert(attachmentRow({ filename: 'from-editor.pdf', mime_type: 'application/pdf' }))
-    .select('id')
-    .single()
+  const { data, error } = await reserveAttachment({
+    accountId: bob.id,
+    filename: 'from-editor.png',
+  })
   expect(error).toBeNull()
 
   await bob.client.from('task_attachments').delete().eq('id', data!.id)
@@ -192,29 +463,23 @@ test('an editor may create and delete attachments', async () => {
 test('a former member loses attachment access when their membership ends', async () => {
   // `ended_at is null` is the clause that carries this, in all four policies. Dropping it from any
   // one of them would leave every former member with access, and no other test here would notice.
-  const { data: seeded } = await alice.client
-    .from('task_attachments')
-    .insert(attachmentRow())
-    .select('id')
-    .single()
+  const seeded = await seedAttachment()
   await grantBob('editor')
 
   const { data: whileMember } = await bob.client
     .from('task_attachments')
     .select('id')
-    .eq('id', seeded!.id)
+    .eq('id', seeded.id)
   expect(whileMember).toHaveLength(1) // sanity: the fixture actually granted access
 
   await endBobMembership()
 
-  const { data: after } = await bob.client
-    .from('task_attachments')
-    .select('id')
-    .eq('id', seeded!.id)
+  const { data: after } = await bob.client.from('task_attachments').select('id').eq('id', seeded.id)
   expect(after).toEqual([])
 
   await revokeBob()
-  await alice.client.from('task_attachments').delete().eq('id', seeded!.id)
+  await alice.client.from('task_attachments').delete().eq('id', seeded.id)
+  await serviceClient().storage.from('attachments').remove([seeded.path])
 })
 
 test('an anonymous client reads zero rows without an error', async () => {
@@ -240,9 +505,7 @@ test('an attachment cannot name a task from a different board', async () => {
     .select('id')
     .single()
 
-  const { error } = await alice.client
-    .from('task_attachments')
-    .insert(attachmentRow({ task_id: bobTask!.id }))
+  const { error } = await reserveAttachment({ taskId: bobTask!.id })
   expect(error).not.toBeNull()
   expect(error?.code).toBe('23503') // foreign key violation, not a policy denial
 
@@ -255,11 +518,10 @@ test('deleting a task cascades its attachment rows', async () => {
     .insert({ title: 'doomed', board_id: aliceBoardId })
     .select('id')
     .single()
-  const { data: attachment } = await alice.client
-    .from('task_attachments')
-    .insert(attachmentRow({ task_id: task!.id }))
-    .select('id')
-    .single()
+  const { data: attachment, error: attachmentError } = await reserveAttachment({
+    taskId: task!.id,
+  })
+  expect(attachmentError).toBeNull()
 
   await alice.client.from('tasks').delete().eq('id', task!.id)
 
@@ -275,30 +537,20 @@ test('deleting a task cascades its attachment rows', async () => {
 // ---------------------------------------------------------------------------
 
 test('the size and MIME limits are enforced by the database', async () => {
-  const tooBig = await alice.client
-    .from('task_attachments')
-    .insert(attachmentRow({ size_bytes: 10485761 })) // one byte over 10 MiB
+  const tooBig = await reserveAttachment({ sizeBytes: 10485761 }) // one byte over 10 MiB
   expect(tooBig.error?.code).toBe('23514')
 
-  const zero = await alice.client.from('task_attachments').insert(attachmentRow({ size_bytes: 0 }))
+  const zero = await reserveAttachment({ sizeBytes: 0 })
   expect(zero.error?.code).toBe('23514')
 
-  const exactly = await alice.client
-    .from('task_attachments')
-    .insert(attachmentRow({ size_bytes: 10485760 })) // the boundary itself is allowed
-    .select('id')
-    .single()
+  const exactly = await reserveAttachment({ sizeBytes: 10485760 }) // the boundary itself is allowed
   expect(exactly.error).toBeNull()
-  await alice.client.from('task_attachments').delete().eq('id', exactly.data!.id)
+  await alice.client.from('task_attachments').delete().eq('id', exactly.id)
 
-  const badMime = await alice.client
-    .from('task_attachments')
-    .insert(attachmentRow({ mime_type: 'text/html' }))
+  const badMime = await reserveAttachment({ mimeType: 'text/html' })
   expect(badMime.error?.code).toBe('23514')
 
-  const emptyName = await alice.client
-    .from('task_attachments')
-    .insert(attachmentRow({ filename: '' }))
+  const emptyName = await reserveAttachment({ filename: '' })
   expect(emptyName.error?.code).toBe('23514')
 })
 
@@ -350,9 +602,7 @@ test('storage object policies name authenticated and are scoped to this bucket',
 
   expect(rows.map((r) => r.polname)).toEqual([
     'attachments_delete_editor',
-    'attachments_insert_editor',
     'attachments_select_member',
-    'attachments_update_editor',
   ])
 
   for (const row of rows) {
@@ -377,10 +627,17 @@ test('object access follows board membership, by path prefix', async () => {
     type: 'image/png',
   })
 
-  const upload = await alice.client.storage
+  const directUpload = await alice.client.storage
     .from('attachments')
     .upload(alicePath, png, { contentType: 'image/png' })
-  expect(upload.error).toBeNull() // an Owner may write under her own Board's prefix
+  expect(directUpload.error).not.toBeNull()
+
+  // The upload command is the only writer. Its service-role adapter bypasses object RLS after the
+  // authenticated reservation RPC has checked Membership and quota atomically.
+  const upload = await serviceClient()
+    .storage.from('attachments')
+    .upload(alicePath, png, { contentType: 'image/png' })
+  expect(upload.error).toBeNull()
 
   // A non-member cannot read the object, even knowing its exact path.
   const bobRead = await bob.client.storage.from('attachments').download(alicePath)
@@ -432,16 +689,12 @@ test('an editor cannot upload into a board they do not belong to', async () => {
 // Claims the migration makes that would otherwise have no coverage
 // ---------------------------------------------------------------------------
 
-test('uploaded_by is stamped from the session, not supplied by the client', async () => {
+test('uploaded_by is stamped from the verified command account, not supplied by the client', async () => {
   // "Attribution is evidence about a write, never a client assertion." Two halves, both asserted:
   // the column is absent from the INSERT grant, and a trigger fills it. An earlier draft of this
   // migration granted the column and had no trigger, so a caller could attribute their upload to
   // any account at all -- including one with no membership on the Board.
-  const { data, error } = await alice.client
-    .from('task_attachments')
-    .insert(attachmentRow())
-    .select('id, uploaded_by')
-    .single()
+  const { data, error } = await reserveAttachment()
   expect(error).toBeNull()
   expect(data?.uploaded_by).toBe(alice.id)
 
@@ -457,16 +710,12 @@ test('uploaded_by is stamped from the session, not supplied by the client', asyn
 test('only filename is updatable; the rest of the row is immutable', async () => {
   // The column-level UPDATE grant is the whole guarantee here -- a different file is a different
   // attachment. Without coverage, widening that grant later would break nothing visible.
-  const { data } = await alice.client
-    .from('task_attachments')
-    .insert(attachmentRow())
-    .select('id')
-    .single()
+  const data = await seedAttachment()
 
   const rename = await alice.client
     .from('task_attachments')
     .update({ filename: 'renamed.png' })
-    .eq('id', data!.id)
+    .eq('id', data.id)
   expect(rename.error).toBeNull()
 
   for (const patch of [
@@ -475,11 +724,12 @@ test('only filename is updatable; the rest of the row is immutable', async () =>
     { mime_type: 'application/pdf' },
     { size_bytes: 4096 },
   ]) {
-    const result = await alice.client.from('task_attachments').update(patch).eq('id', data!.id)
+    const result = await alice.client.from('task_attachments').update(patch).eq('id', data.id)
     expect(result.error).not.toBeNull() // refused by the grant, not by RLS
   }
 
-  await alice.client.from('task_attachments').delete().eq('id', data!.id)
+  await alice.client.from('task_attachments').delete().eq('id', data.id)
+  await serviceClient().storage.from('attachments').remove([data.path])
 })
 
 test('authenticated cannot TRUNCATE the table', async () => {
@@ -526,12 +776,12 @@ test('an object path that is not <board>/<task>/<file> is refused', async () => 
   }
 })
 
-test('a viewer cannot move an object, and an editor cannot move it across boards', async () => {
-  // `attachments_update_editor` is justified as the thing that stops a file being renamed into
-  // another Board's prefix. Nothing exercised it before.
+test('direct object moves are denied even to editors', async () => {
+  // Object identity is immutable. The upload command is the only writer, so no authenticated
+  // client receives UPDATE access to storage.objects.
   const path = `${aliceBoardId}/${aliceTaskId}/${crypto.randomUUID()}`
   const png = new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], { type: 'image/png' })
-  await alice.client.storage.from('attachments').upload(path, png, { contentType: 'image/png' })
+  await serviceClient().storage.from('attachments').upload(path, png, { contentType: 'image/png' })
 
   await grantBob('viewer')
   const viewerMove = await bob.client.storage
@@ -540,8 +790,12 @@ test('a viewer cannot move an object, and an editor cannot move it across boards
   expect(viewerMove.error).not.toBeNull()
   await revokeBob()
 
-  // Alice may edit her own Board but has no membership on bob's, so the `with check` refuses the
-  // destination even though the `using` side admits the source.
+  // Owners cannot move within their own Board or across Boards either.
+  const withinBoard = await alice.client.storage
+    .from('attachments')
+    .move(path, `${aliceBoardId}/${aliceTaskId}/${crypto.randomUUID()}`)
+  expect(withinBoard.error).not.toBeNull()
+
   const crossBoard = await alice.client.storage
     .from('attachments')
     .move(path, `${bobBoardId}/${aliceTaskId}/${crypto.randomUUID()}`)
@@ -565,16 +819,15 @@ test('an attachment row re-inserted with its original id addresses the surviving
     .single()
 
   const id = crypto.randomUUID()
-  const { data: original, error: insertError } = await alice.client
-    .from('task_attachments')
-    .insert(attachmentRow({ id, task_id: task!.id }))
-    .select('storage_path')
-    .single()
+  const { data: original, error: insertError } = await reserveAttachment({
+    id,
+    taskId: task!.id,
+  })
   expect(insertError).toBeNull()
 
-  const png = new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], { type: 'image/png' })
-  const uploaded = await alice.client.storage
-    .from('attachments')
+  const png = new Blob([pngBytes], { type: 'image/png' })
+  const uploaded = await serviceClient()
+    .storage.from('attachments')
     .upload(original!.storage_path, png, { contentType: 'image/png' })
   expect(uploaded.error).toBeNull()
 
@@ -588,7 +841,7 @@ test('an attachment row re-inserted with its original id addresses the surviving
     .insert({ id: task!.id, title: 'restored', board_id: aliceBoardId })
   const { data: restored, error: restoreError } = await alice.client
     .from('task_attachments')
-    .insert(attachmentRow({ id, task_id: task!.id }))
+    .insert(attachmentRow({ id, task_id: task!.id, size_bytes: pngBytes.byteLength }))
     .select('storage_path')
     .single()
   expect(restoreError).toBeNull()
@@ -611,12 +864,11 @@ test('restoring a row that never left is ignored, not refused', async () => {
   // is the only shape available, because UPDATE on this table grants `filename` alone: the update
   // half of a real upsert would be refused on `board_id`, `task_id`, `mime_type`, `size_bytes`.
   const id = crypto.randomUUID()
-  const { error: first } = await alice.client.from('task_attachments').insert(attachmentRow({ id }))
-  expect(first).toBeNull()
+  const seeded = await seedAttachment({ id })
 
   const ignored = await alice.client
     .from('task_attachments')
-    .upsert([attachmentRow({ id, filename: 'renamed.png' })], {
+    .upsert([attachmentRow({ id, filename: 'renamed.png', size_bytes: pngBytes.byteLength })], {
       onConflict: 'id',
       ignoreDuplicates: true,
     })
@@ -634,8 +886,11 @@ test('restoring a row that never left is ignored, not refused', async () => {
   // resolves it as an UPDATE, which the column grants refuse.
   const merged = await alice.client
     .from('task_attachments')
-    .upsert([attachmentRow({ id, filename: 'renamed.png' })], { onConflict: 'id' })
+    .upsert([attachmentRow({ id, filename: 'renamed.png', size_bytes: pngBytes.byteLength })], {
+      onConflict: 'id',
+    })
   expect(merged.error).not.toBeNull()
 
   await alice.client.from('task_attachments').delete().eq('id', id)
+  await serviceClient().storage.from('attachments').remove([seeded.path])
 })

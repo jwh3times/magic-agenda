@@ -228,9 +228,12 @@ jobs:
           # alone would then serve the file.
           grep -q 'insert into storage.buckets' backup/storage.sql \
             || fail "storage.sql does not configure the attachments bucket — a restore would leave it missing or dashboard-default"
-          storage_policies=$(grep -c '^create policy' backup/storage.sql || true)
-          [ "${storage_policies:-0}" -ge 4 ] \
-            || fail "storage.sql defines only ${storage_policies:-0} storage.objects policies — expected at least 4; the object authorization boundary was not captured"
+          for policy in attachments_select_member attachments_delete_editor; do
+            grep -q "^create policy \"$policy\"" backup/storage.sql \
+              || fail "storage.sql does not define $policy — the object authorization boundary was not captured"
+          done
+          ! grep -qE '^create policy "attachments_(insert|update)_' backup/storage.sql \
+            || fail "storage.sql restores a direct attachment write policy — uploads must cross the quota command"
           grep -qE 'values [(].*, *false, *' backup/storage.sql \
             || fail "storage.sql does not restore the attachments bucket as private"
 

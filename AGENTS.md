@@ -122,10 +122,10 @@ the area it covers; do not rely on this page's summaries for it.
   the `authGateway` seam (the only module that may call `supabase.auth`), PKCE vs. `#access_token`
   fragments, Turnstile on password auth and reset, single-use email-token redemption
   and the session-fixation guard, and the two-factor step-up gate.
-- [**Boards, membership, and account administration**](docs/agents/boards.md) — `boards` /
-  `board_memberships` / `account_profiles`, the Membership-scoped policies and column grants,
-  `create_board` / `handle_new_user` / `handle_account_deletion`, task attribution, admin roles and
-  feature flags.
+- [**Boards, membership, attachments, and account administration**](docs/agents/boards.md) —
+  `boards` / `board_memberships` / `account_profiles`, the Membership-scoped policies and column
+  grants, the attachment upload command and quotas, `create_board` / `handle_new_user` /
+  `handle_account_deletion`, task attribution, admin roles and feature flags.
 - [**Labels and the import/export file format**](docs/agents/labels.md) — Board-owned Label
   vocabulary, Owner-only management, the retired Category bridge, and `src/data/exportImport.ts`
   import planning.
