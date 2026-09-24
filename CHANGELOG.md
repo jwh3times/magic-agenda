@@ -12,6 +12,16 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.15.3] - 2026-09-24
+
+### Fixed
+
+- **Opening a Board no longer shows an error when another writer materializes the same recurring
+  Occurrence first (#426).** The client now treats the unique-index race with the daily job or
+  another tab as a signal to reload the complete Board. It replaces the failed optimistic batch
+  with the winning rows, so the rest of that batch is not left only in memory or delayed until the
+  next visit.
+
 ## [1.15.2] - 2026-09-23
 
 ### Fixed

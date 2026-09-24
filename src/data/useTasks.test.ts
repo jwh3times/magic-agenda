@@ -11,6 +11,7 @@ const h = vi.hoisted(() => {
     selectStatus: number
     failLaterPage: boolean
     writeRows: unknown[] | null
+    insertError: { code?: string; message: string } | null
     /** What `captureTaskAttachments` resolves with (#404). */
     attachments: { id: string; taskId: string }[]
     /**
@@ -25,13 +26,14 @@ const h = vi.hoisted(() => {
     selectStatus: 200,
     failLaterPage: false,
     writeRows: null,
+    insertError: null,
     attachments: [],
     trace: [],
   }
   const ok = () => Promise.resolve({ data: null, error: null })
   const writeSelect = vi.fn(() => Promise.resolve({ data: capture.writeRows, error: null }))
   const selectable = () => {
-    const result = ok()
+    const result = Promise.resolve({ data: null, error: capture.insertError })
     return Object.assign(result, { select: writeSelect })
   }
   // Stable spies so tests can assert on the rows reload/materialize/updateSeries write.
@@ -216,6 +218,7 @@ beforeEach(() => {
   h.capture.selectStatus = 200
   h.capture.failLaterPage = false
   h.capture.writeRows = null
+  h.capture.insertError = null
   h.insert.mockClear()
   h.upsert.mockClear()
   h.updateEq.mockReset()
@@ -305,6 +308,50 @@ test('reload does not re-insert instances the board already loaded (no duplicate
   // reload read a stale (empty) board and re-inserted i1, hitting tasks_recur_instance_uniq.
   expect(h.insert).not.toHaveBeenCalled()
   expect(result.current.tasks.map((t) => t.id)).toEqual(['i1'])
+})
+
+test('a materialization race reloads every Occurrence without surfacing an error (#426)', async () => {
+  const today = ymd(new Date())
+  const tomorrow = ymd(addDays(new Date(), 1))
+  const definition = serverRow({
+    id: 'series-1',
+    recur_freq: 'daily',
+    day: today,
+    recur_until: tomorrow,
+  })
+  h.capture.rows = [definition]
+  h.capture.insertError = { code: '23505', message: 'duplicate Occurrence' }
+  h.insert.mockImplementationOnce(() => {
+    // The concurrent writer won one row, then completed the same missing set before our reload.
+    h.capture.rows = [
+      definition,
+      serverRow({
+        id: 'winner-today',
+        recur_parent_id: 'series-1',
+        recur_origin_day: today,
+        day: today,
+      }),
+      serverRow({
+        id: 'winner-tomorrow',
+        recur_parent_id: 'series-1',
+        recur_origin_day: tomorrow,
+        day: tomorrow,
+      }),
+    ]
+    return h.selectable()
+  })
+
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+
+  await waitFor(() =>
+    expect({
+      error: result.current.error,
+      taskIds: result.current.tasks.map((task) => task.id),
+    }).toEqual({
+      error: null,
+      taskIds: ['winner-today', 'winner-tomorrow'],
+    }),
+  )
 })
 
 test('updateSeries "this and future" persists the edited content to existing instances', async () => {

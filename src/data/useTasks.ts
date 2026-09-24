@@ -253,7 +253,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       // `MATERIALIZE_GRACE_DAYS` in recurrence.ts absorbs exactly that, which is what keeps this
       // call site on the cheap clock.
       const instances = pendingInstances(templates, board, ymd(new Date()), newId)
-      if (instances.length === 0) return
+      if (instances.length === 0) return false
       // missingInstances already excludes covered occurrences, so these are all new; a plain insert
       // avoids ON CONFLICT (which can't target the partial unique index). The index still blocks
       // true duplicates at the DB level.
@@ -266,10 +266,16 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         const { error: err } = await supabase
           .from('tasks')
           .insert(instances.map((t) => taskToRow(t, boardId)))
+        // Another client or the daily job may have committed the same Occurrence after our read.
+        // The plain batch inserted nothing, so its optimistic rows must be replaced by a fresh,
+        // complete Board read. The caller owns that reload because this function also runs inside
+        // reload's in-flight guard.
+        if (err?.code === '23505') return true
         if (err) throw new Error(err.message)
       } catch (e) {
         setError(errorMessage(e))
       }
+      return false
     },
     [setTasks, boardId, markWrites],
   )
@@ -317,25 +323,28 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     setLoading(true)
     setError(null)
     try {
-      const response = await loadBoardTasks(boardId)
-      const { data, error: err } = response
-      if (err) {
-        const reason = snapshotFallbackReason(response.status)
-        if (hydrateFromSnapshot(reason, reason === 'network' ? null : err.message)) return
-        setError(err.message)
-        return
+      while (true) {
+        const response = await loadBoardTasks(boardId)
+        const { data, error: err } = response
+        if (err) {
+          const reason = snapshotFallbackReason(response.status)
+          if (hydrateFromSnapshot(reason, reason === 'network' ? null : err.message)) return
+          setError(err.message)
+          return
+        }
+        const all = (data ?? []).map(rowToTask)
+        templatesRef.current = all.filter(isSeriesDefinition)
+        bumpTemplatesVersion()
+        const instances = all.filter((t) => !isSeriesDefinition(t))
+        if (hasSession) hasLoadedFromServer.current = true
+        setOffline(false)
+        setFallbackReason(null)
+        setSavedAt(null)
+        setTasks(instances)
+        // Pass the freshly-loaded instances directly: tasksRef.current is not yet updated here.
+        const raced = await materialize(templatesRef.current, instances)
+        if (!raced) break
       }
-      const all = (data ?? []).map(rowToTask)
-      templatesRef.current = all.filter(isSeriesDefinition)
-      bumpTemplatesVersion()
-      const instances = all.filter((t) => !isSeriesDefinition(t))
-      if (hasSession) hasLoadedFromServer.current = true
-      setOffline(false)
-      setFallbackReason(null)
-      setSavedAt(null)
-      setTasks(instances)
-      // Pass the freshly-loaded instances directly: tasksRef.current is not yet updated here.
-      await materialize(templatesRef.current, instances)
     } catch (e) {
       // postgrest resolves fetch failures rather than throwing, so this is defensive: a future
       // .throwOnError() must not turn an offline boot into an unhandled rejection.
@@ -446,7 +455,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
           return
         }
         // The board is unchanged by adding a template (templates are never in it).
-        await materialize([task], tasksRef.current)
+        if (await materialize([task], tasksRef.current)) void reload()
         return
       }
       const prev = tasksRef.current
@@ -469,7 +478,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         setError(errorMessage(e))
       }
     },
-    [setTasks, materialize, boardId, markWrites, reconcileReturnedRows, forgetUndo],
+    [setTasks, materialize, boardId, markWrites, reconcileReturnedRows, forgetUndo, reload],
   )
 
   /**
@@ -760,7 +769,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       // Pass the plan's own board rather than the ref: `setTasks` writes the ref inside a
       // deferred React updater, so the ref may still hold the pre-plan value here.
       if (!outcome.aborted && outcome.recover === 'none' && plan.materialize.length > 0) {
-        await materialize(plan.materialize, [...plan.state.tasks])
+        if (await materialize(plan.materialize, [...plan.state.tasks])) void reload()
       }
       return !outcome.failed
     },
