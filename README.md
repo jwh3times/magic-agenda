@@ -27,7 +27,9 @@ of three hand‑built themes.
   **Undo** for six seconds. Undo restores your earlier version, even over a change made on another
   device in the meantime, and says so.
 - **Rich task editor** — title, description, Note Color, an optional Board Label (or Unlabeled),
-  checklist, status, schedule, an optional due time, and a pin toggle for priority.
+  checklist, status, schedule, an optional due time, a pin toggle for priority, and PNG, JPEG, GIF,
+  WebP, or PDF attachments up to 10 MiB each. Each Board can hold up to 1,000 attachments and
+  100 MiB total.
   Tasks allow 500-character titles, 20,000-character descriptions, up to 200 checklist items within
   64 KiB of serialized checklist data, repeat intervals from 1 to 366, and repeats that end after
   1 to 1,000 occurrences. The editor provides feedback; database constraints also enforce these

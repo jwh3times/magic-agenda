@@ -66,13 +66,16 @@ async function seedBoard(user: TestUser, name: string): Promise<string> {
   // than one: deleting the Board cascades to the Task, which cascades to this row. A child table
   // that is merely *transitively* reachable is the kind that gets forgotten, which is exactly why
   // `contentsOf` counts it and asserts with a strict `toEqual`.
-  await user.client.from('task_attachments').insert({
-    board_id: data,
-    task_id: task!.id,
-    filename: `attached to ${name}.png`,
-    mime_type: 'image/png',
-    size_bytes: 1024,
-  })
+  // This test is about the FK cascade, not the upload command. Seed past the restore-only INSERT
+  // policy so no Storage object is needed merely to prove the transitive database relationship.
+  await withPg((pg) =>
+    pg.query(
+      `insert into public.task_attachments
+         (board_id, task_id, filename, mime_type, size_bytes, uploaded_by)
+       values ($1, $2, $3, 'image/png', 1024, $4)`,
+      [data, task!.id, `attached to ${name}.png`, user.id],
+    ),
+  )
   return data
 }
 
@@ -285,13 +288,14 @@ test('deleting a Board cannot reach another Account content', async () => {
       .single()
     // Seeded here too, so the blast-radius assertion below covers attachments rather than merely
     // counting zero of them on both sides.
-    await other.client.from('task_attachments').insert({
-      board_id: theirs,
-      task_id: theirTask!.id,
-      filename: 'theirs.png',
-      mime_type: 'image/png',
-      size_bytes: 1024,
-    })
+    await withPg((pg) =>
+      pg.query(
+        `insert into public.task_attachments
+           (board_id, task_id, filename, mime_type, size_bytes, uploaded_by)
+         values ($1, $2, 'theirs.png', 'image/png', 1024, $3)`,
+        [theirs, theirTask!.id, other.id],
+      ),
+    )
 
     await deleteBoardAsCommand(mine)
 

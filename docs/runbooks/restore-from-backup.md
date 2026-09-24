@@ -281,20 +281,27 @@ bucket is an `insert ... on conflict do update`, and each policy is preceded by
 safe.
 
 **The files themselves are NOT in the bundle and never have been.** This restores the bucket's
-configuration (`public = false`, the 10 MiB limit, the MIME allow-list) and the four object
-policies. `data.sql` restores the `task_attachments` rows. Every one of those rows will point at an
-object that does not exist, so in the app each attachment renders as a placeholder and will not
-open.
+configuration (`public = false`, the 10 MiB limit, the MIME allow-list) and its membership-scoped
+SELECT/DELETE object policies. Direct INSERT/UPDATE policies must stay absent because uploads cross
+the quota command. `data.sql` restores the `task_attachments` rows. Every one of those rows will
+point at an object that does not exist, so in the app each attachment renders as a placeholder and
+will not open.
 
 That is a deliberate, recorded gap (#401), not an oversight in this runbook. If it matters for the
 incident you are handling, say so explicitly when you report the restore — "all data restored" is
 false if anyone had attachments.
 
-**If `storage.sql` is missing from your bundle**, it predates v1.14.15. Recreate the bucket and the
-policies by applying `supabase/migrations/20260918210000_task_attachments_foundation.sql`, which is
-where both originally come from. Do not leave the bucket absent and do not create it from the
-dashboard without the policies: a bucket with no policy is default-deny (the feature breaks
-silently), and a bucket created `public` makes every policy decorative.
+Bundles made before v1.15.4 contain the retired attachment INSERT/UPDATE policies. After applying
+one, replay migrations through `20260924181615_enforce_attachment_quotas.sql` **after**
+`storage.sql`; otherwise the restore reopens direct uploads and bypasses the Board quota command.
+
+**If `storage.sql` is missing from your bundle**, it predates v1.14.15. Recreate the bucket and its
+current policies by replaying migrations through
+`20260924181615_enforce_attachment_quotas.sql`; applying only the original attachment foundation
+would restore obsolete direct-write policies and bypass the Board quota command. Do not leave the
+bucket absent and do not create it from the dashboard without the policies: a bucket with no policy
+is default-deny (the feature breaks silently), and a bucket created `public` makes every policy
+decorative.
 
 ## 4. Verify before declaring victory
 

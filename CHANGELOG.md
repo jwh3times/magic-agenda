@@ -12,6 +12,19 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.15.4] - 2026-09-24
+
+### Fixed
+
+- **Attachments now have enforceable per-Board storage quotas (#400).** A Board may hold up to
+  100 MiB and 1,000 attachment objects. Uploads go through one authenticated server command that
+  detects the real file type, reserves quota under a Board-scoped lock, writes the object, and
+  returns its authoritative record. Concurrent uploads cannot both claim the last capacity, and
+  orphaned Storage objects still count toward the limit.
+- Direct browser uploads are closed. Authenticated clients retain membership-scoped reads and
+  deletes, while Undo may restore an attachment row only when its existing object's size and MIME
+  match exactly.
+
 ## [1.15.3] - 2026-09-24
 
 ### Fixed
@@ -3963,7 +3976,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.3...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.4...HEAD
+[1.15.4]: https://github.com/jwh3times/magic-agenda/compare/v1.15.3...v1.15.4
 [1.15.3]: https://github.com/jwh3times/magic-agenda/compare/v1.15.2...v1.15.3
 [1.15.2]: https://github.com/jwh3times/magic-agenda/compare/v1.15.1...v1.15.2
 [1.15.1]: https://github.com/jwh3times/magic-agenda/compare/v1.15.0...v1.15.1

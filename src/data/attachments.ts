@@ -1,5 +1,4 @@
 import { supabase } from '../lib/supabase'
-import { newId } from '../lib/id'
 import { attachmentFileError } from './attachmentLimits'
 
 export const ATTACHMENTS_BUCKET = 'attachments'
@@ -29,6 +28,31 @@ type AttachmentRow = {
   size_bytes: number
   uploaded_by: string | null
   created_at: string
+}
+
+type UploadResult = { ok: true; attachment: AttachmentRow } | { ok: false; error: string }
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null
+
+function isAttachmentRow(value: unknown): value is AttachmentRow {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.id === 'string' &&
+    typeof value.task_id === 'string' &&
+    typeof value.board_id === 'string' &&
+    typeof value.storage_path === 'string' &&
+    typeof value.filename === 'string' &&
+    typeof value.mime_type === 'string' &&
+    typeof value.size_bytes === 'number' &&
+    (typeof value.uploaded_by === 'string' || value.uploaded_by === null) &&
+    typeof value.created_at === 'string'
+  )
+}
+
+function isUploadResult(value: unknown): value is UploadResult {
+  if (!isRecord(value) || typeof value.ok !== 'boolean') return false
+  return value.ok ? isAttachmentRow(value.attachment) : typeof value.error === 'string'
 }
 
 /** Named once: every read of this table returns the same shape, including undo's capture. */
@@ -61,16 +85,14 @@ export async function listAttachments(taskId: string): Promise<Attachment[]> {
 /**
  * Upload a file and record it.
  *
- * **Upload first, insert second — and that order is why `id` is client-generated.** `storage_path`
- * is a generated column derived from `id`, so a client that could not choose `id` would have to
- * insert, read the id back, and only then upload; every failed upload would leave a row describing
- * a file that does not exist, and a connection lost between the two would strand it permanently.
- * PR 1 granted `id` on INSERT precisely so this order is available. Doing it this way leaves the
- * opposite failure — an object with no row — which is the orphan the issue already accepts and
- * which the Board and account sweeps (#399) clean up because they enumerate storage, not rows.
+ * **The Edge Function is the only upload writer (#400).** Supabase Storage evaluates object INSERT
+ * policies before authoritative metadata exists, so a browser-side Storage call cannot enforce an
+ * aggregate byte quota. The command authenticates the caller, detects MIME from the bytes, reserves
+ * Board quota under a transaction lock, uploads with the service role, and returns the row it
+ * created. Authenticated clients have no direct Storage INSERT or UPDATE policy.
  *
- * The local check is a courtesy, not the boundary: the bucket and the table CHECKs refuse the same
- * things server-side. It exists so a 10 MB upload is not spent discovering a rule we already knew.
+ * The local check is a courtesy, not the boundary. It exists so a 10 MiB upload is not spent
+ * discovering a rule the command, bucket, or table was always going to refuse.
  */
 export async function uploadAttachment(
   boardId: string,
@@ -80,43 +102,29 @@ export async function uploadAttachment(
   const rejection = attachmentFileError(file)
   if (rejection) throw new Error(rejection)
 
-  const id = newId()
-  const storagePath = `${boardId}/${taskId}/${id}`
+  const body = new FormData()
+  body.set('boardId', boardId)
+  body.set('taskId', taskId)
+  body.set('file', file)
 
-  const { error: uploadError } = await supabase.storage
-    .from(ATTACHMENTS_BUCKET)
-    .upload(storagePath, file, { contentType: file.type, upsert: false })
-  if (uploadError) throw new Error(uploadError.message)
-
-  const { data, error } = await supabase
-    .from('task_attachments')
-    .insert({
-      id,
-      board_id: boardId,
-      task_id: taskId,
-      filename: file.name.trim(),
-      mime_type: file.type,
-      size_bytes: file.size,
-    })
-    .select(ATTACHMENT_COLUMNS)
-    .single()
-
-  if (error) {
-    // **Delete the row before removing the object, and do it unconditionally.**
-    //
-    // An error here does not prove the insert failed: a timeout, an aborted request, or a 5xx
-    // after commit all report an error for a row that landed. Removing the object without this
-    // would then produce a row describing a file that does not exist -- the state this module
-    // claims it cannot reach, permanent, and visible to the user only as a file that will never
-    // open. The id is ours, so the delete is a cheap no-op when the insert really did fail.
-    await supabase.from('task_attachments').delete().eq('id', id)
-    await supabase.storage.from(ATTACHMENTS_BUCKET).remove([storagePath])
-    // Always the original failure. What went wrong with the attachment is what the caller needs,
-    // not whatever the tidying up reported.
-    throw new Error(error.message)
+  const response = await supabase.functions.invoke<unknown>('upload-attachment', {
+    method: 'POST',
+    body,
+  })
+  const invokeError: unknown = response.error
+  if (invokeError) {
+    const message =
+      invokeError instanceof Error
+        ? invokeError.message
+        : isRecord(invokeError) && typeof invokeError.message === 'string'
+          ? invokeError.message
+          : 'Upload failed.'
+    throw new Error(message)
   }
-
-  return rowToAttachment(data)
+  const result: unknown = response.data
+  if (!isUploadResult(result)) throw new Error('Upload failed.')
+  if (!result.ok) throw new Error(result.error)
+  return rowToAttachment(result.attachment)
 }
 
 /**
