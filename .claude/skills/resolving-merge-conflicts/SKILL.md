@@ -1,5 +1,5 @@
 ---
-# GENERATED from .agents/skills/resolving-merge-conflicts/SKILL.md by scripts/sync-codex.mjs — do not edit; edit the source and run `npm run codex:sync`.
+# GENERATED — do not edit. Source: .agents/skills/resolving-merge-conflicts/SKILL.md — regenerate with 'node scripts/sync-agents.mjs'.
 name: resolving-merge-conflicts
 description: "Use when you need to resolve an in-progress git merge/rebase conflict."
 ---

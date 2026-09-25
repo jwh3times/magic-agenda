@@ -1,5 +1,5 @@
 ---
-# GENERATED from .agents/skills/wizard/SKILL.md by scripts/sync-codex.mjs — do not edit; edit the source and run `npm run codex:sync`.
+# GENERATED — do not edit. Source: .agents/skills/wizard/SKILL.md — regenerate with 'node scripts/sync-agents.mjs'.
 name: wizard
 description: Generate an interactive bash wizard that walks a human through steps only they can perform. Use when provisioning infrastructure, setting up credentials or CI secrets, walking an unfamiliar third-party dashboard, or running a one-off migration or cutover. Don't invoke this for steps the agent can perform itself.
 ---

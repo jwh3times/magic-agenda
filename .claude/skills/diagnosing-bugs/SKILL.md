@@ -1,5 +1,5 @@
 ---
-# GENERATED from .agents/skills/diagnosing-bugs/SKILL.md by scripts/sync-codex.mjs — do not edit; edit the source and run `npm run codex:sync`.
+# GENERATED — do not edit. Source: .agents/skills/diagnosing-bugs/SKILL.md — regenerate with 'node scripts/sync-agents.mjs'.
 name: diagnosing-bugs
 description: Diagnosis loop for hard bugs and performance regressions. Use when the user says "diagnose"/"debug this", or reports something broken/throwing/failing/slow.
 ---

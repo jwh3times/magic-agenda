@@ -19,7 +19,7 @@
 - [ ] `npm run build` passes
 - [ ] `CHANGELOG.md` has a `## [x.y.z]` section naming the version this merge will mint
       (`node scripts/next-version.mjs`), verified with `node scripts/check-changelog.mjs`
-- [ ] `npm run codex:check` passes (only relevant if you touched `.claude/`)
+- [ ] `npm run sync:agents:check` passes (only relevant if you touched `.claude/agents/` or `.agents/skills/`)
 - [ ] Followed the conventions in [CONTRIBUTING.md](../CONTRIBUTING.md)
 
 ## Notes for reviewers

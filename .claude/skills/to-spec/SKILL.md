@@ -1,5 +1,5 @@
 ---
-# GENERATED from .agents/skills/to-spec/SKILL.md by scripts/sync-codex.mjs — do not edit; edit the source and run `npm run codex:sync`.
+# GENERATED — do not edit. Source: .agents/skills/to-spec/SKILL.md — regenerate with 'node scripts/sync-agents.mjs'.
 name: to-spec
 description: Turn the current conversation into a spec and publish it to the project issue tracker — no interview, just synthesis of what you've already discussed.
 disable-model-invocation: true

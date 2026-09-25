@@ -1,5 +1,5 @@
 ---
-# GENERATED from .agents/skills/triage/SKILL.md by scripts/sync-codex.mjs — do not edit; edit the source and run `npm run codex:sync`.
+# GENERATED — do not edit. Source: .agents/skills/triage/SKILL.md — regenerate with 'node scripts/sync-agents.mjs'.
 name: triage
 description: Move issues and external PRs through a state machine of triage roles — categorise, verify, grill if needed, and write agent-ready briefs.
 disable-model-invocation: true

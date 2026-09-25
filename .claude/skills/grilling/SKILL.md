@@ -1,5 +1,5 @@
 ---
-# GENERATED from .agents/skills/grilling/SKILL.md by scripts/sync-codex.mjs — do not edit; edit the source and run `npm run codex:sync`.
+# GENERATED — do not edit. Source: .agents/skills/grilling/SKILL.md — regenerate with 'node scripts/sync-agents.mjs'.
 name: grilling
 description: Grill the user relentlessly about a plan, decision, or idea. Use when the user wants to stress-test their thinking, or uses any 'grill' trigger phrases.
 ---

@@ -168,7 +168,7 @@ backfill gap. If it still reports missing builds, go back to step 3 — do not p
 
 `format:check` covers `**/*.md` as of v1.5.0, so **the CHANGELOG and docs you just edited are
 formatting-gated in CI** — this used to be untrue and the old text said so. Fix failures with
-`npm run format`, then re-run `npm run codex:sync`: `.claude/agents/*.md` is formatted _and_ is the
+`npm run format`, then re-run `npm run sync:agents`: `.claude/agents/*.md` is formatted _and_ is the
 source for `.codex/agents/*.toml`, so formatting after syncing leaves the generated TOML stale and
 fails the required `Agents` check. If any check is red, stop and report — do not push.
 
@@ -229,6 +229,6 @@ beyond the fast checks.
 | Letting `docs-updater` edit `CHANGELOG.md` too              | Tell it to skip `CHANGELOG.md`; the skill owns that file.                                                                                                 |
 | Stacking a second section on re-ship                        | Rewrite in place; renumber if `$next` changed since last ship.                                                                                            |
 | Skipping the backfill because "it's not my change"          | The guard fails your PR for someone else's undocumented build. Step 3 is how it gets paid.                                                                |
-| Editing the CHANGELOG or docs and skipping `npm run format` | Markdown is formatting-gated since v1.5.0. Run `npm run format`, then `npm run codex:sync` — in that order.                                               |
+| Editing the CHANGELOG or docs and skipping `npm run format` | Markdown is formatting-gated since v1.5.0. Run `npm run format`, then `npm run sync:agents` — in that order.                                              |
 | Merging once green                                          | Stop at PR open — the human self-merges.                                                                                                                  |
 | Writing `## [$next]` without checking other open PRs        | Two branches from the same commit compute the same number. Check first; the second to merge pays with a red required check and a `CHANGELOG.md` conflict. |

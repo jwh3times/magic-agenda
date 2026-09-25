@@ -1,5 +1,5 @@
 ---
-# GENERATED from .agents/skills/handoff/SKILL.md by scripts/sync-codex.mjs — do not edit; edit the source and run `npm run codex:sync`.
+# GENERATED — do not edit. Source: .agents/skills/handoff/SKILL.md — regenerate with 'node scripts/sync-agents.mjs'.
 name: handoff
 description: Write a handoff document to Proton Drive, mark it active in handoff_map.json, and close the session with end-session.
 argument-hint: "What will the next session be used for?"

@@ -31,7 +31,7 @@ npm run dev
    npm run build                            # the "Build" check
    cd supabase/functions && deno test       # the "Functions" check (edge functions; must run from
                                             # inside supabase/functions — see below)
-   npm run codex:check                      # the "Agents" check (agent and skill source changes;
+   npm run sync:agents:check                # the "Agents" check (agent and skill source changes;
                                             # see Agent configuration below)
    ```
 
@@ -109,13 +109,13 @@ whole flow — backfill, compute the version, write the entry, run the checks, o
 ### Agent configuration
 
 Claude Code and Codex read different files. Edit subagents in **`.claude/agents/`** and skills in
-**`.agents/skills/`**. [`scripts/sync-codex.mjs`](./scripts/sync-codex.mjs) generates
+**`.agents/skills/`**. [`scripts/sync-agents.mjs`](./scripts/sync-agents.mjs) generates
 `.codex/agents/` from the subagent sources and `.claude/skills/` from the skill sources. After
 editing either authored tree, run:
 
 ```bash
-npm run codex:sync     # regenerate; commit the result
-npm run codex:check     # what the required "Agents" check runs
+npm run sync:agents        # regenerate; commit the result
+npm run sync:agents:check  # what the required "Agents" check runs
 ```
 
 Never hand-edit the generated trees — the script owns them, and the check fails on any file that is

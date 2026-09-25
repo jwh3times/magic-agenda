@@ -1,5 +1,5 @@
 ---
-# GENERATED from .agents/skills/implement/SKILL.md by scripts/sync-codex.mjs — do not edit; edit the source and run `npm run codex:sync`.
+# GENERATED — do not edit. Source: .agents/skills/implement/SKILL.md — regenerate with 'node scripts/sync-agents.mjs'.
 name: implement
 description: "Implement a piece of work based on a spec or set of tickets."
 disable-model-invocation: true

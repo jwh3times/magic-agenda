@@ -1,5 +1,5 @@
 ---
-# GENERATED from .agents/skills/end-session/SKILL.md by scripts/sync-codex.mjs — do not edit; edit the source and run `npm run codex:sync`.
+# GENERATED — do not edit. Source: .agents/skills/end-session/SKILL.md — regenerate with 'node scripts/sync-agents.mjs'.
 name: end-session
 description: Use when a work session is ending and you want it closed out cleanly — session discoveries written to memory, GitHub issues brought up to date, `private/` docs reconciled, and the local workspace tidied. Triggers on "clean up the local workspace, update any private/ docs and/or github issues that need it from this session", "end session", "wrap up for the day", "we're done for today".
 ---

@@ -78,8 +78,8 @@ jobs:
 
   # Two generated trees, opposite directions: .codex/agents is generated from
   # .claude/agents/, and .claude/skills is generated from .agents/skills/ (see AGENTS.md).
-  # This fails a PR that edits an authored tree without regenerating the other side.
-  # No `npm ci` — the script has no deps.
+  # This fails a PR that edits an authored tree without regenerating the other side, and
+  # asserts CLAUDE.md still imports AGENTS.md. No `npm ci` — the scripts have no deps.
   Agents:
     runs-on: ubuntu-latest
     steps:
@@ -87,7 +87,9 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: .nvmrc
-      - run: npm run codex:check
+      - run: node --test scripts/sync-agents.test.mjs
+      - run: npm run sync:agents:check
+      - run: npm run check:claude-md
 
   # Every merge to main auto-releases (see version.yml), so each PR must document
   # the version its merge will mint, and every already-released build must have an

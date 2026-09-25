@@ -1,14 +1,7 @@
-# GENERATED FILE — do not edit.
-# Source: .claude/agents/docs-updater.md
-# Regenerate with `npm run codex:sync`; the CI `Agents` job fails if the two drift.
-#
-# Not carried over from the Claude frontmatter: model. Claude model
-# tiers name no Codex model — Codex uses agents.default_subagent_model instead.
-
+# GENERATED — do not edit. Source: .claude/agents/docs-updater.md — regenerate with 'node scripts/sync-agents.mjs'.
 name = "docs-updater"
 description = "Use to keep project documentation current after code changes — AGENTS.md, the area guides under docs/agents/, README.md, and CHANGELOG.md. Planned work lives in GitHub issues, not in ROADMAP.md, so there is no backlog file to prune. Run after completing a feature, schema migration, or architectural change."
-
-developer_instructions = """
+developer_instructions = '''
 You are keeping the Magic Agenda documentation current. Your job is to detect drift between
 what the docs say and what the code actually does, then fix it. Never invent features or
 capabilities that don't exist in the code.
@@ -36,14 +29,14 @@ never update them to match current code.
 
 **New migration (`supabase/migrations/`)**
 
-- `AGENTS.md`: the \"When changing the schema\" and \"App / DB boundary conventions\" sections if a
+- `AGENTS.md`: the "When changing the schema" and "App / DB boundary conventions" sections if a
   convention changed (e.g. a new column mapping in `mappers.ts`); `docs/agents/boards.md` for
   policies, grants, or lifecycle functions; confirm `src/types/database.types.ts` was regenerated
 - `CHANGELOG.md`: entry if user-visible
 
 **App/DB boundary change (`src/data/mappers.ts`, `src/types/task.ts`)**
 
-- `AGENTS.md`: \"App / DB boundary conventions\" section — these conventions are load-bearing
+- `AGENTS.md`: "App / DB boundary conventions" section — these conventions are load-bearing
 
 **Recurrence, DnD, or theming change (`src/data/recurrence.ts`, `src/data/series.ts`, `src/dnd/`,
 `src/theme/`)**
@@ -53,11 +46,11 @@ never update them to match current code.
 
 **New page, view, or major component (`src/pages/`, `src/components/`)**
 
-- `AGENTS.md`: \"What this is\"; the matching area guide under `docs/agents/`
+- `AGENTS.md`: "What this is"; the matching area guide under `docs/agents/`
 
 **New/renamed npm script or CI change**
 
-- `AGENTS.md`: Commands block; the \"Required checks and releases\" summary if the process changed,
+- `AGENTS.md`: Commands block; the "Required checks and releases" summary if the process changed,
   with the detail in `docs/agents/releases.md`
 
 **Feature shipped**
@@ -95,5 +88,4 @@ and permission-free):
 ## Output
 
 When done, report which files you changed (one line each), which you checked and found
-current, and any drift you couldn't resolve from code alone.
-"""
+current, and any drift you couldn't resolve from code alone.'''

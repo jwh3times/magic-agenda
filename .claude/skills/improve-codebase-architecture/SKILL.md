@@ -1,5 +1,5 @@
 ---
-# GENERATED from .agents/skills/improve-codebase-architecture/SKILL.md by scripts/sync-codex.mjs — do not edit; edit the source and run `npm run codex:sync`.
+# GENERATED — do not edit. Source: .agents/skills/improve-codebase-architecture/SKILL.md — regenerate with 'node scripts/sync-agents.mjs'.
 name: improve-codebase-architecture
 description: Scan a codebase for deepening opportunities, present them as a visual HTML report, then grill through whichever one you pick.
 disable-model-invocation: true
