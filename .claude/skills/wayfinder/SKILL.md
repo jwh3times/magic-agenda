@@ -1,5 +1,5 @@
 ---
-# GENERATED from .agents/skills/wayfinder/SKILL.md by scripts/sync-codex.mjs — do not edit; edit the source and run `npm run codex:sync`.
+# GENERATED — do not edit. Source: .agents/skills/wayfinder/SKILL.md — regenerate with 'node scripts/sync-agents.mjs'.
 name: wayfinder
 description: Plan a huge chunk of work — more than one agent session can hold — as a shared map of decision tickets on your issue tracker, and resolve them one at a time until the way to the destination is clear.
 disable-model-invocation: true

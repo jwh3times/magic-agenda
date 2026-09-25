@@ -1,5 +1,5 @@
 ---
-# GENERATED from .agents/skills/tdd/SKILL.md by scripts/sync-codex.mjs — do not edit; edit the source and run `npm run codex:sync`.
+# GENERATED — do not edit. Source: .agents/skills/tdd/SKILL.md — regenerate with 'node scripts/sync-agents.mjs'.
 name: tdd
 description: Test-driven development. Use when the user wants to build features or fix bugs test-first, mentions "red-green-refactor", or wants integration tests.
 ---

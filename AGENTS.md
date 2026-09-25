@@ -26,8 +26,8 @@ npm run lint           # Oxlint, including TypeScript 7 type-aware linting
 npm run lint:fix       # apply Oxlint's safe fixes
 npm run format         # prettier --write (src, tests, scripts, and all .md; see .prettierignore)
 npm run format:check   # prettier --check (the CI "Format" job runs this + lint)
-npm run codex:sync     # regenerate Codex's agent config from .claude/
-npm run codex:check    # verify it is in sync (the CI "Agents" job runs this)
+npm run sync:agents        # regenerate .codex/agents and .claude/skills from their authored trees
+npm run sync:agents:check  # verify they are in sync (the CI "Agents" job runs this)
 npm run sync:main      # move public + private repos to main and fast-forward origin/main
 
 # Run one test file or one test by name:
@@ -153,7 +153,7 @@ the area it covers; do not rely on this page's summaries for it.
   production, the CLI-version and auth-secret wiring, Turnstile, the two auth email templates, and
   retiring an Edge Function.
 - [**Agents, skills, and docs automation**](docs/agents/tooling.md) — the two authored trees and
-  their generated mirrors, `npm run codex:sync`, and which documents a change must keep aligned.
+  their generated mirrors, `npm run sync:agents`, and which documents a change must keep aligned.
 - [**Backups**](docs/agents/backups.md) — the nightly encrypted dump, what the bundle must contain,
   and what a restore actually requires.
 

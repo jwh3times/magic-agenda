@@ -12,6 +12,30 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.15.6] - 2026-09-25
+
+### Internal
+
+- **The agent-sync script is now the shared cross-repository `scripts/sync-agents.mjs`.** It
+  replaces `scripts/sync-codex.mjs` and keeps the same two mirrors (`.claude/agents` →
+  `.codex/agents`, `.agents/skills` → `.claude/skills`). The npm scripts are renamed
+  `codex:sync` / `codex:check` → `sync:agents` / `sync:agents:check`. Every generated file
+  was regenerated: Codex agent TOML now uses a one-line banner and a `'''` literal string for the
+  instructions, and each generated `SKILL.md` banner names the new command. Non-`SKILL.md` skill
+  files are copied as raw bytes rather than rejected when they are not UTF-8.
+- The `CLAUDE.md` → `@AGENTS.md` import assertion, which the old script carried, is now its own
+  `scripts/check-claude-md.mjs` (`npm run check:claude-md`). The required `Agents` check runs
+  the shared script's `node:test` suite, `sync:agents:check`, and that check; Vitest no longer
+  collects `scripts/sync-agents.test.mjs`.
+
+## [1.15.5] - 2026-09-25
+
+### Internal
+
+- Dependabot: bumped the `npm-minor-and-patch` group — jsdom 30.1.0 → 30.1.1 and Oxlint
+  1.83.0 → 1.85.0 (#430). Backfilled by this release, per the changelog guard's Dependabot
+  exemption.
+
 ## [1.15.4] - 2026-09-24
 
 ### Fixed
@@ -3976,7 +4000,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.4...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.6...HEAD
+[1.15.6]: https://github.com/jwh3times/magic-agenda/compare/v1.15.5...v1.15.6
+[1.15.5]: https://github.com/jwh3times/magic-agenda/compare/v1.15.4...v1.15.5
 [1.15.4]: https://github.com/jwh3times/magic-agenda/compare/v1.15.3...v1.15.4
 [1.15.3]: https://github.com/jwh3times/magic-agenda/compare/v1.15.2...v1.15.3
 [1.15.2]: https://github.com/jwh3times/magic-agenda/compare/v1.15.1...v1.15.2

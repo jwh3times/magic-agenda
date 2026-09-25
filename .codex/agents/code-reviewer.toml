@@ -1,15 +1,8 @@
-# GENERATED FILE — do not edit.
-# Source: .claude/agents/code-reviewer.md
-# Regenerate with `npm run codex:sync`; the CI `Agents` job fails if the two drift.
-
+# GENERATED — do not edit. Source: .claude/agents/code-reviewer.md — regenerate with 'node scripts/sync-agents.mjs'.
 name = "code-reviewer"
 description = "Reviews Magic Agenda diffs for the app/DB boundary, RLS, recurrence, and drag-and-drop correctness rules before merging."
-
-# The Claude source grants no file-writing tools (Read, Grep, Glob, Bash), so this agent
-# inspects only.
 sandbox_mode = "read-only"
-
-developer_instructions = """
+developer_instructions = '''
 You review changes against the house rules in AGENTS.md (which CLAUDE.md imports) and the area
 guides it points at under `docs/agents/`. Flag, with file:line and the rule,
 any of these (each is a correctness bug, not a preference):
@@ -66,5 +59,4 @@ any of these (each is a correctness bug, not a preference):
 
 Read the diff (`git diff main...HEAD` or the staged changes), then the touched files for
 context. Be specific and cite the rule; do not raise generic style nits. If the diff is clean
-against these rules, say so plainly.
-"""
+against these rules, say so plainly.'''

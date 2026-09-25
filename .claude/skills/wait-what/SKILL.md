@@ -1,5 +1,5 @@
 ---
-# GENERATED from .agents/skills/wait-what/SKILL.md by scripts/sync-codex.mjs — do not edit; edit the source and run `npm run codex:sync`.
+# GENERATED — do not edit. Source: .agents/skills/wait-what/SKILL.md — regenerate with 'node scripts/sync-agents.mjs'.
 name: wait-what
 description: Stop. That last message did not land — re-pitch it.
 disable-model-invocation: true

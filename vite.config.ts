@@ -53,7 +53,14 @@ export default defineConfig({
     // Vitest's default `include` matches the whole repo, so without this the RLS integration
     // tests -- and the Playwright specs under tests/e2e/ -- would be swept into `npm test`,
     // which must never need Docker, a database, or a browser.
-    exclude: [...configDefaults.exclude, 'supabase/functions/**', 'tests/**'],
+    // scripts/sync-agents.test.mjs is shared verbatim across repositories and uses node:test, so
+    // CI runs it with `node --test` in the `Agents` job instead.
+    exclude: [
+      ...configDefaults.exclude,
+      'supabase/functions/**',
+      'tests/**',
+      'scripts/sync-agents.test.mjs',
+    ],
     // Hermetic: tests never touch a real project (getSession is local-only anyway).
     // Port 1 is privileged (root can bind it) but nothing listens there, so an unmocked call
     // gets ECONNREFUSED and fails loudly. Do NOT use 54321 here -- that is the local Supabase

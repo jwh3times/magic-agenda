@@ -29,8 +29,9 @@
     "lint:fix": "oxlint --fix .",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" \"scripts/*.ts\" \"**/*.md\" \"playwright*.config.ts\" vitest.rls.config.ts",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" \"scripts/*.ts\" \"**/*.md\" \"playwright*.config.ts\" vitest.rls.config.ts",
-    "codex:sync": "node scripts/sync-codex.mjs",
-    "codex:check": "node scripts/sync-codex.mjs --check",
+    "sync:agents": "node scripts/sync-agents.mjs",
+    "sync:agents:check": "node scripts/sync-agents.mjs --check",
+    "check:claude-md": "node scripts/check-claude-md.mjs",
     "bootstrap:private": "node scripts/bootstrap-private.mjs",
     "sync:main": "node scripts/sync-main.mjs"
   },

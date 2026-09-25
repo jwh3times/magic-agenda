@@ -55,12 +55,13 @@ has left `skills-lock.json`, so a skills sync will not overwrite it.
 
 Both Claude Code and Codex are used on this repo, and they read different files. Rather than keep
 hand-written copies that drift, each generated tree is produced from an authored one by
-`scripts/sync-codex.mjs` (`npm run codex:sync`):
+`scripts/sync-agents.mjs` (`npm run sync:agents`). The script is shared verbatim with the
+maintainer's other repositories — change it in one and copy it to all, never fork it here:
 
 | Authored (edit this)    | Generated (never edit)   | How                                            |
 | ----------------------- | ------------------------ | ---------------------------------------------- |
 | `.claude/agents/<n>.md` | `.codex/agents/<n>.toml` | frontmatter + body -> `developer_instructions` |
-| `.agents/skills/<n>/**` | `.claude/skills/<n>/**`  | copied verbatim, plus a "generated" banner     |
+| `.agents/skills/<n>/**` | `.claude/skills/<n>/**`  | copied byte-for-byte; `SKILL.md` gets a banner |
 
 The two rows run in **opposite** directions, and that asymmetry is deliberate, not a typo: each
 authored tree is wherever something actually writes to it. Subagents are hand-written under
@@ -85,25 +86,27 @@ broke for two independent reasons, hit for real in this repo once a skills-sync 
    file contents under the link's path, silently duplicating every byte instead of recording a link.
 
 **Never reintroduce a symlink under `.claude/skills/` or `.agents/skills/`** — either failure mode
-comes back. `scripts/sync-codex.mjs`'s walker now throws immediately on any symlink it finds, in
-either tree, specifically so a repeat shows up as a loud error instead of one of the two failures
-above.
+comes back. `scripts/sync-agents.mjs` never follows a symlink: one in an authored tree is an error,
+and one in a generated tree is reported by `--check` as orphaned and removed (the link, not its
+target) by a sync, so a repeat shows up loudly instead of as one of the two failures above.
 
 Rules for this pipeline:
 
 - **`.claude/agents/` and `.agents/skills/` are authored — edit those directly.** `.codex/agents/`
-  and `.claude/skills/` are generated — never hand-edit them, run `npm run codex:sync`. The script
+  and `.claude/skills/` are generated — never hand-edit them, run `npm run sync:agents`. The script
   owns every byte in both generated trees, so a file with no source is deleted as stale.
 - **Never "adapt" skill prose in transit.** A blind `CLAUDE.md` -> `AGENTS.md` substitution is what
   once produced "edit `AGENTS.md`, never add content to `AGENTS.md`". References to `CLAUDE.md` are
   correct as written for both tools, because it really does exist and really is just an import.
-- The Claude-only frontmatter keys are translated, not dropped silently: `tools:` without any
-  file-writing tool becomes `sandbox_mode = "read-only"`, and `model:` is recorded in a comment as
-  not carried over (Claude's tiers name no Codex model; Codex uses `agents.default_subagent_model`).
+- Of the Claude-only frontmatter keys, only the read-only fact is translated: `tools:` without any
+  file-writing tool becomes `sandbox_mode = "read-only"`. `model:`, `color:`, and the tool list
+  itself are dropped (Claude's tiers name no Codex model; Codex uses
+  `agents.default_subagent_model`). The instruction body is a TOML `'''` literal string, falling
+  back to an escaped `"""` string only when the body contains `'''` or ends in a quote.
 - A generated `SKILL.md` carries its banner as a YAML comment on line 2 — line 1 stays `---`, so the
   frontmatter still parses — rather than as prose after the closing `---`; every other file in a
   skill directory (`references/*.md`, `scripts/*.sh`, `agents/*.yaml`, …) is copied byte-for-byte.
-- **Run `npm run format` before `npm run codex:sync`, never after.** The formatter's globs reached
+- **Run `npm run format` before `npm run sync:agents`, never after.** The formatter's globs reached
   `**/*.md` in v1.4.4, which is the situation this bullet used to describe hypothetically. Neither
   _generated_ tree is formatted — `.codex/` and `.claude/skills/` are both `.prettierignore`'d, so a
   generated file is never rewritten out from under the script — but `.claude/agents/<n>.md` **is**
@@ -118,11 +121,14 @@ Rules for this pipeline:
   authored _and_ vendored, and the vendoring wins. `private/` is ignored for a different reason —
   git-ignored and local-only, so CI never sees it and formatting only rewrites security-review
   evidence in the maintainer's checkout.
-- The required **`Agents` CI job** runs `npm run codex:check`, which fails on any missing, hand-edited,
-  or stale generated file, and also asserts `CLAUDE.md` still contains its `@AGENTS.md` import line.
-  Pure logic in the script is unit-tested in `scripts/sync-codex.test.mjs`.
+- The required **`Agents` CI job** runs `node --test scripts/sync-agents.test.mjs` (the shared
+  script's own `node:test` suite, excluded from Vitest), then `npm run sync:agents:check`, which
+  fails on any missing, hand-edited, or orphaned generated file, then `npm run check:claude-md`
+  (`scripts/check-claude-md.mjs`), which asserts `CLAUDE.md` still contains its `@AGENTS.md`
+  import line. That check is repository-specific, so it lives outside the shared script; its
+  Vitest test is `scripts/check-claude-md.test.mjs`.
 - `skills-lock.json` at the repo root is the skills-sync tool's own lockfile (source repo + commit
-  hash per installed skill) — committed as installer metadata, untouched by `sync-codex.mjs`.
+  hash per installed skill) — committed as installer metadata, untouched by `sync-agents.mjs`.
 
 Completed implementation plans are archived under `docs/plans/` and `docs/specs/` (see
 `docs/README.md`) — they are dated historical records of shipped work, not living documentation;
