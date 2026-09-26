@@ -90,6 +90,11 @@ import reviewed from '../../supabase/reviewed-functions.json'
  * and the definer is that function's whole reach, since `service_role` holds no Board table grant.
  * `rotate_ical_token` is a client-invoked RPC of the second kind above: it takes a Board, never an
  * account, and draws the new token server-side so the client cannot choose a weak one.
+ *
+ * `board_members(uuid)` (#435) is the co-member read path, another client RPC of that kind. It is
+ * a definer because what it returns is exactly what the base tables must not: other members' rows
+ * of `board_memberships` (without their `ical_token`), their Display Names, and — for an Owner
+ * only — their emails from `auth.users`. A caller with no current Membership gets an empty set.
  */
 type ReviewedFunction = {
   secdef: boolean
