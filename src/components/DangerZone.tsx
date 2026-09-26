@@ -3,6 +3,21 @@ import { useNavigate } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
 
+const SOLE_OWNER_MESSAGE =
+  'You are the only owner of a board other people are still on. Make someone else an owner, or ' +
+  'delete that board, before deleting your account.'
+
+/**
+ * The HTTP status of a `functions.invoke` error, when there is one. supabase-js puts the
+ * `Response` on a `FunctionsHttpError`'s `context`; network failures and relay errors have none.
+ */
+function httpStatus(err: unknown): number | null {
+  if (typeof err !== 'object' || err === null || !('context' in err)) return null
+  const { context } = err
+  if (typeof context !== 'object' || context === null || !('status' in context)) return null
+  return typeof context.status === 'number' ? context.status : null
+}
+
 /**
  * Irreversible account deletion. The typed confirmation is the friction that
  * guards it; the server function only ever deletes the verified caller.
@@ -23,6 +38,13 @@ export function DangerZone() {
         method: 'POST',
       })
       const err: unknown = response.error
+      // 409 is the one refusal the user can act on: they are the sole Owner of a Board other
+      // people are still on. The function checks it before touching anything (#447).
+      if (httpStatus(err) === 409) {
+        setError(SOLE_OWNER_MESSAGE)
+        setBusy(false)
+        return
+      }
       if (err) throw new Error(err instanceof Error ? err.message : 'Account deletion failed')
     } catch {
       // Same message for a resolved `{ error }` and a thrown/rejected invoke.

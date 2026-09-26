@@ -48,11 +48,20 @@ const json = (body: unknown, status = 200) =>
  * Membership for this account, and exactly one current Membership in total. A
  * Shared Board that keeps another Owner survives, so its files must too.
  *
- * TODO(#279): that trigger raises `restrict_violation` when the account is the
- * sole Owner of a Board somebody else is still a member of. No such Board can
- * exist until sharing ships, so today it is unreachable -- but once it can
- * happen, it surfaces here as a generic `Deletion failed` 500 telling the user
- * nothing they could act on. Map it to its own message then.
+ * **The sole-Owner refusal is checked FIRST, and that order prevents data loss.**
+ * The trigger refuses the whole deletion when the account is the sole Owner of a
+ * Board somebody else is still on. Checked only there, the sweep would already
+ * have deleted the private Boards' files, and the refusal would leave the account
+ * alive with its Boards intact and their attachments gone. So the handler asks
+ * `account_deletion_plan` up front and answers 409 `sole-owner` before touching
+ * anything; the trigger stays the authority for a request that races this check.
+ *
+ * **Through a command, never the tables (#447).** The Board tables grant
+ * `service_role` nothing, so this handler's old direct reads of
+ * `board_memberships` were 42501 on any database without legacy default
+ * privileges. `account_deletion_plan` (`service_role` only) mirrors the
+ * trigger's three cases, and `tests/rls/deletion_commands.test.ts` checks the two
+ * agree.
  */
 export async function handler(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") {
@@ -64,10 +73,21 @@ export async function handler(req: Request): Promise<Response> {
   if (user instanceof Response) return user;
 
   const admin = adminClient();
+  let plan: DeletionPlan;
+  try {
+    plan = await deletionPlan(admin, user.id);
+  } catch (cause) {
+    console.error("delete-account: deletion plan failed", cause);
+    return json({ error: "Deletion failed" }, 500);
+  }
+  if (plan.soleOwnedShared > 0) {
+    return json({ error: "sole-owner", boards: plan.soleOwnedShared }, 409);
+  }
+
   // Sweep first, and abort the whole deletion if it fails. Leaving the account intact is the
   // recoverable outcome: the user can retry. Deleting the account with files stranded is not.
   try {
-    await removeBoardAttachments(admin, await privateBoardIds(admin, user.id));
+    await removeBoardAttachments(admin, plan.privateBoardIds);
   } catch (cause) {
     console.error("delete-account: attachment sweep failed", cause);
     return json({ error: "Deletion failed" }, 500);
@@ -83,35 +103,38 @@ export async function handler(req: Request): Promise<Response> {
   return json({ ok: true });
 }
 
+/** What deleting this account would do, as the handler needs it. */
+export interface DeletionPlan {
+  /** Boards the trigger will delete, whose attachment objects must be swept first. */
+  privateBoardIds: string[];
+  /** Boards whose sole Owner this account is while others remain; any at all refuses. */
+  soleOwnedShared: number;
+}
+
+type PlanRow = { board_id: string; disposition: string };
+
 /**
- * The Boards `handle_account_deletion` will delete: this account is a current member, and it is the
- * only current member. Mirrors the predicate in `20260813210400_account_deletion.sql` -- if that
- * trigger's definition of a Private Board ever changes, this has to change with it, or the sweep
- * and the cascade stop agreeing about which Boards are going away.
+ * Folds `account_deletion_plan` rows into what the handler acts on. An unrecognized disposition
+ * counts as blocking rather than ignored: a trigger that grew a new refusal case must not be
+ * answered by sweeping files first.
  */
-async function privateBoardIds(
+export function summarizePlan(rows: readonly PlanRow[]): DeletionPlan {
+  const plan: DeletionPlan = { privateBoardIds: [], soleOwnedShared: 0 };
+  for (const row of rows) {
+    if (row.disposition === "private") plan.privateBoardIds.push(row.board_id);
+    else if (row.disposition !== "shared") plan.soleOwnedShared += 1;
+  }
+  return plan;
+}
+
+async function deletionPlan(
   admin: Admin,
   accountId: string,
-): Promise<string[]> {
-  // `.returns<>()` because this client is untyped -- it has no generated Database generic, so
-  // PostgREST rows infer as `never` and every field access is a type error.
-  const { data, error } = await admin
-    .from("board_memberships")
-    .select("board_id")
-    .eq("account_id", accountId)
-    .is("ended_at", null)
-    .returns<{ board_id: string }[]>();
-  if (error) throw new Error(`membership lookup: ${error.message}`);
-
-  const boardIds: string[] = [];
-  for (const row of data ?? []) {
-    const { count, error: countError } = await admin
-      .from("board_memberships")
-      .select("board_id", { count: "exact", head: true })
-      .eq("board_id", row.board_id)
-      .is("ended_at", null);
-    if (countError) throw new Error(`membership count: ${countError.message}`);
-    if (count === 1) boardIds.push(row.board_id);
-  }
-  return boardIds;
+): Promise<DeletionPlan> {
+  const { data, error } = await admin.rpc("account_deletion_plan", {
+    p_account_id: accountId,
+  });
+  if (error) throw new Error(`account_deletion_plan: ${error.message}`);
+  // Untyped client (no generated Database generic), so the rows are asserted here.
+  return summarizePlan((data ?? []) as PlanRow[]);
 }

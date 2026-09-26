@@ -29,8 +29,14 @@ const json = (body: unknown, status = 200) =>
  *
  * **Authorization is this handler's own job.** The service-role client bypasses RLS entirely, so
  * `boards_delete_owner` protects nothing here. Ownership is checked explicitly below, against the
- * verified caller's id, before any destructive step -- and the service-role client is created only
- * after that check passes.
+ * verified caller's id, before any destructive step.
+ *
+ * **Through commands, never the tables (#447).** The Board tables grant `service_role` nothing,
+ * and `BYPASSRLS` skips policies, not privileges -- this handler used to read `board_memberships`
+ * and delete from `boards` directly, and both were 42501 on any database without legacy default
+ * privileges. `is_current_board_owner` and `delete_board_as_owner` (`service_role` only) are its
+ * whole reach; `tests/rls/deletion_commands.test.ts` calls them as `service_role` and fails if any
+ * function reads a Board table directly again.
  */
 export async function handler(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") {
@@ -59,22 +65,15 @@ export async function handler(req: Request): Promise<Response> {
   // The caller must be a CURRENT OWNER of this Board. `ended_at is null` matters as much as the
   // role: a former Owner is not an Owner. Anything else is 404 rather than 403, so this endpoint
   // cannot be used to probe which Board ids exist.
-  const { data: membership, error: membershipError } = await admin
-    .from("board_memberships")
-    .select("board_id")
-    .eq("board_id", boardId)
-    .eq("account_id", user.id)
-    .eq("role", "owner")
-    .is("ended_at", null)
-    // Untyped client: without this the row infers as `never`.
-    .returns<{ board_id: string }[]>()
-    .maybeSingle();
-
-  if (membershipError) {
-    console.error("delete-board: membership lookup failed", membershipError);
+  const { data: isOwner, error: ownerError } = await admin.rpc(
+    "is_current_board_owner",
+    { p_board_id: boardId, p_account_id: user.id },
+  );
+  if (ownerError) {
+    console.error("delete-board: ownership check failed", ownerError);
     return json({ error: "Deletion failed" }, 500);
   }
-  if (!membership) return json({ error: "Board not found" }, 404);
+  if (isOwner !== true) return json({ error: "Board not found" }, 404);
 
   // Objects first. Throwing here leaves every row untouched, which is the recoverable state.
   try {
@@ -84,9 +83,10 @@ export async function handler(req: Request): Promise<Response> {
     return json({ error: "Deletion failed" }, 500);
   }
 
-  const { error: deleteError } = await admin.from("boards").delete().eq(
-    "id",
-    boardId,
+  // Rechecks Ownership under the Board row lock: a demotion may have landed during the sweep.
+  const { data: deleted, error: deleteError } = await admin.rpc(
+    "delete_board_as_owner",
+    { p_board_id: boardId, p_account_id: user.id },
   );
   if (deleteError) {
     // The objects are already gone and the Board is not. That is the one inconsistent state this
@@ -94,6 +94,11 @@ export async function handler(req: Request): Promise<Response> {
     // rows go with it through the cascade. Logged because it should never happen.
     console.error("delete-board: board delete failed after sweep", deleteError);
     return json({ error: "Deletion failed" }, 500);
+  }
+  if (deleted !== true) {
+    // Demoted between the check and the delete. The Board stands, with its files already swept --
+    // the same harmless direction as above -- and the caller is no longer entitled to retry.
+    return json({ error: "Board not found" }, 404);
   }
 
   return json({ ok: true });

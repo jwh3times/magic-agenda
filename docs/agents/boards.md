@@ -110,6 +110,19 @@ INSERT grant or policy at all and never will have a self-serve one. What has sin
   refuse a non-Owner if the grant ever returned. This restores the symmetry with `create_board`:
   creation is a command because a Board and its Membership must appear together, and deletion is
   one because they must disappear together, in order.
+- **The deletion Edge Functions reach the Board tables only through `service_role`-only commands
+  (#447).** "Nothing to `service_role`" above is literal, and `BYPASSRLS` skips policies, not
+  privileges — so `delete-board` and `delete-account`, which used to read `board_memberships` and
+  delete from `boards` through their service-role client, were `42501` on any database without
+  legacy default privileges, and nothing tested them that way. They now call
+  `is_current_board_owner` and `delete_board_as_owner` (which rechecks Ownership under the Board
+  row lock, since the attachment sweep runs in between), and `account_deletion_plan`, which
+  classifies each of an Account's Boards as `private`, `sole-owner-shared`, or `shared` exactly as
+  `handle_account_deletion` does. `delete-account` refuses with **409 `sole-owner` before sweeping
+  anything** — checked only by the trigger, the sweep would already have deleted the private Boards'
+  files when the deletion was refused. `tests/rls/deletion_commands.test.ts` calls all three as
+  `service_role`, checks the plan against the real trigger, and fails if any Edge Function reads a
+  Board table directly again.
 - **`grant update (name)`, with an Owner-only UPDATE policy.** Column-scoped for the same reason as
   `board_memberships.default_view` and `account_profiles.display_name`: RLS cannot express "only
   this column changed", because a policy cannot see the old row. The grant is what keeps `id`,
