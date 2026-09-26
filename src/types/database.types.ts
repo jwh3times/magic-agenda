@@ -564,6 +564,17 @@ export type Database = {
           total_count: number
         }[]
       }
+      board_members: {
+        Args: { p_board_id: string }
+        Returns: {
+          account_id: string
+          display_name: string
+          email: string
+          joined_at: string
+          membership_id: string
+          role: string
+        }[]
+      }
       cancel_attachment_upload: {
         Args: { p_account_id: string; p_attachment_id: string }
         Returns: undefined

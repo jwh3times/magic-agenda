@@ -212,6 +212,27 @@ with its own. Withhold the column first — a column-scoped SELECT grant, or mov
 command — before adding that clause. `tests/rls/ical_feed.test.ts` pins the policy's exact current
 shape as a tripwire for this, not as documentation to remember by hand.
 
+## Co-members are read through a command, not a policy (#435)
+
+Sharing needs every member to see who else is on the Board, and the answer is **not** a co-member
+clause on either base table. `board_memberships` would leak the feed token above, and the domain
+model shows email addresses to **Owners only** — email lives in `auth.users`, which no `public`
+policy can reach. So `board_members(p_board_id uuid)` (`security definer` in `public`, empty
+`search_path`, `authenticated` only, no account parameter) returns exactly six columns for the
+Board's **current** Memberships: membership id, account id, role, Display Name (from
+`account_profiles`, `''` when unset), joined time, and email — NULL unless the caller is a current
+Owner. It is ordered Owners, Editors, Viewers, then by join time. A caller with no current
+Membership — ended, never joined, or a Board that does not exist — gets an empty set and cannot tell
+those apart, matching `NO_CAPABILITIES`. Both base tables stay own-rows only, and
+`tests/rls/board_members.test.ts` asserts that as well as every role's view, the column set, and
+the anon/service-role refusals.
+
+The client seam is `src/board/boardMembers.ts` (`listBoardMembers`, in the Board command outcome
+vocabulary; an empty answer is `membership-ended`, since a current member always sees their own
+row). It drops a role it does not recognize rather than defaulting it, and it is deliberately not
+snapshotted: a stale list of who can read a Board is worse than none.
+`fakeListBoardMembers` applies the same email rule for tests of callers.
+
 ## Account administration and feature flags
 
 `user_roles` is Account-scoped; an `admin` row is assigned and revoked through SQL only. Even
