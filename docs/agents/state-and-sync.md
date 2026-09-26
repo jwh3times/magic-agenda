@@ -156,6 +156,24 @@ own writes (`useOwnWrites`, a 5s per-id TTL), reconnect with capped exponential 
 catch-up on `visibilitychange`/`online`. `useTasks`, `useSettings`, and `useLabels` are its three
 adapters and keep only their own load, state shape, and snapshot envelope.
 
+**Echo suppression is revision-aware for `tasks` (#432).** Id-keyed suppression used to drop a
+genuine edit to the same row from another device inside the 5s window. Every `tasks` row now
+carries a server-stamped `revision` (#291), so each `useTasks` write reports its outcome to the
+registry: `settleWrites(rows)` with what the write returned (whole rows where it reconciles,
+`.select('id, revision')` where it does not) or `abandonWrites(ids)` on failure. Within the TTL an
+event is then suppressed only up to the revision our own write produced, and anything newer is
+delivered. Realtime can deliver an echo **before** the HTTP response that names its revision, so
+while a write is pending the newest revisioned payload for that row is held rather than judged, and
+released when the write settles if it proves newer (the channel drops it if it has been torn down,
+since a Board switch would otherwise land it on the wrong Board). DELETE payloads carry no revision:
+one counts as ours while any write to the row is pending (which is every delete of ours, since a
+DELETE is never settled) and as another writer's once all have settled. Two things keep the old
+behaviour on purpose: `user_settings` and `labels` have no `revision`, so they stay plain id + TTL;
+and a write that never reports degrades to exactly that, dropping what it held at expiry. Non-status
+writes read their returned rows for the revision **only** — reconciling them would let a slow
+response overwrite a newer optimistic edit, which is why only status changes (trigger-stamped
+Completion values) replace the optimistic row.
+
 **The filter is part of the adapter's spec, not hardcoded.** It was `user_id=eq.<userId>` for both
 tables until the authorization cutover; `tasks` and, since #188, `labels` filter on `board_id` (a
 user-scoped subscription would deliver changes for every Board the Account belongs to, including

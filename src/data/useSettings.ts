@@ -61,7 +61,7 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [loading, setLoading] = useState(true)
   const ref = useRef<Settings>(DEFAULTS)
-  const { markWrites, isOwnWrite } = useOwnWrites()
+  const { markWrites, screenEcho } = useOwnWrites()
 
   // The one place settings become current: keeps the ref, React state, and the offline
   // snapshot in step, so no caller can update two of the three and forget the last.
@@ -207,7 +207,7 @@ export function useSettings(userId: string, hasSession: boolean): UseSettings {
     filterValue: userId,
     reload: load,
     onChange: onRemoteChange,
-    isOwnWrite,
+    screenEcho,
   })
 
   const persist = useCallback(
