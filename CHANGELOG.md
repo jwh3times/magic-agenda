@@ -12,6 +12,32 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.15.9] - 2026-09-26
+
+### Fixed
+
+- **Deleting a Board and deleting an account no longer depend on table privileges the server does
+  not have (#447).** Both Edge Functions read `board_memberships`, and `delete-board` also deleted
+  from `boards`, through a service-role client. Those tables grant `service_role` no data
+  privilege, and DELETE on `boards` had been revoked from it explicitly, so on a database without
+  legacy default privileges both requests failed with a generic error before doing anything.
+  Whether production was affected was never confirmed; the fix makes the question moot. The
+  functions now call three narrow commands executable by `service_role` alone:
+  `is_current_board_owner`, `delete_board_as_owner` (which rechecks Ownership under the Board row
+  lock after the attachment sweep), and `account_deletion_plan`.
+- **A refused account deletion can no longer destroy attachments.** `delete-account` swept the
+  files of the Boards it expected to delete before the database decided whether the deletion could
+  proceed. The database refuses when the account is the only Owner of a Board other people are
+  still on, and that refusal would have left the account and its Boards in place with their files
+  gone. It now checks first and answers with a specific message — make someone else an Owner or
+  delete that Board — instead of "Could not delete your account".
+
+### Internal
+
+- `tests/rls/deletion_commands.test.ts` calls the commands as `service_role`, checks
+  `account_deletion_plan` against the real deletion trigger, pins that the Board tables still grant
+  `service_role` no data privilege, and fails if any Edge Function reads a Board table directly.
+
 ## [1.15.8] - 2026-09-26
 
 ### Added
@@ -4041,7 +4067,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.8...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.9...HEAD
+[1.15.9]: https://github.com/jwh3times/magic-agenda/compare/v1.15.8...v1.15.9
 [1.15.8]: https://github.com/jwh3times/magic-agenda/compare/v1.15.7...v1.15.8
 [1.15.7]: https://github.com/jwh3times/magic-agenda/compare/v1.15.6...v1.15.7
 [1.15.6]: https://github.com/jwh3times/magic-agenda/compare/v1.15.5...v1.15.6
