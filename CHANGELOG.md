@@ -12,6 +12,27 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.15.7] - 2026-09-26
+
+### Fixed
+
+- **A Task edit from another device is no longer dropped if it lands within five seconds of your
+  own save to the same Task (#432).** Realtime used to ignore every event for a row this client had
+  just written, for the whole five-second window, so the other device's change stayed invisible
+  until a reload or reconnect. Each Task write now records the `revision` the server stamped on
+  it, and only echoes up to that revision are ignored; anything newer is applied. An echo that arrives
+  before the save's own response is held until the save finishes, and a held edit survives a
+  failed save's rollback. Settings and Labels have no revision and keep the old behaviour. This is
+  the first write-path slice for shared Boards (#279).
+
+### Internal
+
+- Every Task write now returns rows so the own-write registry can settle: `id, revision` where
+  nothing reconciles, whole rows otherwise. A non-status save reads its returned row for the
+  revision only and never replaces the optimistic row with it. `useOwnWrites` gains
+  `settleWrites` / `abandonWrites`, and `useSyncedTable` takes `screenEcho` in place of
+  `isOwnWrite`.
+
 ## [1.15.6] - 2026-09-25
 
 ### Internal
@@ -4000,7 +4021,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.6...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.7...HEAD
+[1.15.7]: https://github.com/jwh3times/magic-agenda/compare/v1.15.6...v1.15.7
 [1.15.6]: https://github.com/jwh3times/magic-agenda/compare/v1.15.5...v1.15.6
 [1.15.5]: https://github.com/jwh3times/magic-agenda/compare/v1.15.4...v1.15.5
 [1.15.4]: https://github.com/jwh3times/magic-agenda/compare/v1.15.3...v1.15.4
