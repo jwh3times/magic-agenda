@@ -95,6 +95,12 @@ import reviewed from '../../supabase/reviewed-functions.json'
  * a definer because what it returns is exactly what the base tables must not: other members' rows
  * of `board_memberships` (without their `ical_token`), their Display Names, and — for an Owner
  * only — their emails from `auth.users`. A caller with no current Membership gets an empty set.
+ *
+ * `is_current_board_owner(uuid,uuid)`, `delete_board_as_owner(uuid,uuid)`, and
+ * `account_deletion_plan(uuid)` (#447) are `service_role`-only, like `ical_feed`: they are the
+ * `delete-board` and `delete-account` Edge Functions' whole reach into the Board tables, which grant
+ * `service_role` no data privilege. Their account parameter is safe because only those functions
+ * can call them, passing the id they verified from the caller's JWT.
  */
 type ReviewedFunction = {
   secdef: boolean

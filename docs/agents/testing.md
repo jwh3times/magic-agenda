@@ -349,7 +349,11 @@ world-readable and writable through the public anon key. That migration revokes 
 `postgres`) create through. **`authenticated` is revoked for the same reason as `anon`, not as
 belt-and-braces**: signup is open, so `authenticated` is `anon` plus one free registration.
 `service_role` is deliberately left alone — the Edge Functions hold the service key precisely to
-cross this boundary.
+cross this boundary. **But the service key crosses RLS, not privileges**: tables granted nothing,
+like `boards` and `board_memberships`, refuse it with `42501`, and no local test runs an Edge
+Function end to end (the stack excludes `edge-runtime`). A function reaching such a table goes
+through a `service_role`-only definer, and the RLS project calls that definer as `service_role`
+(#447, `tests/rls/deletion_commands.test.ts`).
 
 **This paragraph used to call that a production-only problem, "invisible to CI, which always
 builds a fresh database whose defaults are already restrictive". That was wrong** (#283, measured

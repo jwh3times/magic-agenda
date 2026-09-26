@@ -72,3 +72,23 @@ test('a thrown (rejected) call surfaces the same error, clears busy, and does no
   expect(h.signOut).not.toHaveBeenCalled()
   expect(btn).toBeEnabled() // busy cleared, not stuck disabled
 })
+
+test('a sole-Owner refusal says what to do instead of the generic failure (#447)', async () => {
+  // supabase-js puts the Response on a FunctionsHttpError's `context`.
+  h.invoke.mockResolvedValueOnce({
+    data: null,
+    error: Object.assign(new Error('Edge Function returned a non-2xx status code'), {
+      context: new Response('{"error":"sole-owner"}', { status: 409 }),
+    }),
+  })
+  renderZone()
+  await userEvent.type(screen.getByPlaceholderText('delete'), 'delete')
+  const btn = screen.getByRole('button', { name: 'Delete my account' })
+  await userEvent.click(btn)
+  expect(
+    await screen.findByText(/only owner of a board other people are still on/),
+  ).toBeInTheDocument()
+  expect(screen.queryByText(/Could not delete your account/)).toBeNull()
+  expect(h.signOut).not.toHaveBeenCalled()
+  expect(btn).toBeEnabled()
+})

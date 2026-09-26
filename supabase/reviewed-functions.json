@@ -9,6 +9,12 @@
     "service_role explicitly, not just from public."
   ],
   "functions": {
+    "account_deletion_plan(uuid)": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "service_role"
+    },
     "admin_stats()": {
       "secdef": true,
       "config": "search_path=\"\"",
@@ -50,6 +56,12 @@
       "config": "search_path=\"\"",
       "explicitAcl": true,
       "executeGrantees": "authenticated"
+    },
+    "delete_board_as_owner(uuid,uuid)": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "service_role"
     },
     "enforce_reminder_preferences()": {
       "secdef": false,
@@ -94,6 +106,12 @@
       "executeGrantees": "service_role"
     },
     "reserve_attachment_upload(uuid,uuid,uuid,uuid,text,text,bigint)": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "service_role"
+    },
+    "is_current_board_owner(uuid,uuid)": {
       "secdef": true,
       "config": "search_path=\"\"",
       "explicitAcl": true,

@@ -549,6 +549,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      account_deletion_plan: {
+        Args: { p_account_id: string }
+        Returns: {
+          board_id: string
+          disposition: string
+        }[]
+      }
       admin_stats: { Args: never; Returns: Json }
       admin_users: {
         Args: { page_limit: number; page_offset: number }
@@ -580,10 +587,18 @@ export type Database = {
         Returns: undefined
       }
       create_board: { Args: { board_name: string }; Returns: string }
+      delete_board_as_owner: {
+        Args: { p_account_id: string; p_board_id: string }
+        Returns: boolean
+      }
       ical_feed: { Args: { p_token: string }; Returns: Json }
       insert_materialized_occurrences: {
         Args: { p_rows: Json }
         Returns: number
+      }
+      is_current_board_owner: {
+        Args: { p_account_id: string; p_board_id: string }
+        Returns: boolean
       }
       reminder_candidate_rows: {
         Args: never
