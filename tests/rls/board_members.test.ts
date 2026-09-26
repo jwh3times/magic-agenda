@@ -42,7 +42,7 @@ let boardId: string
 async function members(user: TestUser, id = boardId): Promise<MemberRow[]> {
   const { data, error } = await user.client.rpc('board_members', { p_board_id: id })
   if (error) throw new Error(`board_members failed: ${error.message}`)
-  return data as MemberRow[]
+  return data
 }
 
 beforeAll(async () => {
@@ -74,7 +74,7 @@ beforeAll(async () => {
     .from('account_profiles')
     .update({ display_name: 'Eddie Editor' })
     .eq('account_id', editor.id)
-  expect(error).toBeNull()
+  if (error) throw new Error(`display name seed failed: ${error.message}`)
 })
 
 afterAll(async () => {

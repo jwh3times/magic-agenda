@@ -98,10 +98,11 @@ export function fakeListBoardMembers(
   members: readonly BoardMember[],
   callerAccountId: string,
 ): ListBoardMembers {
-  return async () => {
+  return () => {
     const caller = members.find((member) => member.accountId === callerAccountId)
-    if (!caller) return boardFailed('membership-ended')
+    if (!caller) return Promise.resolve(boardFailed('membership-ended'))
     const isOwner = caller.role === 'owner'
-    return { ok: true, value: members.map((m) => ({ ...m, email: isOwner ? m.email : null })) }
+    const value = members.map((m) => ({ ...m, email: isOwner ? m.email : null }))
+    return Promise.resolve({ ok: true, value })
   }
 }
