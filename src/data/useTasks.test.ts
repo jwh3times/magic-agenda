@@ -31,10 +31,22 @@ const h = vi.hoisted(() => {
     trace: [],
   }
   const ok = () => Promise.resolve({ data: null, error: null })
-  const writeSelect = vi.fn(() => Promise.resolve({ data: capture.writeRows, error: null }))
+  const writeSelect = vi.fn(() =>
+    Promise.resolve({ data: capture.writeRows, error: capture.insertError }),
+  )
   const selectable = () => {
     const result = Promise.resolve({ data: null, error: capture.insertError })
     return Object.assign(result, { select: writeSelect })
+  }
+  // A write that rejects (a network fault) whether it is awaited directly or through `.select()`.
+  // Every Task write now ends in `.select()` (#432), so rejecting only the bare promise would
+  // surface as "select is not a function" rather than as the fault under test.
+  const failedWrite = (message: string) => {
+    const rejected = Promise.reject(new Error(message))
+    rejected.catch(() => {})
+    return Object.assign(rejected, { select: () => rejected }) as unknown as ReturnType<
+      typeof selectable
+    >
   }
   // Stable spies so tests can assert on the rows reload/materialize/updateSeries write.
   const insert = vi.fn(selectable)
@@ -85,6 +97,7 @@ const h = vi.hoisted(() => {
   return {
     capture,
     ok,
+    failedWrite,
     selectable,
     writeSelect,
     insert,
@@ -455,7 +468,7 @@ test('a failed detach leaves the Series definition undeleted (#220)', async () =
   const { result } = renderHook(() => useTasks('u1', 'b1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
   h.deleteEq.mockClear()
-  h.upsert.mockRejectedValueOnce(new Error('detach failed'))
+  h.upsert.mockImplementationOnce(() => h.failedWrite('detach failed'))
 
   const instance = result.current.tasks.find((t) => t.id === 'i1')!
   await act(async () => {
@@ -610,6 +623,85 @@ test('a Kanban Workflow Status batch reconciles all authoritative returned rows'
   expect(result.current.tasks[0].completedAt).toBe('2026-09-03T14:32:00.000Z')
 })
 
+test('a settled save suppresses its own echo but applies a newer revision inside the TTL (#432)', async () => {
+  // The caveat this retires: id-keyed suppression dropped another writer's edit for five seconds.
+  h.capture.writeRows = [serverRow({ title: 'mine', revision: 2 })]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  await act(async () => {
+    await result.current.updateTask(appTask({ title: 'mine' }))
+  })
+  expect(h.writeSelect).toHaveBeenCalledTimes(1)
+
+  act(() =>
+    h.capture.handler!({
+      eventType: 'UPDATE',
+      old: {},
+      new: serverRow({ title: 'stale echo', revision: 2 }),
+    }),
+  )
+  expect(result.current.tasks[0].title).toBe('mine')
+
+  act(() =>
+    h.capture.handler!({
+      eventType: 'UPDATE',
+      old: {},
+      new: serverRow({ title: 'theirs', revision: 3 }),
+    }),
+  )
+  expect(result.current.tasks[0].title).toBe('theirs')
+})
+
+test('a foreign edit held during a failed save survives the rollback (#432)', async () => {
+  // Realtime can deliver another writer's edit while our save is in flight; it is held until the
+  // save settles. When the save fails, the rollback must happen first and the edit land on top.
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  let fail!: () => void
+  h.updateEq.mockImplementationOnce(() => {
+    const pending = new Promise<{ data: null; error: { message: string } }>((resolve) => {
+      fail = () => resolve({ data: null, error: { message: 'save failed' } })
+    })
+    return Object.assign(pending, { select: () => pending }) as unknown as ReturnType<
+      typeof h.selectable
+    >
+  })
+
+  let saving!: Promise<void>
+  act(() => {
+    saving = result.current.updateTask(appTask({ title: 'mine' }))
+  })
+  act(() =>
+    h.capture.handler!({
+      eventType: 'UPDATE',
+      old: {},
+      new: serverRow({ title: 'theirs', revision: 2 }),
+    }),
+  )
+  expect(result.current.tasks[0].title).toBe('mine') // held, not applied over the optimistic edit
+
+  await act(async () => {
+    fail()
+    await saving
+  })
+  expect(result.current.error).toBe('save failed')
+  expect(result.current.tasks[0].title).toBe('theirs')
+})
+
+test('a save that does not change status settles its revision without replacing the optimistic row', async () => {
+  // Returned rows are read for their revision only; reconciling them would let a slow response
+  // overwrite a newer optimistic edit. Only a status change reconciles (trigger-stamped values).
+  h.capture.writeRows = [serverRow({ title: 'returned', revision: 2 })]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  await act(async () => {
+    await result.current.updateTask(appTask({ title: 'optimistic' }))
+  })
+  expect(result.current.tasks[0].title).toBe('optimistic')
+})
+
 test('a failing excludedDates write on deleteOccurrence still removes the occurrence locally and surfaces the error', async () => {
   const today = ymd(new Date())
   // The Rule outlives this delete on purpose. Capped at `today` it would have exactly one
@@ -626,7 +718,7 @@ test('a failing excludedDates write on deleteOccurrence still removes the occurr
 
   // The template's excludedDates update rejects (e.g. a network fault) — this was previously
   // swallowed by a bare console.error with no user-visible signal.
-  h.upsert.mockRejectedValueOnce(new Error('skip write failed'))
+  h.upsert.mockImplementationOnce(() => h.failedWrite('skip write failed'))
 
   const instance = result.current.tasks.find((t) => t.id === 'i1')!
   await act(async () => {
@@ -1184,7 +1276,7 @@ test('a failed bulkUpdate rolls every selected Task back and surfaces the error'
   ]
   const { result } = renderHook(() => useTasks('u1', 'b1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
-  h.upsert.mockRejectedValueOnce(new Error('nope'))
+  h.upsert.mockImplementationOnce(() => h.failedWrite('nope'))
 
   await act(async () => {
     await result.current.bulkUpdate(new Set(['t1', 't2']), { kind: 'color', color: 'mint' })

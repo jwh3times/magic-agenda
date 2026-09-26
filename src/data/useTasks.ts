@@ -47,6 +47,12 @@ import type { TaskBoard } from './taskBoardContext'
 
 type TaskRow = Database['public']['Tables']['tasks']['Row']
 
+/**
+ * What a write returns when its rows are needed only to settle echo suppression (#432): the id
+ * and the revision `tasks_stamp_attribution` stamped. Writes that reconcile select whole rows.
+ */
+const WRITTEN = 'id, revision'
+
 /** Runs one planned deletion. The only place a `DeletionTarget` becomes a query. */
 async function runDeletion(target: DeletionTarget): Promise<void> {
   const del = supabase.from('tasks').delete()
@@ -115,7 +121,10 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
 
   // Echo suppression for this client's own writes. The registry, the channel, the reconnect
   // backoff, and the tab/network catch-up all live in useSyncedTable now, shared with useSettings.
-  const { markWrites, isOwnWrite } = useOwnWrites()
+  // Every write that marks ids reports its outcome: `settleWrites` with the rows it returned (their
+  // `revision` is what lets another writer's newer edit through, #432) or `abandonWrites` when it
+  // fails. That is why writes whose rows are otherwise unneeded still `.select(WRITTEN)`.
+  const { markWrites, settleWrites, abandonWrites, screenEcho } = useOwnWrites()
 
   const setTasks = useCallback<Dispatch<SetStateAction<Task[]>>>((update) => {
     _setTasks((prev) => {
@@ -261,11 +270,15 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         const present = new Set(prev.filter((t) => t.recurParentId).map(instanceKey))
         return [...prev, ...instances.filter((i) => !present.has(instanceKey(i)))]
       })
-      markWrites(instances.map((i) => i.id))
+      const ids = instances.map((i) => i.id)
+      markWrites(ids)
       try {
-        const { error: err } = await supabase
+        const { data, error: err } = await supabase
           .from('tasks')
           .insert(instances.map((t) => taskToRow(t, boardId)))
+          .select(WRITTEN)
+        if (err) abandonWrites(ids)
+        else settleWrites(data)
         // Another client or the daily job may have committed the same Occurrence after our read.
         // The plain batch inserted nothing, so its optimistic rows must be replaced by a fresh,
         // complete Board read. The caller owns that reload because this function also runs inside
@@ -273,11 +286,12 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         if (err?.code === '23505') return true
         if (err) throw new Error(err.message)
       } catch (e) {
+        abandonWrites(ids)
         setError(errorMessage(e))
       }
       return false
     },
-    [setTasks, boardId, markWrites],
+    [setTasks, boardId, markWrites, settleWrites, abandonWrites],
   )
 
   /**
@@ -433,7 +447,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     filterValue: boardId,
     reload,
     onChange: onRemoteChange,
-    isOwnWrite,
+    screenEcho,
   })
 
   const createTask = useCallback(
@@ -450,7 +464,9 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
             .select()
           if (err) throw new Error(err.message)
           reconcileReturnedRows(data)
+          settleWrites(data)
         } catch (e) {
+          abandonWrites([task.id])
           setError(errorMessage(e))
           return
         }
@@ -473,12 +489,25 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
           .select()
         if (err) throw new Error(err.message)
         reconcileReturnedRows(data)
+        settleWrites(data)
       } catch (e) {
         setTasks(prev)
+        // After the rollback: a foreign edit held during the write is delivered on top of it.
+        abandonWrites([full.id])
         setError(errorMessage(e))
       }
     },
-    [setTasks, materialize, boardId, markWrites, reconcileReturnedRows, forgetUndo, reload],
+    [
+      setTasks,
+      materialize,
+      boardId,
+      markWrites,
+      settleWrites,
+      abandonWrites,
+      reconcileReturnedRows,
+      forgetUndo,
+      reload,
+    ],
   )
 
   /**
@@ -497,17 +526,24 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       markWrites([task.id])
       try {
         const previous = prev.find((item) => item.id === task.id)
-        const write = supabase.from('tasks').update(taskToRow(task, boardId)).eq('id', task.id)
-        const { data, error: err } =
-          previous?.status !== task.status ? await write.select() : await write
+        const { data, error: err } = await supabase
+          .from('tasks')
+          .update(taskToRow(task, boardId))
+          .eq('id', task.id)
+          .select()
         if (err) throw new Error(err.message)
-        reconcileReturnedRows(data)
+        // Only a status change reconciles: the lifecycle trigger stamps its values. Otherwise the
+        // returned row is read for its revision alone, so it cannot overwrite a newer local edit.
+        if (previous?.status !== task.status) reconcileReturnedRows(data)
+        settleWrites(data)
       } catch (e) {
         setTasks(prev)
+        // After the rollback: a foreign edit held during the write is delivered on top of it.
+        abandonWrites([task.id])
         setError(errorMessage(e))
       }
     },
-    [setTasks, boardId, markWrites, reconcileReturnedRows, forgetUndo],
+    [setTasks, boardId, markWrites, settleWrites, abandonWrites, reconcileReturnedRows, forgetUndo],
   )
 
   /**
@@ -526,14 +562,17 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         await beforeDelete?.()
         const { error: err } = await supabase.from('tasks').delete().eq('id', id)
         if (err) throw new Error(err.message)
+        // Deliberately never settled: the row's DELETE echo stays ours for the whole TTL.
         return true
       } catch (e) {
         setTasks(prev)
+        // After the rollback: a foreign edit held during the write is delivered on top of it.
+        abandonWrites([id])
         setError(errorMessage(e))
         return false
       }
     },
-    [setTasks, markWrites],
+    [setTasks, markWrites, abandonWrites],
   )
 
   const toggleCompletion = useCallback(
@@ -554,14 +593,26 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
           .select()
         if (err) throw new Error(err.message)
         reconcileReturnedRows(data)
+        settleWrites(data)
         const verb = toggled.status === 'completed' ? 'Completed' : 'Reopened'
         offerUndo(generation, `${verb} ${quoted(toggled)}`, before, [id])
       } catch (e) {
         setTasks(prev)
+        // After the rollback: a foreign edit held during the write is delivered on top of it.
+        abandonWrites([id])
         setError(errorMessage(e))
       }
     },
-    [setTasks, boardId, markWrites, reconcileReturnedRows, forgetUndo, offerUndo],
+    [
+      setTasks,
+      boardId,
+      markWrites,
+      settleWrites,
+      abandonWrites,
+      reconcileReturnedRows,
+      forgetUndo,
+      offerUndo,
+    ],
   )
 
   const persistReorder = useCallback(
@@ -574,10 +625,13 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       if (rows.length === 0) return
       markWrites(rows.map((r) => r.id))
       try {
-        const write = supabase.from('tasks').upsert(rows, { onConflict: 'id' })
-        const { data, error: err } = mode === 'status' ? await write.select() : await write
+        const { data, error: err } = await supabase
+          .from('tasks')
+          .upsert(rows, { onConflict: 'id' })
+          .select()
         if (err) throw new Error(err.message)
-        reconcileReturnedRows(data)
+        if (mode === 'status') reconcileReturnedRows(data)
+        settleWrites(data)
         // Undo needs the pre-drag board; a drop without one (another write intervened) has none.
         if (origin) {
           const before = new Map(origin.map((t) => [t.id, t]))
@@ -594,6 +648,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
           )
         }
       } catch (e) {
+        abandonWrites(rows.map((r) => r.id))
         setError(errorMessage(e))
         void reload()
       }
@@ -603,6 +658,8 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       boardId,
       reload,
       markWrites,
+      settleWrites,
+      abandonWrites,
       reconcileReturnedRows,
       forgetUndo,
       offerUndo,
@@ -618,13 +675,18 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       const { tasks: next, changed } = applyRollForward(prev, todayStr, onlyIds)
       if (changed.length === 0) return
       setTasks(next)
-      markWrites(changed.map((t) => t.id))
+      const ids = changed.map((t) => t.id)
+      markWrites(ids)
       try {
-        const { error: err } = await supabase.from('tasks').upsert(
-          changed.map((t) => taskToRow(t, boardId)),
-          { onConflict: 'id' },
-        )
+        const { data, error: err } = await supabase
+          .from('tasks')
+          .upsert(
+            changed.map((t) => taskToRow(t, boardId)),
+            { onConflict: 'id' },
+          )
+          .select(WRITTEN)
         if (err) throw new Error(err.message)
+        settleWrites(data)
         offerUndo(
           generation,
           `Rolled ${countTasks(changed.length)} forward to today`,
@@ -633,10 +695,12 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         )
       } catch (e) {
         setTasks(prev)
+        // After the rollback: a foreign edit held during the write is delivered on top of it.
+        abandonWrites(ids)
         setError(errorMessage(e))
       }
     },
-    [setTasks, markWrites, boardId, forgetUndo, offerUndo],
+    [setTasks, markWrites, settleWrites, abandonWrites, boardId, forgetUndo, offerUndo],
   )
 
   /**
@@ -653,15 +717,19 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       const { tasks: next, changed } = planBulkUpdate(prev, ids, change, new Date().toISOString())
       if (changed.length === 0) return true
       setTasks(next)
-      markWrites(changed.map((t) => t.id))
+      const changedIds = changed.map((t) => t.id)
+      markWrites(changedIds)
       try {
-        const write = supabase.from('tasks').upsert(
-          changed.map((t) => taskToRow(t, boardId)),
-          { onConflict: 'id' },
-        )
-        const { data, error: err } = change.kind === 'status' ? await write.select() : await write
+        const { data, error: err } = await supabase
+          .from('tasks')
+          .upsert(
+            changed.map((t) => taskToRow(t, boardId)),
+            { onConflict: 'id' },
+          )
+          .select()
         if (err) throw new Error(err.message)
-        reconcileReturnedRows(data)
+        if (change.kind === 'status') reconcileReturnedRows(data)
+        settleWrites(data)
         offerUndo(
           generation,
           describeBulkChange(change, changed.length),
@@ -671,11 +739,22 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         return true
       } catch (e) {
         setTasks(prev)
+        // After the rollback: a foreign edit held during the write is delivered on top of it.
+        abandonWrites(changedIds)
         setError(errorMessage(e))
         return false
       }
     },
-    [setTasks, markWrites, boardId, reconcileReturnedRows, forgetUndo, offerUndo],
+    [
+      setTasks,
+      markWrites,
+      settleWrites,
+      abandonWrites,
+      boardId,
+      reconcileReturnedRows,
+      forgetUndo,
+      offerUndo,
+    ],
   )
 
   const clearError = useCallback(() => setError(null), [])
@@ -730,6 +809,9 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         if (handling.abort) outcome.aborted = true
       }
 
+      // Released only after recovery, so a foreign edit held during the failed upsert is delivered
+      // on top of any rollback rather than overwritten by it.
+      let abandoned: string[] = []
       if (plan.upserts.length > 0) {
         try {
           const previous = new Map(
@@ -738,14 +820,18 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
           const changesStatus = plan.upserts.some(
             (task) => previous.has(task.id) && previous.get(task.id) !== task.status,
           )
-          const write = supabase.from('tasks').upsert(
-            plan.upserts.map((t) => taskToRow(t, boardId)),
-            { onConflict: 'id' },
-          )
-          const { data, error: err } = changesStatus ? await write.select() : await write
+          const { data, error: err } = await supabase
+            .from('tasks')
+            .upsert(
+              plan.upserts.map((t) => taskToRow(t, boardId)),
+              { onConflict: 'id' },
+            )
+            .select()
           if (err) throw new Error(err.message)
-          reconcileReturnedRows(data)
+          if (changesStatus) reconcileReturnedRows(data)
+          settleWrites(data)
         } catch (e) {
+          abandoned = plan.upserts.map((t) => t.id)
           failed(e, plan.upsertOnFailure)
         }
       }
@@ -765,6 +851,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         bumpTemplatesVersion()
         setTasks(prevTasks)
       }
+      abandonWrites(abandoned)
 
       // Pass the plan's own board rather than the ref: `setTasks` writes the ref inside a
       // deferred React updater, so the ref may still hold the pre-plan value here.
@@ -773,7 +860,17 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       }
       return !outcome.failed
     },
-    [setTasks, markWrites, boardId, reload, materialize, reconcileReturnedRows, hasSession],
+    [
+      setTasks,
+      markWrites,
+      settleWrites,
+      abandonWrites,
+      boardId,
+      reload,
+      materialize,
+      reconcileReturnedRows,
+      hasSession,
+    ],
   )
 
   const seriesState = useCallback(
@@ -924,11 +1021,15 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     markWrites(plan.markIds)
     try {
       if (plan.upsertTemplates.length > 0) {
-        const { error: err } = await supabase.from('tasks').upsert(
-          plan.upsertTemplates.map((t) => taskToRow(t, boardId)),
-          { onConflict: 'id' },
-        )
+        const { data, error: err } = await supabase
+          .from('tasks')
+          .upsert(
+            plan.upsertTemplates.map((t) => taskToRow(t, boardId)),
+            { onConflict: 'id' },
+          )
+          .select(WRITTEN)
         if (err) throw new Error(err.message)
+        settleWrites(data)
       }
       if (plan.upsertTasks.length > 0) {
         const { data, error: err } = await supabase
@@ -940,6 +1041,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
           .select()
         if (err) throw new Error(err.message)
         reconcileReturnedRows(data)
+        settleWrites(data)
       }
       // Last, and only now: `task_attachments` has a composite foreign key to `tasks
       // (board_id, id)`, so these rows have nowhere to point until the upserts above have landed.
@@ -958,6 +1060,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     seriesState,
     setTasks,
     markWrites,
+    settleWrites,
     boardId,
     reconcileReturnedRows,
     reload,

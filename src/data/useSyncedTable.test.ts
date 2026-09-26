@@ -89,36 +89,141 @@ test('rowIdOf returns null rather than guessing on a malformed payload', () => {
 
 // ——— the own-write registry ———
 
+const update = (id: string, revision?: number) =>
+  ({
+    eventType: 'UPDATE',
+    old: {},
+    new: revision === undefined ? { id } : { id, revision },
+  }) as unknown as ChangePayload
+const deletion = (id: string) =>
+  ({ eventType: 'DELETE', old: { id }, new: {} }) as unknown as ChangePayload
+
+/** Screens payloads against one registry, recording everything it delivers, now or later. */
+function registry() {
+  const view = renderHook(() => useOwnWrites())
+  const delivered: ChangePayload[] = []
+  const screen = (p: ChangePayload) => {
+    const id = rowIdOf(p, 'id')!
+    const suppressed = view.result.current.screenEcho(p, id, (late) => delivered.push(late))
+    if (!suppressed) delivered.push(p)
+    return suppressed
+  }
+  return { ...view, delivered, screen }
+}
+
+const revisions = (payloads: ChangePayload[]) =>
+  payloads.map((p) => (p.new as { revision?: number }).revision)
+
 test('suppresses an echo inside the TTL and re-admits it after', () => {
   // The expiry half was never tested: the old suppression test only proved the inside-TTL case,
   // so a registry that never expired would have passed.
   vi.useFakeTimers()
-  const { result } = renderHook(() => useOwnWrites())
+  const { result, screen } = registry()
   act(() => result.current.markWrites(['a']))
-  expect(result.current.isOwnWrite('a')).toBe(true)
+  expect(screen(update('a'))).toBe(true)
 
   vi.advanceTimersByTime(OWN_WRITE_TTL_MS - 1)
-  expect(result.current.isOwnWrite('a')).toBe(true)
+  expect(screen(update('a'))).toBe(true)
 
   vi.advanceTimersByTime(2)
-  expect(result.current.isOwnWrite('a')).toBe(false)
+  expect(screen(update('a'))).toBe(false)
 })
 
 test('ignores null and undefined ids, and never claims an unknown id', () => {
-  const { result } = renderHook(() => useOwnWrites())
+  const { result, screen } = registry()
   act(() => result.current.markWrites(['a', null, undefined]))
-  expect(result.current.isOwnWrite('a')).toBe(true)
-  expect(result.current.isOwnWrite('other')).toBe(false)
+  expect(screen(update('a'))).toBe(true)
+  expect(screen(update('other'))).toBe(false)
 })
 
 test('sweeps expired entries so the registry cannot grow unbounded', () => {
   vi.useFakeTimers()
-  const { result } = renderHook(() => useOwnWrites())
+  const { result, screen } = registry()
   act(() => result.current.markWrites(['old']))
   vi.advanceTimersByTime(OWN_WRITE_TTL_MS + 1)
   act(() => result.current.markWrites(['new']))
-  expect(result.current.isOwnWrite('old')).toBe(false)
-  expect(result.current.isOwnWrite('new')).toBe(true)
+  expect(screen(update('old'))).toBe(false)
+  expect(screen(update('new'))).toBe(true)
+})
+
+// ——— revision-aware suppression (#432) ———
+
+test('once a write settles, a newer revision inside the TTL is another writer’s and is delivered', () => {
+  // The caveat this replaces: id-keyed suppression dropped a genuine concurrent edit for 5s.
+  const { result, screen, delivered } = registry()
+  act(() => result.current.markWrites(['t1']))
+  act(() => result.current.settleWrites([{ id: 't1', revision: 4 }]))
+
+  expect(screen(update('t1', 4))).toBe(true) // our own echo
+  expect(screen(update('t1', 3))).toBe(true) // older than what we wrote
+  expect(screen(update('t1', 5))).toBe(false) // someone else, after us
+  expect(revisions(delivered)).toEqual([5])
+})
+
+test('an echo that beats the write’s response is held, then dropped when it proves to be ours', () => {
+  const { result, screen, delivered } = registry()
+  act(() => result.current.markWrites(['t1']))
+  expect(screen(update('t1', 7))).toBe(true)
+  act(() => result.current.settleWrites([{ id: 't1', revision: 7 }]))
+  expect(delivered).toEqual([])
+})
+
+test('a foreign edit held during the round trip is delivered once the write settles older', () => {
+  const { result, screen, delivered } = registry()
+  act(() => result.current.markWrites(['t1']))
+  expect(screen(update('t1', 7))).toBe(true)
+  expect(screen(update('t1', 6))).toBe(true)
+  act(() => result.current.settleWrites([{ id: 't1', revision: 5 }]))
+  // Only the newest: an UPDATE payload carries the whole row, so it supersedes the one before it.
+  expect(revisions(delivered)).toEqual([7])
+})
+
+test('an abandoned write releases what it held, since a failed write produced no echo', () => {
+  const { result, screen, delivered } = registry()
+  act(() => result.current.markWrites(['t1']))
+  screen(update('t1', 3))
+  act(() => result.current.abandonWrites(['t1']))
+  expect(revisions(delivered)).toEqual([3])
+  // Nothing of ours is outstanding any more, so nothing more is suppressed.
+  expect(screen(update('t1', 4))).toBe(false)
+})
+
+test('overlapping writes to one row stay pending until every one settles', () => {
+  const { result, screen, delivered } = registry()
+  act(() => result.current.markWrites(['t1']))
+  act(() => result.current.markWrites(['t1']))
+  act(() => result.current.settleWrites([{ id: 't1', revision: 2 }]))
+  // The second write's echo must not be mistaken for a foreign edit newer than the first.
+  expect(screen(update('t1', 3))).toBe(true)
+  act(() => result.current.settleWrites([{ id: 't1', revision: 3 }]))
+  expect(delivered).toEqual([])
+})
+
+test('a DELETE is ours while a write is pending, and foreign once every write has settled', () => {
+  // DELETE payloads carry only the primary key, so there is no revision to compare.
+  const { result, screen } = registry()
+  act(() => result.current.markWrites(['t1']))
+  expect(screen(deletion('t1'))).toBe(true)
+  act(() => result.current.settleWrites([{ id: 't1', revision: 2 }]))
+  expect(screen(deletion('t1'))).toBe(false)
+})
+
+test('a table without a revision column keeps plain id suppression for the TTL', () => {
+  // user_settings and labels: no revision, so settling has nothing to compare and changes nothing.
+  const { result, screen } = registry()
+  act(() => result.current.markWrites(['u1']))
+  act(() => result.current.settleWrites([{ id: 'u1' }]))
+  expect(screen(update('u1'))).toBe(true)
+})
+
+test('a write that never settles falls back to TTL suppression, dropping what it held', () => {
+  vi.useFakeTimers()
+  const { result, screen, delivered } = registry()
+  act(() => result.current.markWrites(['t1']))
+  expect(screen(update('t1', 9))).toBe(true)
+  vi.advanceTimersByTime(OWN_WRITE_TTL_MS + 1)
+  act(() => result.current.settleWrites([{ id: 't1', revision: 1 }]))
+  expect(delivered).toEqual([])
 })
 
 // ——— the channel ———
@@ -127,7 +232,7 @@ function mount(over: Partial<Parameters<typeof useSyncedTable>[0]> = {}) {
   const reload = vi.fn()
   const onChange = vi.fn()
   const view = renderHook(() => {
-    const { markWrites, isOwnWrite } = useOwnWrites()
+    const { markWrites, settleWrites, screenEcho } = useOwnWrites()
     useSyncedTable({
       userId: 'u1',
       table: 'tasks',
@@ -136,10 +241,10 @@ function mount(over: Partial<Parameters<typeof useSyncedTable>[0]> = {}) {
       filterValue: 'b1',
       reload,
       onChange,
-      isOwnWrite,
+      screenEcho,
       ...over,
     })
-    return { markWrites }
+    return { markWrites, settleWrites }
   })
   return { ...view, reload, onChange }
 }
@@ -238,6 +343,26 @@ test('backoff grows across consecutive failures and resets after a success', () 
   act(() => h.capture.status!('CHANNEL_ERROR'))
   act(() => void vi.advanceTimersByTime(backoffDelay(0)))
   expect(h.channelFn).toHaveBeenCalledTimes(4)
+})
+
+test('a held foreign edit is delivered through the channel when the write settles', () => {
+  const { result, onChange } = mount()
+  act(() => result.current.markWrites(['t1']))
+  act(() => h.capture.payload!({ eventType: 'UPDATE', old: {}, new: { id: 't1', revision: 3 } }))
+  expect(onChange).not.toHaveBeenCalled()
+  act(() => result.current.settleWrites([{ id: 't1', revision: 2 }]))
+  expect(onChange).toHaveBeenCalledTimes(1)
+})
+
+test('a held edit is not delivered to a channel that has since been torn down', () => {
+  // Switching Boards replaces the channel; a late delivery would land on the wrong Board's state.
+  const { result, onChange, unmount } = mount()
+  act(() => result.current.markWrites(['t1']))
+  act(() => h.capture.payload!({ eventType: 'UPDATE', old: {}, new: { id: 't1', revision: 3 } }))
+  const { settleWrites } = result.current
+  unmount()
+  act(() => settleWrites([{ id: 't1', revision: 2 }]))
+  expect(onChange).not.toHaveBeenCalled()
 })
 
 test('a backoff timer that fires after unmount does not resubscribe', () => {

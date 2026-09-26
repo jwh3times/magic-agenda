@@ -91,7 +91,7 @@ export function useLabels(userId: string, boardId: string, hasSession: boolean):
   const [fallbackReason, setFallbackReason] = useState<SnapshotFallbackReason | null>(null)
   const [savedAt, setSavedAt] = useState<number | null>(null)
   const requestSequence = useRef(0)
-  const { markWrites, isOwnWrite } = useOwnWrites()
+  const { markWrites, screenEcho } = useOwnWrites()
 
   const commit = useCallback(
     (next: Label[]) => {
@@ -195,7 +195,7 @@ export function useLabels(userId: string, boardId: string, hasSession: boolean):
     filterValue: boardId,
     reload,
     onChange: onRemoteChange,
-    isOwnWrite,
+    screenEcho,
   })
 
   const createLabel = useCallback(
