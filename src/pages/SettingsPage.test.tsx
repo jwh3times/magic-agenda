@@ -33,6 +33,7 @@ const h = vi.hoisted(() => {
 })
 
 vi.mock('../access/useRole', () => ({ useRole: () => ({ isAdmin: h.isAdmin }) }))
+vi.mock('../access/useFlags', () => ({ useFlags: () => ({ isEnabled: () => false }) }))
 
 vi.mock('../lib/supabase', () => ({
   supabase: {

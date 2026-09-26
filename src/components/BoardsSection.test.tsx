@@ -26,9 +26,11 @@ const TWO_BOARDS: BoardSummary[] = [
 function Harness({
   initial = TWO_BOARDS,
   overrides = {},
+  boardSharing = false,
 }: {
   initial?: BoardSummary[]
   overrides?: Partial<UseBoardDirectory>
+  boardSharing?: boolean
 }) {
   const [boards, setBoards] = useState(initial)
 
@@ -53,7 +55,7 @@ function Harness({
 
   return (
     <BoardDirectoryContext.Provider value={directory}>
-      <BoardsSection />
+      <BoardsSection boardSharing={boardSharing} />
     </BoardDirectoryContext.Provider>
   )
 }
@@ -312,4 +314,19 @@ test('opening another Board’s feed closes the first, so one token is on screen
   await user.click(screen.getByRole('button', { name: 'Hide' }))
   expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
   expect(document.body.innerHTML).not.toContain('token-for-')
+})
+
+vi.mock('../board/boardMembers', () => ({
+  listBoardMembers: () => Promise.resolve({ ok: true, value: [] }),
+}))
+
+test('Members is hidden unless the board-sharing flag is on (#438)', async () => {
+  const { unmount } = render(<Harness />)
+  expect(screen.queryByRole('button', { name: 'Members…' })).toBeNull()
+  unmount()
+
+  render(<Harness boardSharing />)
+  const [first] = screen.getAllByRole('button', { name: 'Members…' })
+  await userEvent.click(first)
+  expect(screen.getByRole('group', { name: 'Members of Personal' })).toBeInTheDocument()
 })

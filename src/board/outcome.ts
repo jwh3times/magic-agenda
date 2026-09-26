@@ -29,6 +29,10 @@ export type BoardFailureReason =
   | 'membership-ended'
   /** The Board itself is gone. Wins over every pending client change. */
   | 'board-deleted'
+  /** The caller is a current member, but only an Owner may do this. */
+  | 'not-owner'
+  /** The member this command targets has already left or been removed. */
+  | 'member-ended'
   | 'unknown'
 
 export interface BoardFailure {
@@ -52,6 +56,8 @@ const MESSAGES: Record<Exclude<BoardFailureReason, 'unknown'>, string> = {
   'stale-revision': 'Someone else changed this first. Review their version before saving yours.',
   'membership-ended': 'You no longer have access to this board.',
   'board-deleted': 'This board has been deleted.',
+  'not-owner': 'Only an owner of this board can do that.',
+  'member-ended': 'That person is no longer a member of this board.',
 }
 
 /** Builds a failure from a reason, using our copy. */

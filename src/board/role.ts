@@ -147,3 +147,10 @@ export function asBoardRole(value: unknown): BoardRole | null {
     ? (value as BoardRole)
     : null
 }
+
+/** How each role reads in the UI. Kept here so no component spells a role string itself. */
+export const ROLE_LABELS: Readonly<Record<BoardRole, string>> = Object.freeze({
+  owner: 'Owner',
+  editor: 'Editor',
+  viewer: 'Viewer',
+})

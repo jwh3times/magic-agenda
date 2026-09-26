@@ -246,6 +246,37 @@ row). It drops a role it does not recognize rather than defaulting it, and it is
 snapshotted: a stale list of who can read a Board is worse than none.
 `fakeListBoardMembers` applies the same email rule for tests of callers.
 
+## Membership administration is three commands under the Board row lock (#438)
+
+A Membership changes after it exists only through `change_member_role(p_membership_id, p_role)`
+and `remove_member(p_membership_id)` (current Owners only) and `leave_board(p_board_id)` (any
+current member) — `security definer` in `public`, empty `search_path`, `authenticated` only, no
+account parameter. Memberships are **ended, never deleted** (`end_reason` `removed`, or `left`
+when an Owner removes themselves or anyone leaves), so `board_memberships_select_own` still shows
+the ended row to its account, which is what #439's live revocation will listen for.
+
+**The invariant is that a Board always has at least one current Owner, and it is a concurrency
+property.** Two Owners demoting each other, or both leaving, each see "another Owner exists" if
+they read at the same time. Every command therefore takes `select … for update` on the Board row
+_first_ — the lock `handle_account_deletion` also takes — and only then reads the Memberships, so
+the second of two racing commands reads the first one's result and refuses.
+`tests/rls/membership_administration.test.ts` races both cases, and was checked to **fail** with the
+lock removed; two sequential calls would pass against a command that forgot it. The sole member of
+a Private Board cannot leave it either (that would strand it unreachable): deleting is the way out.
+
+Refusals raise a stable token as the error message — `last-owner`, `membership-ended` (the
+**caller** has no current Membership, which is also the answer for an unknown Membership id, so ids
+cannot be probed), `not-owner`, `member-ended` (the **target** already ended), `invalid-role` — and
+`src/board/memberAdmin.ts` maps them to Board outcome reasons. An ended Membership loses the Board,
+its Tasks, Labels, attachment rows, member list, and calendar feed at once, because every one of
+those is already scoped to current Membership; the test asserts each.
+
+The UI is `MembersPanel`, a "Members…" control on every Settings → Boards row, shown **only** when
+the `board-sharing` feature flag is on. Every member sees the list and may leave; role selects and
+Remove appear only where `capabilitiesFor(role).manageMembers`. A change to the caller's _own_
+Membership reloads the Board Directory, since every capability derives from the role it holds. The
+panel never predicts `last-owner` — only the server holding the lock knows — it renders the refusal.
+
 ## Account administration and feature flags
 
 `user_roles` is Account-scoped; an `admin` row is assigned and revoked through SQL only. Even

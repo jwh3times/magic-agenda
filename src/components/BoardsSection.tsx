@@ -4,6 +4,7 @@ import { BOARD_NAME_MAX_LENGTH } from '../board/boardName'
 import { capabilitiesFor } from '../board/role'
 import type { BoardSummary } from '../board/selection'
 import { CalendarFeedPanel } from './CalendarFeedPanel'
+import { MembersPanel } from './MembersPanel'
 
 const hint: CSSProperties = { fontSize: 12, opacity: 0.7 }
 const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }
@@ -23,12 +24,17 @@ const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flex
  * The calendar feed is offered on **every** row, whatever the role: it reads the caller's own
  * Membership, and reading the Board is what every role, Viewer included, already has. Only one feed
  * panel is open at a time, so at most one token is on screen.
+ *
+ * Members are offered only behind the `board-sharing` feature flag (#438), on every row: every
+ * current member may see who else is on a Board and may leave it, while role changes and removals
+ * appear only for an Owner.
  */
-export function BoardsSection() {
-  const { boards, selectedBoardId, deleteBoard, renameBoard } = useBoardDirectoryContext()
+export function BoardsSection({ boardSharing = false }: { boardSharing?: boolean }) {
+  const { boards, selectedBoardId, deleteBoard, renameBoard, reload } = useBoardDirectoryContext()
   const [pending, setPending] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [feedOpen, setFeedOpen] = useState<string | null>(null)
+  const [membersOpen, setMembersOpen] = useState<string | null>(null)
   const [confirm, setConfirm] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -99,6 +105,14 @@ export function BoardsSection() {
                     Calendar feed…
                   </button>
                 )}
+                {boardSharing &&
+                  !confirming &&
+                  renaming !== board.id &&
+                  membersOpen !== board.id && (
+                    <button type="button" onClick={() => setMembersOpen(board.id)} disabled={busy}>
+                      Members…
+                    </button>
+                  )}
                 {can.configureBoard && !confirming && renaming !== board.id && (
                   <button
                     type="button"
@@ -130,6 +144,14 @@ export function BoardsSection() {
                 <div role="alert" style={{ color: '#b42318', fontSize: 13 }}>
                   {error}
                 </div>
+              )}
+
+              {boardSharing && membersOpen === board.id && (
+                <MembersPanel
+                  board={board}
+                  onClose={() => setMembersOpen(null)}
+                  onOwnMembershipChanged={() => void reload()}
+                />
               )}
 
               {feedOpen === board.id && (

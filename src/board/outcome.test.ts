@@ -6,6 +6,8 @@ const KNOWN: Exclude<BoardFailureReason, 'unknown'>[] = [
   'stale-revision',
   'membership-ended',
   'board-deleted',
+  'not-owner',
+  'member-ended',
 ]
 
 test.each(KNOWN)('%s carries our own copy, not a vendor string', (reason) => {

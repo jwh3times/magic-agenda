@@ -586,6 +586,10 @@ export type Database = {
         Args: { p_account_id: string; p_attachment_id: string }
         Returns: undefined
       }
+      change_member_role: {
+        Args: { p_membership_id: string; p_role: string }
+        Returns: undefined
+      }
       create_board: { Args: { board_name: string }; Returns: string }
       delete_board_as_owner: {
         Args: { p_account_id: string; p_board_id: string }
@@ -600,6 +604,7 @@ export type Database = {
         Args: { p_account_id: string; p_board_id: string }
         Returns: boolean
       }
+      leave_board: { Args: { p_board_id: string }; Returns: undefined }
       reminder_candidate_rows: {
         Args: never
         Returns: {
@@ -617,6 +622,7 @@ export type Database = {
           timezone: string
         }[]
       }
+      remove_member: { Args: { p_membership_id: string }; Returns: undefined }
       reserve_attachment_upload: {
         Args: {
           p_account_id: string
