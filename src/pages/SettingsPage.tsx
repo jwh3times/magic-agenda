@@ -17,6 +17,7 @@ import { useSettingsContext } from '../data/SettingsProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { readLastUserId } from '../lib/lastUser'
 import { useRole } from '../access/useRole'
+import { useFlags } from '../access/useFlags'
 import { useBoardDirectoryContext, useBoardSession } from '../board/BoardDirectoryProvider'
 import { DEFAULT_VIEW } from '../board/selection'
 import type { ViewName } from '../types/task'
@@ -26,10 +27,16 @@ export interface SectionContext {
   onChangeView: (v: ViewName) => void
 }
 
+/** What a section may read beyond the view preference: session-scoped rollout gates. */
+export interface RenderContext extends SectionContext {
+  /** The `board-sharing` feature flag (#438): shows Board membership administration. */
+  boardSharing: boolean
+}
+
 export interface SettingsSection {
   id: string
   title: string
-  render: (ctx: SectionContext) => ReactNode
+  render: (ctx: RenderContext) => ReactNode
 }
 
 const SECTIONS: SettingsSection[] = [
@@ -37,7 +44,11 @@ const SECTIONS: SettingsSection[] = [
   { id: 'dates', title: 'Dates', render: () => <DatesSection /> },
   { id: 'keyboard', title: 'Keyboard shortcuts', render: () => <KeyboardSection /> },
   { id: 'notifications', title: 'Notifications', render: () => <NotificationsSection /> },
-  { id: 'boards', title: 'Boards', render: () => <BoardsSection /> },
+  {
+    id: 'boards',
+    title: 'Boards',
+    render: (ctx) => <BoardsSection boardSharing={ctx.boardSharing} />,
+  },
   { id: 'labels', title: 'Labels', render: () => <LabelsSection /> },
   { id: 'history', title: 'History', render: () => <HistorySection /> },
   { id: 'data', title: 'Data', render: () => <DataSection /> },
@@ -78,6 +89,8 @@ function SettingsShell({ defaultView, onChangeView }: SectionContext) {
   const { conf } = useTheme()
   const isMobile = useIsMobile()
   const { isAdmin } = useRole()
+  const { isEnabled } = useFlags()
+  const boardSharing = isEnabled('board-sharing')
 
   const card: CSSProperties = {
     background: conf.cellBg,
@@ -130,7 +143,7 @@ function SettingsShell({ defaultView, onChangeView }: SectionContext) {
               >
                 {s.title}
               </h2>
-              {s.render({ defaultView, onChangeView })}
+              {s.render({ defaultView, onChangeView, boardSharing })}
             </section>
           ))}
         </main>

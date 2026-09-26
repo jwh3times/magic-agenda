@@ -101,6 +101,10 @@ import reviewed from '../../supabase/reviewed-functions.json'
  * `delete-board` and `delete-account` Edge Functions' whole reach into the Board tables, which grant
  * `service_role` no data privilege. Their account parameter is safe because only those functions
  * can call them, passing the id they verified from the caller's JWT.
+ *
+ * `change_member_role(uuid,text)`, `remove_member(uuid)`, and `leave_board(uuid)` (#438) are client
+ * RPCs of the `create_board` kind: no account parameter, and they lock the Board row before
+ * enforcing that it keeps a current Owner.
  */
 type ReviewedFunction = {
   secdef: boolean

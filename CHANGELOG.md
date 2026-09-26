@@ -12,6 +12,29 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.15.10] - 2026-09-26
+
+### Added
+
+- **Membership administration for Shared Boards (#438), behind the `board-sharing` feature flag.**
+  Three commands: an Owner changes a member's role (`change_member_role`) or removes them
+  (`remove_member`), and any member leaves (`leave_board`). Memberships are ended, never deleted.
+  An ended member immediately loses the Board, its Tasks, Labels, attachments, member list, and
+  calendar feed. Settings → Boards gains a "Members…" panel listing everyone on a Board, with role
+  selects and Remove for Owners and Leave for everyone. The flag does not exist yet, so nothing is
+  visible until an admin creates it (#443).
+- Board outcomes gain `not-owner` and `member-ended` (the member targeted has already left).
+
+### Security
+
+- **A Board always keeps at least one current Owner, including under concurrency.** Every command
+  locks the Board row before reading its Memberships, so two Owners demoting each other or leaving
+  at the same moment cannot both succeed. The race is tested, and the test was checked to fail with
+  the lock removed. The sole member of a Private Board cannot leave it; deleting it is the way out.
+  An unknown Membership id is refused exactly like one the caller cannot see, so ids cannot be
+  probed. All three are `authenticated`-only with no account parameter, and are registered in
+  `supabase/reviewed-functions.json`.
+
 ## [1.15.9] - 2026-09-26
 
 ### Fixed
@@ -4067,7 +4090,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.9...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.10...HEAD
+[1.15.10]: https://github.com/jwh3times/magic-agenda/compare/v1.15.9...v1.15.10
 [1.15.9]: https://github.com/jwh3times/magic-agenda/compare/v1.15.8...v1.15.9
 [1.15.8]: https://github.com/jwh3times/magic-agenda/compare/v1.15.7...v1.15.8
 [1.15.7]: https://github.com/jwh3times/magic-agenda/compare/v1.15.6...v1.15.7
