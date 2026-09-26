@@ -12,6 +12,26 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.15.8] - 2026-09-26
+
+### Added
+
+- **A co-member read path for Shared Boards (#435).** The new `board_members(p_board_id)` RPC
+  lists a Board's current members — Display Name, role, and joined time — to every current member,
+  and adds email addresses only when the caller is an Owner. Ended Memberships are never listed,
+  and a caller with no current Membership gets an empty answer that does not reveal whether the
+  Board exists. Nothing in the app calls it yet; it is the read that member administration,
+  invitations, and the Assignee picker build on (#279). The client seam is
+  `src/board/boardMembers.ts`.
+
+### Security
+
+- Both base tables stay own-rows only: the list is served by a `security definer` function that
+  names its six columns, so no member can read another member's calendar-feed token, and emails
+  never leave `auth.users` for a non-Owner. `anon` and `service_role` cannot execute it, and the
+  function is registered in `supabase/reviewed-functions.json`, so the production grant check
+  asserts that after deploy.
+
 ## [1.15.7] - 2026-09-26
 
 ### Fixed
@@ -4021,7 +4041,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.7...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.8...HEAD
+[1.15.8]: https://github.com/jwh3times/magic-agenda/compare/v1.15.7...v1.15.8
 [1.15.7]: https://github.com/jwh3times/magic-agenda/compare/v1.15.6...v1.15.7
 [1.15.6]: https://github.com/jwh3times/magic-agenda/compare/v1.15.5...v1.15.6
 [1.15.5]: https://github.com/jwh3times/magic-agenda/compare/v1.15.4...v1.15.5
