@@ -12,6 +12,19 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.15.15] - 2026-09-27
+
+### Changed
+
+- **On a Board more than one person is on, a Task's reminder now goes to its Assignee (#441).** An
+  unassigned Task reminds only the members who opted in for that Board. Before this, every member
+  with reminders on would have been pushed for every timed Task. A Board with a single member —
+  every Private Board today — is unchanged, so nobody's reminders change when this ships.
+- **The opt-in** is a per-Membership preference, `board_memberships.remind_unassigned`, off by
+  default. Each member sets it on their own row through a column grant, like Default View, from a
+  checkbox in the Members panel ("Also remind me about unassigned tasks on this board"). Once a
+  Board is shared, its Owner too gets reminders for unassigned Tasks only if they tick it.
+
 ## [1.15.14] - 2026-09-27
 
 ### Added
@@ -4222,7 +4235,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.14...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.15...HEAD
+[1.15.15]: https://github.com/jwh3times/magic-agenda/compare/v1.15.14...v1.15.15
 [1.15.14]: https://github.com/jwh3times/magic-agenda/compare/v1.15.13...v1.15.14
 [1.15.13]: https://github.com/jwh3times/magic-agenda/compare/v1.15.12...v1.15.13
 [1.15.12]: https://github.com/jwh3times/magic-agenda/compare/v1.15.11...v1.15.12
