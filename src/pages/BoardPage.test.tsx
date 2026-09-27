@@ -24,6 +24,8 @@ const h = vi.hoisted<{
   role: 'owner' | 'editor' | 'viewer'
   /** null keeps the default one-Board directory; [] drives the zero-Board state. */
   boards: unknown[] | null
+  /** A Board lost while open (#439). */
+  lostAccess: string | null
 }>(() => ({
   auth: {
     user: null as { id: string } | null,
@@ -36,6 +38,7 @@ const h = vi.hoisted<{
   },
   role: 'owner',
   boards: null,
+  lostAccess: null,
 }))
 
 const tasks = fakeUseTasks()
@@ -46,8 +49,12 @@ vi.mock('../data/SettingsProvider', () => ({ useSettingsContext: () => h.setting
 vi.mock('../board/BoardDirectoryProvider', () => ({
   useBoardDirectoryContext: () =>
     h.boards === null
-      ? fakeBoardDirectory()
-      : fakeBoardDirectory({ boards: h.boards as never, selectedBoardId: null }),
+      ? fakeBoardDirectory({ lostAccess: h.lostAccess })
+      : fakeBoardDirectory({
+          boards: h.boards as never,
+          selectedBoardId: null,
+          lostAccess: h.lostAccess,
+        }),
   useBoardSession: () => fakeBoardSession(fakeBoardSummary({ role: h.role })),
 }))
 vi.mock('../data/useTasks', () => ({ useTasks: vi.fn() }))
@@ -163,6 +170,22 @@ test('an Account with no Boards gets the zero-Board screen, not an empty board',
     expect(screen.getByRole('button', { name: 'Create board' })).toBeInTheDocument()
   } finally {
     h.boards = null
+    h.auth.user = null
+  }
+})
+
+test('a Board lost while open is named without saying whether it was removed or deleted (#439)', () => {
+  h.boards = []
+  h.lostAccess = 'Team'
+  h.auth.user = { id: 'u1' }
+  try {
+    renderPage()
+    // Losing your only Board lands on the zero-Board screen, and the notice must still appear there.
+    expect(screen.getByText('You no longer have access to “Team”.')).toBeInTheDocument()
+    expect(screen.queryByText(/removed|deleted/i)).toBeNull()
+  } finally {
+    h.boards = null
+    h.lostAccess = null
     h.auth.user = null
   }
 })

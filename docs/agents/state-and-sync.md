@@ -153,7 +153,7 @@ one — the same shape of guard as its `!userId` check.
 
 `src/data/useSyncedTable.ts` owns the `postgres_changes` channel, echo suppression for this client's
 own writes (`useOwnWrites`, a 5s per-id TTL), reconnect with capped exponential backoff, and
-catch-up on `visibilitychange`/`online`. `useTasks`, `useSettings`, and `useLabels` are its three
+catch-up on `visibilitychange`/`online`. `useTasks`, `useSettings`, `useLabels`, and `useBoardDirectory` are its four
 adapters and keep only their own load, state shape, and snapshot envelope.
 
 **Echo suppression is revision-aware for `tasks` (#432).** Id-keyed suppression used to drop a
@@ -183,11 +183,26 @@ sharing one topic would reuse a subscription bound to the wrong filter. An empty
 no channel, exactly as an empty `userId` does: the Board Directory resolves asynchronously, and an
 unfiltered subscription in that window is the realtime twin of an unfiltered load.
 
-`useBoardDirectory` registers its **own** `visibilitychange`/`online` catch-up, deliberately not
-folded in here. Nothing pushes "you were removed" to a client — the server just stops returning the
-Board, and a `board_id`-filtered channel goes quiet rather than announcing anything — so access has
-to be revalidated rather than awaited. Note this covers waking and reconnecting, **not** a tab that
-stays open and focused; a heartbeat for that belongs with sharing, when someone else can revoke you.
+**`useBoardDirectory` is the fourth adapter, and it exists for revocation (#439).** The server never
+says "you were removed": it stops returning the Board, and a `board_id`-filtered task channel goes
+quiet rather than announcing anything. So `board_memberships` is published, and the directory
+subscribes filtered to `account_id=eq.<userId>`: an Owner ending your Membership is an UPDATE to
+your own row, which the table's own-rows SELECT policy lets Realtime deliver to you and nobody else
+(`tests/rls/membership_realtime.test.ts` checks both halves against the real Realtime service).
+Three things re-ask which Boards are still reachable, all as **background** revalidations: that
+channel, `useSyncedTable`'s reconnect and visibility/online catch-up (which replaced a hand-rolled
+copy in the directory), and a `REVALIDATE_INTERVAL_MS` (5 min) heartbeat for a visible tab whose
+socket died silently. A background revalidation **never sets `loading`**: `BoardPage` shows a
+full-page spinner while the directory loads, so one that did would unmount the Board, and the
+editor, on every focus and heartbeat. The pre-#439 focus catch-up did exactly that.
+
+The reload that follows already purges the snapshots of unreachable Boards and reselects, so
+revocation needs no new cleanup path. A Board that vanished during a background revalidation is
+named in `lostAccess`, which `BoardPage` shows as a notice that does not say whether it was removed
+or deleted, because the server does not tell a former member which. Two details: DELETE events
+fan out to every subscriber, so the directory ignores a DELETE for a Membership id it does not
+hold, or a Board deleted by anyone would make every client re-read; and `setDefaultView` marks its
+own write, so a Default View change does not echo back as a revalidation.
 
 This was two divergent copies until v1.2.57, and the divergence was a live bug, not just
 duplication: **`useSettings` had no reconnect path at all.** Its entire subscription tail was

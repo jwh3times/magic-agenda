@@ -253,7 +253,7 @@ and `remove_member(p_membership_id)` (current Owners only) and `leave_board(p_bo
 current member) — `security definer` in `public`, empty `search_path`, `authenticated` only, no
 account parameter. Memberships are **ended, never deleted** (`end_reason` `removed`, or `left`
 when an Owner removes themselves or anyone leaves), so `board_memberships_select_own` still shows
-the ended row to its account, which is what #439's live revocation will listen for.
+the ended row to its account, which is what #439's live revocation listens for (see [Client state and realtime sync](state-and-sync.md)).
 
 **The invariant is that a Board always has at least one current Owner, and it is a concurrency
 property.** Two Owners demoting each other, or both leaving, each see "another Owner exists" if

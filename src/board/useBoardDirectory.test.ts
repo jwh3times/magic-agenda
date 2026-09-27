@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, expect, test, vi } from 'vitest'
 
 const h = vi.hoisted(() => {
@@ -8,12 +8,26 @@ const h = vi.hoisted(() => {
     status: 200,
   }
   const update = vi.fn(() => ({ eq: vi.fn(() => Promise.resolve({ error: null })) }))
-  return { capture, update }
+  const from = vi.fn()
+  const realtime: { handler: ((p: unknown) => void) | null; filter: unknown } = {
+    handler: null,
+    filter: null,
+  }
+  const channel: Record<string, unknown> = {}
+  channel.on = vi.fn((_e: string, filter: unknown, cb: (p: unknown) => void) => {
+    realtime.handler = cb
+    realtime.filter = filter
+    return channel
+  })
+  channel.subscribe = vi.fn(() => channel)
+  return { capture, update, from, realtime, channel }
 })
 
 vi.mock('../lib/supabase', () => ({
   supabase: {
-    from: vi.fn(() => ({
+    channel: vi.fn(() => h.channel),
+    removeChannel: vi.fn(),
+    from: h.from.mockImplementation(() => ({
       select: vi.fn(() => ({
         is: vi.fn(() => ({
           order: vi.fn(() =>
@@ -30,7 +44,7 @@ vi.mock('../lib/supabase', () => ({
   },
 }))
 
-import { useBoardDirectory } from './useBoardDirectory'
+import { REVALIDATE_INTERVAL_MS, useBoardDirectory } from './useBoardDirectory'
 import { readBoardSnapshot, writeBoardSnapshot } from '../data/snapshot'
 import { NO_RECUR, type Task } from '../types/task'
 
@@ -154,4 +168,97 @@ test('setDefaultView writes only the membership’s default_view', async () => {
   // The column-level grant is what stops this statement from touching `role`; asserting the payload
   // is what stops a future edit from quietly widening it past what the grant allows.
   expect(h.update).toHaveBeenCalledWith({ default_view: 'kanban' })
+})
+
+// ——— live revocation (#439) ———
+
+const reads = () => h.from.mock.calls.length
+
+test('subscribes to this Account’s own Membership rows', async () => {
+  const { result } = renderHook(() => useBoardDirectory('u1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  expect(h.realtime.filter).toMatchObject({
+    table: 'board_memberships',
+    filter: 'account_id=eq.u1',
+  })
+})
+
+test('a revocation heard over Realtime drops the Board, names it, and never shows loading', async () => {
+  h.capture.rows = [membershipRow('b1'), membershipRow('b2')]
+  const { result } = renderHook(() => useBoardDirectory('u1', true))
+  await waitFor(() => expect(result.current.boards).toHaveLength(2))
+  const loadingSeen: boolean[] = []
+
+  h.capture.rows = [membershipRow('b1')]
+  act(() =>
+    h.realtime.handler!({
+      eventType: 'UPDATE',
+      old: {},
+      new: { id: 'm-b2', ended_at: '2026-09-26T12:00:00Z' },
+    }),
+  )
+  loadingSeen.push(result.current.loading)
+  await waitFor(() => expect(result.current.boards.map((b) => b.id)).toEqual(['b1']))
+  // A background read must never flip `loading`: BoardPage would unmount the Board for a spinner.
+  expect(loadingSeen).toEqual([false])
+  expect(result.current.lostAccess).toBe('Board b2')
+
+  act(() => result.current.dismissLostAccess())
+  expect(result.current.lostAccess).toBeNull()
+})
+
+test('a load the user started never announces a Board as lost', async () => {
+  h.capture.rows = [membershipRow('b1'), membershipRow('b2')]
+  const { result } = renderHook(() => useBoardDirectory('u1', true))
+  await waitFor(() => expect(result.current.boards).toHaveLength(2))
+  h.capture.rows = [membershipRow('b1')]
+  await act(() => result.current.reload())
+  expect(result.current.boards).toHaveLength(1)
+  expect(result.current.lostAccess).toBeNull()
+})
+
+test('a DELETE for a Membership this Account does not hold is ignored', async () => {
+  // DELETE events fan out to every subscriber; a Board deleted anywhere must not cost a read here.
+  const { result } = renderHook(() => useBoardDirectory('u1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  const before = reads()
+  act(() => h.realtime.handler!({ eventType: 'DELETE', old: { id: 'someone-elses' }, new: {} }))
+  expect(reads()).toBe(before)
+
+  act(() => h.realtime.handler!({ eventType: 'DELETE', old: { id: 'm-b1' }, new: {} }))
+  await waitFor(() => expect(reads()).toBe(before + 1))
+})
+
+test('the heartbeat revalidates a visible tab in the background', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  try {
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
+    const { result } = renderHook(() => useBoardDirectory('u1', true))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    const before = reads()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(REVALIDATE_INTERVAL_MS)
+    })
+    expect(reads()).toBe(before + 1)
+    expect(result.current.loading).toBe(false)
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+test('the heartbeat stays quiet in a hidden tab', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  try {
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
+    const { result } = renderHook(() => useBoardDirectory('u1', true))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    const before = reads()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(REVALIDATE_INTERVAL_MS)
+    })
+    expect(reads()).toBe(before)
+  } finally {
+    vi.useRealTimers()
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
+  }
 })
