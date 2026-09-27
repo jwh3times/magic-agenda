@@ -28,7 +28,6 @@ import {
   resolveDelete,
   resolveSave,
   type DeletionTarget,
-  type FailureHandling,
   type RecurScope,
   type SaveModifiers,
   type SeriesPlan,
@@ -42,7 +41,7 @@ import { ymd } from '../lib/dates'
 import { isSeriesDefinition, type SeriesDefinition, type Task, type TaskDraft } from '../types/task'
 import type { Mode } from '../dnd/reorder'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
-import type { Database } from '../types/database.types'
+import type { Database, Json } from '../types/database.types'
 import type { SaveConflict, TaskBoard } from './taskBoardContext'
 import { boardFailure } from '../board/outcome'
 
@@ -53,6 +52,39 @@ type TaskRow = Database['public']['Tables']['tasks']['Row']
  * and the revision `tasks_stamp_attribution` stamped. Writes that reconcile select whole rows.
  */
 const WRITTEN = 'id, revision'
+
+/**
+ * One plan for `apply_task_writes` (#434): the whole write in one transaction.
+ *
+ * `inserts` are rows that are genuinely new; `updates` are rows that already exist and are written
+ * UPDATE-only, so a row another member deleted meanwhile stays deleted rather than being re-created
+ * by an upsert. `expected` pins the Series definitions a plan was computed against; a stale one
+ * refuses the whole plan (`stale-revision`).
+ */
+interface WritePlan {
+  expected?: { id: string; revision: number }[]
+  inserts?: ReturnType<typeof taskToRow>[]
+  updates?: ReturnType<typeof taskToRow>[]
+  deletions?: DeletionTarget[]
+}
+
+function applyWrites(boardId: string, plan: WritePlan) {
+  return supabase.rpc('apply_task_writes', {
+    p_board_id: boardId,
+    p_expected: (plan.expected ?? []) as unknown as Json,
+    p_inserts: (plan.inserts ?? []) as unknown as Json,
+    p_updates: (plan.updates ?? []) as unknown as Json,
+    p_deletions: (plan.deletions ?? []) as unknown as Json,
+  })
+}
+
+/**
+ * Whether an update-only write came back short: some row it named no longer exists, because
+ * another member deleted it. Nothing was re-created, and the caller reloads to show that.
+ */
+function cameBackShort(sent: readonly unknown[], returned: readonly unknown[] | null) {
+  return returned !== null && returned.length < sent.length
+}
 
 /**
  * Records the server revisions a read or write returned, so an editor save can be compare-and-swap
@@ -68,27 +100,6 @@ function recordRevisions(
       revisions.set(row.id, row.revision)
     }
   }
-}
-
-/** Runs one planned deletion. The only place a `DeletionTarget` becomes a query. */
-async function runDeletion(target: DeletionTarget): Promise<void> {
-  const del = supabase.from('tasks').delete()
-  if (target.by === 'id') {
-    const { error } = await del.eq('id', target.id)
-    if (error) throw new Error(error.message)
-    return
-  }
-  if (target.by === 'ids') {
-    const { error } = await del.in('id', target.ids)
-    if (error) throw new Error(error.message)
-    return
-  }
-  const scoped = del.eq('recur_parent_id', target.parentId)
-  const { error } =
-    target.by === 'occurrence-after'
-      ? await scoped.gt('recur_origin_day', target.day)
-      : await scoped.gte('recur_origin_day', target.day)
-  if (error) throw new Error(error.message)
 }
 
 export interface UseTasks extends TaskBoard {
@@ -758,14 +769,14 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       if (rows.length === 0) return
       markWrites(rows.map((r) => r.id))
       try {
-        const { data, error: err } = await supabase
-          .from('tasks')
-          .upsert(rows, { onConflict: 'id' })
-          .select()
+        // Update-only, over the complete unfiltered lanes (#434): last-accepted-wins, and a Task
+        // deleted meanwhile is not re-created by being part of a lane.
+        const { data, error: err } = await applyWrites(boardId, { updates: rows })
         if (err) throw new Error(err.message)
         if (mode === 'status') reconcileReturnedRows(data)
         settleWrites(data)
         recordRevisions(revisions.current, data)
+        if (cameBackShort(rows, data)) void reload()
         // Undo needs the pre-drag board; a drop without one (another write intervened) has none.
         if (origin) {
           const before = new Map(origin.map((t) => [t.id, t]))
@@ -812,16 +823,12 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       const ids = changed.map((t) => t.id)
       markWrites(ids)
       try {
-        const { data, error: err } = await supabase
-          .from('tasks')
-          .upsert(
-            changed.map((t) => taskToRow(t, boardId)),
-            { onConflict: 'id' },
-          )
-          .select(WRITTEN)
+        const rows = changed.map((t) => taskToRow(t, boardId))
+        const { data, error: err } = await applyWrites(boardId, { updates: rows })
         if (err) throw new Error(err.message)
         settleWrites(data)
         recordRevisions(revisions.current, data)
+        if (cameBackShort(rows, data)) void reload()
         offerUndo(
           generation,
           `Rolled ${countTasks(changed.length)} forward to today`,
@@ -835,7 +842,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         setError(errorMessage(e))
       }
     },
-    [setTasks, markWrites, settleWrites, abandonWrites, boardId, forgetUndo, offerUndo],
+    [setTasks, markWrites, settleWrites, abandonWrites, boardId, forgetUndo, offerUndo, reload],
   )
 
   /**
@@ -855,17 +862,13 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       const changedIds = changed.map((t) => t.id)
       markWrites(changedIds)
       try {
-        const { data, error: err } = await supabase
-          .from('tasks')
-          .upsert(
-            changed.map((t) => taskToRow(t, boardId)),
-            { onConflict: 'id' },
-          )
-          .select()
+        const rows = changed.map((t) => taskToRow(t, boardId))
+        const { data, error: err } = await applyWrites(boardId, { updates: rows })
         if (err) throw new Error(err.message)
         if (change.kind === 'status') reconcileReturnedRows(data)
         settleWrites(data)
         recordRevisions(revisions.current, data)
+        if (cameBackShort(rows, data)) void reload()
         offerUndo(
           generation,
           describeBulkChange(change, changed.length),
@@ -890,6 +893,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       reconcileReturnedRows,
       forgetUndo,
       offerUndo,
+      reload,
     ],
   )
 
@@ -903,10 +907,12 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
   /**
    * Execute a series plan: optimistic state first, then the writes.
    *
-   * Every decision lives in `series.ts`; this knows only how to talk to Supabase and how to honour
-   * each step's `FailureHandling`. Steps run in order — upserts, then deletions — and an `abort`
-   * stops the rest, which is what keeps a failed content upsert from trimming a series down to a
-   * rule that never persisted.
+   * Every decision lives in `series.ts`; this knows only how to hand the plan to
+   * `apply_task_writes`, which executes it in one transaction (#434) — rows, then deletions, all or
+   * nothing. That is what keeps a failed content write from trimming a Series down to a Rule that
+   * never persisted: there is no longer a partial outcome for per-step `FailureHandling` to manage.
+   * The Series definitions the plan touches are pinned to their known revisions, so a concurrent
+   * edit to the same Series refuses this one (`stale-revision`) and the board reloads.
    *
    * `beforeWrites` runs after the optimistic state and before the first write, for the same reason
    * `removeTask`'s does: it is the last moment a caller can read rows a deletion in this plan is
@@ -927,75 +933,77 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       setTasks([...plan.state.tasks])
       await beforeWrites?.()
 
-      // An object rather than a bare `let`: TypeScript narrows a captured `let` to its initial
-      // literal type inside the closure below, which would make the comparisons unreachable.
-      const outcome = {
-        recover: 'none' as FailureHandling['recover'],
-        aborted: false,
-        failed: false,
-      }
-      const failed = (e: unknown, handling: FailureHandling) => {
-        outcome.failed = true
+      // One transaction for the whole plan (#434): its rows and its deletions land together or not
+      // at all, so the planners' per-step failure handling has nothing left to decide — a failure
+      // wrote nothing, and the pre-plan state is exact.
+      const existing = new Set([...prevTasks, ...prevTemplates].map((task) => task.id))
+      const previous = new Map(
+        [...prevTasks, ...prevTemplates].map((task) => [task.id, task.status]),
+      )
+      const changesStatus = plan.upserts.some(
+        (task) => previous.has(task.id) && previous.get(task.id) !== task.status,
+      )
+      // Rows this client already holds are updates, written UPDATE-only so a row deleted meanwhile
+      // stays deleted; only the rest are inserts.
+      const inserts = plan.upserts
+        .filter((task) => !existing.has(task.id))
+        .map((task) => taskToRow(task, boardId))
+      const updates = plan.upserts
+        .filter((task) => existing.has(task.id))
+        .map((task) => taskToRow(task, boardId))
+      // Pin every Series definition the plan touches to the revision it was computed against, so a
+      // concurrent edit to the same Series refuses this one instead of interleaving with it.
+      const definitionIds = new Set([
+        ...plan.upserts
+          .filter((task) => isSeriesDefinition(task) && existing.has(task.id))
+          .map((task) => task.id),
+        ...plan.deletions.flatMap(({ target }) => ('parentId' in target ? [target.parentId] : [])),
+      ])
+      const expected = [...definitionIds].flatMap((id) => {
+        const revision = revisions.current.get(id)
+        return revision === undefined ? [] : [{ id, revision }]
+      })
+
+      let failed = false
+      try {
+        const { data, error: err } = await applyWrites(boardId, {
+          expected,
+          inserts,
+          updates,
+          deletions: plan.deletions.map((deletion) => deletion.target),
+        })
+        if (err) {
+          if (err.message === 'stale-revision') {
+            // Someone else changed this Series first: show theirs rather than restore ours.
+            // Reload first, then say why: a reload clears the error, so the other order would
+            // swallow the one message explaining why the edit disappeared.
+            abandonWrites(plan.markIds)
+            await reload()
+            setError(boardFailure('stale-revision').message)
+            return false
+          }
+          throw new Error(err.message)
+        }
+        if (changesStatus) reconcileReturnedRows(data)
+        settleWrites(data)
+        recordRevisions(revisions.current, data)
+        if (cameBackShort(updates, data)) void reload()
+      } catch (e) {
+        failed = true
         setError(errorMessage(e))
-        // 'reload' outranks 'rollback': once any write may have landed, restoring the pre-plan
-        // state is a guess, whereas resyncing from the server is always correct.
-        if (handling.recover === 'reload') outcome.recover = 'reload'
-        else if (handling.recover === 'rollback' && outcome.recover === 'none')
-          outcome.recover = 'rollback'
-        if (handling.abort) outcome.aborted = true
-      }
-
-      // Released only after recovery, so a foreign edit held during the failed upsert is delivered
-      // on top of any rollback rather than overwritten by it.
-      let abandoned: string[] = []
-      if (plan.upserts.length > 0) {
-        try {
-          const previous = new Map(
-            [...prevTasks, ...prevTemplates].map((task) => [task.id, task.status]),
-          )
-          const changesStatus = plan.upserts.some(
-            (task) => previous.has(task.id) && previous.get(task.id) !== task.status,
-          )
-          const { data, error: err } = await supabase
-            .from('tasks')
-            .upsert(
-              plan.upserts.map((t) => taskToRow(t, boardId)),
-              { onConflict: 'id' },
-            )
-            .select()
-          if (err) throw new Error(err.message)
-          if (changesStatus) reconcileReturnedRows(data)
-          settleWrites(data)
-          recordRevisions(revisions.current, data)
-        } catch (e) {
-          abandoned = plan.upserts.map((t) => t.id)
-          failed(e, plan.upsertOnFailure)
-        }
-      }
-
-      for (const deletion of plan.deletions) {
-        if (outcome.aborted) break
-        try {
-          await runDeletion(deletion.target)
-        } catch (e) {
-          failed(e, deletion.onFailure)
-        }
-      }
-
-      if (outcome.recover === 'reload') void reload()
-      else if (outcome.recover === 'rollback') {
         templatesRef.current = prevTemplates
         bumpTemplatesVersion()
         setTasks(prevTasks)
+        // After the rollback: a foreign edit held during the write is delivered on top of it.
+        abandonWrites(plan.markIds)
       }
-      abandonWrites(abandoned)
 
       // Pass the plan's own board rather than the ref: `setTasks` writes the ref inside a
       // deferred React updater, so the ref may still hold the pre-plan value here.
-      if (!outcome.aborted && outcome.recover === 'none' && plan.materialize.length > 0) {
+      if (!failed && plan.materialize.length > 0) {
         if (await materialize(plan.materialize, [...plan.state.tasks])) void reload()
       }
-      return !outcome.failed
+      return !failed
     },
     [
       setTasks,
@@ -1120,7 +1128,11 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       markWrites(plan.markIds)
       try {
         await capture()
-        for (const deletion of plan.deletions) await runDeletion(deletion.target)
+        // One transaction for the whole selection (#434), rather than one request per target.
+        const { error: err } = await applyWrites(boardId, {
+          deletions: plan.deletions.map((deletion) => deletion.target),
+        })
+        if (err) throw new Error(err.message)
         offer()
         return true
       } catch (e) {
@@ -1129,7 +1141,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         return false
       }
     },
-    [seriesState, runPlan, setTasks, markWrites, forgetUndo, offerUndo],
+    [seriesState, runPlan, setTasks, markWrites, forgetUndo, offerUndo, boardId],
   )
 
   /**
@@ -1154,32 +1166,26 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       return false
     }
     forgetUndo()
-    const plan = planUndo(pending.entry, seriesState())
+    const before = seriesState()
+    const plan = planUndo(pending.entry, before)
     templatesRef.current = [...plan.state.templates]
     bumpTemplatesVersion()
     setTasks([...plan.state.tasks])
     markWrites(plan.markIds)
     try {
-      if (plan.upsertTemplates.length > 0) {
-        const { data, error: err } = await supabase
-          .from('tasks')
-          .upsert(
-            plan.upsertTemplates.map((t) => taskToRow(t, boardId)),
-            { onConflict: 'id' },
-          )
-          .select(WRITTEN)
-        if (err) throw new Error(err.message)
-        settleWrites(data)
-        recordRevisions(revisions.current, data)
-      }
-      if (plan.upsertTasks.length > 0) {
-        const { data, error: err } = await supabase
-          .from('tasks')
-          .upsert(
-            plan.upsertTasks.map((t) => taskToRow(t, boardId)),
-            { onConflict: 'id' },
-          )
-          .select()
+      // One transaction (#434). Rows still on the board are updates; rows the undone action deleted
+      // are inserts, and Series definitions go first so their Occurrences have something to point at.
+      const existing = new Set([...before.tasks, ...before.templates].map((task) => task.id))
+      const restored = [...plan.upsertTemplates, ...plan.upsertTasks]
+      if (restored.length > 0) {
+        const { data, error: err } = await applyWrites(boardId, {
+          inserts: restored
+            .filter((task) => !existing.has(task.id))
+            .map((task) => taskToRow(task, boardId)),
+          updates: restored
+            .filter((task) => existing.has(task.id))
+            .map((task) => taskToRow(task, boardId)),
+        })
         if (err) throw new Error(err.message)
         reconcileReturnedRows(data)
         settleWrites(data)

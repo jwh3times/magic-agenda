@@ -663,6 +663,54 @@ export type Database = {
           total_count: number
         }[]
       }
+      apply_task_writes: {
+        Args: {
+          p_board_id: string
+          p_deletions: Json
+          p_expected: Json
+          p_inserts: Json
+          p_updates: Json
+        }
+        Returns: {
+          archived_at: string | null
+          assignee_account_id: string | null
+          at_time: string | null
+          author_id: string | null
+          author_kind: string
+          board_id: string
+          checklist: Json
+          color: string
+          completed_at: string | null
+          created_at: string
+          day: string | null
+          description: string
+          id: string
+          korder: number
+          label_id: string | null
+          last_editor_id: string | null
+          order_index: number
+          pinned: boolean
+          recur_count: number | null
+          recur_freq: string
+          recur_interval: number
+          recur_origin_day: string | null
+          recur_parent_id: string | null
+          recur_skip: Json
+          recur_until: string | null
+          recur_weekdays: number[]
+          reopen_status: string
+          revision: number
+          status: string
+          title: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: '*'
+          to: 'tasks'
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       board_members: {
         Args: { p_board_id: string }
         Returns: {
