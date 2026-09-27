@@ -12,6 +12,35 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.15.18] - 2026-09-27
+
+### Changed
+
+- **Series edits, reordering, and bulk changes are all-or-nothing (#434).** A Series-wide edit or
+  delete, a drag reorder, rolling overdue Tasks forward, a bulk edit or delete, and Undo each now go
+  to the server as one transaction (`apply_task_writes`), so either the whole change lands or none
+  of it does. A failure no longer leaves a Series half-edited. The board goes back exactly to how
+  it was, and the error is shown.
+
+### Fixed
+
+- **A Task someone else deleted can no longer be brought back by an unrelated write.** Reorders,
+  bulk edits, roll-forward, and Series edits used to write with upserts, which silently re-created a
+  row another member had just deleted. Existing rows are now written update-only, and new rows never
+  overwrite an existing one. When a write comes back short because a Task is gone, the board
+  reloads.
+- **Two people editing the same Series at once no longer interleave.** The command locks the Series
+  definitions a change touches and checks their revisions. The second edit is refused, the board
+  reloads to show the first, and a message says why.
+
+### Internal
+
+- **`apply_task_writes` runs as the caller** (`security invoker`), so the Task RLS policies and
+  column grants stay the only authority. It is scoped to one Board, and the composite foreign key
+  still keeps a Series on a single Board.
+- **No upsert remains in `useTasks`.** The planners' per-step `FailureHandling` no longer changes
+  anything, because a single transaction has no partial outcome.
+
 ## [1.15.17] - 2026-09-27
 
 ### Changed
@@ -4280,7 +4309,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.17...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.18...HEAD
+[1.15.18]: https://github.com/jwh3times/magic-agenda/compare/v1.15.17...v1.15.18
 [1.15.17]: https://github.com/jwh3times/magic-agenda/compare/v1.15.16...v1.15.17
 [1.15.16]: https://github.com/jwh3times/magic-agenda/compare/v1.15.15...v1.15.16
 [1.15.15]: https://github.com/jwh3times/magic-agenda/compare/v1.15.14...v1.15.15
