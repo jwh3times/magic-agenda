@@ -5,6 +5,9 @@ import { pathToFileURL } from 'node:url'
 
 export const LOCAL_E2E_EMAIL = 'e2e@magicagenda.test'
 export const LOCAL_E2E_PASSWORD = 'E2e!Local-Only2026'
+/** A second confirmed account, invited to the first account's Board by the invitation spec (#437). */
+export const LOCAL_E2E_INVITEE_EMAIL = 'e2e-invitee@magicagenda.test'
+export const LOCAL_E2E_INVITEE_PASSWORD = 'E2e!Invitee-Only2026'
 export const TURNSTILE_TEST_SITE_KEY = '1x00000000000000000000AA'
 
 interface LocalStack {
@@ -41,6 +44,8 @@ export function localE2EEnvironment(stack: LocalStack): Record<string, string> {
     E2E_SUPABASE_ANON_KEY: stack.anonKey,
     E2E_TEST_EMAIL: LOCAL_E2E_EMAIL,
     E2E_TEST_PASSWORD: LOCAL_E2E_PASSWORD,
+    E2E_INVITEE_EMAIL: LOCAL_E2E_INVITEE_EMAIL,
+    E2E_INVITEE_PASSWORD: LOCAL_E2E_INVITEE_PASSWORD,
   }
 }
 
@@ -53,25 +58,28 @@ function appendEnvironment(path: string, values: Record<string, string>): void {
   }
 }
 
-async function provisionUser(stack: LocalStack): Promise<void> {
+async function provisionUsers(stack: LocalStack): Promise<void> {
   const admin = createClient(stack.apiUrl, stack.serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
   const { data: listed, error: listError } = await admin.auth.admin.listUsers()
   if (listError) throw new Error(`Could not inspect local E2E users: ${listError.message}`)
 
-  const existing = listed.users.find((user) => user.email === LOCAL_E2E_EMAIL)
-  if (existing) {
-    const { error } = await admin.auth.admin.deleteUser(existing.id)
-    if (error) throw new Error(`Could not replace the local E2E user: ${error.message}`)
-  }
+  // The invitee first: after a local run it may still be a member of the main account's Board, and
+  // account deletion refuses to strand a sole Owner's co-members, so the owner could not be replaced.
+  for (const [email, password] of [
+    [LOCAL_E2E_INVITEE_EMAIL, LOCAL_E2E_INVITEE_PASSWORD],
+    [LOCAL_E2E_EMAIL, LOCAL_E2E_PASSWORD],
+  ] as const) {
+    const existing = listed.users.find((user) => user.email === email)
+    if (existing) {
+      const { error } = await admin.auth.admin.deleteUser(existing.id)
+      if (error) throw new Error(`Could not replace the local E2E user ${email}: ${error.message}`)
+    }
 
-  const { error } = await admin.auth.admin.createUser({
-    email: LOCAL_E2E_EMAIL,
-    password: LOCAL_E2E_PASSWORD,
-    email_confirm: true,
-  })
-  if (error) throw new Error(`Could not create the local E2E user: ${error.message}`)
+    const { error } = await admin.auth.admin.createUser({ email, password, email_confirm: true })
+    if (error) throw new Error(`Could not create the local E2E user ${email}: ${error.message}`)
+  }
 }
 
 export async function setupLocalE2E(): Promise<void> {
@@ -83,7 +91,7 @@ export async function setupLocalE2E(): Promise<void> {
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   const stack = parseLocalStack(raw)
-  await provisionUser(stack)
+  await provisionUsers(stack)
   appendEnvironment(githubEnv, localE2EEnvironment(stack))
   console.log('Prepared an isolated local E2E account and browser environment.')
 }

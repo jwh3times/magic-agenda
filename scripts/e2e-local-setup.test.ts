@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   LOCAL_E2E_EMAIL,
+  LOCAL_E2E_INVITEE_EMAIL,
+  LOCAL_E2E_INVITEE_PASSWORD,
   LOCAL_E2E_PASSWORD,
   TURNSTILE_TEST_SITE_KEY,
   localE2EEnvironment,
@@ -26,6 +28,8 @@ describe('local E2E setup', () => {
       E2E_SUPABASE_ANON_KEY: 'local-anon',
       E2E_TEST_EMAIL: LOCAL_E2E_EMAIL,
       E2E_TEST_PASSWORD: LOCAL_E2E_PASSWORD,
+      E2E_INVITEE_EMAIL: LOCAL_E2E_INVITEE_EMAIL,
+      E2E_INVITEE_PASSWORD: LOCAL_E2E_INVITEE_PASSWORD,
     })
     expect(Object.values(localE2EEnvironment(stack))).not.toContain('local-admin')
   })

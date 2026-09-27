@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, test, vi, beforeEach } from 'vitest'
 
 // `/` now branches instead of being gated by ProtectedRoute. These tests pin the outcomes —
@@ -168,4 +168,24 @@ test('the board does not paint at / while the assurance level is still unknown',
   render(<App />)
   expect(await screen.findByText('Loading…')).toBeInTheDocument()
   expect(screen.queryByText('BOARD')).not.toBeInTheDocument()
+})
+
+test('a signed-in user holding an invitation is sent to /invite, but only after the guards (#437)', async () => {
+  localStorage.setItem('ma-pending-invitation', JSON.stringify({ token: 't', savedAt: Date.now() }))
+  try {
+    h.auth.session = { user: { id: 'u1' } }
+    h.auth.user = { id: 'u1' }
+    // Two-factor still comes first: the invitation never bypasses the step-up gate.
+    h.auth.stepUpRequired = true
+    const first = render(<App />)
+    expect(window.location.pathname).toBe('/')
+    first.unmount()
+
+    h.auth.stepUpRequired = false
+    render(<App />)
+    await waitFor(() => expect(window.location.pathname).toBe('/invite'))
+  } finally {
+    localStorage.removeItem('ma-pending-invitation')
+    window.history.pushState({}, '', '/')
+  }
 })

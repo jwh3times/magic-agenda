@@ -61,6 +61,7 @@ test('SIGNED_OUT clears the remembered board and view, and every offline snapsho
     JSON.stringify({ v: 1, userId: 'u1', settings: { theme: 'cork', defaultView: 'calendar' } }),
   )
   localStorage.setItem('ma-last-user', 'u1')
+  localStorage.setItem('ma-pending-invitation', JSON.stringify({ token: 't', savedAt: Date.now() }))
   const { result } = renderHook(() => useAuth(), { wrapper })
   await waitFor(() => expect(result.current.loading).toBe(false))
   act(() => fake.emit('SIGNED_OUT', null))
@@ -68,6 +69,8 @@ test('SIGNED_OUT clears the remembered board and view, and every offline snapsho
   expect(localStorage.getItem('ma-selected-board')).toBeNull()
   expect(localStorage.getItem('ma-snapshot-board')).toBeNull()
   expect(localStorage.getItem('ma-snapshot-settings')).toBeNull()
+  // A held Board Invitation belongs to whoever was signing in with it (#437).
+  expect(localStorage.getItem('ma-pending-invitation')).toBeNull()
   expect(localStorage.getItem('ma-last-user')).toBeNull()
 })
 

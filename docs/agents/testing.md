@@ -200,7 +200,12 @@ only a superseded run of the same PR is cancelled. Non-PR events and fork PRs re
 inside the gate step, never through a job-level `if:` that would leave the required check pending.
 
 `scripts/e2e-local-setup.ts` briefly uses the **ephemeral local** service-role key to create the
-confirmed fixture user. It never writes that key to `GITHUB_ENV`; only the local anon URL/key and
+confirmed fixture users — the main account and, since #437, an invitee (`E2E_INVITEE_EMAIL` /
+`E2E_INVITEE_PASSWORD`) that `invitation.spec.ts` invites to the main account's Board. The invitee is
+replaced first, because an invitee left on that Board by a local run would make account deletion
+refuse to replace the owner. **A UI sign-up cannot be driven on this stack**: it runs production's
+`config.toml`, whose SMTP targets `smtp.resend.com` with a dummy key, so the confirmation email
+fails; hence pre-confirmed accounts. It never writes that key to `GITHUB_ENV`; only the local anon URL/key and
 fixed local-only credentials cross into later steps. A production service-role key must never enter
 CI. The fixture now meets the branch's own freshly migrated schema, eliminating the former
 one-release lag where a schema PR tested its client against production's previous schema.

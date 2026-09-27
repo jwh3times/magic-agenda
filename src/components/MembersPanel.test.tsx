@@ -14,6 +14,11 @@ const h = vi.hoisted(() => ({
 }))
 
 vi.mock('../board/boardMembers', () => ({ listBoardMembers: h.list }))
+vi.mock('../invite/invitations', () => ({
+  listPendingInvitations: () => Promise.resolve({ ok: true, value: [] }),
+  createInvitation: vi.fn(),
+  revokeInvitation: vi.fn(),
+}))
 vi.mock('../board/memberAdmin', () => ({
   changeMemberRole: h.changeMemberRole,
   removeMember: h.removeMember,
@@ -75,7 +80,8 @@ test('lists members with names, marks the caller, and falls back for a blank Dis
 test('an Owner gets role selects and Remove for others, never for themselves', async () => {
   renderPanel('owner')
   await screen.findByText('Bo')
-  expect(screen.getAllByRole('combobox')).toHaveLength(3)
+  // One role select per member; the invitation form's own role select is not a member's.
+  expect(screen.getAllByLabelText(/^Role for (Ada|Bo|Unnamed member)$/)).toHaveLength(3)
   // Two others, so two Remove buttons: the caller leaves rather than removing themselves.
   expect(screen.getAllByRole('button', { name: 'Remove…' })).toHaveLength(2)
 })
@@ -135,4 +141,15 @@ test('a refused leave says why and stays', async () => {
   await userEvent.click(screen.getByRole('button', { name: 'Leave' }))
   expect(await screen.findByRole('alert')).toHaveTextContent(/at least one owner/)
   expect(onOwnMembershipChanged).not.toHaveBeenCalled()
+})
+
+test('an Owner gets the invitation form; an Editor does not', async () => {
+  renderPanel('owner')
+  expect(await screen.findByRole('group', { name: 'Invite people to Team' })).toBeInTheDocument()
+})
+
+test('an Editor sees no invitation form', async () => {
+  renderPanel('editor', 'm2')
+  await screen.findByText('Ada')
+  expect(screen.queryByRole('group', { name: 'Invite people to Team' })).toBeNull()
 })

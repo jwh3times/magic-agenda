@@ -34,9 +34,13 @@ function runBootstrap(pathname: string, search: string, state: unknown = null) {
 
   runInNewContext(source, { URLSearchParams, window: browserWindow })
 
+  const captures = browserWindow as typeof browserWindow & {
+    __magicAgendaAuthTokenCapture: Capture
+    __magicAgendaInvitationCapture: Capture
+  }
   return {
-    capture: (browserWindow as typeof browserWindow & { __magicAgendaAuthTokenCapture: Capture })
-      .__magicAgendaAuthTokenCapture,
+    capture: captures.__magicAgendaAuthTokenCapture,
+    invitation: captures.__magicAgendaInvitationCapture,
     location,
     replaceCalls,
     storageReads,
@@ -81,4 +85,33 @@ test('keeps the token in closure memory and forgets it only when consumed', () =
   expect(result.capture.read()).toBe('single-use')
   result.capture.consume()
   expect(result.capture.read()).toBeNull()
+})
+
+// ——— Board Invitation links (#437) ———
+
+test('captures and scrubs an invitation token on /invite, without touching storage', () => {
+  const state = { navigation: 'kept' }
+  const result = runBootstrap('/invite', '?token=abc_DEF-123', state)
+
+  expect(result.location).toEqual({ pathname: '/invite', search: '' })
+  expect(result.replaceCalls).toEqual([[state, '', '/invite']])
+  expect(result.invitation.read()).toBe('abc_DEF-123')
+  expect(result.invitation.read()).toBe('abc_DEF-123')
+  expect(result.storageReads).toBe(0)
+  // An invitation is not an auth token: the redemption capture stays empty.
+  expect(result.capture.read()).toBeNull()
+  result.invitation.consume()
+  expect(result.invitation.read()).toBeNull()
+})
+
+test('an invitation token anywhere but /invite is left alone', () => {
+  const result = runBootstrap('/login', '?token=not-ours')
+  expect(result.location.search).toBe('?token=not-ours')
+  expect(result.invitation.read()).toBeNull()
+})
+
+test('a bare /invite is still scrubbed and captures nothing', () => {
+  const result = runBootstrap('/invite', '?token=')
+  expect(result.location).toEqual({ pathname: '/invite', search: '' })
+  expect(result.invitation.read()).toBeNull()
 })

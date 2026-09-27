@@ -4,6 +4,7 @@ import { changeMemberRole, leaveBoard, removeMember } from '../board/memberAdmin
 import type { BoardOutcome } from '../board/outcome'
 import { asBoardRole, BOARD_ROLES, capabilitiesFor, ROLE_LABELS } from '../board/role'
 import type { BoardSummary } from '../board/selection'
+import { InvitationsSection } from './InvitationsSection'
 
 const hint: CSSProperties = { fontSize: 12, opacity: 0.7 }
 const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }
@@ -163,6 +164,8 @@ export function MembersPanel({
           })}
         </ul>
       )}
+
+      {can.manageMembers && <InvitationsSection boardId={board.id} boardName={board.name} />}
 
       <div style={row}>
         {!leaving && (
