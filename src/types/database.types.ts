@@ -49,6 +49,41 @@ export type Database = {
         }
         Relationships: []
       }
+      board_activity_records: {
+        Row: {
+          actor_account_id: string | null
+          actor_display_name: string
+          board_id: string
+          created_at: string
+          id: string
+          kind: string
+        }
+        Insert: {
+          actor_account_id?: string | null
+          actor_display_name?: string
+          board_id: string
+          created_at?: string
+          id?: string
+          kind: string
+        }
+        Update: {
+          actor_account_id?: string | null
+          actor_display_name?: string
+          board_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'board_activity_records_board_id_fkey'
+            columns: ['board_id']
+            isOneToOne: false
+            referencedRelation: 'boards'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       board_invitations: {
         Row: {
           accepted_by: string | null
@@ -701,6 +736,7 @@ export type Database = {
         Returns: boolean
       }
       leave_board: { Args: { p_board_id: string }; Returns: undefined }
+      record_board_export: { Args: { p_board_id: string }; Returns: undefined }
       reminder_candidate_rows: {
         Args: never
         Returns: {

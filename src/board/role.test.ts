@@ -19,8 +19,15 @@ const CAPABILITY_KEYS = Object.keys(NO_CAPABILITIES) as (keyof BoardCapabilities
  */
 const EXPECTED: Record<BoardRole, (keyof BoardCapabilities)[]> = {
   owner: CAPABILITY_KEYS,
-  editor: ['viewContent', 'setOwnPreferences', 'editContent', 'assignLabels', 'transferContent'],
-  viewer: ['viewContent', 'setOwnPreferences'],
+  editor: [
+    'viewContent',
+    'setOwnPreferences',
+    'editContent',
+    'assignLabels',
+    'transferContent',
+    'exportBoard',
+  ],
+  viewer: ['viewContent', 'setOwnPreferences', 'exportBoard'],
 }
 
 describe.each(BOARD_ROLES)('%s', (role) => {
@@ -30,10 +37,10 @@ describe.each(BOARD_ROLES)('%s', (role) => {
   })
 })
 
-test('owner is the only role that can manage members, labels, export, or delete', () => {
-  // The four Owner-only rows, pinned separately from the table above so that widening any of them
+test('owner is the only role that can manage members or labels, or delete', () => {
+  // The three Owner-only rows, pinned separately from the table above so that widening any of them
   // fails a test whose name says what was widened.
-  for (const key of ['manageMembers', 'manageLabels', 'exportBoard', 'deleteBoard'] as const) {
+  for (const key of ['manageMembers', 'manageLabels', 'deleteBoard'] as const) {
     expect(capabilitiesFor('owner')[key]).toBe(true)
     expect(capabilitiesFor('editor')[key]).toBe(false)
     expect(capabilitiesFor('viewer')[key]).toBe(false)
@@ -89,4 +96,9 @@ test('capability objects are frozen', () => {
   // is allowed to do, from anywhere in the tree.
   expect(Object.isFrozen(capabilitiesFor('viewer'))).toBe(true)
   expect(Object.isFrozen(NO_CAPABILITIES)).toBe(true)
+})
+
+test('every role may export the Board (#442)', () => {
+  // Export is not a confidentiality boundary; each export writes an Owner-visible activity record.
+  for (const role of BOARD_ROLES) expect(capabilitiesFor(role).exportBoard).toBe(true)
 })

@@ -153,6 +153,12 @@
       "explicitAcl": true,
       "executeGrantees": "authenticated"
     },
+    "record_board_export(uuid)": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "authenticated"
+    },
     "reminder_candidate_rows()": {
       "secdef": true,
       "config": "search_path=\"\"",

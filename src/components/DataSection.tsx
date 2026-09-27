@@ -105,8 +105,8 @@ export function DataSection() {
     setNotice(null)
     try {
       const [tasksResult, labelsResult] = await Promise.all([
-        // Both reads are selected-Board scoped. RLS remains authoritative; `exportBoard` controls
-        // the Owner-only affordance defined by the Board capability model.
+        // Both reads are selected-Board scoped. RLS remains authoritative; `exportBoard` is every
+        // role's since #442, and what keeps export auditable is the record written below.
         loadBoardTasks(boardId),
         supabase
           .from('labels')
@@ -115,6 +115,14 @@ export function DataSection() {
       ])
       if (tasksResult.error || labelsResult.error) {
         setError('Could not load your data. Please try again.')
+        return
+      }
+      // Record the export before producing the file (#442): the Owner-visible Board Activity Record
+      // is what makes an every-member export auditable, so an export that cannot be recorded is not
+      // produced. The server stamps who; the client only names the Board.
+      const recorded = await supabase.rpc('record_board_export', { p_board_id: boardId })
+      if (recorded.error) {
+        setError('Could not record this export, so it was not downloaded. Please try again.')
         return
       }
       const all = (tasksResult.data ?? []).map(rowToTask)

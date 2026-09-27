@@ -84,7 +84,8 @@ and `prepareImport()` requires every one to map explicitly to an existing destin
 Unlabeled before it freshens ids and produces destination-scoped rows. It never matches by name or
 creates Label definitions. `DataSection` owns only file/download and Supabase I/O, keeps the
 template-first batch cursor for retry, freezes mapping after a partial write, and uses
-`transferContent` for import versus Owner-only `exportBoard` for export. Separate Task/Label export
+`transferContent` for import versus `exportBoard` for export — every role's since #442, and every
+export first writes an Owner-visible Board Activity Record, refusing to download if it cannot. Separate Task/Label export
 reads fail closed if a concurrent vocabulary change would create a dangling reference.
 
 **The Assignee is not in the file either (#440).** An account id means nothing on another Board,
