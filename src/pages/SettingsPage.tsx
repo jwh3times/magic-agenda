@@ -17,7 +17,7 @@ import { useSettingsContext } from '../data/SettingsProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { readLastUserId } from '../lib/lastUser'
 import { useRole } from '../access/useRole'
-import { useFlags } from '../access/useFlags'
+import { useBoardSharing } from '../access/useBoardSharing'
 import { useBoardDirectoryContext, useBoardSession } from '../board/BoardDirectoryProvider'
 import { DEFAULT_VIEW } from '../board/selection'
 import type { ViewName } from '../types/task'
@@ -89,8 +89,7 @@ function SettingsShell({ defaultView, onChangeView }: SectionContext) {
   const { conf } = useTheme()
   const isMobile = useIsMobile()
   const { isAdmin } = useRole()
-  const { isEnabled } = useFlags()
-  const boardSharing = isEnabled('board-sharing')
+  const boardSharing = useBoardSharing()
 
   const card: CSSProperties = {
     background: conf.cellBg,

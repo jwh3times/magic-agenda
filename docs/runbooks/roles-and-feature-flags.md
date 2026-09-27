@@ -50,6 +50,27 @@ update public.feature_flags set enabled = true where key = 'example_feature';
 Every authenticated Account can read every flag and description, so keep confidential information
 out of both. Missing flags are disabled; deleting a flag disables its gate on the next refresh.
 
+### Shared Boards: a two-stage rollout (#443)
+
+Flags are global, so "admins first, then everyone" is split across code and the flag:
+`useBoardSharing()` shows the sharing UI (Members, invitations, Assignee, "Assigned to me") to
+**administrators always**, and to everyone once `board-sharing` is enabled.
+
+1. **Stage 1 — administrators.** Nothing to do: it begins when #443 deploys. Verify with a second,
+   non-admin account: invite it from Settings → Boards → Members, open the link signed out, sign in
+   as that account, and join. The shared Board appears in its switcher. It sees no membership
+   controls yet, which is expected.
+2. **Stage 2 — everyone.** When stage 1 has been verified, create the flag already enabled:
+
+   ```sql
+   insert into public.feature_flags (key, enabled, description)
+   values ('board-sharing', true, 'Shared Boards: invitations, members, and Assignees');
+   ```
+
+   To withdraw it, `update public.feature_flags set enabled = false where key = 'board-sharing';`.
+   That hides the controls again, but existing shared Boards, Memberships, and invitations keep
+   working, because the flag gates UI only.
+
 ## Consume flags in React
 
 Under `AuthProvider`, use the hooks directly; no additional provider is required:

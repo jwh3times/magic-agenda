@@ -12,6 +12,30 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.15.19] - 2026-09-27
+
+### Changed
+
+- **Shared Boards begin rolling out (#443): administrators first.** The sharing controls are
+  Members, invitations, the Assignee, and "Assigned to me". Administrators now see them always, and
+  everyone else sees them once the `board-sharing` feature flag is enabled. A flag here is a single
+  global switch that cannot target administrators, so the admin-first stage lives in
+  `useBoardSharing()` rather than in the flag. The runbook gives the SQL for the second stage.
+- **The public descriptions now allow for sharing, and are true either way.**
+  - **Noscript and Landing:** they say a board is visible only to its members, instead of "private
+    to your account".
+  - **Privacy Policy:** explains what sharing stores (invited email addresses, removed 30 days after
+    an invitation ends; memberships, assignments, and export records) and what other members of a
+    shared Board can see and keep. It also covers what deleting your account does to Boards shared
+    with you, and now lists attached files as content.
+  - **Terms of Service:** the content licence extends to the members of a Board you share, and you
+    are responsible for who you invite.
+
+### Docs
+
+- README gains a Shared Boards entry; AGENTS lists the `/invite` page. The feature-flags runbook
+  describes the two-stage rollout, with its rollback.
+
 ## [1.15.18] - 2026-09-27
 
 ### Changed
@@ -4309,7 +4333,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.18...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.19...HEAD
+[1.15.19]: https://github.com/jwh3times/magic-agenda/compare/v1.15.18...v1.15.19
 [1.15.18]: https://github.com/jwh3times/magic-agenda/compare/v1.15.17...v1.15.18
 [1.15.17]: https://github.com/jwh3times/magic-agenda/compare/v1.15.16...v1.15.17
 [1.15.16]: https://github.com/jwh3times/magic-agenda/compare/v1.15.15...v1.15.16
