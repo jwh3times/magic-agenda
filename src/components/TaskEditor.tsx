@@ -12,6 +12,7 @@ import { ScopePrompt } from './ScopePrompt'
 import type { RecurFreq, TaskDraft } from '../types/task'
 import { useLabelDirectoryContext } from '../labels/LabelDirectoryProvider'
 import { AttachmentsSection } from './AttachmentsSection'
+import { isShared, memberName, useBoardMembers } from '../board/boardMembersContext'
 import { UNLABELED_DOT_COLOR } from '../labels/presentation'
 
 export interface TaskEditorProps {
@@ -70,6 +71,7 @@ export function TaskEditor({
   const { theme, conf } = useTheme()
   const isMobile = useIsMobile()
   const { labels } = useLabelDirectoryContext()
+  const boardMembers = useBoardMembers()
   const [draft, setDraft] = useState<TaskDraft>(initial)
   const [newItem, setNewItem] = useState('')
   const [scopePrompt, setScopePrompt] = useState<null | 'save' | 'delete'>(null)
@@ -384,6 +386,37 @@ export function TaskEditor({
               },
             )}
           </div>
+
+          {isShared(boardMembers) && (
+            <>
+              {/* Assignee (#440): only on a Board more than one person is on. */}
+              <div style={fieldLabel}>Assignee</div>
+              <select
+                aria-label="Assignee"
+                value={draft.assigneeId ?? ''}
+                onChange={(e) => patch({ assigneeId: e.target.value || null })}
+                disabled={readOnly || !canEditContent}
+                style={{
+                  padding: '9px 12px',
+                  borderRadius: '9px',
+                  border: `1px solid ${border}`,
+                  background: fieldBg,
+                  color: fg,
+                  fontFamily: conf.ui,
+                  fontSize: isMobile ? 16 : 13.5,
+                  maxWidth: 280,
+                }}
+              >
+                <option value="">Unassigned</option>
+                {boardMembers.members.map((member) => (
+                  <option key={member.accountId} value={member.accountId}>
+                    {memberName(member)}
+                    {member.accountId === boardMembers.me ? ' (you)' : ''}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
 
           <div style={fieldLabel}>Checklist</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>

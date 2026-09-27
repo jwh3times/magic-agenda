@@ -189,6 +189,7 @@ const serverRow = (over: Record<string, unknown> = {}) => ({
   // app maps Label ownership but intentionally keeps the remaining storage metadata outside Task.
   board_id: 'b1',
   label_id: null,
+  assignee_account_id: null,
   label_assignment_explicit: false,
   author_id: null,
   last_editor_id: null,
@@ -209,6 +210,7 @@ const appTask = (over: Partial<Task>): Task =>
     title: 'server',
     description: '',
     labelId: null,
+    assigneeId: null,
     color: 'yellow',
     checklist: [],
     status: 'todo',

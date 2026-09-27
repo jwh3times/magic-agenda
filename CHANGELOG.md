@@ -12,6 +12,36 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.15.14] - 2026-09-27
+
+### Added
+
+- **Task Assignee (#440), behind the `board-sharing` feature flag.** A Task can be assigned to one
+  current member of its Board.
+  - **In the app:** the editor gains an Assignee picker, cards show the Assignee's initials, and the
+    filter bar gains "Assigned to me". All three appear only when more than one person is on the
+    Board, so Private Boards look exactly as before.
+  - **Recurring Tasks:** the Assignee is Series Content (ADR-0002 amended), so an Occurrence
+    inherits it from its Series.
+  - **Import and export:** the file leaves the Assignee out, because an account id means nothing on
+    another Board. Imports arrive unassigned, and the v4 format is unchanged.
+
+### Security
+
+- **An Assignee is always a current member of the Task's Board.** A `security definer` trigger
+  refuses anyone else (`assignee-not-member`). It must be a definer: the caller can see only their
+  own Membership row.
+- **Ending a Membership clears that person's assignments on that Board** in the same statement, and
+  leaves their assignments on other Boards untouched. That covers removal, leaving, and account
+  deletion.
+- **Being the Assignee grants nothing**; no policy reads the column.
+
+### Fixed
+
+- **Server-side materialization now carries the Assignee.** `insert_materialized_occurrences`
+  lists its columns explicitly, so it is recreated with the Assignee in the list. Without that, the
+  daily job would have created unassigned Occurrences of an assigned Series.
+
 ## [1.15.13] - 2026-09-27
 
 ### Added
@@ -4192,7 +4222,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.13...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.14...HEAD
+[1.15.14]: https://github.com/jwh3times/magic-agenda/compare/v1.15.13...v1.15.14
 [1.15.13]: https://github.com/jwh3times/magic-agenda/compare/v1.15.12...v1.15.13
 [1.15.12]: https://github.com/jwh3times/magic-agenda/compare/v1.15.11...v1.15.12
 [1.15.11]: https://github.com/jwh3times/magic-agenda/compare/v1.15.10...v1.15.11

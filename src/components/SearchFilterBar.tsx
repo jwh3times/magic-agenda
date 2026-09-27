@@ -4,6 +4,7 @@ import { useIsMobile } from '../lib/useMediaQuery'
 import { STATUS } from '../theme/constants'
 import { EMPTY_FILTER, isFilterActive, type FilterQuery } from '../data/filters'
 import type { WorkflowStatus } from '../types/task'
+import { isShared, useBoardMembers } from '../board/boardMembersContext'
 import { useLabelDirectoryContext } from '../labels/LabelDirectoryProvider'
 
 export interface SearchFilterBarProps {
@@ -25,6 +26,8 @@ export function SearchFilterBar({
 }: SearchFilterBarProps) {
   const { theme, conf } = useTheme()
   const { labels } = useLabelDirectoryContext()
+  const boardMembers = useBoardMembers()
+  const mine = isShared(boardMembers) ? boardMembers.me : null
   const isMobile = useIsMobile()
   const dark = theme === 'glass'
   const fg = dark ? '#eaf0ff' : '#241c12'
@@ -102,6 +105,24 @@ export function SearchFilterBar({
       >
         📌 Pinned
       </button>
+      {mine && (
+        // "Assigned to me" (#440): only on a Board more than one person is on.
+        <button
+          type="button"
+          aria-pressed={query.assignedTo !== null}
+          onClick={() =>
+            onChange({ ...query, assignedTo: query.assignedTo === null ? mine : null })
+          }
+          style={{
+            ...control,
+            cursor: 'pointer',
+            fontWeight: 700,
+            ...(query.assignedTo !== null ? { color: conf.accent, borderColor: conf.accent } : {}),
+          }}
+        >
+          👤 Assigned to me
+        </button>
+      )}
       {onToggleSelect && (
         <button
           type="button"

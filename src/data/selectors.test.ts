@@ -19,6 +19,7 @@ function t(id: string, over: Partial<TaskDraft> = {}): Task {
     title: id,
     description: '',
     labelId: null,
+    assigneeId: null,
     color: 'yellow',
     checklist: [],
     status: 'todo',

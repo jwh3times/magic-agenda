@@ -23,6 +23,11 @@ export interface TaskBase {
   description: string
   /** Optional Board Label. null is the first-class Unlabeled state. */
   labelId: string | null
+  /**
+   * The current Board member doing this Task (#440), or null. Attribution, not authority: it grants
+   * nothing. The database refuses anyone without a current Membership, and clears it when theirs ends.
+   */
+  assigneeId: string | null
   color: Color
   checklist: ChecklistItem[]
   status: WorkflowStatus

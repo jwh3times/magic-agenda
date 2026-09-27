@@ -87,6 +87,10 @@ template-first batch cursor for retry, freezes mapping after a partial write, an
 `transferContent` for import versus Owner-only `exportBoard` for export. Separate Task/Label export
 reads fail closed if a concurrent vocabulary change would create a dangling reference.
 
+**The Assignee is not in the file either (#440).** An account id means nothing on another Board,
+and importing one would name a person who may not be a member there, so `ExportTask` omits
+`assigneeId` and every import arrives unassigned. The v4 format is unchanged by it.
+
 **Attachments are not in the file, and the dialog says so with a number (#398).** The format stays
 v4; nothing about attachments is written or read. What changed is that the omission stopped being
 silent, which was the defect — the export copy states unconditionally that attachments are excluded,

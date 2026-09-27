@@ -32,6 +32,7 @@ const ASSIGNED_TASK = asTask({
   title: 'Assigned task',
   description: '',
   labelId: 'a',
+  assigneeId: null,
   color: 'yellow',
   checklist: [],
   status: 'todo',

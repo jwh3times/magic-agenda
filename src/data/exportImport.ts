@@ -46,7 +46,15 @@ export type LegacyCategory = (typeof LEGACY_CATEGORIES)[number]
  * compatibility contract with files this app no longer controls, and the app domain has to be free
  * to rename without breaking them.
  */
-export type ExportTask = Omit<Task, 'occurrenceDate' | 'excludedDates' | 'reopenStatus'> & {
+/**
+ * The Assignee (#440) is deliberately **not** in the file: an account id means nothing on another
+ * Board or another instance, and importing one would name a person who may not be a member there.
+ * Export drops it and import arrives unassigned, which also leaves the v4 format unchanged.
+ */
+export type ExportTask = Omit<
+  Task,
+  'occurrenceDate' | 'excludedDates' | 'reopenStatus' | 'assigneeId'
+> & {
   recurOriginDay: string | null
   recurSkip: string[]
   /**
@@ -80,7 +88,12 @@ export type ExportTaskV2 = Omit<
 /** The on-disk v1 Task. Category exists only at this file-format compatibility seam. */
 export type LegacyTask = Omit<ExportTaskV2, 'labelId'> & { category: LegacyCategory }
 
-function toExportTask({ occurrenceDate, excludedDates, ...rest }: Task): ExportTask {
+function toExportTask({
+  occurrenceDate,
+  excludedDates,
+  assigneeId: _assigneeId,
+  ...rest
+}: Task): ExportTask {
   return { ...rest, recurOriginDay: occurrenceDate, recurSkip: excludedDates }
 }
 
@@ -90,6 +103,7 @@ function fromExportTask({ recurOriginDay, recurSkip, reopenStatus, ...rest }: Ex
   return asTask({
     ...rest,
     reopenStatus: reopenStatus ?? 'todo',
+    assigneeId: null,
     occurrenceDate: recurOriginDay,
     excludedDates: recurSkip,
   })
@@ -112,6 +126,7 @@ function fromPreV3Task({
     completedAt: null,
     reopenStatus: 'todo',
     archivedAt: null,
+    assigneeId: null,
     // A pre-v3 file predates both Rule parameters, so it names neither. These are the values that
     // mean "unlisted": no weekday set is the anchor's own weekday, and no count is a Rule that
     // ends by date or not at all — which is what every v1 and v2 Series already meant.

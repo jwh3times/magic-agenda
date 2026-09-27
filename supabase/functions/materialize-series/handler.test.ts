@@ -12,6 +12,7 @@ function definition(id: string): TaskRow {
     title: "daily",
     description: "",
     label_id: null,
+    assignee_account_id: null,
     color: "#cccccc",
     checklist: [],
     status: "todo",

@@ -30,6 +30,7 @@ function mk(o: MkInput): Task {
     title: o.t,
     description: o.d ?? '',
     labelId: o.labelId,
+    assigneeId: null,
     color: o.k,
     checklist: (o.l ?? []).map((x) => ({ id: uid('c'), text: x.t, done: !!x.d })),
     status,

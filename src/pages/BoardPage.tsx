@@ -15,6 +15,9 @@ import { OfflineContext } from '../data/offlineContext'
 import { TaskBoardContext } from '../data/taskBoardContext'
 import { useLabelDirectoryContext } from '../labels/LabelDirectoryProvider'
 import { dominantSnapshotFallbackReason } from '../data/snapshotFallback'
+import { useFlags } from '../access/useFlags'
+import { BoardMembersContext } from '../board/boardMembersContext'
+import { useBoardMembersValue } from '../board/useBoardMembersValue'
 import { DueClockProvider } from '../data/DueClockProvider'
 
 /** The signed-in board: owns the Supabase-backed task state, reads session-wide settings. */
@@ -35,6 +38,12 @@ export function BoardPage() {
     lostAccess,
     dismissLostAccess,
   } = useBoardDirectoryContext()
+  // Members for Assignee (#440): fetched only behind the sharing flag.
+  const boardMembers = useBoardMembersValue(
+    selectedBoardId,
+    useFlags().isEnabled('board-sharing'),
+    user?.id ?? null,
+  )
   // Default View is a Membership Preference: it describes how this account experiences THIS board.
   // There is no Account-level fallback any more — `user_settings.default_view` was a compatibility
   // copy and is gone. `DEFAULT_VIEW` covers the only remaining gap: a render before the Membership
@@ -105,18 +114,20 @@ export function BoardPage() {
             value={{ readOnly, fallbackReason, savedAt, timezone: settings.timezone }}
           >
             <TaskBoardContext.Provider value={t}>
-              <DueClockProvider tasks={t.tasks} timezone={settings.timezone}>
-                <Board
-                  boardId={selectedBoardId}
-                  initialView={board?.defaultView ?? DEFAULT_VIEW}
-                  weekStart={settings.weekStart}
-                  onSignOut={() => void signOut()}
-                  onOpenSettings={() => void navigate('/settings')}
-                  canAssignLabels={can.assignLabels}
-                  canEditContent={can.editContent}
-                  keyboardShortcuts={settings.keyboardShortcuts}
-                />
-              </DueClockProvider>
+              <BoardMembersContext.Provider value={boardMembers}>
+                <DueClockProvider tasks={t.tasks} timezone={settings.timezone}>
+                  <Board
+                    boardId={selectedBoardId}
+                    initialView={board?.defaultView ?? DEFAULT_VIEW}
+                    weekStart={settings.weekStart}
+                    onSignOut={() => void signOut()}
+                    onOpenSettings={() => void navigate('/settings')}
+                    canAssignLabels={can.assignLabels}
+                    canEditContent={can.editContent}
+                    keyboardShortcuts={settings.keyboardShortcuts}
+                  />
+                </DueClockProvider>
+              </BoardMembersContext.Provider>
             </TaskBoardContext.Provider>
           </OfflineContext.Provider>
           {t.error && <Toast message={t.error} onDismiss={t.clearError} />}

@@ -15,6 +15,7 @@ function mkInstance(over: Partial<TaskDraft> = {}): Task {
     title: 'Water the plants',
     description: '',
     labelId: null,
+    assigneeId: null,
     color: 'yellow',
     checklist: [],
     status: 'todo',
