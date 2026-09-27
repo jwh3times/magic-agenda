@@ -11,9 +11,15 @@ const h = vi.hoisted(() => ({
   changeMemberRole: vi.fn(),
   removeMember: vi.fn(),
   leaveBoard: vi.fn(),
+  remind: false,
+  writeRemind: vi.fn((_id: string, _value: boolean) => Promise.resolve(null as string | null)),
 }))
 
 vi.mock('../board/boardMembers', () => ({ listBoardMembers: h.list }))
+vi.mock('../board/reminderOptIn', () => ({
+  readRemindUnassigned: () => Promise.resolve(h.remind),
+  writeRemindUnassigned: h.writeRemind,
+}))
 vi.mock('../invite/invitations', () => ({
   listPendingInvitations: () => Promise.resolve({ ok: true, value: [] }),
   createInvitation: vi.fn(),
@@ -152,4 +158,26 @@ test('an Editor sees no invitation form', async () => {
   renderPanel('editor', 'm2')
   await screen.findByText('Ada')
   expect(screen.queryByRole('group', { name: 'Invite people to Team' })).toBeNull()
+})
+
+test('the unassigned-reminder opt-in shows on a shared Board and saves the change (#441)', async () => {
+  renderPanel('viewer', 'm3')
+  const box = await screen.findByRole('checkbox', {
+    name: 'Also remind me about unassigned tasks on this board',
+  })
+  expect(box).not.toBeChecked()
+  await userEvent.click(box)
+  expect(h.writeRemind).toHaveBeenCalledWith('m3', true)
+  expect(box).toBeChecked()
+})
+
+test('a failed opt-in write reverts the box and says why', async () => {
+  h.writeRemind.mockResolvedValueOnce('permission denied')
+  renderPanel()
+  const box = await screen.findByRole('checkbox', {
+    name: 'Also remind me about unassigned tasks on this board',
+  })
+  await userEvent.click(box)
+  expect(await screen.findByRole('alert')).toHaveTextContent('permission denied')
+  expect(box).not.toBeChecked()
 })

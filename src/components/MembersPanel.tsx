@@ -4,6 +4,7 @@ import { changeMemberRole, leaveBoard, removeMember } from '../board/memberAdmin
 import type { BoardOutcome } from '../board/outcome'
 import { asBoardRole, BOARD_ROLES, capabilitiesFor, ROLE_LABELS } from '../board/role'
 import type { BoardSummary } from '../board/selection'
+import { readRemindUnassigned, writeRemindUnassigned } from '../board/reminderOptIn'
 import { InvitationsSection } from './InvitationsSection'
 
 const hint: CSSProperties = { fontSize: 12, opacity: 0.7 }
@@ -40,6 +41,27 @@ export function MembersPanel({
   const [busy, setBusy] = useState(false)
   const [removing, setRemoving] = useState<string | null>(null)
   const [leaving, setLeaving] = useState(false)
+  // Reminder opt-in for unassigned Tasks (#441): null until read.
+  const [remindUnassigned, setRemindUnassigned] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    let current = true
+    void readRemindUnassigned(board.membershipId).then((value) => {
+      if (current) setRemindUnassigned(value)
+    })
+    return () => {
+      current = false
+    }
+  }, [board.membershipId])
+
+  const toggleRemindUnassigned = async (value: boolean) => {
+    setRemindUnassigned(value)
+    const failure = await writeRemindUnassigned(board.membershipId, value)
+    if (failure) {
+      setRemindUnassigned(!value)
+      setError(failure)
+    }
+  }
 
   const load = useCallback(async () => {
     const outcome = await listBoardMembers(board.id)
@@ -163,6 +185,18 @@ export function MembersPanel({
             )
           })}
         </ul>
+      )}
+
+      {members !== null && members.length > 1 && remindUnassigned !== null && (
+        // Only on a Board more than one person is on: alone, every timed Task reminds you anyway.
+        <label style={{ ...row, fontSize: 13.5 }}>
+          <input
+            type="checkbox"
+            checked={remindUnassigned}
+            onChange={(e) => void toggleRemindUnassigned(e.target.checked)}
+          />
+          Also remind me about unassigned tasks on this board
+        </label>
       )}
 
       {can.manageMembers && <InvitationsSection boardId={board.id} boardName={board.name} />}

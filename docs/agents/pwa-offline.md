@@ -41,6 +41,15 @@ The Edge Function requires `VAPID_SUBJECT`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_K
 `REMINDER_CRON_SECRET` as runtime secrets. It deliberately has gateway JWT verification disabled:
 the handler compares the opaque cron bearer secret itself, while ordinary users have neither table
 access to delivery state nor execute access to the narrow `reminder_candidate_rows()` service RPC.
+
+**Who a Task reminds (#441).** On a Board with a single current member, `reminder_candidate_rows()`
+offers every timed Task to that member, as it always did. On a Board with more than one, it offers
+a Task only to its **Assignee** (#440), or, when unassigned, to members who opted in for that
+Board. The opt-in is `board_memberships.remind_unassigned`: default off, set by each member on their
+own row through a column grant, like Default View, from the Members panel. Without it, a Shared
+Board would push every member a reminder for every timed Task. `tests/rls/reminder_targeting.test.ts`
+covers the single-member, assigned, opted-in, and not-opted-in cases.
+
 Deploy the function and its tables before adding the `pg_cron` invocation; that staging keeps a
 release from scheduling code or credentials that do not exist yet. The constant-time compare and the
 bearer-header parse are `supabase/functions/_shared/bearer.ts`, shared with `materialize-series`
