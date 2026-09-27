@@ -105,6 +105,13 @@ import reviewed from '../../supabase/reviewed-functions.json'
  * `change_member_role(uuid,text)`, `remove_member(uuid)`, and `leave_board(uuid)` (#438) are client
  * RPCs of the `create_board` kind: no account parameter, and they lock the Board row before
  * enforcing that it keeps a current Owner.
+ *
+ * The Board Invitation commands (#436) — `create_invitation`, `revoke_invitation`,
+ * `invitation_preview`, `accept_invitation`, `decline_invitation` — are client RPCs of that same
+ * kind; the invitee's three re-read the caller's verified email rather than trusting any argument.
+ * Their helpers carry no grant at all: `invitation_token_hash`, `caller_verified_email`, and
+ * `invitation_for_caller` are called only from definer bodies, and `expire_board_invitations` only
+ * by the `expire-board-invitations` cron job, which runs as the owner.
  */
 type ReviewedFunction = {
   secdef: boolean

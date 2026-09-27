@@ -12,6 +12,45 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.15.12] - 2026-09-27
+
+### Added
+
+- **Board Invitations, in the database only (#436).** There is no UI yet (#437), so nothing is
+  visible. The new `board_invitations` table and its commands work like this:
+  - An Owner creates an Invitation for an email address, offering Editor or Viewer, and receives a
+    link token exactly once. Owners can also revoke an Invitation.
+  - The invitee can preview, accept, or decline by token.
+  - Pending Invitations expire after 14 days. A daily job marks them expired and removes the
+    email address 30 days after any final state; the row remains as the record.
+
+### Security
+
+- **An invitation link is not a bearer credential.** Previewing, accepting, and declining each
+  re-read the caller's email from `auth.users`, and refuse unless it is verified and equal to the
+  invited address. The preview requires sign-in, so a Board's name never reaches a signed-out
+  visitor holding a link.
+- **The token is stored only as its SHA-256 hash.** It is 32 random bytes, and nothing can read it
+  back.
+- **Abuse limits hold before the first Invitation exists.** These are checked under the Board row
+  lock:
+  - at most 20 pending Invitations per Board;
+  - at most 50 Invitations created per Account in any rolling 24 hours;
+  - no second pending Invitation for the same email;
+  - no Invitation for someone already on the Board.
+
+  The per-Board cap's race test was checked against a mutation that removes the lock.
+
+- **Only a Board's Owners can read its Invitations.** No role has a direct write grant. All nine
+  functions are registered in `supabase/reviewed-functions.json`.
+
+### Internal
+
+- `tests/rls/membership_realtime.test.ts` (#439) is steadier under the full RLS suite. Both
+  subscriptions are now proven live before anything is asserted. Realtime fans DELETE events out to
+  every subscriber, and other test files' cleanup produces them in parallel, so the test now checks
+  DELETEs separately instead of reading them as leaks.
+
 ## [1.15.11] - 2026-09-27
 
 ### Added
@@ -4117,7 +4156,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.11...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.12...HEAD
+[1.15.12]: https://github.com/jwh3times/magic-agenda/compare/v1.15.11...v1.15.12
 [1.15.11]: https://github.com/jwh3times/magic-agenda/compare/v1.15.10...v1.15.11
 [1.15.10]: https://github.com/jwh3times/magic-agenda/compare/v1.15.9...v1.15.10
 [1.15.9]: https://github.com/jwh3times/magic-agenda/compare/v1.15.8...v1.15.9

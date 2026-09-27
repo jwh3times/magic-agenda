@@ -15,6 +15,12 @@
       "explicitAcl": true,
       "executeGrantees": "service_role"
     },
+    "accept_invitation(text)": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "authenticated"
+    },
     "admin_stats()": {
       "secdef": true,
       "config": "search_path=\"\"",
@@ -51,6 +57,12 @@
       "explicitAcl": true,
       "executeGrantees": "service_role"
     },
+    "caller_verified_email()": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "(owner only)"
+    },
     "change_member_role(uuid,text)": {
       "secdef": true,
       "config": "search_path=\"\"",
@@ -58,6 +70,18 @@
       "executeGrantees": "authenticated"
     },
     "create_board(text)": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "authenticated"
+    },
+    "create_invitation(uuid,text,text)": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "authenticated"
+    },
+    "decline_invitation(text)": {
       "secdef": true,
       "config": "search_path=\"\"",
       "explicitAcl": true,
@@ -77,6 +101,12 @@
     },
     "enforce_task_completion_lifecycle()": {
       "secdef": false,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "(owner only)"
+    },
+    "expire_board_invitations()": {
+      "secdef": true,
       "config": "search_path=\"\"",
       "explicitAcl": true,
       "executeGrantees": "(owner only)"
@@ -129,11 +159,35 @@
       "explicitAcl": true,
       "executeGrantees": "service_role"
     },
+    "invitation_for_caller(text,boolean)": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "(owner only)"
+    },
+    "invitation_preview(text)": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "authenticated"
+    },
+    "invitation_token_hash(text)": {
+      "secdef": false,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "(owner only)"
+    },
     "is_current_board_owner(uuid,uuid)": {
       "secdef": true,
       "config": "search_path=\"\"",
       "explicitAcl": true,
       "executeGrantees": "service_role"
+    },
+    "revoke_invitation(uuid)": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "authenticated"
     },
     "rotate_ical_token(uuid)": {
       "secdef": true,

@@ -49,6 +49,56 @@ export type Database = {
         }
         Relationships: []
       }
+      board_invitations: {
+        Row: {
+          accepted_by: string | null
+          board_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          invited_by: string | null
+          responded_at: string | null
+          role: string
+          status: string
+          target_email: string | null
+          token_hash: string
+        }
+        Insert: {
+          accepted_by?: string | null
+          board_id: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          responded_at?: string | null
+          role: string
+          status?: string
+          target_email?: string | null
+          token_hash: string
+        }
+        Update: {
+          accepted_by?: string | null
+          board_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          responded_at?: string | null
+          role?: string
+          status?: string
+          target_email?: string | null
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'board_invitations_board_id_fkey'
+            columns: ['board_id']
+            isOneToOne: false
+            referencedRelation: 'boards'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       board_memberships: {
         Row: {
           account_id: string | null
@@ -549,6 +599,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_invitation: { Args: { p_token: string }; Returns: string }
       account_deletion_plan: {
         Args: { p_account_id: string }
         Returns: {
@@ -582,6 +633,7 @@ export type Database = {
           role: string
         }[]
       }
+      caller_verified_email: { Args: never; Returns: string }
       cancel_attachment_upload: {
         Args: { p_account_id: string; p_attachment_id: string }
         Returns: undefined
@@ -591,15 +643,53 @@ export type Database = {
         Returns: undefined
       }
       create_board: { Args: { board_name: string }; Returns: string }
+      create_invitation: {
+        Args: { p_board_id: string; p_email: string; p_role: string }
+        Returns: string
+      }
+      decline_invitation: { Args: { p_token: string }; Returns: undefined }
       delete_board_as_owner: {
         Args: { p_account_id: string; p_board_id: string }
         Returns: boolean
       }
+      expire_board_invitations: { Args: never; Returns: undefined }
       ical_feed: { Args: { p_token: string }; Returns: Json }
       insert_materialized_occurrences: {
         Args: { p_rows: Json }
         Returns: number
       }
+      invitation_for_caller: {
+        Args: { p_lock: boolean; p_token: string }
+        Returns: {
+          accepted_by: string | null
+          board_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          invited_by: string | null
+          responded_at: string | null
+          role: string
+          status: string
+          target_email: string | null
+          token_hash: string
+        }
+        SetofOptions: {
+          from: '*'
+          to: 'board_invitations'
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      invitation_preview: {
+        Args: { p_token: string }
+        Returns: {
+          board_name: string
+          expires_at: string
+          inviter_name: string
+          role: string
+        }[]
+      }
+      invitation_token_hash: { Args: { p_token: string }; Returns: string }
       is_current_board_owner: {
         Args: { p_account_id: string; p_board_id: string }
         Returns: boolean
@@ -650,6 +740,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      revoke_invitation: {
+        Args: { p_invitation_id: string }
+        Returns: undefined
       }
       rotate_ical_token: { Args: { p_board_id: string }; Returns: string }
       series_materialization_state: { Args: { p_from: string }; Returns: Json }
