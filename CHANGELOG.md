@@ -12,6 +12,28 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.15.17] - 2026-09-27
+
+### Changed
+
+- **Saving a Task you edited no longer silently overwrites someone else's change (#433).** Saving a
+  Task, or one Occurrence, from the editor now lands only if nobody changed that Task since the
+  editor opened. It is an update, never an insert, so saving can never recreate a Task someone else
+  deleted. If the save does not land, nothing is written and the app says why:
+  - **Someone else saved first:** the board now shows their version. Keep it, or overwrite it with
+    your changes; an overwrite is a fresh save that can itself conflict.
+  - **The Task was deleted:** it leaves the board, and no overwrite is offered, because that would
+    bring it back.
+  - **You no longer have access** to the Board.
+
+  Quick actions (pin, complete, ticking a Step) and edits to a whole Series (#434) work as before.
+
+### Internal
+
+- `tests/rls/membership_realtime.test.ts` checked for leaks by comparing Membership ids, so under
+  the full suite a member's own late-replicated signup Membership read as a leak. The captured
+  payload was that member's own row. The test now checks the account, which is the actual property.
+
 ## [1.15.16] - 2026-09-27
 
 ### Changed
@@ -4258,7 +4280,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.16...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.17...HEAD
+[1.15.17]: https://github.com/jwh3times/magic-agenda/compare/v1.15.16...v1.15.17
 [1.15.16]: https://github.com/jwh3times/magic-agenda/compare/v1.15.15...v1.15.16
 [1.15.15]: https://github.com/jwh3times/magic-agenda/compare/v1.15.14...v1.15.15
 [1.15.14]: https://github.com/jwh3times/magic-agenda/compare/v1.15.13...v1.15.14

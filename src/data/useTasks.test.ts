@@ -12,6 +12,10 @@ const h = vi.hoisted(() => {
     failLaterPage: boolean
     writeRows: unknown[] | null
     insertError: { code?: string; message: string } | null
+    /** What a post-conflict read of the Task answers (#433): the other writer's row, or none. */
+    latestRow: unknown
+    /** What the post-conflict Membership read answers: the caller's row, or none. */
+    membershipRow: unknown
     /** What `captureTaskAttachments` resolves with (#404). */
     attachments: { id: string; taskId: string }[]
     /**
@@ -29,14 +33,27 @@ const h = vi.hoisted(() => {
     insertError: null,
     attachments: [],
     trace: [],
+    latestRow: null,
+    membershipRow: null,
   }
   const ok = () => Promise.resolve({ data: null, error: null })
   const writeSelect = vi.fn(() =>
     Promise.resolve({ data: capture.writeRows, error: capture.insertError }),
   )
-  const selectable = () => {
+  // `eq` too: a compare-and-swap save (#433) chains `.eq('id').eq('revision')` before `.select()`.
+  const revisionEq = vi.fn()
+  const selectable = (): Promise<{ data: null; error: typeof capture.insertError }> & {
+    select: typeof writeSelect
+    eq: (column: string, value: unknown) => unknown
+  } => {
     const result = Promise.resolve({ data: null, error: capture.insertError })
-    return Object.assign(result, { select: writeSelect })
+    return Object.assign(result, {
+      select: writeSelect,
+      eq: (column: string, value: unknown) => {
+        revisionEq(column, value)
+        return selectable()
+      },
+    })
   }
   // A write that rejects (a network fault) whether it is awaited directly or through `.select()`.
   // Every Task write now ends in `.select()` (#432), so rejecting only the bare promise would
@@ -97,6 +114,7 @@ const h = vi.hoisted(() => {
   return {
     capture,
     ok,
+    revisionEq,
     failedWrite,
     selectable,
     writeSelect,
@@ -127,6 +145,10 @@ vi.mock('../lib/supabase', () => ({
         return {
           eq: vi.fn(() =>
             Object.assign(Promise.resolve(result), {
+              maybeSingle: () => Promise.resolve({ data: h.capture.latestRow, error: null }),
+              is: () => ({
+                maybeSingle: () => Promise.resolve({ data: h.capture.membershipRow, error: null }),
+              }),
               order: () => ({
                 range: (from: number, to: number) =>
                   Promise.resolve({
@@ -234,6 +256,9 @@ beforeEach(() => {
   h.capture.failLaterPage = false
   h.capture.writeRows = null
   h.capture.insertError = null
+  h.capture.latestRow = null
+  h.capture.membershipRow = null
+  h.revisionEq.mockClear()
   h.insert.mockClear()
   h.upsert.mockClear()
   h.updateEq.mockReset()
@@ -1661,4 +1686,112 @@ test('an action that deletes nothing captures nothing', async () => {
     await result.current.undo()
   })
   expect(h.restoreAttachments).toHaveBeenCalledWith([])
+})
+
+// ——— compare-and-swap editor saves (#433) ———
+
+test('the loaded revision is what an editor save is conditioned on', async () => {
+  h.capture.rows = [serverRow({ revision: 7 })]
+  h.capture.writeRows = [serverRow({ title: 'mine', revision: 8 })]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  expect(result.current.revisionOf('t1')).toBe(7)
+
+  const task = result.current.tasks[0]
+  let conflict: unknown
+  await act(async () => {
+    conflict = await result.current.saveTask(
+      task,
+      { ...task, title: 'mine' },
+      false,
+      undefined,
+      undefined,
+      7,
+    )
+  })
+  expect(conflict).toBeUndefined()
+  expect(h.revisionEq).toHaveBeenCalledWith('revision', 7)
+  expect(result.current.revisionOf('t1')).toBe(8)
+})
+
+test('a save without an expected revision is not conditioned (the pre-#433 path)', async () => {
+  h.capture.writeRows = [serverRow({ title: 'mine', revision: 2 })]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  const task = result.current.tasks[0]
+  await act(async () => {
+    await result.current.saveTask(task, { ...task, title: 'mine' }, false)
+  })
+  expect(h.revisionEq).not.toHaveBeenCalledWith('revision', expect.anything())
+})
+
+test('someone saved first: nothing is written, the board shows theirs, and the latest revision comes back', async () => {
+  h.capture.rows = [serverRow({ title: 'original', revision: 3 })]
+  h.capture.writeRows = [] // the conditioned UPDATE matched no row
+  h.capture.latestRow = serverRow({ title: 'theirs', revision: 4 })
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  const task = result.current.tasks[0]
+
+  let conflict: { reason: string; latestRevision?: number } | undefined
+  await act(async () => {
+    conflict = (await result.current.saveTask(
+      task,
+      { ...task, title: 'mine' },
+      false,
+      undefined,
+      undefined,
+      3,
+    )) as typeof conflict
+  })
+  expect(conflict).toMatchObject({ reason: 'stale-revision', latestRevision: 4 })
+  expect(result.current.tasks[0].title).toBe('theirs')
+  expect(result.current.revisionOf('t1')).toBe(4)
+})
+
+test('the Task was deleted meanwhile: the save is refused and the Task leaves the board', async () => {
+  h.capture.rows = [serverRow({ revision: 3 })]
+  h.capture.writeRows = []
+  h.capture.latestRow = null
+  h.capture.membershipRow = { id: 'm1' }
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  const task = result.current.tasks[0]
+  let conflict: { reason: string } | undefined
+  await act(async () => {
+    conflict = (await result.current.saveTask(
+      task,
+      { ...task, title: 'mine' },
+      false,
+      undefined,
+      undefined,
+      3,
+    )) as typeof conflict
+  })
+  expect(conflict).toMatchObject({ reason: 'task-deleted' })
+  expect(result.current.tasks).toEqual([])
+  // Never an upsert: a deleted Task is not re-created by saving over it.
+  expect(h.upsert).not.toHaveBeenCalled()
+})
+
+test('access ended meanwhile: the save is refused as membership-ended', async () => {
+  h.capture.rows = [serverRow({ revision: 3 })]
+  h.capture.writeRows = []
+  h.capture.latestRow = null
+  h.capture.membershipRow = null
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  const task = result.current.tasks[0]
+  let conflict: { reason: string } | undefined
+  await act(async () => {
+    conflict = (await result.current.saveTask(
+      task,
+      { ...task, title: 'mine' },
+      false,
+      undefined,
+      undefined,
+      3,
+    )) as typeof conflict
+  })
+  expect(conflict).toMatchObject({ reason: 'membership-ended' })
 })

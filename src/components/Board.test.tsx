@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
@@ -12,7 +12,7 @@ import { makeMockTasks } from '../data/mockTasks'
 import { ymd } from '../lib/dates'
 import { OfflineContext } from '../data/offlineContext'
 import { TodayContext } from '../data/todayContext'
-import { TaskBoardContext, type TaskBoard } from '../data/taskBoardContext'
+import { TaskBoardContext, type SaveConflict, type TaskBoard } from '../data/taskBoardContext'
 import { asTask, type Task, type ViewName } from '../types/task'
 import { LabelDirectoryContext } from '../labels/labelDirectoryContext'
 import { MOCK_LABEL_DIRECTORY } from '../data/mockLabels'
@@ -27,6 +27,7 @@ function Harness({
   seed,
   keyboardShortcuts,
   bulkFails = false,
+  conflicts,
 }: {
   weekStart?: number
   initialView?: ViewName
@@ -35,6 +36,11 @@ function Harness({
   keyboardShortcuts?: boolean
   /** The data layer refused or rolled back every bulk write. */
   bulkFails?: boolean
+  /**
+   * Compare-and-swap refusals to answer editor saves with, in order (#433). Each save records the
+   * revision it was conditioned on in `conflicts.revisions`; an exhausted queue saves normally.
+   */
+  conflicts?: { queue: SaveConflict[]; revisions: (number | undefined)[] }
 }) {
   const [tasks, setTasks] = useState<Task[]>(() => seed ?? makeMockTasks())
   // Whole-board snapshot undo: enough to exercise the board's toast and wiring. Row-scoped restore
@@ -51,7 +57,13 @@ function Harness({
     persistReorder: setTasks,
     // This in-memory adapter applies the scope-free cases only; recurrence dispatch is tested
     // directly through resolveSave/resolveDelete in src/data/series.test.ts.
-    saveTask: (_orig, draft, isNew) => {
+    revisionOf: () => (conflicts ? 5 : undefined),
+    saveTask: (_orig, draft, isNew, _scope, _modifiers, expectedRevision) => {
+      if (conflicts) {
+        conflicts.revisions.push(expectedRevision)
+        const next = conflicts.queue.shift()
+        if (next) return Promise.resolve(next)
+      }
       // The editor hands back a flat draft; the board holds real Tasks.
       const saved = asTask(draft)
       setTasks((prev) =>
@@ -793,4 +805,69 @@ describe('undo', () => {
     await user.click(screen.getByRole('button', { name: 'Dismiss' }))
     expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument()
   })
+})
+
+// ——— compare-and-swap conflicts (#433) ———
+
+const STALE: SaveConflict = {
+  reason: 'stale-revision',
+  message: 'Someone else changed this first. Review their version before saving yours.',
+  latestRevision: 9,
+}
+
+async function editAndSave(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByText('Finish Q3 deck'))
+  const title = screen.getByDisplayValue('Finish Q3 deck')
+  await user.clear(title)
+  await user.type(title, 'My version')
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+}
+
+test('an editor save is conditioned on the revision the editor opened on', async () => {
+  const user = userEvent.setup()
+  const conflicts = { queue: [], revisions: [] as (number | undefined)[] }
+  render(<Harness conflicts={conflicts} />)
+  await editAndSave(user)
+  expect(conflicts.revisions).toEqual([5])
+})
+
+test('a stale save shows the conflict; Keep theirs dismisses it', async () => {
+  const user = userEvent.setup()
+  render(<Harness conflicts={{ queue: [STALE], revisions: [] }} />)
+  await editAndSave(user)
+  expect(await screen.findByRole('alertdialog')).toHaveTextContent('Someone else changed this')
+  await user.click(screen.getByRole('button', { name: 'Keep theirs' }))
+  expect(screen.queryByRole('alertdialog')).toBeNull()
+})
+
+test('Overwrite retries against the reported revision, and can conflict again', async () => {
+  const user = userEvent.setup()
+  const conflicts = {
+    queue: [STALE, { ...STALE, latestRevision: 10 }],
+    revisions: [] as (number | undefined)[],
+  }
+  render(<Harness conflicts={conflicts} />)
+  await editAndSave(user)
+  await user.click(await screen.findByRole('button', { name: 'Overwrite with mine' }))
+  // Conflicted again: still showing, now against the newer revision.
+  await user.click(await screen.findByRole('button', { name: 'Overwrite with mine' }))
+  await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+  expect(conflicts.revisions).toEqual([5, 9, 10])
+})
+
+test('a deleted Task offers no overwrite, because saving would resurrect it', async () => {
+  const user = userEvent.setup()
+  render(
+    <Harness
+      conflicts={{
+        queue: [{ reason: 'task-deleted', message: 'Someone else deleted this task.' }],
+        revisions: [],
+      }}
+    />,
+  )
+  await editAndSave(user)
+  expect(await screen.findByRole('alertdialog')).toHaveTextContent('deleted')
+  expect(screen.queryByRole('button', { name: 'Overwrite with mine' })).toBeNull()
+  await user.click(screen.getByRole('button', { name: 'OK' }))
+  expect(screen.queryByRole('alertdialog')).toBeNull()
 })

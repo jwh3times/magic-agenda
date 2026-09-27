@@ -130,7 +130,11 @@ test('a removed member hears their own revocation; a co-member hears nothing', a
   // other test files deleting users and Boards in parallel cascade Membership DELETEs onto these
   // channels — measured, under the full suite. What a DELETE may carry is asserted separately.
   const rowEvents = (heard: Change[]) => heard.filter((c) => c.eventType !== 'DELETE')
-  const leaked = rowEvents(stayingHeard).filter((c) => c.new.id !== ids[staying.id])
+  // By account, not by Membership id: a member legitimately has several rows. Measured under the
+  // full suite: the co-member's own signup Membership (a different Board) arrived late, after this
+  // subscription opened, and an id comparison read that as a leak. The property is that no row
+  // belonging to another account — and its feed token — ever reaches this channel.
+  const leaked = rowEvents(stayingHeard).filter((c) => c.new.account_id !== staying.id)
   expect(leaked).toEqual([])
   // And the removed member heard nothing but their own row — never a co-member's feed token.
   expect(rowEvents(removedHeard).every((c) => c.new.account_id === removed.id)).toBe(true)

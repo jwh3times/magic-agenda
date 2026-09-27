@@ -174,6 +174,25 @@ writes read their returned rows for the revision **only** — reconciling them w
 response overwrite a newer optimistic edit, which is why only status changes (trigger-stamped
 Completion values) replace the optimistic row.
 
+**Editor saves of one Task or Occurrence are compare-and-swap (#433).** `useTasks` keeps the last
+server revision it saw per Task, from loads, realtime events, and every write that returns rows
+(`revisionOf`). `Board` records it when the editor opens, and `saveTask` passes it down, so the
+save is `UPDATE … WHERE id = ? AND revision = ?`, never an upsert. A zero-row result means nothing
+was written: the optimistic change is undone, and `explainMissedSave` re-reads to tell three
+cases apart, because the server does not distinguish them for the caller:
+
+- The row is still visible: someone saved first (`stale-revision`). The board now shows their
+  version.
+- It is gone, but the caller is still a member: the Task was deleted (`task-deleted`), and it
+  leaves the board.
+- Access is gone (`membership-ended`).
+
+`ConflictDialog` offers "Keep theirs" or "Overwrite with mine" for a stale save only. Overwrite is
+a new, deliberate save against the reported revision, and it can itself conflict. A deleted Task
+offers nothing to retry, since saving over it would resurrect it. Small actions — pin, complete, a
+Step — keep writing their own field against the latest row. Series-wide edits are #434.
+`tests/rls/task_compare_and_swap.test.ts` pins the database half.
+
 **The filter is part of the adapter's spec, not hardcoded.** It was `user_id=eq.<userId>` for both
 tables until the authorization cutover; `tasks` and, since #188, `labels` filter on `board_id` (a
 user-scoped subscription would deliver changes for every Board the Account belongs to, including
