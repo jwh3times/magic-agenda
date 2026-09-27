@@ -110,6 +110,7 @@ export type Database = {
           ical_token: string
           id: string
           joined_at: string
+          remind_unassigned: boolean
           role: string
           updated_at: string
         }
@@ -123,6 +124,7 @@ export type Database = {
           ical_token?: string
           id?: string
           joined_at?: string
+          remind_unassigned?: boolean
           role: string
           updated_at?: string
         }
@@ -136,6 +138,7 @@ export type Database = {
           ical_token?: string
           id?: string
           joined_at?: string
+          remind_unassigned?: boolean
           role?: string
           updated_at?: string
         }

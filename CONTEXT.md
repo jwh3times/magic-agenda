@@ -49,7 +49,8 @@ _Avoid_: due date, independent deadline
 
 **Reminder**:
 A notification an Account elects to receive before a Task's Due Moment. It is derived per Account
-from the Task's schedule and that Account's reminder preference.
+from the Task's schedule and that Account's reminder preference. On a Board more than one person is on, a Task
+reminds only its Assignee, or, when unassigned, the members who opted in for that Board.
 _Avoid_: alarm, Board reminder
 
 **Overdue**:
