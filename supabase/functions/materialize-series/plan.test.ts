@@ -19,6 +19,7 @@ function definition(overrides: Partial<TaskRow> = {}): TaskRow {
     title: "Water the plants",
     description: "",
     label_id: null,
+    assignee_account_id: null,
     color: "#cccccc",
     checklist: [],
     status: "todo",

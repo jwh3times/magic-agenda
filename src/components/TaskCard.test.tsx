@@ -14,6 +14,7 @@ function mkTask(over: Partial<TaskDraft> = {}): Task {
     title: 'Card under test',
     description: '',
     labelId: 'l1',
+    assigneeId: null,
     color: 'yellow',
     checklist: [],
     status: 'todo',

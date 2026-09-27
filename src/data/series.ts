@@ -91,6 +91,7 @@ export function makeInstance(tmpl: Task, day: string, nextId: () => string): Occ
     title: tmpl.title,
     description: tmpl.description,
     labelId: tmpl.labelId,
+    assigneeId: tmpl.assigneeId,
     color: tmpl.color,
     // The Step **id is preserved**, not minted: a Step keeps one identity across its Series, which
     // is what lets an all-future Checklist edit carry each Occurrence's Step Completion across

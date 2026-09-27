@@ -91,6 +91,7 @@ function task(over: Partial<TaskDraft> = {}): Task {
     title: 'T',
     description: '',
     labelId: null,
+    assigneeId: null,
     color: 'yellow',
     checklist: [],
     status: 'todo',
@@ -110,6 +111,7 @@ function task(over: Partial<TaskDraft> = {}): Task {
 function legacyTask(over: Partial<LegacyTask> = {}): LegacyTask {
   const {
     labelId: _labelId,
+    assigneeId: _assigneeId,
     occurrenceDate,
     excludedDates,
     completedAt: _completedAt,
@@ -148,6 +150,7 @@ function taskRow(over: Partial<TaskRow> = {}): TaskRow {
     title: 'Exported',
     description: '',
     label_id: 'l-work',
+    assignee_account_id: null,
     color: 'yellow',
     checklist: [],
     status: 'todo',
@@ -221,6 +224,7 @@ test('v2 import requires an explicit same-name mapping and inserts templates bef
   const instance = task({
     id: 'inst-1',
     labelId: 'source-work',
+    assigneeId: null,
     recurParentId: 'tpl-1',
     occurrenceDate: '2026-07-10',
   })
@@ -338,6 +342,7 @@ test('a batch failure keeps the prepared rows; retrying resumes without re-inser
   const instance = task({
     id: 'inst-1',
     labelId: 'source-work',
+    assigneeId: null,
     recurParentId: 'tpl-1',
     occurrenceDate: '2026-07-10',
   })
@@ -393,6 +398,7 @@ test('exports every Task on a Board larger than the API row cap', async () => {
       ...taskRow(),
       id: `task-${i}`,
       label_id: null,
+      assignee_account_id: null,
     })),
     error: null,
   })
@@ -411,6 +417,7 @@ test('a later export page failure never downloads a partial Board', async () => 
         ...taskRow(),
         id: `task-${i}`,
         label_id: null,
+        assignee_account_id: null,
       })),
       error: null,
     })

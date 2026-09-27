@@ -43,6 +43,7 @@ export const FIELD_OWNER: { readonly [K in keyof Task]: FieldOwner } = {
   title: 'series-content',
   description: 'series-content',
   labelId: 'series-content',
+  assigneeId: 'series-content',
   color: 'series-content',
   atTime: 'series-content',
   checklist: 'series-content',

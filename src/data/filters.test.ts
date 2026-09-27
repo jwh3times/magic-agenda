@@ -8,6 +8,7 @@ function t(id: string, over: Partial<TaskDraft> = {}): Task {
     title: id,
     description: '',
     labelId: 'work-label',
+    assigneeId: null,
     color: 'yellow',
     checklist: [],
     status: 'todo',
@@ -29,6 +30,7 @@ const tasks = [
     title: 'Finish Q3 deck',
     description: 'pull numbers',
     labelId: 'work-label',
+    assigneeId: null,
     status: 'doing',
   }),
   t('b', { title: 'Call plumber', labelId: 'errands-label', status: 'todo' }),
@@ -75,12 +77,19 @@ describe('applyFilters', () => {
       applyFilters(tasks, {
         text: 'call',
         labelId: 'errands-label',
+        assignedTo: null,
         status: 'todo',
         pinned: false,
       }).map((x) => x.id),
     ).toEqual(['b'])
     expect(
-      applyFilters(tasks, { text: 'call', labelId: 'work-label', status: 'todo', pinned: false }),
+      applyFilters(tasks, {
+        text: 'call',
+        labelId: 'work-label',
+        status: 'todo',
+        pinned: false,
+        assignedTo: null,
+      }),
     ).toHaveLength(0)
   })
 })
@@ -92,5 +101,21 @@ describe('pinned facet', () => {
     expect(applyFilters(pinTasks, q).map((x) => x.id)).toEqual(['a'])
     expect(isFilterActive(q)).toBe(true)
     expect(isFilterActive(EMPTY_FILTER)).toBe(false)
+  })
+})
+
+describe('assignedTo (#440)', () => {
+  const assigned = [
+    t('mine', { assigneeId: 'me' }),
+    t('theirs', { assigneeId: 'them' }),
+    t('nobody', { assigneeId: null }),
+  ]
+  it('keeps only the named account’s Tasks, and counts as an active filter', () => {
+    const query = { ...EMPTY_FILTER, assignedTo: 'me' }
+    expect(applyFilters(assigned, query).map((x) => x.id)).toEqual(['mine'])
+    expect(isFilterActive(query)).toBe(true)
+  })
+  it('is off when null', () => {
+    expect(applyFilters(assigned, EMPTY_FILTER)).toHaveLength(3)
   })
 })

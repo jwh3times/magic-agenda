@@ -32,6 +32,7 @@ function row(over: Partial<TaskRow> = {}): TaskRow {
     // Board containment, Label compatibility, attribution, and the compare-and-swap token.
     board_id: 'b1',
     label_id: null,
+    assignee_account_id: null,
     author_id: null,
     last_editor_id: null,
     author_kind: 'author',
@@ -48,6 +49,7 @@ function task(over: Partial<TaskDraft> = {}): Task {
     title: 'T',
     description: 'D',
     labelId: null,
+    assigneeId: null,
     color: 'yellow',
     checklist: [],
     status: 'todo',
@@ -267,5 +269,17 @@ describe('an Occurrence row round-trips unchanged (#345)', () => {
     expect(written.recur_weekdays).toEqual([])
     expect(written.recur_count).toBeNull()
     expect(written.recur_parent_id).toBe('series')
+  })
+})
+
+describe('assignee (#440)', () => {
+  it('maps assignee_account_id both ways', () => {
+    const task = rowToTask(row({ assignee_account_id: 'acct-2' }))
+    expect(task.assigneeId).toBe('acct-2')
+    expect(taskToRow(task, 'b1').assignee_account_id).toBe('acct-2')
+  })
+  it('reads a row from before the column existed as unassigned', () => {
+    const { assignee_account_id: _gone, ...old } = row()
+    expect(rowToTask(old as TaskRow).assigneeId).toBeNull()
   })
 })

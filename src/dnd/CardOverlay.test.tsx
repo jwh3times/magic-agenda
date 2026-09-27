@@ -11,6 +11,7 @@ const task = (labelId: string | null): Task => ({
   title: 'Dragged task',
   description: '',
   labelId,
+  assigneeId: null,
   color: 'yellow',
   checklist: [],
   status: 'todo',

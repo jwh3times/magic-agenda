@@ -17,7 +17,7 @@ and the checklist), and each gap was a silent data loss rather than an error.
 | Owner                | Covers                                                                                                                       |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | Recurrence Rule      | the schedule: how often, on which weekdays, from which date, how it ends (by date or by count), and which dates are excluded |
-| Series Content       | what the work is: title, description, Label, Note Color, due time, and the Checklist's Steps                                 |
+| Series Content       | what the work is: title, description, Label, Note Color, due time, Assignee (#440), and the Checklist's Steps                |
 | Occurrence State     | what a person has done to one Occurrence: its Workflow Status and completion lifecycle, Step Completion, and pin             |
 | Occurrence Placement | where one Occurrence sits: its Scheduled Day and its manual order within a day and within a Kanban column                    |
 | Identity             | the Occurrence's own identity, its Series, and its Occurrence Date                                                           |

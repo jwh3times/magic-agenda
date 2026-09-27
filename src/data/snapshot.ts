@@ -133,9 +133,14 @@ export function readBoardSnapshot(userId: string, boardId: string): BoardSnapsho
     ...snapshot,
     // A v9 envelope may have been written by the pre-#369 client. Preserve the offline cache but
     // do not hydrate a Due Time that Inbox cannot carry into app state.
-    tasks: snapshot.tasks.map((task) =>
-      task.day === 'inbox' && task.atTime !== null ? { ...task, atTime: null } : task,
-    ),
+    // A snapshot written before the Assignee existed (#440) carries no `assigneeId`; hydrate it as
+    // unassigned rather than `undefined`, which no comparison in the app expects.
+    tasks: snapshot.tasks.map((task) => {
+      const normalized = { ...task, assigneeId: task.assigneeId ?? null }
+      return normalized.day === 'inbox' && normalized.atTime !== null
+        ? { ...normalized, atTime: null }
+        : normalized
+    }),
   }
 }
 

@@ -13,6 +13,13 @@ A unit of work contained by one Board. Every Task is either standalone or an Occ
 Recurring Series, and may be Unlabeled or assigned one Label.
 _Avoid_: item, entry, to-do
 
+**Assignee**:
+The one current member of a Task's Board who is doing it, or no one. It is attribution, not
+authority: being the Assignee grants nothing, and ending the member's Membership unassigns them. It
+is Series Content, so an Occurrence inherits it from its Series. It stays out of the export file,
+because a person means nothing on another Board.
+_Avoid_: owner, responsible, delegate
+
 **Scheduled Day**:
 The calendar day a Task is planned for, or absent while it is in the Inbox. It anchors the Task's
 Due Moment, is freely changed by rescheduling, and is never an identity.

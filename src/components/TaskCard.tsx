@@ -7,6 +7,7 @@ import { chipLabel, formatTime } from '../lib/dates'
 import { useDueClock } from '../data/dueClockContext'
 import { useBoardActions } from './boardActionContext'
 import { useLabel } from '../labels/LabelDirectoryProvider'
+import { initialsOf, memberName, useBoardMembers } from '../board/boardMembersContext'
 import { labelPresentation } from '../labels/presentation'
 
 // Theme-neutral, like the bulk action bar: a selected card must read as selected on every paper.
@@ -51,6 +52,10 @@ export function TaskCard({ task, variant, dragging, wrapStyle }: TaskCardProps) 
   const onTogglePin = actions?.onTogglePin
   const { theme } = useTheme()
   const label = labelPresentation(useLabel(task.labelId))
+  const boardMembers = useBoardMembers()
+  const assignee = task.assigneeId
+    ? boardMembers.members.find((member) => member.accountId === task.assigneeId)
+    : undefined
   const { nowMs, timezone } = useDueClock()
   const overdue = isOverdue(task, nowMs, timezone)
   const s = cardStyles(theme, task, variant, {
@@ -90,6 +95,16 @@ export function TaskCard({ task, variant, dragging, wrapStyle }: TaskCardProps) 
         <span style={s.labelStyle}>{label.name}</span>
         {task.atTime && <span style={s.chipStyle}>{formatTime(task.atTime)}</span>}
         {isKanban && !task.atTime && <span style={s.chipStyle}>{chipLabel(task.day)}</span>}
+        {assignee && (
+          // Initials only on a shared Board: the list is empty otherwise (#440).
+          <span
+            style={s.chipStyle}
+            title={`Assigned to ${memberName(assignee)}`}
+            aria-label={`Assigned to ${memberName(assignee)}`}
+          >
+            {initialsOf(memberName(assignee))}
+          </span>
+        )}
         {hasList && (
           <span style={s.progStyle}>
             {ck}/{total}

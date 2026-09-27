@@ -7,6 +7,7 @@ function draft(over: Partial<TaskDraft> = {}): TaskDraft {
     title: 'Standup',
     description: '',
     labelId: null,
+    assigneeId: null,
     color: 'yellow',
     checklist: [],
     status: 'todo',

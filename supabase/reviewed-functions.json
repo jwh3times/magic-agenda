@@ -69,6 +69,12 @@
       "explicitAcl": true,
       "executeGrantees": "authenticated"
     },
+    "clear_ended_member_assignments()": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "(owner only)"
+    },
     "create_board(text)": {
       "secdef": true,
       "config": "search_path=\"\"",
@@ -92,6 +98,12 @@
       "config": "search_path=\"\"",
       "explicitAcl": true,
       "executeGrantees": "service_role"
+    },
+    "enforce_task_assignee()": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "(owner only)"
     },
     "enforce_reminder_preferences()": {
       "secdef": false,

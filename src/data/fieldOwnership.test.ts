@@ -15,6 +15,7 @@ const sample: Task = {
   title: 'T',
   description: 'd',
   labelId: null,
+  assigneeId: null,
   color: 'yellow',
   checklist: [],
   status: 'todo',
@@ -64,6 +65,7 @@ describe('derived scope lists', () => {
 
   it('series content excludes the checklist, which is reconciled rather than copied', () => {
     expect(sorted(SERIES_CONTENT_FIELDS)).toEqual([
+      'assigneeId',
       'atTime',
       'color',
       'description',
@@ -115,6 +117,7 @@ describe('pick', () => {
       title: 'X',
       description: 'd',
       labelId: null,
+      assigneeId: null,
       color: 'yellow',
       atTime: null,
     })

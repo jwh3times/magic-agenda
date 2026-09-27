@@ -124,6 +124,7 @@ function newTaskTemplate(day: string, status: WorkflowStatus): Task {
     title: '',
     description: '',
     labelId: null,
+    assigneeId: null,
     color: 'yellow',
     checklist: [],
     status: 'todo' as const,

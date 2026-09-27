@@ -49,6 +49,8 @@ export function rowToTask(row: TaskRow): Task {
     title: row.title,
     description: row.description,
     labelId: row.label_id,
+    // `?? null`: rows from before the column existed (offline snapshots, Deno fixtures) have none.
+    assigneeId: row.assignee_account_id ?? null,
     color: row.color as Color,
     checklist: parseChecklist(row.checklist),
     status: workflowStatusFromStorage(row.status),
@@ -100,6 +102,7 @@ export function taskToRow(task: Task, boardId: string): TaskInsert {
     title: task.title,
     description: task.description,
     label_id: task.labelId,
+    assignee_account_id: task.assigneeId,
     color: task.color,
     checklist: task.checklist as unknown as Json,
     status: workflowStatusToStorage(task.status),

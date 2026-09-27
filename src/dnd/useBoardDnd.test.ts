@@ -10,6 +10,7 @@ function inboxTask(): Task {
     title: 'T',
     description: '',
     labelId: null,
+    assigneeId: null,
     color: 'yellow',
     checklist: [],
     status: 'todo',

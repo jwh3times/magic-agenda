@@ -277,6 +277,32 @@ Remove appear only where `capabilitiesFor(role).manageMembers`. A change to the 
 Membership reloads the Board Directory, since every capability derives from the role it holds. The
 panel never predicts `last-owner` — only the server holding the lock knows — it renders the refusal.
 
+## The Assignee is a current member, enforced and cleared by triggers (#440)
+
+`tasks.assignee_account_id` names the one current member of the Task's Board doing it, or is NULL.
+A foreign key cannot say "current" (Memberships keep history), so two `security definer` triggers
+do:
+
+- **`tasks_enforce_assignee`** (`enforce_task_assignee`) refuses `assignee-not-member` when the
+  assignee — or the Board — changes to someone without a current Membership there. It must be a
+  definer: the caller sees only their own Membership row, so it could not see the co-member it is
+  checking. An unchanged assignee on an update is not re-checked.
+- **`board_memberships_clear_assignments`** (`clear_ended_member_assignments`) nulls an Account's
+  assignments on a Board in the same statement that ends its Membership there — removal, leaving,
+  or account deletion — so an ended member never holds work, even briefly. Their assignments on
+  other Boards are untouched.
+
+Assignment grants nothing: no policy reads the column. It is **Series Content** (ADR-0002), so
+`makeInstance` copies it to new Occurrences, and `insert_materialized_occurrences` was recreated
+with the column in its explicit list. It is **not in the export file**: an account id means nothing
+on another Board, so export omits it and import arrives unassigned (see [Labels](labels.md)).
+
+In the app, `BoardPage` fills `BoardMembersContext` from `board_members` **only** when the
+`board-sharing` flag is on. Every Assignee control — the editor's picker, a card's initials, the
+"Assigned to me" filter (`FilterQuery.assignedTo`) — renders only when more than one member is on
+the Board, so Private Boards look exactly as before. Covered by `tests/rls/task_assignee.test.ts`
+and `src/components/assignee.test.tsx`.
+
 ## Board Invitations: a link, a verified email, and limits enforced under the lock (#436)
 
 `public.board_invitations` and its commands ship dark: no UI calls them until #437, and they hold

@@ -13,6 +13,7 @@ function task(overrides: Partial<TaskDraft> = {}): Task {
     title: 'Test',
     description: '',
     labelId: null,
+    assigneeId: null,
     color: 'yellow',
     checklist: [],
     status: 'todo',

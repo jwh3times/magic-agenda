@@ -8,6 +8,7 @@ function task(over: Partial<TaskDraft> = {}): Task {
     title: 'Task',
     description: '',
     labelId: null,
+    assigneeId: null,
     color: 'yellow',
     checklist: [],
     status: 'todo',

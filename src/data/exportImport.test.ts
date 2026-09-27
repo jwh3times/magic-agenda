@@ -19,6 +19,7 @@ function task(over: Partial<TaskDraft> = {}): Task {
     title: 'T',
     description: '',
     labelId: null,
+    assigneeId: null,
     color: 'yellow',
     checklist: [],
     status: 'todo',
@@ -88,6 +89,7 @@ const labels: ExportLabel[] = [
 const template = task({
   id: 'tpl-1',
   labelId: 'source-custom',
+  assigneeId: null,
   recurFreq: 'daily',
   excludedDates: ['2026-07-11'],
   checklist: [{ id: 'c1', text: 'sub', done: false }],
@@ -95,6 +97,7 @@ const template = task({
 const instance = task({
   id: 'inst-1',
   labelId: 'source-work',
+  assigneeId: null,
   recurParentId: 'tpl-1',
   occurrenceDate: '2026-07-10',
   checklist: [{ id: 'c2', text: 'sub', done: true }],
@@ -439,6 +442,7 @@ test('a v2 file written before #204 still imports', () => {
         title: 'T',
         description: '',
         labelId: 'source-work',
+        assigneeId: null,
         color: 'yellow',
         checklist: [],
         status: 'done',
@@ -462,6 +466,7 @@ test('a v2 file written before #204 still imports', () => {
         title: 'T',
         description: '',
         labelId: 'source-custom',
+        assigneeId: null,
         color: 'yellow',
         checklist: [],
         status: 'todo',
@@ -522,6 +527,7 @@ test('a v3 file still parses, with both Rule parameters taking their unlisted me
         title: 'Weekly standup',
         description: '',
         labelId: null,
+        assigneeId: null,
         color: 'yellow',
         checklist: [],
         status: 'todo',
@@ -586,4 +592,14 @@ test('v4 refuses Rule parameters the database would refuse, before anything is w
   expect(parseExport(bad({ recurCount: 0 })).ok).toBe(false)
   expect(parseExport(bad({ recurCount: 1001 })).ok).toBe(false)
   expect(parseExport(bad({ recurWeekdays: [1, 5], recurCount: 12 })).ok).toBe(true)
+})
+
+test('the Assignee never travels in the file, and imports as unassigned (#440)', () => {
+  // An account id means nothing on another Board, so v4 stays unchanged and import is unassigned.
+  const json = serializeExport([task({ assigneeId: 'acct-2' })], [], labels, 'x')
+  const raw = JSON.parse(json) as { tasks: Record<string, unknown>[] }
+  expect(raw.tasks[0]).not.toHaveProperty('assigneeId')
+  const parsed = parseExport(json)
+  if (!parsed.ok) throw new Error(parsed.error)
+  expect(parsed.data.tasks[0].assigneeId).toBeNull()
 })
