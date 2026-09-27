@@ -20,6 +20,7 @@ export function fakeUseTasks(overrides: Partial<UseTasks> = {}): UseTasks {
     rollForward: noOpAsync,
     getTemplate: () => undefined,
     saveTask: noOpAsync,
+    revisionOf: () => undefined,
     deleteTask: noOpAsync,
     bulkUpdate: () => Promise.resolve(true),
     bulkDelete: () => Promise.resolve(true),

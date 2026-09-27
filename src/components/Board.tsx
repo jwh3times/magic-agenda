@@ -43,7 +43,9 @@ import { isArchived } from '../data/completion'
 import { overdueTasks } from '../data/selectors'
 import type { ViewOption } from './ViewSwitcher'
 import { BoardActionContext, type BoardActions, type OpenOptions } from './boardActionContext'
-import { useTaskBoard } from '../data/taskBoardContext'
+import { useTaskBoard, type SaveConflict } from '../data/taskBoardContext'
+import type { RecurScope, SaveModifiers } from '../data/series'
+import { ConflictDialog } from './ConflictDialog'
 import {
   INBOX,
   NO_RECUR,
@@ -59,6 +61,17 @@ interface Editing {
   /** The editor's working shape: an Occurrence here also carries its Series' Rule. */
   task: TaskDraft
   isNew: boolean
+  /** The server revision the editor opened on, for a compare-and-swap save (#433). */
+  revision?: number
+}
+
+/** An editor save that came back refused, held so the user can decide what to do (#433). */
+interface PendingConflict {
+  orig: TaskDraft | null
+  draft: TaskDraft
+  scope?: RecurScope
+  modifiers?: SaveModifiers
+  conflict: SaveConflict
 }
 
 export interface BoardProps {
@@ -166,6 +179,8 @@ export function Board({
   const [anchor, setAnchor] = useState(() => parseDay(today))
   const [popId, setPopId] = useState<string | null>(null)
   const [editing, setEditing] = useState<Editing | null>(null)
+  const [conflict, setConflict] = useState<PendingConflict | null>(null)
+  const [conflictBusy, setConflictBusy] = useState(false)
 
   /**
    * Close the editor if the selected Board changes underneath it.
@@ -275,8 +290,28 @@ export function Board({
     scope,
     modifiers,
   ) => {
-    void taskBoard.saveTask(editing?.task ?? null, task, Boolean(editing?.isNew), scope, modifiers)
+    const opened = editing
     setEditing(null)
+    const orig = opened?.task ?? null
+    void Promise.resolve(
+      taskBoard.saveTask(orig, task, Boolean(opened?.isNew), scope, modifiers, opened?.revision),
+    ).then((conflict) => {
+      if (conflict) setConflict({ orig, draft: task, scope, modifiers, conflict })
+    })
+  }
+
+  // Overwrite after a stale-revision conflict: a new, deliberate save against the revision the
+  // conflict reported. It can conflict again, and then the dialog simply reappears.
+  const overwrite = () => {
+    if (!conflict) return
+    setConflictBusy(true)
+    const { orig, draft, scope, modifiers } = conflict
+    void Promise.resolve(
+      taskBoard.saveTask(orig, draft, false, scope, modifiers, conflict.conflict.latestRevision),
+    ).then((again) => {
+      setConflictBusy(false)
+      setConflict(again ? { orig, draft, scope, modifiers, conflict: again } : null)
+    })
   }
 
   const handleDelete: NonNullable<ComponentProps<typeof TaskEditor>['onDelete']> = (id, scope) => {
@@ -301,7 +336,7 @@ export function Board({
           recurUntil: tmpl.recurUntil,
         }
     }
-    setEditing({ task: t, isNew: false })
+    setEditing({ task: t, isNew: false, revision: taskBoard.revisionOf(task.id) })
   }
 
   const toastBottom = selectionActive ? barHeight + (isMobile ? 12 : 20 + 12) : 20
@@ -572,6 +607,15 @@ export function Board({
             canAssignLabels={canAssignLabels}
             boardId={boardId}
             canEditContent={canEditContent}
+          />
+        )}
+
+        {conflict && (
+          <ConflictDialog
+            conflict={conflict.conflict}
+            busy={conflictBusy}
+            onKeepTheirs={() => setConflict(null)}
+            onOverwrite={overwrite}
           />
         )}
 

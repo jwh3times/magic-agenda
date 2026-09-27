@@ -43,7 +43,8 @@ import { isSeriesDefinition, type SeriesDefinition, type Task, type TaskDraft } 
 import type { Mode } from '../dnd/reorder'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 import type { Database } from '../types/database.types'
-import type { TaskBoard } from './taskBoardContext'
+import type { SaveConflict, TaskBoard } from './taskBoardContext'
+import { boardFailure } from '../board/outcome'
 
 type TaskRow = Database['public']['Tables']['tasks']['Row']
 
@@ -52,6 +53,22 @@ type TaskRow = Database['public']['Tables']['tasks']['Row']
  * and the revision `tasks_stamp_attribution` stamped. Writes that reconcile select whole rows.
  */
 const WRITTEN = 'id, revision'
+
+/**
+ * Records the server revisions a read or write returned, so an editor save can be compare-and-swap
+ * against the revision it opened on (#433). Module-level and fed the ref's Map, so no callback's
+ * dependency list changes because of it.
+ */
+function recordRevisions(
+  revisions: Map<string, number>,
+  rows: readonly { id?: unknown; revision?: unknown }[] | null | undefined,
+): void {
+  for (const row of rows ?? []) {
+    if (typeof row.id === 'string' && typeof row.revision === 'number') {
+      revisions.set(row.id, row.revision)
+    }
+  }
+}
 
 /** Runs one planned deletion. The only place a `DeletionTarget` becomes a query. */
 async function runDeletion(target: DeletionTarget): Promise<void> {
@@ -125,6 +142,8 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
   // `revision` is what lets another writer's newer edit through, #432) or `abandonWrites` when it
   // fails. That is why writes whose rows are otherwise unneeded still `.select(WRITTEN)`.
   const { markWrites, settleWrites, abandonWrites, screenEcho } = useOwnWrites()
+  // The last server revision seen per Task (#433): loads, realtime, and every returned write.
+  const revisions = useRef(new Map<string, number>())
 
   const setTasks = useCallback<Dispatch<SetStateAction<Task[]>>>((update) => {
     _setTasks((prev) => {
@@ -278,7 +297,10 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
           .insert(instances.map((t) => taskToRow(t, boardId)))
           .select(WRITTEN)
         if (err) abandonWrites(ids)
-        else settleWrites(data)
+        else {
+          settleWrites(data)
+          recordRevisions(revisions.current, data)
+        }
         // Another client or the daily job may have committed the same Occurrence after our read.
         // The plain batch inserted nothing, so its optimistic rows must be replaced by a fresh,
         // complete Board read. The caller owns that reload because this function also runs inside
@@ -346,6 +368,8 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
           setError(err.message)
           return
         }
+        revisions.current = new Map()
+        recordRevisions(revisions.current, data)
         const all = (data ?? []).map(rowToTask)
         templatesRef.current = all.filter(isSeriesDefinition)
         bumpTemplatesVersion()
@@ -418,6 +442,12 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     (payload: ChangePayload) => {
       const change = payloadToChange(payload as RealtimePostgresChangesPayload<TaskRow>)
       if (!change) return
+      if (payload.eventType === 'DELETE') {
+        const id = (payload.old as { id?: unknown } | null)?.id
+        if (typeof id === 'string') revisions.current.delete(id)
+      } else {
+        recordRevisions(revisions.current, [payload.new])
+      }
       boardGen.current += 1
       // Functional update: bursts of events (a series creation is a template + many instance
       // frames before a render flush) must compose through React's queue — a value-form dispatch
@@ -465,6 +495,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
           if (err) throw new Error(err.message)
           reconcileReturnedRows(data)
           settleWrites(data)
+          recordRevisions(revisions.current, data)
         } catch (e) {
           abandonWrites([task.id])
           setError(errorMessage(e))
@@ -490,6 +521,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         if (err) throw new Error(err.message)
         reconcileReturnedRows(data)
         settleWrites(data)
+        recordRevisions(revisions.current, data)
       } catch (e) {
         setTasks(prev)
         // After the rollback: a foreign edit held during the write is delivered on top of it.
@@ -536,6 +568,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         // returned row is read for its revision alone, so it cannot overwrite a newer local edit.
         if (previous?.status !== task.status) reconcileReturnedRows(data)
         settleWrites(data)
+        recordRevisions(revisions.current, data)
       } catch (e) {
         setTasks(prev)
         // After the rollback: a foreign edit held during the write is delivered on top of it.
@@ -545,6 +578,105 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     },
     [setTasks, boardId, markWrites, settleWrites, abandonWrites, reconcileReturnedRows, forgetUndo],
   )
+
+  /**
+   * After a compare-and-swap save matched no row, find out why (#433) — and leave the board showing
+   * the truth: the other writer's version, or the Task gone.
+   *
+   * The three answers need three reads because the server does not distinguish them for the caller:
+   * a Task still visible means someone saved first; invisible while the caller is still a member
+   * means it was deleted; invisible because the Membership ended means access is gone.
+   */
+  const explainMissedSave = useCallback(
+    async (id: string): Promise<SaveConflict | undefined> => {
+      const latest = await supabase.from('tasks').select().eq('id', id).maybeSingle()
+      if (latest.error) {
+        setError(latest.error.message)
+        return undefined
+      }
+      if (latest.data) {
+        reconcileReturnedRows([latest.data])
+        recordRevisions(revisions.current, [latest.data])
+        return {
+          reason: 'stale-revision',
+          message: boardFailure('stale-revision').message,
+          latestRevision: latest.data.revision,
+        }
+      }
+      const membership = await supabase
+        .from('board_memberships')
+        .select('id')
+        .eq('board_id', boardId)
+        .is('ended_at', null)
+        .maybeSingle()
+      if (membership.error) {
+        setError(membership.error.message)
+        return undefined
+      }
+      if (membership.data) {
+        setTasks((current) => current.filter((task) => task.id !== id))
+        return {
+          reason: 'task-deleted',
+          message: 'Someone else deleted this task, so your changes were not saved.',
+        }
+      }
+      return { reason: 'membership-ended', message: boardFailure('membership-ended').message }
+    },
+    [boardId, reconcileReturnedRows, setTasks],
+  )
+
+  /**
+   * An editor save of one Task or Occurrence, conditioned on the revision the editor opened on
+   * (#433). It is an UPDATE, never an upsert, so a Task another member deleted cannot come back; a
+   * zero-row result means nothing was written, the optimistic change is undone, and the caller
+   * gets a `SaveConflict` saying why. Small actions (pin, complete, a Step) stay on `updateTask`
+   * and friends, which write their own field against the latest row.
+   */
+  const casUpdate = useCallback(
+    async (task: Task, expectedRevision: number): Promise<SaveConflict | undefined> => {
+      forgetUndo()
+      const prev = tasksRef.current
+      setTasks((p) => p.map((t) => (t.id === task.id ? task : t)))
+      markWrites([task.id])
+      try {
+        const previous = prev.find((item) => item.id === task.id)
+        const { data, error: err } = await supabase
+          .from('tasks')
+          .update(taskToRow(task, boardId))
+          .eq('id', task.id)
+          .eq('revision', expectedRevision)
+          .select()
+        if (err) throw new Error(err.message)
+        if (data && data.length > 0) {
+          if (previous?.status !== task.status) reconcileReturnedRows(data)
+          settleWrites(data)
+          recordRevisions(revisions.current, data)
+          return undefined
+        }
+        setTasks(prev)
+        abandonWrites([task.id])
+        return await explainMissedSave(task.id)
+      } catch (e) {
+        setTasks(prev)
+        // After the rollback: a foreign edit held during the write is delivered on top of it.
+        abandonWrites([task.id])
+        setError(errorMessage(e))
+        return undefined
+      }
+    },
+    [
+      setTasks,
+      boardId,
+      markWrites,
+      settleWrites,
+      abandonWrites,
+      reconcileReturnedRows,
+      forgetUndo,
+      explainMissedSave,
+    ],
+  )
+
+  const revisionOf = useCallback((id: string) => revisions.current.get(id), [])
 
   /**
    * Delete one plain row. Resolves whether the delete landed; undo is offered by the caller.
@@ -594,6 +726,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         if (err) throw new Error(err.message)
         reconcileReturnedRows(data)
         settleWrites(data)
+        recordRevisions(revisions.current, data)
         const verb = toggled.status === 'completed' ? 'Completed' : 'Reopened'
         offerUndo(generation, `${verb} ${quoted(toggled)}`, before, [id])
       } catch (e) {
@@ -632,6 +765,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         if (err) throw new Error(err.message)
         if (mode === 'status') reconcileReturnedRows(data)
         settleWrites(data)
+        recordRevisions(revisions.current, data)
         // Undo needs the pre-drag board; a drop without one (another write intervened) has none.
         if (origin) {
           const before = new Map(origin.map((t) => [t.id, t]))
@@ -687,6 +821,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
           .select(WRITTEN)
         if (err) throw new Error(err.message)
         settleWrites(data)
+        recordRevisions(revisions.current, data)
         offerUndo(
           generation,
           `Rolled ${countTasks(changed.length)} forward to today`,
@@ -730,6 +865,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         if (err) throw new Error(err.message)
         if (change.kind === 'status') reconcileReturnedRows(data)
         settleWrites(data)
+        recordRevisions(revisions.current, data)
         offerUndo(
           generation,
           describeBulkChange(change, changed.length),
@@ -830,6 +966,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
           if (err) throw new Error(err.message)
           if (changesStatus) reconcileReturnedRows(data)
           settleWrites(data)
+          recordRevisions(revisions.current, data)
         } catch (e) {
           abandoned = plan.upserts.map((t) => t.id)
           failed(e, plan.upsertOnFailure)
@@ -885,7 +1022,8 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       isNew: boolean,
       scope?: RecurScope,
       modifiers?: SaveModifiers,
-    ) => {
+      expectedRevision?: number,
+    ): Promise<void | SaveConflict> => {
       forgetUndo()
       const op = resolveSave(orig, draft, isNew, scope)
       if (op.kind === 'create') return createTask(op.task)
@@ -906,9 +1044,11 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         return
       }
       // 'update-plain' and 'update-occurrence' differ only in the task `resolveSave` produced.
-      return updateTask(op.task)
+      // With the revision the editor opened on, the save is compare-and-swap (#433).
+      if (expectedRevision === undefined) return updateTask(op.task)
+      return casUpdate(op.task, expectedRevision)
     },
-    [createTask, updateTask, runPlan, seriesState, forgetUndo],
+    [createTask, updateTask, casUpdate, runPlan, seriesState, forgetUndo],
   )
 
   const deleteTask = useCallback(
@@ -1030,6 +1170,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
           .select(WRITTEN)
         if (err) throw new Error(err.message)
         settleWrites(data)
+        recordRevisions(revisions.current, data)
       }
       if (plan.upsertTasks.length > 0) {
         const { data, error: err } = await supabase
@@ -1042,6 +1183,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         if (err) throw new Error(err.message)
         reconcileReturnedRows(data)
         settleWrites(data)
+        recordRevisions(revisions.current, data)
       }
       // Last, and only now: `task_attachments` has a composite foreign key to `tasks
       // (board_id, id)`, so these rows have nowhere to point until the upserts above have landed.
@@ -1081,6 +1223,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     rollForward,
     getTemplate,
     saveTask,
+    revisionOf,
     deleteTask,
     bulkUpdate,
     bulkDelete,
