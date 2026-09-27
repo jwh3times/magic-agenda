@@ -12,6 +12,42 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.15.13] - 2026-09-27
+
+### Added
+
+- **Board Invitations, end to end, behind the `board-sharing` feature flag (#437).** Nobody sees
+  this yet: the flag does not exist until an admin creates it (#443).
+  - **Owners:** in Settings → Boards → Members, an Owner enters an email and a role (Editor or
+    Viewer). They get a link to send themselves, shown exactly once, and can list and revoke
+    pending Invitations. The copy says the link works only for someone signed in with that
+    address, for 14 days, once, and that it grants the whole Board, attached files included.
+  - **Invitees:** a new `/invite` page. Signed out, it offers only "sign in or create an account"
+    and never shows the Board's name. Signed in, it shows who invited you, to which Board and role,
+    and what joining shares. Joining takes an explicit click.
+  - **Resuming after sign-in:** every sign-in path (password, email confirmation, Google) returns
+    to a held invitation, after the recovery and two-factor checks.
+
+### Security
+
+- **The token leaves the address bar before any app code runs.** The invitation token is scrubbed
+  by the same blocking `/auth-token-bootstrap.js` that handles emailed auth tokens, still without
+  touching storage.
+- **The app holds it in `localStorage` for at most 24 hours.** It has to survive the confirmation
+  email opening a new tab, and it is not a bearer credential: the server requires the invited,
+  verified email. It is cleared on join, decline, a refusal that can never succeed, "Not now", and
+  sign-out.
+- **An invitation never establishes a session.** The redemption paths are unchanged.
+
+### Internal
+
+- **New E2E test:** `tests/e2e/invitation.spec.ts` opens a link signed out, checks the scrub, signs
+  in through the real login page, resumes, and joins.
+- **A second E2E account:** `scripts/e2e-local-setup.ts` now provisions an invitee as well.
+- **Sign-up is not driven.** The isolated stack uses production's SMTP settings with a dummy key, so
+  a UI sign-up fails at its confirmation email; the confirmation → `/` → invitation step is
+  unit-tested instead.
+
 ## [1.15.12] - 2026-09-27
 
 ### Added
@@ -4156,7 +4192,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.12...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.13...HEAD
+[1.15.13]: https://github.com/jwh3times/magic-agenda/compare/v1.15.12...v1.15.13
 [1.15.12]: https://github.com/jwh3times/magic-agenda/compare/v1.15.11...v1.15.12
 [1.15.11]: https://github.com/jwh3times/magic-agenda/compare/v1.15.10...v1.15.11
 [1.15.10]: https://github.com/jwh3times/magic-agenda/compare/v1.15.9...v1.15.10
