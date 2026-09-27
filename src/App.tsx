@@ -16,6 +16,8 @@ import { ResetPassword } from './pages/ResetPassword'
 import { Privacy } from './pages/Privacy'
 import { Terms } from './pages/Terms'
 import { Landing } from './pages/Landing'
+import { InvitePage } from './pages/InvitePage'
+import { readPendingInvitation } from './invite/pendingInvitation'
 import { useOnline } from './lib/useOnline'
 import { hasAnyBoardSnapshot } from './data/snapshot'
 import { readLastUserId } from './lib/lastUser'
@@ -69,6 +71,10 @@ function HomeRoute() {
   if (passwordRecovery) return <Navigate to="/auth/reset" replace />
   if (stepUpRequired === null) return <Spinner />
   if (stepUpRequired) return <MfaChallenge />
+  // Every sign-in path — password, email confirmation, Google — lands here, so this is where a
+  // Board Invitation held from before sign-in resumes (#437). After the guards above, never
+  // instead of them.
+  if (readPendingInvitation()) return <Navigate to="/invite" replace />
   return (
     <Suspense fallback={<Spinner label="Loading…" />}>
       <BoardPage />
@@ -94,6 +100,7 @@ export default function App() {
                   <Route path="/auth/callback" element={<AuthCallback />} />
                   <Route path="/auth/confirm" element={<AuthConfirm />} />
                   <Route path="/auth/reset" element={<ResetPassword />} />
+                  <Route path="/invite" element={<InvitePage />} />
                   <Route path="/privacy" element={<Privacy />} />
                   <Route path="/terms" element={<Terms />} />
                   <Route

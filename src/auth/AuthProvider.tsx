@@ -14,6 +14,7 @@ import { stepUpRequired, type TotpEnrollment, type TotpFactor } from './mfa'
 import { clearBoardView } from '../lib/viewStorage'
 import { clearRememberedBoard } from '../board/rememberedBoard'
 import { clearSnapshots } from '../data/snapshot'
+import { clearPendingInvitation } from '../invite/pendingInvitation'
 import { clearLastUserId, writeLastUserId } from '../lib/lastUser'
 
 // Recovery-session marker. Persisted per-tab so a reload of /auth/reset can't
@@ -115,6 +116,9 @@ export function AuthProvider({
         // Account deletion signs out too, so it lands here as well.
         clearSnapshots()
         clearLastUserId()
+        // A held Board Invitation (#437) belongs to whoever was about to sign in with it; the next
+        // Account on this device must not be routed into someone else's invitation.
+        clearPendingInvitation()
       }
     })
     return () => {

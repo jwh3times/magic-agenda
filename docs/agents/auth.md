@@ -28,6 +28,23 @@ scrub into the app module or a React effect.** Cloudflare Web Analytics reads th
 `document.location.href` when its end-of-body beacon initializes; either later location can lose the
 ordering race, and an effect also never scrubs on the wait or refuse paths.
 
+**`/invite` rides the same bootstrap, and is not a redemption (#437).** On `/invite` the script also
+scrubs `?token=` — a Board Invitation token — into a second closure,
+`__magicAgendaInvitationCapture`, still touching no storage. `InvitePage` (a public route) adopts it
+into `localStorage` under `ma-pending-invitation` with a 24-hour expiry
+(`src/invite/pendingInvitation.ts`). That is `localStorage` rather than `sessionStorage` because the
+sign-up confirmation email opens a **new tab**, and it is acceptable where the feed token is not
+because an Invitation token is **not a bearer credential**: every invitee command re-checks that the
+caller's verified email is the invited one. The page shows a signed-out visitor only "sign in or
+create an account" — never the Board name, since `invitation_preview` is authenticated-only — and a
+signed-in one the same recovery and step-up guards `HomeRoute` applies, then the preview and an
+explicit Join. Every sign-in path lands on `/`, so `HomeRoute` resumes a held invitation **after**
+its guards (`Navigate` to `/invite`), which is how sign-up → confirm → `/` gets back to it; sign-up
+keeps its own fixed `emailRedirectTo`. The token is cleared on accept, decline, a refusal that can
+never succeed for this Account (unavailable, expired, email mismatch — not "unverified", which
+confirming fixes), "Not now", and `SIGNED_OUT`. An Invitation never establishes a session:
+`redeemDecision()` and the redemption paths are untouched.
+
 ## The auth seam: pages never touch `supabase.auth`
 
 **`src/auth/authGateway.ts` is the only module in `src/` that may call `supabase.auth.*`.** Until
