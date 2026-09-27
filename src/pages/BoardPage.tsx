@@ -32,6 +32,8 @@ export function BoardPage() {
     loading: boardsLoading,
     offline: directoryOffline,
     fallbackReason: directoryFallbackReason,
+    lostAccess,
+    dismissLostAccess,
   } = useBoardDirectoryContext()
   // Default View is a Membership Preference: it describes how this account experiences THIS board.
   // There is no Account-level fallback any more — `user_settings.default_view` was a compatibility
@@ -69,10 +71,22 @@ export function BoardPage() {
   // loaded nothing and reports no error — which renders as a board with no tasks, indistinguishable
   // from a real empty board and reading as data loss. Same class of mistake as rendering before
   // `boardsLoading` resolves, one state further along.
+  // A Board that disappeared while open (#439). Worded so it says neither "removed" nor "deleted":
+  // the server does not tell a former member which, and guessing would leak or mislead.
+  const lostAccessNotice = lostAccess && (
+    <Toast
+      tone="info"
+      duration={10_000}
+      message={`You no longer have access to “${lostAccess}”.`}
+      onDismiss={dismissLostAccess}
+    />
+  )
+
   if (selectedBoardId === null) {
     return (
       <ThemeProvider initial={settings.theme} onThemeChange={(theme) => void saveTheme(theme)}>
         <NoBoards />
+        {lostAccessNotice}
       </ThemeProvider>
     )
   }
@@ -106,6 +120,7 @@ export function BoardPage() {
             </TaskBoardContext.Provider>
           </OfflineContext.Provider>
           {t.error && <Toast message={t.error} onDismiss={t.clearError} />}
+          {lostAccessNotice}
         </>
       )}
     </ThemeProvider>

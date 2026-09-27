@@ -12,6 +12,18 @@ import { asBoardRole } from './role'
 import { purgeableBoardIds, resolveSelection, type BoardSummary } from './selection'
 import type { ViewName } from '../types/task'
 import { snapshotFallbackReason, type SnapshotFallbackReason } from '../data/snapshotFallback'
+import { useOwnWrites, useSyncedTable, type ChangePayload } from '../data/useSyncedTable'
+
+/**
+ * How often an open, visible tab re-asks which Boards it can still reach (#439).
+ *
+ * The backstop for a dropped Realtime channel: the `board_memberships` channel normally delivers a
+ * revocation within a second, but a socket can die silently while the tab stays in the foreground,
+ * which the visibility/online catch-up never sees. Five minutes bounds how long a removed member
+ * can keep looking at a Board in that case. It is a background revalidation, so it costs one small
+ * query and never a spinner.
+ */
+export const REVALIDATE_INTERVAL_MS = 5 * 60_000
 
 /**
  * Loads the Boards this Account is a current member of, remembers which one was open, and purges
@@ -54,6 +66,16 @@ export interface UseBoardDirectory {
   deleteBoard: (boardId: string) => Promise<string | null>
   /** Rename a Board. Resolves to an error message, or null on success. */
   renameBoard: (boardId: string, name: string) => Promise<string | null>
+  /**
+   * The name of a Board this Account lost access to while the app was open — removed by an Owner,
+   * or the Board deleted by someone else — for a notice saying so (#439). Null otherwise.
+   *
+   * Set only by a *background* revalidation (Realtime, heartbeat, catch-up), never by a load the
+   * user started, so leaving or deleting a Board yourself does not announce it back to you. The
+   * wording must not say which of the two happened: the server does not tell a former member.
+   */
+  lostAccess: string | null
+  dismissLostAccess: () => void
 }
 
 /**
@@ -94,6 +116,12 @@ export function useBoardDirectory(userId: string, hasSession: boolean): UseBoard
   const [offline, setOffline] = useState(false)
   const [fallbackReason, setFallbackReason] = useState<SnapshotFallbackReason | null>(null)
   const inFlight = useRef(false)
+  const [lostAccess, setLostAccess] = useState<string | null>(null)
+  // The list a background revalidation compares against, to name a Board that disappeared.
+  const boardsRef = useRef<BoardSummary[]>([])
+  useEffect(() => {
+    boardsRef.current = boards
+  }, [boards])
 
   const hydrateFromSnapshot = useCallback(
     (reason: SnapshotFallbackReason, loadError: string | null): boolean => {
@@ -108,58 +136,76 @@ export function useBoardDirectory(userId: string, hasSession: boolean): UseBoard
     [userId],
   )
 
-  const reload = useCallback(async () => {
-    if (!userId) {
-      setLoading(false)
-      return
-    }
-    if (inFlight.current) return
-    inFlight.current = true
-    setLoading(true)
-    setError(null)
-    try {
-      const response = await supabase
-        .from('board_memberships')
-        .select('id, board_id, role, default_view, boards ( id, name )')
-        .is('ended_at', null)
-        .order('joined_at', { ascending: true })
-      const { data, error: err } = response
-
-      if (err) {
-        const reason = snapshotFallbackReason(response.status)
-        if (hydrateFromSnapshot(reason, reason === 'network' ? null : err.message)) return
-        setError(err.message)
+  /**
+   * One read of the caller's current Memberships.
+   *
+   * `background` is a revalidation nobody asked for — Realtime, the heartbeat, tab focus, network
+   * return — and it must not touch `loading`: `BoardPage` renders a full-page spinner while the
+   * directory loads, so a background read that set it would unmount the Board, and whatever the
+   * user was editing, every time the tab regained focus or the heartbeat fired.
+   */
+  const load = useCallback(
+    async (background: boolean) => {
+      if (!userId) {
+        setLoading(false)
         return
       }
+      if (inFlight.current) return
+      inFlight.current = true
+      if (!background) setLoading(true)
+      setError(null)
+      try {
+        const response = await supabase
+          .from('board_memberships')
+          .select('id, board_id, role, default_view, boards ( id, name )')
+          .is('ended_at', null)
+          .order('joined_at', { ascending: true })
+        const { data, error: err } = response
 
-      const next = ((data ?? []) as unknown as MembershipRow[])
-        .map(toSummary)
-        .filter((b): b is BoardSummary => b !== null)
+        if (err) {
+          const reason = snapshotFallbackReason(response.status)
+          if (hydrateFromSnapshot(reason, reason === 'network' ? null : err.message)) return
+          setError(err.message)
+          return
+        }
 
-      setBoards(next)
-      setOffline(false)
-      setFallbackReason(null)
+        const next = ((data ?? []) as unknown as MembershipRow[])
+          .map(toSummary)
+          .filter((b): b is BoardSummary => b !== null)
 
-      // Only a load made under a real session is authoritative about what this Account can reach.
-      // A sessionless read succeeds against RLS with `[]` and no error, and treating that as "you
-      // are in no boards" would purge every snapshot on the offline-boot path — destroying exactly
-      // the data that path exists to show.
-      if (hasSession) {
-        purgeBoardSnapshots(purgeableBoardIds(cachedBoardIds(), next))
-        const selected = resolveSelection(next, readRememberedBoard())
-        writeRememberedBoard(selected)
-        setRemembered(selected)
-        writeDirectorySnapshot(userId, next)
+        setBoards(next)
+        setOffline(false)
+        setFallbackReason(null)
+
+        // Only a load made under a real session is authoritative about what this Account can reach.
+        // A sessionless read succeeds against RLS with `[]` and no error, and treating that as "you
+        // are in no boards" would purge every snapshot on the offline-boot path — destroying exactly
+        // the data that path exists to show.
+        if (hasSession) {
+          if (background) {
+            const lost = boardsRef.current.find((b) => !next.some((n) => n.id === b.id))
+            if (lost) setLostAccess(lost.name)
+          }
+          purgeBoardSnapshots(purgeableBoardIds(cachedBoardIds(), next))
+          const selected = resolveSelection(next, readRememberedBoard())
+          writeRememberedBoard(selected)
+          setRemembered(selected)
+          writeDirectorySnapshot(userId, next)
+        }
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e)
+        if (hydrateFromSnapshot('request-error', message)) return
+        setError(message)
+      } finally {
+        setLoading(false)
+        inFlight.current = false
       }
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e)
-      if (hydrateFromSnapshot('request-error', message)) return
-      setError(message)
-    } finally {
-      setLoading(false)
-      inFlight.current = false
-    }
-  }, [userId, hasSession, hydrateFromSnapshot])
+    },
+    [userId, hasSession, hydrateFromSnapshot],
+  )
+  const reload = useCallback(() => load(false), [load])
+  const revalidate = useCallback(() => load(true), [load])
+  const dismissLostAccess = useCallback(() => setLostAccess(null), [])
 
   useEffect(() => {
     // Same shape and same justification as the identical call in `useTasks`: `void reload()` runs
@@ -179,31 +225,49 @@ export function useBoardDirectory(userId: string, hasSession: boolean): UseBoard
     void reload()
   }, [reload])
 
-  // Membership revalidation on catch-up.
+  // Membership revalidation: Realtime, catch-up, and a heartbeat (#439).
   //
-  // Realtime improves freshness; it is not the source of access truth. Nothing pushes "you were
-  // removed" to this client: the server just stops returning the Board, and the task channel is
-  // filtered by `board_id` so it goes quiet rather than announcing anything. Without this, a tab
-  // that regains focus after a revocation would keep rendering a Board it no longer has, looking
-  // live rather than stale.
-  //
-  // Deliberately mirrors `useSyncedTable`'s catch-up rather than living inside it: this hook has no
-  // channel, and the question it answers — "do I still have access" — is not the one that module
-  // asks. Note this covers waking and reconnecting, NOT a tab that simply stays open and focused; a
-  // heartbeat for that case belongs with sharing, when a second person can actually revoke you.
+  // The server does not tell a client it was removed; it stops returning the Board, and the task
+  // channel, filtered by `board_id`, goes quiet rather than announcing anything. So three things
+  // re-ask, all in the background: the `board_memberships` channel, filtered to this Account's own
+  // rows, which hears the UPDATE that ends a Membership within a second; `useSyncedTable`'s
+  // reconnect and visibility/online catch-up, which used to be a hand-rolled copy here; and the
+  // heartbeat below, for a channel that died while the tab stayed open and focused.
+  const { markWrites, screenEcho } = useOwnWrites()
+  const membershipIds = useRef(new Set<string>())
   useEffect(() => {
-    if (!userId) return
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') void reload()
-    }
-    const onOnline = () => void reload()
-    document.addEventListener('visibilitychange', onVisible)
-    window.addEventListener('online', onOnline)
-    return () => {
-      document.removeEventListener('visibilitychange', onVisible)
-      window.removeEventListener('online', onOnline)
-    }
-  }, [userId, reload])
+    membershipIds.current = new Set(boards.map((b) => b.membershipId))
+  }, [boards])
+  const onMembershipChange = useCallback(
+    (payload: ChangePayload) => {
+      // DELETE events are fanned out to every subscriber with no owner check — a Board deleted
+      // anywhere by anyone reaches this client. Only one of our own Memberships is worth a read.
+      if (payload.eventType === 'DELETE') {
+        const id = (payload.old as { id?: unknown } | null)?.id
+        if (typeof id !== 'string' || !membershipIds.current.has(id)) return
+      }
+      void revalidate()
+    },
+    [revalidate],
+  )
+  useSyncedTable({
+    userId,
+    table: 'board_memberships',
+    primaryKey: 'id',
+    filterColumn: 'account_id',
+    filterValue: userId,
+    reload: revalidate,
+    onChange: onMembershipChange,
+    screenEcho,
+  })
+
+  useEffect(() => {
+    if (!userId || !hasSession) return
+    const id = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void revalidate()
+    }, REVALIDATE_INTERVAL_MS)
+    return () => window.clearInterval(id)
+  }, [userId, hasSession, revalidate])
 
   const selectBoard = useCallback((boardId: string) => {
     writeRememberedBoard(boardId)
@@ -346,9 +410,10 @@ export function useBoardDirectory(userId: string, hasSession: boolean): UseBoard
       if (!hasSession) return
       const membershipId = boards.find((b) => b.id === boardId)?.membershipId
       if (!membershipId) return
+      markWrites([membershipId])
       await supabase.from('board_memberships').update({ default_view: view }).eq('id', membershipId)
     },
-    [boards, hasSession],
+    [boards, hasSession, markWrites],
   )
 
   // Resolved rather than stored, so a remembered id that has gone away degrades to another board
@@ -368,5 +433,7 @@ export function useBoardDirectory(userId: string, hasSession: boolean): UseBoard
     offline,
     fallbackReason,
     reload,
+    lostAccess,
+    dismissLostAccess,
   }
 }

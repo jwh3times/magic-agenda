@@ -225,7 +225,7 @@ export function useOwnWrites(): OwnWrites {
 export interface SyncedTableSpec {
   /** Empty means signed out: no channel is opened and no catch-up listener is registered. */
   userId: string
-  table: 'tasks' | 'user_settings' | 'labels'
+  table: 'tasks' | 'user_settings' | 'labels' | 'board_memberships'
   /** Column holding the row id used for echo suppression. */
   primaryKey: string
   /**

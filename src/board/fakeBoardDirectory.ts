@@ -50,6 +50,8 @@ export function fakeBoardDirectory(overrides: Partial<UseBoardDirectory> = {}): 
     createBoard: () => Promise.resolve(null),
     deleteBoard: () => Promise.resolve(null),
     renameBoard: () => Promise.resolve(null),
+    lostAccess: null,
+    dismissLostAccess: () => {},
     ...overrides,
   }
 }

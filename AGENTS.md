@@ -248,7 +248,7 @@ with a migration, never by widening an expectation. Detail: [Testing layers and 
 policy](docs/agents/testing.md).
 
 Two standing rules for any table in the `supabase_realtime` publication (today `tasks`,
-`user_settings`, and `labels`): **never put a secret or semantically meaningful value in the primary key**, because
+`user_settings`, `labels`, and `board_memberships`): **never put a secret or semantically meaningful value in the primary key**, because
 DELETE events are fanned out to every subscriber without an owner check (Postgres cannot check access
 to an already-deleted row), and **never `disable row level security`** on one — that is the single
 change that would escalate the leak from primary keys to full deleted rows. See the header comment on
