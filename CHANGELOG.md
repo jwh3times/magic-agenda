@@ -12,6 +12,33 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.15.11] - 2026-09-27
+
+### Added
+
+- **Removal from a Board now reaches a tab that is already open (#439).** `board_memberships` joins
+  the Realtime publication. When an Owner ends someone's Membership, that person's app hears it
+  within a second, drops the Board and its offline copy, and says "You no longer have access to
+  “Board”". The notice deliberately does not say whether you were removed or the Board was
+  deleted. A 5-minute check on a visible tab covers a connection that died silently, and the
+  existing refocus/reconnect checks now share the Realtime machinery.
+
+### Fixed
+
+- **Returning to the tab no longer flashes the whole Board to a spinner.** The directory's
+  refocus check set its `loading` flag, and `BoardPage` replaces the Board with a full-page spinner
+  while that flag is set. Every refocus therefore unmounted the Board, and any open task editor,
+  for a moment. Background checks now leave `loading` alone.
+
+### Security
+
+- Realtime applies `board_memberships`' own-rows SELECT policy to every change it delivers, so each
+  member receives only their own row, never a co-member's with its calendar-feed token.
+  `tests/rls/membership_realtime.test.ts` checks both halves against the real Realtime service. It
+  proves the co-member's subscription is live before asserting they hear nothing. DELETE events
+  fan out to every subscriber regardless, so the app ignores them for Memberships it does not
+  hold; the primary key is a random uuid, as the publication rules require.
+
 ## [1.15.10] - 2026-09-26
 
 ### Added
@@ -4090,7 +4117,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.10...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.11...HEAD
+[1.15.11]: https://github.com/jwh3times/magic-agenda/compare/v1.15.10...v1.15.11
 [1.15.10]: https://github.com/jwh3times/magic-agenda/compare/v1.15.9...v1.15.10
 [1.15.9]: https://github.com/jwh3times/magic-agenda/compare/v1.15.8...v1.15.9
 [1.15.8]: https://github.com/jwh3times/magic-agenda/compare/v1.15.7...v1.15.8
