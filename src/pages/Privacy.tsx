@@ -4,9 +4,10 @@ const a = { color: '#a78bfa' }
 
 export function Privacy() {
   return (
-    <LegalLayout title="Privacy Policy" lastUpdated="September 15, 2026">
+    <LegalLayout title="Privacy Policy" lastUpdated="September 27, 2026">
       <p>
-        Magic Agenda (“we”, “us”) is a personal task‑board web app available at{' '}
+        Magic Agenda (“we”, “us”) is a task‑board web app, for your own planning or for Boards you
+        share with people you invite, available at{' '}
         <a href="https://magicagenda.app" style={a}>
           magicagenda.app
         </a>
@@ -22,9 +23,16 @@ export function Privacy() {
           (name, email address, and profile picture). We never receive your Google password.
         </li>
         <li>
-          <strong>Your content.</strong> The Boards, tasks, descriptions, checklists, Labels, and
-          schedules you create in the app, along with account preferences such as theme and your
-          default view for each Board.
+          <strong>Your content.</strong> The Boards, tasks, descriptions, checklists, Labels,
+          schedules, and attached files you create in the app, along with account preferences such
+          as theme and your default view for each Board.
+        </li>
+        <li>
+          <strong>Shared Boards.</strong> If you invite someone to a Board, we store the email
+          address you invited and the role you offered until the invitation is accepted, declined,
+          revoked, or expires, and remove that address 30 days afterwards. When you share a Board,
+          we record who is on it, their role, and who each task is assigned to, and we record each
+          export of the Board (who exported it and when) for the Board’s owners.
         </li>
         <li>
           <strong>Browser storage.</strong> We store session tokens to keep you signed in and cache
@@ -51,6 +59,16 @@ export function Privacy() {
         your tasks across your devices, deliver reminders and account emails, measure website usage
         and performance, and keep the app secure and working. We do <strong>not</strong> sell your
         data, and we do not use it for advertising or profiling.
+      </p>
+
+      <h2>What other members see</h2>
+      <p>
+        A Board is visible only to its members. If you share a Board, everyone on it can see
+        everything on that Board — its tasks, Labels, and attached files — along with each member’s
+        display name and role, and may export it. Only the Board’s owners see members’ email
+        addresses, pending invitations, and the record of exports. Someone who joins a Board can
+        keep a copy of what they saw there, so invite only people you trust with its content.
+        Leaving a Board, or being removed from it, ends your access to it immediately.
       </p>
 
       <h2>Service providers</h2>
@@ -95,8 +113,11 @@ export function Privacy() {
       <p>
         We keep your account and Board content while you use the service, unless you delete them.
         You can edit or delete your tasks within the app. To delete your account, open Settings →
-        Danger zone and choose “Delete my account”. This removes your account, private Boards and
-        their content, and account settings from the active database. If you need help, email{' '}
+        Danger zone and choose “Delete my account”. This removes your account, your private Boards
+        and their content, and account settings from the active database, and ends your membership
+        of Boards shared with you; tasks you added there stay on those Boards, no longer linked to
+        your account. If you are the only owner of a Board other people are on, make someone else an
+        owner or delete that Board first. If you need help, email{' '}
         <a href="mailto:jerryholland00@gmail.com" style={a}>
           jerryholland00@gmail.com
         </a>

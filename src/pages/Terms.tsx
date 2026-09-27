@@ -4,7 +4,7 @@ const a = { color: '#a78bfa' }
 
 export function Terms() {
   return (
-    <LegalLayout title="Terms of Service" lastUpdated="June 29, 2026">
+    <LegalLayout title="Terms of Service" lastUpdated="September 27, 2026">
       <p>
         These terms govern your use of Magic Agenda (“the service”) at{' '}
         <a href="https://magicagenda.app" style={a}>
@@ -16,8 +16,8 @@ export function Terms() {
 
       <h2>The service</h2>
       <p>
-        Magic Agenda is a personal task‑board app for organizing your own tasks. It’s offered for
-        personal, non‑commercial use.
+        Magic Agenda is a task‑board app for organizing tasks on your own or on Boards you share
+        with people you invite. It’s offered for personal, non‑commercial use.
       </p>
 
       <h2>Your account</h2>
@@ -38,7 +38,9 @@ export function Terms() {
       <h2>Your content</h2>
       <p>
         You own the content you create. You grant us a limited license to store, process, and
-        display it solely to provide the service to you. You’re responsible for your content.
+        display it solely to provide the service to you and to the members of any Board you share it
+        on. You’re responsible for your content, and for the people you invite: everyone on a Board
+        can see and keep a copy of everything on it.
       </p>
 
       <h2>Availability &amp; changes</h2>

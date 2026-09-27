@@ -15,7 +15,7 @@ import { OfflineContext } from '../data/offlineContext'
 import { TaskBoardContext } from '../data/taskBoardContext'
 import { useLabelDirectoryContext } from '../labels/LabelDirectoryProvider'
 import { dominantSnapshotFallbackReason } from '../data/snapshotFallback'
-import { useFlags } from '../access/useFlags'
+import { useBoardSharing } from '../access/useBoardSharing'
 import { BoardMembersContext } from '../board/boardMembersContext'
 import { useBoardMembersValue } from '../board/useBoardMembersValue'
 import { DueClockProvider } from '../data/DueClockProvider'
@@ -39,11 +39,7 @@ export function BoardPage() {
     dismissLostAccess,
   } = useBoardDirectoryContext()
   // Members for Assignee (#440): fetched only behind the sharing flag.
-  const boardMembers = useBoardMembersValue(
-    selectedBoardId,
-    useFlags().isEnabled('board-sharing'),
-    user?.id ?? null,
-  )
+  const boardMembers = useBoardMembersValue(selectedBoardId, useBoardSharing(), user?.id ?? null)
   // Default View is a Membership Preference: it describes how this account experiences THIS board.
   // There is no Account-level fallback any more — `user_settings.default_view` was a compatibility
   // copy and is gone. `DEFAULT_VIEW` covers the only remaining gap: a render before the Membership

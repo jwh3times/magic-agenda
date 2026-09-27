@@ -39,7 +39,10 @@ const FEATURES = [
   ['Recurring tasks', 'Daily, weekly, or monthly, with this-occurrence vs. all-future edits.'],
   ['Due times and pins', 'Give a task a time, and pin the ones that matter most.'],
   ['Overdue roll-forward', 'Active past-due work is surfaced and moved in one click.'],
-  ['Yours alone', 'Every task is private to your account, enforced by the database itself.'],
+  [
+    'Private by default',
+    'A board is visible only to its members, enforced by the database itself.',
+  ],
 ]
 
 export function Landing() {
