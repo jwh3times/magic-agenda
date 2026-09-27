@@ -13,6 +13,12 @@ A unit of work contained by one Board. Every Task is either standalone or an Occ
 Recurring Series, and may be Unlabeled or assigned one Label.
 _Avoid_: item, entry, to-do
 
+**Board Activity Record**:
+An immutable, Owner-visible account of a governance-sensitive action on a Board, naming who did it
+and their Display Name at the time. Exports are recorded today. It is not a history of content
+edits.
+_Avoid_: audit log, activity feed, Task history
+
 **Assignee**:
 The one current member of a Task's Board who is doing it, or no one. It is attribution, not
 authority: being the Assignee grants nothing, and ending the member's Membership unassigns them. It

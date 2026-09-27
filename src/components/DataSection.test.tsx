@@ -22,6 +22,10 @@ const h = vi.hoisted(() => {
       Promise.resolve({ data: [] as unknown[], error: null }),
     ),
     selectLabels: vi.fn(() => Promise.resolve({ data: [] as unknown[], error: null })),
+    /** `record_board_export` (#442): every export writes an Owner-visible activity record first. */
+    recordExport: vi.fn((_name: string, _args: unknown) =>
+      Promise.resolve({ data: null, error: null as { message: string } | null }),
+    ),
     attachmentCount,
     /** Observed so a negative assertion can wait for the read instead of racing it. */
     attachmentCountRead: vi.fn(),
@@ -38,6 +42,7 @@ const h = vi.hoisted(() => {
 
 vi.mock('../lib/supabase', () => ({
   supabase: {
+    rpc: h.recordExport,
     from: vi.fn((table: string) =>
       table === 'tasks'
         ? {
@@ -309,9 +314,10 @@ test('export downloads v4 with Board Labels, Completion fields and Rule paramete
 })
 
 test.each([
+  // Export is every role's since #442; import still needs transferContent (Editor+).
   ['owner', false, false],
-  ['editor', true, false],
-  ['viewer', true, true],
+  ['editor', false, false],
+  ['viewer', false, true],
 ] as const)(
   '%s capabilities gate export and import independently',
   (role, exportDisabled, importDisabled) => {
@@ -510,4 +516,20 @@ test('a count never outlives the Board it was read for', async () => {
   rerender(<DataSection />)
   await settleAttachmentCount()
   expect(screen.queryByText(/This Board has 3 attachments/)).not.toBeInTheDocument()
+})
+
+test('an export records itself before downloading, naming only the Board (#442)', async () => {
+  h.role = 'viewer'
+  render(<DataSection />)
+  await userEvent.click(screen.getByRole('button', { name: 'Export my data' }))
+  await screen.findByText('Export downloaded.')
+  expect(h.recordExport).toHaveBeenCalledWith('record_board_export', { p_board_id: 'b1' })
+})
+
+test('an export that cannot be recorded is not downloaded', async () => {
+  h.recordExport.mockResolvedValueOnce({ data: null, error: { message: 'membership-ended' } })
+  render(<DataSection />)
+  await userEvent.click(screen.getByRole('button', { name: 'Export my data' }))
+  await screen.findByText(/Could not record this export/)
+  expect(screen.queryByText('Export downloaded.')).toBeNull()
 })

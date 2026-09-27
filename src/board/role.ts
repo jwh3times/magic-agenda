@@ -52,16 +52,16 @@ export interface BoardCapabilities {
 /**
  * The role table, transcribed from the resolved domain model.
  *
- * Two entries are worth knowing are contested rather than obvious:
+ * Two entries are worth knowing about:
  *
- * - `manageLabels` is Owner-only while `assignLabels` is Editor+, because changing or deleting a
- *   Label definition reorganizes shared content for every member, whereas assigning one uses the
- *   vocabulary that already exists.
- * - `exportBoard` is Owner-only while `transferContent` is Editor+, which does **not** cohere: an
- *   Editor can copy content into a Board they own and export it from there. The domain brief
- *   concedes export is not a confidentiality boundary and rests the restriction on auditability —
- *   but copy is auditable too. This is a recorded open question, not a settled rule; it is
- *   transcribed as resolved today rather than silently corrected here.
+ * `manageLabels` is Owner-only while `assignLabels` is Editor+, because changing or deleting a Label
+ * definition reorganizes shared content for every member, whereas assigning one uses the vocabulary
+ * that already exists.
+ *
+ * `exportBoard` is every role's (#442). It used to be Owner-only while `transferContent` was Editor+,
+ * which did not cohere: content possession is trusted at Membership granularity, and a Viewer can
+ * already read, screenshot, and subscribe to everything an export contains. The auditability the
+ * old rule leaned on is now real instead — each export writes an Owner-visible Board Activity Record.
  */
 const CAPABILITIES: Readonly<Record<BoardRole, Readonly<BoardCapabilities>>> = Object.freeze({
   owner: Object.freeze({
@@ -84,7 +84,7 @@ const CAPABILITIES: Readonly<Record<BoardRole, Readonly<BoardCapabilities>>> = O
     transferContent: true,
     manageLabels: false,
     configureBoard: false,
-    exportBoard: false,
+    exportBoard: true,
     manageMembers: false,
     deleteBoard: false,
   }),
@@ -96,7 +96,7 @@ const CAPABILITIES: Readonly<Record<BoardRole, Readonly<BoardCapabilities>>> = O
     transferContent: false,
     manageLabels: false,
     configureBoard: false,
-    exportBoard: false,
+    exportBoard: true,
     manageMembers: false,
     deleteBoard: false,
   }),

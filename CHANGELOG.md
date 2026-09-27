@@ -12,6 +12,29 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.15.16] - 2026-09-27
+
+### Changed
+
+- **Every member of a Board can export it (#442).** Export used to be Owner-only, but that rule
+  protected nothing: every member already sees everything an export contains, and a Viewer can read,
+  screenshot, and subscribe to the calendar feed. Editors and Viewers now get the Export button in
+  Settings → Data.
+
+### Added
+
+- **Board Activity Records, starting with exports.** Each export first writes an immutable record
+  that only Owners can see, naming who exported and their Display Name at that moment. If the record
+  cannot be written, the file is not downloaded. The table (`board_activity_records`) is the general
+  one the domain model describes; later slices can add membership and invitation events to it.
+
+### Security
+
+- **The server stamps who exported.** `record_board_export` takes the actor from `auth.uid()`, so a
+  client cannot forge it, and only current members can call it.
+- **Records are immutable.** No role has a direct INSERT, UPDATE, or DELETE grant, and RLS makes
+  them readable by the Board's Owners alone.
+
 ## [1.15.15] - 2026-09-27
 
 ### Changed
@@ -4235,7 +4258,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.15...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.16...HEAD
+[1.15.16]: https://github.com/jwh3times/magic-agenda/compare/v1.15.15...v1.15.16
 [1.15.15]: https://github.com/jwh3times/magic-agenda/compare/v1.15.14...v1.15.15
 [1.15.14]: https://github.com/jwh3times/magic-agenda/compare/v1.15.13...v1.15.14
 [1.15.13]: https://github.com/jwh3times/magic-agenda/compare/v1.15.12...v1.15.13

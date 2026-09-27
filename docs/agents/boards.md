@@ -277,6 +277,19 @@ Remove appear only where `capabilitiesFor(role).manageMembers`. A change to the 
 Membership reloads the Board Directory, since every capability derives from the role it holds. The
 panel never predicts `last-owner` — only the server holding the lock knows — it renders the refusal.
 
+## Every member exports; each export is a Board Activity Record (#442)
+
+`exportBoard` is every role's. The Owner-only rule never protected anything, because content possession is
+trusted at Membership granularity. Its real argument was auditability, and that is now real on its
+own: `record_board_export(p_board_id)` (`security definer`, `authenticated` only, current members
+only) writes a row to `public.board_activity_records` stamped with `auth.uid()` and the caller's
+Display Name at that moment, and `DataSection` calls it **before** producing the file, refusing
+to download if it fails. The table is the general Board Activity Record: immutable (no UPDATE or
+DELETE grant for anyone, no direct INSERT), Owner-visible through RLS, and gone with its Board.
+`kind` admits only `board-exported` today; membership and invitation events can join it later.
+`tests/rls/board_activity_records.test.ts` covers stamping, the preserved name, the non-member
+refusal, Owner-only reads, and immutability.
+
 ## The Assignee is a current member, enforced and cleared by triggers (#440)
 
 `tasks.assignee_account_id` names the one current member of the Task's Board doing it, or is NULL.
