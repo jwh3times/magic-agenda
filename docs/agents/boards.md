@@ -277,6 +277,42 @@ Remove appear only where `capabilitiesFor(role).manageMembers`. A change to the 
 Membership reloads the Board Directory, since every capability derives from the role it holds. The
 panel never predicts `last-owner` — only the server holding the lock knows — it renders the refusal.
 
+## Board Invitations: a link, a verified email, and limits enforced under the lock (#436)
+
+`public.board_invitations` and its commands ship dark: no UI calls them until #437, and they hold
+with the `board-sharing` flag off. Delivery in v1 is an **Owner-delivered link** — the app sends no
+email (#444 is deferred), and the row is the same whichever way it is delivered.
+
+- **`create_invitation(board, email, role)`** (current Owner only) returns a token **once**: 32
+  bytes from `extensions.gen_random_bytes`, base64url. Only `sha256(token)` is stored
+  (`invitation_token_hash`), so nothing can read a token back. The hash is visible to the Board's
+  Owners through RLS, which costs nothing because it cannot be inverted. The offered role is
+  `editor` or `viewer`: an invitee becomes an Owner by promotion after joining, so only people
+  already on the Board can hand out Ownership.
+- **Limits, under the Board row lock:** at most 20 pending, unexpired Invitations per Board, and at
+  most 50 created per Account in any rolling 24 hours (across Boards, whatever became of them).
+  Also refused: an email that already has a current Membership, and a second pending Invitation
+  for the same email. The test for the per-Board cap races two sessions at 19 pending, and it was
+  checked against a mutation that removes the lock. **A sleep put in place of a lock proves
+  nothing**: both calls sleep side by side and then run the short critical section milliseconds
+  apart. The mutation has to widen the window _inside_ it, between the count and the insert.
+- **The token is not a bearer credential.** `invitation_preview`, `accept_invitation`, and
+  `decline_invitation` each re-read the caller's email from `auth.users` (`caller_verified_email`)
+  and refuse `email-unverified` or `email-mismatch` before doing anything. The preview is
+  `authenticated`-only, so a Board's name never reaches a signed-out visitor holding a link.
+  Acceptance is an explicit command that creates the Membership in the offered role and settles
+  the Invitation; it is single-use, and an Invitation for someone already on the Board just
+  settles.
+- **Retention:** pending Invitations expire after 14 days. The daily `expire-board-invitations`
+  cron job (03:41 UTC) marks them `expired` and nulls `target_email` 30 days after any terminal
+  state; the row stays as the record. The private decision called for a CHECK constraint here, but
+  Postgres evaluates a CHECK only when a row is written, so it cannot enforce a time-based rule. The
+  job is the mechanism, and `tests/rls/board_invitations.test.ts` runs it and asserts the outcome.
+
+Only the Board's current Owners can SELECT its Invitations, which is exactly the domain model's
+"pending invitation emails are visible only to Owners". Nobody holds a write grant. Refusals are
+stable tokens listed in the migration's header for #437's adapter to map.
+
 ## Account administration and feature flags
 
 `user_roles` is Account-scoped; an `admin` row is assigned and revoked through SQL only. Even

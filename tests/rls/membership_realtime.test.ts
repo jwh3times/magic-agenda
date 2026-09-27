@@ -13,7 +13,7 @@ import { createTestUser, currentBoardId, deleteTestUser, withPg, type TestUser }
  * has a positive control, since a subscription that never connected would also hear nothing.
  */
 
-type Change = { eventType: string; new: Record<string, unknown> }
+type Change = { eventType: string; new: Record<string, unknown>; old?: Record<string, unknown> }
 
 const everyone: TestUser[] = []
 const channels: RealtimeChannel[] = []
@@ -93,21 +93,25 @@ test('a removed member hears their own revocation; a co-member hears nothing', a
   const removedHeard = await listen(removed)
   const stayingHeard = await listen(staying)
 
-  // Positive control: the co-member's subscription is live, proven by an update to their own row.
-  // Repeated until heard, because a freshly started stack's Realtime can report SUBSCRIBED before
-  // its replication stream delivers anything — measured: the first run after `db reset` missed a
-  // single update. This doubles as the warm-up for the removal below.
+  // Positive controls: BOTH subscriptions are proven live, each by an update to its own row, before
+  // anything is asserted. Repeated until heard, because Realtime can report SUBSCRIBED before its
+  // replication stream delivers anything — measured twice: the first run after `db reset` missed a
+  // single update, and under the full RLS suite's load the removed member's still-warming channel
+  // missed its revocation when only the co-member's had been proven.
   const views = ['agenda', 'week'] as const
-  let heardOwn = false
-  for (let attempt = 0; attempt < 30 && !heardOwn; attempt++) {
-    const own = await staying.client
-      .from('board_memberships')
-      .update({ default_view: views[attempt % 2] })
-      .eq('id', ids[staying.id])
-    expect(own.error).toBeNull()
-    heardOwn = await until(() => stayingHeard.some((c) => c.new.id === ids[staying.id]), 1_000)
+  const proveLive = async (member: TestUser, heard: Change[]) => {
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const own = await member.client
+        .from('board_memberships')
+        .update({ default_view: views[attempt % 2] })
+        .eq('id', ids[member.id])
+      expect(own.error).toBeNull()
+      if (await until(() => heard.some((c) => c.new.id === ids[member.id]), 1_000)) return true
+    }
+    return false
   }
-  expect(heardOwn).toBe(true)
+  expect(await proveLive(staying, stayingHeard)).toBe(true)
+  expect(await proveLive(removed, removedHeard)).toBe(true)
 
   const { error } = await owner.client.rpc('remove_member', { p_membership_id: ids[removed.id] })
   expect(error).toBeNull()
@@ -122,8 +126,16 @@ test('a removed member hears their own revocation; a co-member hears nothing', a
 
   // Give the co-member's channel the same window to (wrongly) hear the removal.
   await new Promise((r) => setTimeout(r, 2_000))
-  const leaked = stayingHeard.filter((c) => c.new.id !== ids[staying.id])
+  // DELETEs are set aside: they fan out to every subscriber by design (the publication rules), and
+  // other test files deleting users and Boards in parallel cascade Membership DELETEs onto these
+  // channels — measured, under the full suite. What a DELETE may carry is asserted separately.
+  const rowEvents = (heard: Change[]) => heard.filter((c) => c.eventType !== 'DELETE')
+  const leaked = rowEvents(stayingHeard).filter((c) => c.new.id !== ids[staying.id])
   expect(leaked).toEqual([])
   // And the removed member heard nothing but their own row — never a co-member's feed token.
-  expect(removedHeard.every((c) => c.new.account_id === removed.id)).toBe(true)
+  expect(rowEvents(removedHeard).every((c) => c.new.account_id === removed.id)).toBe(true)
+  // A fanned-out DELETE carries the opaque primary key and nothing else.
+  for (const c of [...removedHeard, ...stayingHeard].filter((e) => e.eventType === 'DELETE')) {
+    expect(Object.keys(c.old ?? {})).toEqual(['id'])
+  }
 }, 60_000)
