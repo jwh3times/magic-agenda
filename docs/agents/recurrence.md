@@ -56,8 +56,19 @@ catches it.
 (occurrence identity), `makeInstance`, `pendingInstances`, the scope resolvers (`resolveSave` /
 `resolveDelete`), and a **plan** for each series operation — the next board, the next templates, the
 rows to upsert, the deletions to run, the ids to mark as our own writes. `src/data/recurrence.ts` is
-its pure date core. `useTasks.runPlan` is the only effectful part: it applies the optimistic state,
-sends the writes, and honours each step's `FailureHandling`.
+its pure date core. `useTasks.runPlan` is the only effectful part: it applies the optimistic state
+and sends the whole plan to `apply_task_writes` in **one transaction** (#434).
+
+**Plans execute atomically, and nothing upserts.** `apply_task_writes` (`security invoker`, so the
+Task RLS policies and column grants stay the authority) takes the plan's rows split into inserts
+(new rows, `on conflict do nothing`) and updates (rows the client already holds, **UPDATE-only**),
+plus its deletions, and applies them all or not at all. A Task another member deleted therefore
+stays deleted instead of being re-created by an upsert, and a failure leaves no half-applied Series,
+so the pre-plan state is restored exactly. The Series definitions a plan touches are pinned to their
+known revisions (`p_expected`, locked `for update`): two concurrent edits to one Series serialize,
+and the second is refused `stale-revision`, after which the board reloads to show theirs. The
+composite foreign key still keeps a Series on one Board. `tests/rls/apply_task_writes.test.ts` pins
+all of this.
 
 That split is what made this subsystem testable. Before it, the three scope operations were a
 207-line block inside `useTasks` that **no test reached** — `deleteSeriesFuture`, the branchiest
@@ -195,9 +206,12 @@ cut)`, which counts by Occurrence Date and requires `state.tasks` to be the whol
   original ids. The order matters: an Occurrence row references its definition. Editing or
   deleting this-and-future, promotion, and ending a Series are not undoable. Their plans can
   materialize or cascade over rows the client never recorded.
-- **`FailureHandling` is two independent questions** (`abort` and `recover`) because the original
-  behaviour answered them independently: a failed content upsert aborts the trim that follows it,
-  while a failed `excludedDates` write must _not_ stop the occurrence being deleted.
+- **`FailureHandling` no longer changes what happens** (#434). It was two independent questions
+  (`abort` and `recover`) because steps used to be separate requests: a failed content write aborted
+  the trim after it, while a failed `excludedDates` write let the Occurrence be deleted anyway. With
+  the plan in one transaction there is no partial outcome to manage — a failed step writes nothing
+  and the board is restored. The planner still states it, which records the intent if a plan is
+  ever split again.
 - **`pendingInstances` takes the board as a required argument.** It used to default to a ref whose
   own docstring called the default unsafe — `setTasks` writes that ref inside a deferred React
   updater, so passing it right after a load makes every occurrence look missing and re-inserts rows

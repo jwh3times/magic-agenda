@@ -90,6 +90,48 @@ const h = vi.hoisted(() => {
     capture.trace.push('deleteTasks')
     return ok()
   })
+  // `apply_task_writes` (#434) is one transaction on the server. Here it is routed onto the spies the
+  // older tests already assert on, so a test still sees *what* was written: its rows as one
+  // `upsert` call (inserts, then updates) and each deletion target as the query it names. It
+  // stops at the first failure and reports it, which is all-or-nothing from the client's side.
+  type Target = { by: string; id?: string; ids?: string[]; parentId?: string; day?: string }
+  type Result = { error: { message: string } | null }
+  // The spies were declared without parameters; the adapter calls them with the query's arguments.
+  const upsertRows = upsert as unknown as (rows: unknown[]) => Promise<Result>
+  const deleteIds = deleteIn as unknown as (column: string, ids: unknown) => Promise<Result>
+  const deleteWhere = deleteEq as unknown as (
+    column: string,
+    value: unknown,
+  ) => Promise<Result> & {
+    gt: (column: string, value: unknown) => Promise<Result>
+    gte: (column: string, value: unknown) => Promise<Result>
+  }
+  const rpc = vi.fn(async (name: string, args: Record<string, unknown>) => {
+    if (name !== 'apply_task_writes') return { data: null, error: null }
+    const rows = [...(args.p_inserts as unknown[]), ...(args.p_updates as unknown[])]
+    if (rows.length > 0) {
+      const written = await upsertRows(rows)
+      if (written.error) return { data: null, error: written.error }
+    }
+    for (const target of args.p_deletions as Target[]) {
+      const result =
+        target.by === 'ids'
+          ? await deleteIds('id', target.ids)
+          : target.by === 'id'
+            ? await deleteWhere('id', target.id)
+            : target.by === 'occurrence-after'
+              ? await deleteWhere('recur_parent_id', target.parentId).gt(
+                  'recur_origin_day',
+                  target.day,
+                )
+              : await deleteWhere('recur_parent_id', target.parentId).gte(
+                  'recur_origin_day',
+                  target.day,
+                )
+      if (result.error) return { data: null, error: result.error }
+    }
+    return { data: capture.writeRows ?? rows, error: null }
+  })
   const channel: Record<string, unknown> = {}
   channel.on = vi.fn((_e: string, _f: unknown, cb: (p: unknown) => void) => {
     capture.handler = cb
@@ -114,6 +156,7 @@ const h = vi.hoisted(() => {
   return {
     capture,
     ok,
+    rpc,
     revisionEq,
     failedWrite,
     selectable,
@@ -170,6 +213,7 @@ vi.mock('../lib/supabase', () => ({
       delete: vi.fn(() => ({ eq: h.deleteEq, in: h.deleteIn })),
     })),
     channel: vi.fn(() => h.channel),
+    rpc: h.rpc,
     removeChannel: vi.fn(),
   },
 }))
@@ -259,6 +303,7 @@ beforeEach(() => {
   h.capture.latestRow = null
   h.capture.membershipRow = null
   h.revisionEq.mockClear()
+  h.rpc.mockClear()
   h.insert.mockClear()
   h.upsert.mockClear()
   h.updateEq.mockReset()
@@ -646,7 +691,7 @@ test('a Kanban Workflow Status batch reconciles all authoritative returned rows'
     await result.current.persistReorder([completed], ['todo', 'completed'], 'status')
   })
 
-  expect(h.writeSelect).toHaveBeenCalledTimes(1)
+  expect(h.rpc).toHaveBeenCalledTimes(1)
   expect(result.current.tasks[0].completedAt).toBe('2026-09-03T14:32:00.000Z')
 })
 
@@ -729,7 +774,7 @@ test('a save that does not change status settles its revision without replacing 
   expect(result.current.tasks[0].title).toBe('optimistic')
 })
 
-test('a failing excludedDates write on deleteOccurrence still removes the occurrence locally and surfaces the error', async () => {
+test('a failing write on deleteOccurrence changes nothing, and surfaces the error (#434)', async () => {
   const today = ymd(new Date())
   // The Rule outlives this delete on purpose. Capped at `today` it would have exactly one
   // Occurrence Date, so deleting `i1` spends it and `planDeleteOccurrence` drops the definition
@@ -752,10 +797,10 @@ test('a failing excludedDates write on deleteOccurrence still removes the occurr
     await result.current.deleteTask(instance.id, 'this')
   })
 
-  // The occurrence removal (the following step, removeTask) still ran locally despite the
-  // failed excludedDates write...
-  expect(result.current.tasks.find((t) => t.id === 'i1')).toBeUndefined()
-  // ...and the failure is now surfaced instead of failing silently.
+  // The plan is one transaction (#434): a failed Excluded Date write means the Occurrence was not
+  // deleted either, so the board puts it back rather than showing a half-applied delete...
+  expect(result.current.tasks.find((t) => t.id === 'i1')).toBeDefined()
+  // ...and the failure is surfaced, not swallowed.
   expect(result.current.error).toBe('skip write failed')
 })
 
@@ -787,7 +832,7 @@ test('deleting the last occurrence of a spent repeat deletes the definition, not
   expect(h.upsert).not.toHaveBeenCalled()
 })
 
-test('a failing trim-delete on updateSeries still materializes the widened window and surfaces the error', async () => {
+test('a failing trim-delete on updateSeries leaves the Series as it was, and surfaces the error (#434)', async () => {
   const today = ymd(new Date())
   h.capture.rows = [
     serverRow({ id: 'tpl1', recur_freq: 'daily', day: today, recur_until: today }),
@@ -812,19 +857,14 @@ test('a failing trim-delete on updateSeries still materializes the widened windo
     )
   })
 
-  // materialize (the following step) still ran despite the failed trim-delete: widening the
-  // window from `recur_until: today` to `until` backfills the newly-in-range occurrences.
-  const days = result.current.tasks
-    .filter((t) => t.recurParentId === 'tpl1')
-    .map((t) => t.day)
-    .sort()
-  expect(days).toEqual([
+  // One transaction (#434): the failed trim means the widened Rule did not land either, so nothing
+  // is materialized against a window that does not exist, and the board is as it was...
+  expect(h.insert).not.toHaveBeenCalled()
+  expect(result.current.tasks.filter((t) => t.recurParentId === 'tpl1').map((t) => t.day)).toEqual([
     today,
-    ymd(addDays(parseDay(today), 1)),
-    ymd(addDays(parseDay(today), 2)),
-    until,
   ])
-  // ...and the failure is now surfaced instead of failing silently.
+  expect(result.current.getTemplate('tpl1')?.recurUntil).toBe(today)
+  // ...and the failure is surfaced, not swallowed.
   expect(result.current.error).toBe('trim failed')
 })
 
@@ -1291,7 +1331,7 @@ test('bulkUpdate writes only the changed rows in one batch and reconciles a stat
   expect(h.upsert).toHaveBeenCalledTimes(1)
   const [rows] = h.upsert.mock.calls[0] as unknown as [{ id: string }[]]
   expect(rows.map((r) => r.id)).toEqual(['t1'])
-  expect(h.writeSelect).toHaveBeenCalled()
+  expect(h.rpc).toHaveBeenCalledWith('apply_task_writes', expect.anything())
   expect(result.current.tasks.find((t) => t.id === 't1')?.completedAt).toBe('server-time')
   expect(result.current.tasks.find((t) => t.id === 't3')?.status).toBe('doing')
 })
@@ -1459,7 +1499,8 @@ test('undoing a bulk delete of Occurrences restores the definition before its Oc
   })
 
   const calls = h.upsert.mock.calls as unknown as [{ id: string }[]][]
-  expect(calls.map(([rows]) => rows.map((r) => r.id))).toEqual([['tpl1'], ['i1']])
+  // One transaction (#434), with the definition ahead of its Occurrence in the rows.
+  expect(calls.map(([rows]) => rows.map((r) => r.id))).toEqual([['tpl1', 'i1']])
   expect(result.current.tasks.map((t) => t.id)).toEqual(['i1'])
   expect(result.current.getTemplate('tpl1')).toBeDefined()
 })
@@ -1794,4 +1835,91 @@ test('access ended meanwhile: the save is refused as membership-ended', async ()
     )) as typeof conflict
   })
   expect(conflict).toMatchObject({ reason: 'membership-ended' })
+})
+
+// ——— one transaction per plan, and no upsert (#434) ———
+
+test('a Series edit is one apply_task_writes call, pinned to the definition’s known revision', async () => {
+  const today = ymd(new Date())
+  h.capture.rows = [
+    serverRow({ id: 'tpl1', recur_freq: 'daily', day: today, title: 'old', revision: 6 }),
+    serverRow({ id: 'i1', recur_parent_id: 'tpl1', recur_origin_day: today, day: today }),
+  ]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  h.rpc.mockClear()
+
+  const instance = result.current.tasks.find((t) => t.id === 'i1')!
+  await act(async () => {
+    await result.current.saveTask(
+      instance,
+      { ...instance, title: 'new', recurFreq: 'daily', recurInterval: 1, recurUntil: null },
+      false,
+      'future',
+    )
+  })
+
+  const writes = h.rpc.mock.calls.filter(([name]) => name === 'apply_task_writes')
+  expect(writes).toHaveLength(1)
+  const args = writes[0][1] as {
+    p_expected: unknown[]
+    p_inserts: unknown[]
+    p_updates: { id: string }[]
+  }
+  expect(args.p_expected).toEqual([{ id: 'tpl1', revision: 6 }])
+  // Both rows already exist, so both are UPDATE-only — nothing here could re-create a deleted row.
+  expect(args.p_inserts).toEqual([])
+  // The definition and every already-materialized future Occurrence (the load filled the horizon).
+  const updated = args.p_updates.map((row) => row.id)
+  expect(updated).toEqual(expect.arrayContaining(['tpl1', 'i1']))
+})
+
+test('a stale Series edit writes nothing and reloads to show theirs', async () => {
+  const today = ymd(new Date())
+  h.capture.rows = [
+    serverRow({ id: 'tpl1', recur_freq: 'daily', day: today, title: 'old', revision: 6 }),
+    serverRow({ id: 'i1', recur_parent_id: 'tpl1', recur_origin_day: today, day: today }),
+  ]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  h.rpc.mockResolvedValueOnce({ data: null, error: { message: 'stale-revision' } })
+
+  const instance = result.current.tasks.find((t) => t.id === 'i1')!
+  await act(async () => {
+    await result.current.saveTask(
+      instance,
+      { ...instance, title: 'mine', recurFreq: 'daily', recurInterval: 1, recurUntil: null },
+      false,
+      'future',
+    )
+  })
+  expect(result.current.error).toMatch(/Someone else changed this first/)
+  // Reloaded from the server rather than restored from before the edit.
+  await waitFor(() => expect(result.current.getTemplate('tpl1')?.title).toBe('old'))
+})
+
+test('a reorder that comes back short reloads instead of re-creating the missing Task', async () => {
+  h.capture.rows = [serverRow({ id: 't1' }), serverRow({ id: 't2', order_index: 1 })]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  // Another member deleted t2 meanwhile: the update-only write returns only t1.
+  h.capture.writeRows = [serverRow({ id: 't1', order_index: 1 })]
+  h.capture.rows = [serverRow({ id: 't1', order_index: 1 })]
+
+  const [t1, t2] = result.current.tasks
+  await act(async () => {
+    await result.current.persistReorder(
+      [
+        { ...t2, order: 0 },
+        { ...t1, order: 1 },
+      ],
+      [t1.day],
+      'day',
+    )
+  })
+  const calls = h.rpc.mock.calls
+  const args = calls[calls.length - 1][1] as { p_inserts: unknown[]; p_updates: unknown[] }
+  expect(args.p_inserts).toEqual([])
+  expect(args.p_updates).toHaveLength(2)
+  await waitFor(() => expect(result.current.tasks.map((t) => t.id)).toEqual(['t1']))
 })

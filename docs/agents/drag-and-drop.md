@@ -25,7 +25,9 @@ optimistic move the dragged card sits under the cursor as its own drop target), 
 `useBoardDnd` must be given the **unfiltered** board, even though views render `visibleTasks`.
 Passing the filtered list would corrupt data rather than merely narrow the drag: `persistReorder`
 writes back every task in a touched lane, so the visible tasks would get contiguous `0..n-1`
-indices while hidden tasks in the same lane kept theirs. Dragging under an active filter is
+indices while hidden tasks in the same lane kept theirs. Since #434 that write is one **update-only** `apply_task_writes` call over
+the complete lanes: last-accepted-wins, and a Task another member deleted meanwhile is not
+re-created by being in a lane — the write comes back short and the board reloads. Dragging under an active filter is
 prevented one level up. Archived Tasks (#242, [Completion](completion.md)) are the same shape of
 exception: `Board.tsx` excludes them from `visibleTasks` at its own view seam, ahead of the user's
 filter, but still passes the unfiltered `tasks` — Archived rows included — into `useBoardDnd` for

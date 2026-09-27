@@ -45,6 +45,12 @@
       "explicitAcl": true,
       "executeGrantees": "(owner only)"
     },
+    "apply_task_writes(uuid,jsonb,jsonb,jsonb,jsonb)": {
+      "secdef": false,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "authenticated"
+    },
     "board_members(uuid)": {
       "secdef": true,
       "config": "search_path=\"\"",

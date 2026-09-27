@@ -190,7 +190,8 @@ cases apart, because the server does not distinguish them for the caller:
 `ConflictDialog` offers "Keep theirs" or "Overwrite with mine" for a stale save only. Overwrite is
 a new, deliberate save against the reported revision, and it can itself conflict. A deleted Task
 offers nothing to retry, since saving over it would resurrect it. Small actions — pin, complete, a
-Step — keep writing their own field against the latest row. Series-wide edits are #434.
+Step — keep writing their own field against the latest row. Series-wide edits, reorders, and bulk
+changes go through `apply_task_writes` in one transaction instead (#434; see [Recurrence](recurrence.md)).
 `tests/rls/task_compare_and_swap.test.ts` pins the database half.
 
 **The filter is part of the adapter's spec, not hardcoded.** It was `user_id=eq.<userId>` for both
