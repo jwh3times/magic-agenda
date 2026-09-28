@@ -25,11 +25,21 @@ via the `Deploy Auth Config` workflow (`.github/workflows/deploy-auth-config.yml
 those paths using `yes n | SUPABASE_YES=false supabase config push --agent no --output-format text`
 to decline confirmation prompts. Keep the explicit text mode: machine-readable output skips prompts
 and accepts their defaults even with `yes n` on stdin. The CLI has no `--dry-run`, and prompts also
-default to **yes** on EOF. Secrets referenced via `env(...)` in the file (`RESEND_API_KEY`,
-`GOOGLE_OAUTH_CLIENT_SECRET`, `TURNSTILE_SECRET_KEY`) exist only as repository secrets, used by both the `Config` and
-`Deploy Auth Config` jobs; `deploy-migrations.yml` and `deploy-functions.yml` also carry them so
-the CLI's config.toml parsing on every command can't fail on a missing var. **Never run
-`supabase config push` locally** — it deploys straight to production, bypassing the PR preview.
+default to **yes** on EOF. **The preview is bounded and retried (#429)** in
+`scripts/config-preview.sh`, because a hung push once held this required check for GitHub's
+six-hour default:
+
+- Each attempt runs under `timeout --kill-after` (3 minutes), and the job carries
+  `timeout-minutes: 15`.
+- An attempt that fails before reaching any prompt (the rate-limit case) is retried up to three
+  times, with backoff, as the same non-applying preview.
+- A timeout always fails the check, even when some prompts were already declined, because a hung
+  preview did not reach every service.
+- `scripts/config-preview.test.ts` covers each outcome with fake commands. Secrets referenced via `env(...)` in the file (`RESEND_API_KEY`,
+  `GOOGLE_OAUTH_CLIENT_SECRET`, `TURNSTILE_SECRET_KEY`) exist only as repository secrets, used by both the `Config` and
+  `Deploy Auth Config` jobs; `deploy-migrations.yml` and `deploy-functions.yml` also carry them so
+  the CLI's config.toml parsing on every command can't fail on a missing var. **Never run
+  `supabase config push` locally** — it deploys straight to production, bypassing the PR preview.
 
 Turnstile has two distinct deployment inputs. `TURNSTILE_SECRET_KEY` is an Actions repository
 secret used only while Supabase CLI parses and deploys `[auth.captcha]`; every workflow that parses

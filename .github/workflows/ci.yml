@@ -137,6 +137,10 @@ jobs:
   Config:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    # #429: a hung `supabase config push` held this required check for the 360-minute default. The
+    # preview bounds each attempt itself (scripts/config-preview.sh); this is the outer bound: three
+    # 3-minute attempts, 20s and 40s of backoff, and setup, with room to spare.
+    timeout-minutes: 15
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
@@ -179,32 +183,9 @@ jobs:
         run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
       - name: Preview config push (declines every prompt — never applies)
         if: steps.paths.outputs.changed == 'true'
-        run: |
-          # Never add shell: bash to this job: that turns on pipefail, and yes(1) dying of SIGPIPE would misreport config push's exit code (141) and corrupt the no-op classification.
-          set +e
-          # Machine-readable output skips prompts and accepts their defaults,
-          # even with `yes n` on stdin. Force text mode so declines are read.
-          out=$(yes n | SUPABASE_YES=false supabase config push --agent no --output-format text 2>&1)
-          code=$?
-          set -e
-          {
-            echo '## Pending `supabase config push` changes (each declined prompt = one pending service)'
-            echo '```'
-            echo "$out"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-          echo "$out"
-          prompts=$(echo "$out" | grep -ciE 'do you want|\[y/n\]' || true)
-          if [ "$code" -eq 0 ] && [ "$prompts" -eq 0 ]; then
-            echo "No pending changes — remote already matches the file."
-            exit 0
-          fi
-          if [ "$prompts" -gt 0 ]; then
-            echo "Preview complete: $prompts pending change prompt(s), all declined — nothing applied."
-            exit 0
-          fi
-          echo "config push failed before reaching any confirmation prompt."
-          exit "$code"
+        # Bounded per attempt, retried only as the same non-applying preview, and red on timeout
+        # (#429). Never add `shell: bash` here: that turns on pipefail; see the script's header.
+        run: bash scripts/config-preview.sh
 
   RLS:
     runs-on: ubuntu-latest

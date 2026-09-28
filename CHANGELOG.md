@@ -12,6 +12,41 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.15.22] - 2026-09-28
+
+### Fixed
+
+- **The required `Config` check can no longer hang a PR for six hours (#429).** A stalled
+  `supabase config push` preview once held the check for GitHub's six-hour default while branch
+  protection blocked the merge. The preview now lives in `scripts/config-preview.sh`:
+  - each attempt is cut off after 3 minutes (`timeout --kill-after`), and the job itself has
+    `timeout-minutes: 15`;
+  - an attempt that fails before reaching any prompt (the rate-limit case) is retried up to three
+    times with backoff, as the same non-applying preview (`yes n`, `SUPABASE_YES=false`, text
+    output);
+  - a timeout always fails the check, even after some prompts were declined, because a hung
+    preview did not reach every service.
+
+  No-change and declined-prompt previews are classified exactly as before.
+
+### Internal
+
+- `scripts/config-preview.test.ts` covers each outcome with fake commands. It includes checks that
+  the preview answers `n` and that a hang is cut off at the bound.
+
+## [1.15.21] - 2026-09-28
+
+### Internal
+
+- `supabase/setup-cli` bumped to its latest v3 commit in every workflow that installs the CLI (#459).
+
+## [1.15.20] - 2026-09-28
+
+### Internal
+
+- Dependency updates (#460): `@supabase/supabase-js` 2.117.1, `vite` 8.3.1, `vitest` 5.0.2,
+  `prettier` 3.9.9, and `oxlint-tsgolint` 7.0.2003.
+
 ## [1.15.19] - 2026-09-27
 
 ### Changed
@@ -4333,7 +4368,10 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.19...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.22...HEAD
+[1.15.22]: https://github.com/jwh3times/magic-agenda/compare/v1.15.21...v1.15.22
+[1.15.21]: https://github.com/jwh3times/magic-agenda/compare/v1.15.20...v1.15.21
+[1.15.20]: https://github.com/jwh3times/magic-agenda/compare/v1.15.19...v1.15.20
 [1.15.19]: https://github.com/jwh3times/magic-agenda/compare/v1.15.18...v1.15.19
 [1.15.18]: https://github.com/jwh3times/magic-agenda/compare/v1.15.17...v1.15.18
 [1.15.17]: https://github.com/jwh3times/magic-agenda/compare/v1.15.16...v1.15.17
