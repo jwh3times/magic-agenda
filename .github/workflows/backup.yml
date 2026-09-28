@@ -9,8 +9,8 @@ name: Backup
 # WHY IT IS ENCRYPTED ON THE RUNNER: this repository is PUBLIC, and GitHub Actions artifacts on
 # public repositories can be downloaded by anyone (the "ArtiPACKED" research, Aug 2024; GitHub
 # declined to change the behaviour and treats artifact contents as the author's responsibility).
-# The dump contains every user's email address, bcrypt password hash, and task content. So the
-# bundle is GPG-symmetric-encrypted BEFORE upload and the plaintext never leaves the job. Do not
+# The dump contains every user's email address, bcrypt password hash, task content, and attached
+# files. So the bundle is GPG-symmetric-encrypted BEFORE upload and the plaintext never leaves the job. Do not
 # add a step that uploads anything from `backup/` directly.
 #
 # Repository secrets used (the first three already exist for the deploy workflows):
@@ -108,12 +108,22 @@ jobs:
       # a bucket that either does not exist or exists with NO POLICIES -- silently, which is the
       # worst shape: nothing fails, and the feature is simply unprotected or broken.
       #
-      # NOT the object bytes. Those remain in no backup of any kind: unbounded size, egress cost on
-      # the free tier, and every artifact this repository uploads must be treated as public. That
-      # half is deferred and recorded as deferred on #401 -- a restore loses every attached file,
-      # and the runbook says so.
+      # The object bytes are the next step, not this one: this file is the boundary, and it must be
+      # loaded before any file is written back into the bucket.
       - name: Dump attachments storage metadata
         run: node scripts/dump-storage-metadata.mjs backup/storage.sql
+
+      # Fourth part: the attachment files themselves (#411), deferred by #401 until Boards became
+      # shareable -- losing files someone else uploaded to your Board is not a personal problem.
+      # Every object in the `attachments` bucket lands at `backup/attachments/objects/<storage_path>`
+      # with a `manifest.json` of sizes and SHA-256s, INSIDE `backup/`, so it is encrypted with the
+      # rest before anything leaves the runner. The script checks each download against the size
+      # its metadata records, derives the service key from the access token (masked), and prints
+      # counts only -- paths are Board and Task ids, and this log is public. It warns, without
+      # failing, on `task_attachments` rows with no object, and once the bucket passes 500 MB,
+      # which is the point #411 names for moving to separate object storage.
+      - name: Dump attachment files
+        run: node scripts/backup-attachments.mjs backup/attachments
 
       # The failure mode that actually bites is a *successful* empty dump: the job stays green for
       # months while backing up nothing. Assert on content, not just exit codes.
@@ -265,8 +275,14 @@ jobs:
             exit 1
           fi
 
+          # The attachment files must survive the round trip byte for byte: re-hash every one
+          # against the manifest from the DECRYPTED copy, which is exactly what a restore reads.
+          mkdir roundtrip
+          tar -xzf roundtrip.tar.gz -C roundtrip
+          node scripts/restore-attachments.mjs --verify-only roundtrip/attachments
+
           # Leave only the encrypted bundle on disk for the upload step.
-          rm -rf backup roundtrip.tar.gz "$bundle"
+          rm -rf backup roundtrip roundtrip.tar.gz "$bundle"
           echo "stamp=$stamp" >> "$GITHUB_ENV"
           echo "Encrypted bundle: $bundle.gpg ($(wc -c < "$bundle.gpg") bytes)"
 

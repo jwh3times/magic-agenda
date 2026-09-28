@@ -2,7 +2,8 @@
 
 The free Supabase tier has **no automated backups**, so `.github/workflows/backup.yml` takes a
 nightly logical dump: `schema.sql` (DDL for `public`), `storage.sql` (the attachments bucket and
-its object policies — see below), plus `data.sql`, which carries **both** the
+its object policies — see below), `attachments/` (the attached files themselves, since #411), plus
+`data.sql`, which carries **both** the
 `public` and `auth` rows — `supabase db dump --data-only` includes Supabase-managed schemas even
 though the schema dump excludes them. Do not "helpfully" add a separate `--schema auth` data dump;
 one existed until v1.2.27 and was a strict subset that made restores fail on duplicate `auth.users`
@@ -32,8 +33,8 @@ this repository learned about assuming production matches its migrations.
 Widening the existing dumps to `storage` would have been wrong twice, which is why this is a
 separate generator rather than a flag: the schema half would capture platform-managed tables a
 Supabase project provisions itself, and the data half would capture every `storage.objects` row —
-metadata for files whose bytes are in no backup, so a restore would rebuild rows pointing at
-objects that do not exist. That is the silent-breakage shape, not a fix for it.
+rows that a restore would have to insert behind the storage service's back. The bytes come back
+through the Storage API instead, which recreates those rows itself (below).
 
 The verify step asserts the bucket line is present, that the membership-scoped SELECT and DELETE
 policies are present, that no direct attachment INSERT/UPDATE policy is restored, and **that the
@@ -42,12 +43,37 @@ object policy decorative, because the object URL alone serves the file, and it r
 cleanly. The generator itself refuses to write a file with no bucket row or no policies, so
 "attachments are backed up" cannot be recorded for a bundle that restores nothing.
 
-**The object BYTES remain in no backup of any kind, deliberately (#401).** A restore brings back
-the bucket, its configuration, its policies, and the `task_attachments` rows — and every attached
-file is gone. That decision is deferred rather than settled: backing up bytes is unbounded in size,
-costs egress on the free tier, and **every artifact this repository uploads must be treated as
-public**, so it would have to keep the encrypt-on-runner shape. Until it is taken, the honest
-statement is the one in the runbook: attachments do not survive a restore.
+**The attached files are the fourth part (#411).** #401 deferred them — they are unbounded in size,
+cost egress on the free tier, and must stay inside the encrypted bundle — until one of its named
+triggers fired. Shared Boards (#279) was that trigger: losing files someone else uploaded to your
+Board is not a personal problem. `scripts/backup-attachments.mjs` lists the bucket's objects through
+the Management API's read-only query, derives the service key from the access token (masked in the
+log; a fine-grained access token needs `api_gateway_keys_read`, or the step fails with 403), and downloads each object to `backup/attachments/objects/<storage_path>`. It writes a
+`manifest.json` with each object's path, size, MIME type, and SHA-256. Everything lands inside
+`backup/`, so it is encrypted with the rest.
+
+Three checks make this a backup rather than a copy that happened to finish:
+
+- **Each download must match the size its object metadata records.** A short read is retried, and
+  then fails the job; a truncated file is never recorded as backed up.
+- **Object names must match `<uuid>/<uuid>/<uuid>`**, the only shape the upload command writes.
+  The name becomes a runner path and later an object path, so anything else is refused.
+- **After the decrypt round trip, `restore-attachments.mjs --verify-only` re-hashes every file**
+  against the manifest from the decrypted copy — the copy a restore reads — and refuses a missing,
+  altered, or unlisted file.
+
+Two conditions warn without failing. `task_attachments` rows with no object are counted, because an
+upload reservation in flight at dump time is legitimate (the row is reserved before the bytes
+land). And a bucket past **500 MB**, half the free tier, warns that #411's option 3 — separate object
+storage, off the nightly artifact — is now due. The log carries counts and byte totals only: object
+paths are Board and Task ids.
+
+Restoring the files is `scripts/restore-attachments.mjs`, run after `storage.sql`. It verifies the
+bundle, uploads each object at its original path — `task_attachments.storage_path` is generated from
+ids, so `data.sql`'s rows already expect exactly those paths — then reads each back and compares
+hashes. It uses the service key and so bypasses the quota command on purpose: the bytes were admitted
+once already, and the rows that count against quota come back with `data.sql`. Bundles made before
+v1.15.23 have no `attachments/` directory, and a restore from one still loses every attached file.
 
 It also asserts the three Board tables are in `data.sql` and that `schema.sql` defines
 `handle_new_user`, `handle_account_deletion`, `create_board`,

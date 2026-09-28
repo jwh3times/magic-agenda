@@ -19,11 +19,12 @@ outage.
 
 ## What is in the bundle
 
-| File          | Contents                                                                                                                   | Why it matters                                                                                                                                          |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schema.sql`  | DDL for the `public` schema **only**                                                                                       | Nearly a substitute for `supabase/migrations/` — but it omits `on_auth_user_created` and `on_auth_user_deleted`, both triggers on `auth.users`. See 3.1 |
-| `data.sql`    | Board data in `public` (including Labels) plus durable `auth` data (`auth.users`, `auth.identities`, enrolled MFA factors) | Restores accounts and their Boards; sessions and temporary auth state are excluded                                                                      |
-| `storage.sql` | The `attachments` bucket's configuration and the four `storage.objects` policies                                           | Rebuilds the object-side authorization boundary. **Not the files.** Load it last — see 3.4                                                              |
+| File           | Contents                                                                                                                   | Why it matters                                                                                                                                          |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema.sql`   | DDL for the `public` schema **only**                                                                                       | Nearly a substitute for `supabase/migrations/` — but it omits `on_auth_user_created` and `on_auth_user_deleted`, both triggers on `auth.users`. See 3.1 |
+| `data.sql`     | Board data in `public` (including Labels) plus durable `auth` data (`auth.users`, `auth.identities`, enrolled MFA factors) | Restores accounts and their Boards; sessions and temporary auth state are excluded                                                                      |
+| `storage.sql`  | The `attachments` bucket's configuration and the four `storage.objects` policies                                           | Rebuilds the object-side authorization boundary. **Not the files.** Load it after the data — see 3.4                                                    |
+| `attachments/` | Every attached file at `objects/<storage_path>`, plus `manifest.json` (size and SHA-256 per file). Since v1.15.23 (#411)   | Puts the files back behind the restored rows. Upload it last, after `storage.sql` — see 3.5                                                             |
 
 `data.sql` holds the `auth` rows as well as the `public` ones — `supabase db dump --data-only`
 includes Supabase-managed schemas even though the schema dump excludes them. There is one data file
@@ -122,7 +123,7 @@ gh run list --workflow Backup --limit 10
 gh run download <run-id> -n supabase-backup-YYYY-MM-DD
 
 gpg --decrypt --output backup.tar.gz supabase-backup-YYYY-MM-DD.tar.gz.gpg
-tar -xzf backup.tar.gz          # -> schema.sql, data.sql, storage.sql (v1.2.25-26 bundles add auth.sql; ignore it; bundles before v1.14.15 have no storage.sql)
+tar -xzf backup.tar.gz          # -> schema.sql, data.sql, storage.sql, attachments/ (v1.2.25-26 bundles add auth.sql; ignore it; bundles before v1.14.15 have no storage.sql, before v1.15.23 no attachments/)
 ```
 
 If `gpg` reports a bad passphrase, stop — you have the wrong one, and nothing else in this runbook
@@ -267,8 +268,7 @@ as above — which the rehearsal confirmed for `on_auth_user_created`.
 
 ### 3.4 Attachments storage — the boundary, not the files
 
-**Load this last, and read the next paragraph before you promise anyone their files are coming
-back.**
+**Load this after the data, and before the files in 3.5.**
 
 ```bash
 psql "$PGURI" -v ON_ERROR_STOP=1 -f storage.sql
@@ -280,16 +280,11 @@ bucket is an `insert ... on conflict do update`, and each policy is preceded by
 `drop policy if exists`, so running it twice, or onto a project that already has some of it, is
 safe.
 
-**The files themselves are NOT in the bundle and never have been.** This restores the bucket's
-configuration (`public = false`, the 10 MiB limit, the MIME allow-list) and its membership-scoped
-SELECT/DELETE object policies. Direct INSERT/UPDATE policies must stay absent because uploads cross
-the quota command. `data.sql` restores the `task_attachments` rows. Every one of those rows will
-point at an object that does not exist, so in the app each attachment renders as a placeholder and
-will not open.
-
-That is a deliberate, recorded gap (#401), not an oversight in this runbook. If it matters for the
-incident you are handling, say so explicitly when you report the restore — "all data restored" is
-false if anyone had attachments.
+This file is the boundary, not the files. It restores the bucket's configuration
+(`public = false`, the 10 MiB limit, the MIME allow-list) and its membership-scoped SELECT/DELETE
+object policies. Direct INSERT/UPDATE policies must stay absent because uploads cross the quota
+command. `data.sql` restores the `task_attachments` rows; until 3.5 puts the files back, each
+attachment renders as a placeholder and will not open.
 
 Bundles made before v1.15.4 contain the retired attachment INSERT/UPDATE policies. After applying
 one, replay migrations through `20260924181615_enforce_attachment_quotas.sql` **after**
@@ -302,6 +297,30 @@ would restore obsolete direct-write policies and bypass the Board quota command.
 bucket absent and do not create it from the dashboard without the policies: a bucket with no policy
 is default-deny (the feature breaks silently), and a bucket created `public` makes every policy
 decorative.
+
+### 3.5 Attachment files
+
+**Bundles from v1.15.23 onward** carry the files in `attachments/`. Run this after `storage.sql`, so
+the bucket exists as private before anything is written into it. It needs the restored project's URL
+and a **service key** (Project Settings → API; the legacy `service_role` key or a new `sb_secret_`
+key). Keep that key out of shell history and delete it from the environment when you are done:
+
+```bash
+node scripts/restore-attachments.mjs --verify-only attachments   # re-hash every file first
+RESTORE_SUPABASE_URL=https://<new-ref>.supabase.co RESTORE_SERVICE_KEY=<service key> \
+  node scripts/restore-attachments.mjs attachments
+```
+
+The script re-verifies the bundle, uploads each file at its original path (the path
+`task_attachments.storage_path` already names), then downloads each one back and compares its
+SHA-256. It prints counts only. Uploads upsert, so a rerun after a partial failure is safe. It uses
+the service key and deliberately bypasses the Board quota command, because these files were admitted
+once already and their quota rows came back with `data.sql`.
+
+**Bundles made before v1.15.23 have no `attachments/` directory, and their files are gone.** If that
+matters for the incident you are handling, say so explicitly when you report the restore — "all data
+restored" is false if anyone had attachments. The nightly job also warns when `task_attachments` rows
+had no object at dump time; those files are in no bundle either.
 
 ## 4. Verify before declaring victory
 
@@ -415,6 +434,17 @@ select count(*) from auth.one_time_tokens;
 select count(*) from auth.flow_state;
 ```
 
+For backups from v1.15.23 onward, every attachment row should have its file back after 3.5. Expect
+zero here, apart from any rows the nightly job warned had no object at dump time:
+
+```sql
+select count(*) from public.task_attachments a
+ where not exists (
+   select 1 from storage.objects o
+    where o.bucket_id = 'attachments' and o.name = a.storage_path
+ );
+```
+
 Then sign in as a real user and confirm a board renders, a task saves, and realtime still syncs.
 Check OAuth sign-in and enrolled MFA as applicable.
 
@@ -434,10 +464,11 @@ The project ref changes, so:
 ## 6. Delete the plaintext
 
 After the restore and verification are complete, record any hash you need and delete both the
-decrypted archive and every extracted SQL file. Keep only the encrypted `.gpg` bundle:
+decrypted archive, every extracted SQL file, and the extracted attachment files — those are users'
+own photographs and documents. Keep only the encrypted `.gpg` bundle:
 
 ```bash
-rm -f backup.tar.gz schema.sql data.sql auth.sql
+rm -rf backup.tar.gz schema.sql data.sql storage.sql auth.sql attachments
 ```
 
 If you extracted into a dedicated scratch directory, delete that directory instead. Confirm that no

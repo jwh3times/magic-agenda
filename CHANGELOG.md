@@ -12,6 +12,37 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.15.23] - 2026-09-28
+
+### Added
+
+- **The nightly backup now carries every attached file (#411).** Attachments used to come back from
+  a restore as placeholders: the bucket, its policies and the `task_attachments` rows were restored,
+  but the files were in no backup. #401 deferred that until Boards became shareable, and that has
+  now happened. `scripts/backup-attachments.mjs` downloads every object in the `attachments` bucket
+  into `attachments/objects/<storage_path>`, with a `manifest.json` of sizes and SHA-256s. The files
+  go inside the same GPG-encrypted bundle, so nothing leaves the runner in plaintext, and the log
+  shows counts and byte totals only.
+- **`scripts/restore-attachments.mjs` puts the files back** into a rebuilt project at their
+  original paths, after `storage.sql`. Uploads are idempotent. The script checks the bundle before
+  uploading, then downloads each file back and compares hashes before reporting success. The
+  restore runbook has a new step 3.5 and a matching verification query.
+
+### Internal
+
+- **The backup job checks the files, not just the download.**
+  - Each download must match the size its object metadata records; a short read is retried, then
+    fails the job.
+  - An object name outside the `<uuid>/<uuid>/<uuid>` shape is refused.
+  - After the decrypt round trip, every file is re-hashed against the manifest.
+  - It warns, without failing, on `task_attachments` rows with no object and on a bucket past
+    500 MB. Past that size, separate object storage is the plan.
+- The service key is derived from the existing access token through the Management API. It prefers
+  a new-style `secret` key over the legacy `service_role` key and is masked in the log, so no new
+  repository secret is needed.
+- `scripts/attachments-backup.test.mjs` (16 tests) covers backup, verification and restore end to
+  end against fakes.
+
 ## [1.15.22] - 2026-09-28
 
 ### Fixed
@@ -4368,7 +4399,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.22...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.23...HEAD
+[1.15.23]: https://github.com/jwh3times/magic-agenda/compare/v1.15.22...v1.15.23
 [1.15.22]: https://github.com/jwh3times/magic-agenda/compare/v1.15.21...v1.15.22
 [1.15.21]: https://github.com/jwh3times/magic-agenda/compare/v1.15.20...v1.15.21
 [1.15.20]: https://github.com/jwh3times/magic-agenda/compare/v1.15.19...v1.15.20
