@@ -34,6 +34,9 @@ export const ATTACHMENTS_BUCKET = 'attachments'
 /** Half the free tier's 1 GB. Past it, #411's option 3 (separate object storage) is the plan. */
 export const SIZE_WARNING_BYTES = 500 * 1024 * 1024
 
+/** Per download. A 10 MiB object needs far less; a stalled one should retry, not hang. */
+export const DOWNLOAD_TIMEOUT_MS = 120_000
+
 export const OBJECTS_QUERY = `
 select name,
        (metadata->>'size')::bigint as size,
@@ -77,37 +80,63 @@ export function storageHeaders({ key, legacy }) {
 
 export const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex')
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/** A usable byte count from object metadata: a non-negative integer, never a null read as 0. */
+function metadataSize(size) {
+  if (size === null || size === undefined || size === '') return null
+  const n = Number(size)
+  return Number.isSafeInteger(n) && n >= 0 ? n : null
+}
+
 /**
  * Download every object and write the bundle directory. Pure apart from the injected `download`
- * and the filesystem, so it is tested with a fake download and a temporary directory.
+ * and `stillExists` and the filesystem, so it is tested with fakes and a temporary directory.
+ *
+ * **Only a genuine failure fails.** This step runs before the bundle is encrypted and uploaded, so
+ * throwing here costs that night's database backup too. Three things that are not backup defects
+ * are therefore counted instead of thrown:
+ *
+ * - an object deleted between the listing and its download (`stillExists` re-checks after the
+ *   last attempt; a user deleting an attachment at 09:00 UTC must not cost the whole backup);
+ * - an object whose name is outside `<uuid>/<uuid>/<uuid>` -- a dashboard folder placeholder or a
+ *   manual upload. It is never written to disk, because the name would become a runner path;
+ * - an object with no usable size in its metadata, which cannot be checked for truncation.
+ *
+ * A download that keeps failing for an object that does still exist throws: that file would be
+ * missing from the bundle, and recording it as backed up is the failure this job exists to prevent.
  */
 export async function backupAttachments({
   objects,
   rows,
   download,
+  stillExists = async () => true,
   outDir,
   concurrency = 4,
   attempts = 3,
+  backoffMs = 2000,
 }) {
-  for (const [index, object] of objects.entries()) {
-    if (!STORAGE_PATH.test(object.name)) {
-      throw new Error(`Object ${index + 1} has a name outside the attachments path shape.`)
-    }
-    if (!Number.isSafeInteger(Number(object.size)) || Number(object.size) < 0) {
-      throw new Error(`Object ${index + 1} has no usable size in its metadata.`)
-    }
+  let offShape = 0
+  let unsized = 0
+  const eligible = []
+  for (const object of objects) {
+    if (!STORAGE_PATH.test(object.name)) offShape++
+    else if (metadataSize(object.size) === null) unsized++
+    else eligible.push(object)
   }
 
-  const entries = new Array(objects.length)
+  const entries = new Array(eligible.length)
+  let vanished = 0
   let next = 0
   async function worker() {
-    while (next < objects.length) {
+    while (next < eligible.length) {
       const index = next++
-      const object = objects[index]
-      const expected = Number(object.size)
+      const object = eligible[index]
+      const expected = metadataSize(object.size)
       let bytes
       let lastError
       for (let attempt = 1; attempt <= attempts; attempt++) {
+        if (attempt > 1) await sleep(backoffMs * (attempt - 1))
         try {
           bytes = await download(object.name)
           if (bytes.byteLength !== expected) {
@@ -120,9 +149,13 @@ export async function backupAttachments({
         }
       }
       if (!bytes) {
+        if (!(await stillExists(object.name))) {
+          vanished++
+          continue
+        }
         // The index, not the path: this runs in a job whose log is public.
         throw new Error(
-          `Object ${index + 1} of ${objects.length} failed after ${attempts} attempts: ${lastError?.message ?? lastError}`,
+          `Object ${index + 1} of ${eligible.length} failed after ${attempts} attempts: ${lastError?.message ?? lastError}`,
         )
       }
       const file = join(outDir, 'objects', ...object.name.split('/'))
@@ -136,21 +169,30 @@ export async function backupAttachments({
       }
     }
   }
-  await Promise.all(Array.from({ length: Math.min(concurrency, objects.length) }, worker))
+  await Promise.all(Array.from({ length: Math.min(concurrency, eligible.length) }, worker))
 
-  const present = new Set(objects.map((o) => o.name))
+  const captured = entries.filter(Boolean)
+  const present = new Set(captured.map((e) => e.path))
   const rowsWithoutObject = rows.filter((r) => !present.has(r.storage_path)).length
-  const totalBytes = entries.reduce((sum, e) => sum + e.size, 0)
+  const totalBytes = captured.reduce((sum, e) => sum + e.size, 0)
   const manifest = {
     format: 1,
     bucket: ATTACHMENTS_BUCKET,
-    object_count: entries.length,
+    object_count: captured.length,
     total_bytes: totalBytes,
-    objects: entries,
+    objects: captured,
   }
   mkdirSync(outDir, { recursive: true })
   writeFileSync(join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8')
-  return { objectCount: entries.length, totalBytes, rowsWithoutObject, rowCount: rows.length }
+  return {
+    objectCount: captured.length,
+    totalBytes,
+    rowsWithoutObject,
+    rowCount: rows.length,
+    vanished,
+    offShape,
+    unsized,
+  }
 }
 
 function requireEnv() {
@@ -200,18 +242,41 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     rows,
     outDir,
     async download(path) {
+      // Bounded, so a stalled transfer is retried rather than holding the job until its timeout.
       const response = await fetch(
         `https://${ref}.supabase.co/storage/v1/object/${ATTACHMENTS_BUCKET}/${path}`,
-        { headers },
+        { headers, signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) },
       )
       if (!response.ok) throw new Error(`download failed with ${response.status}`)
       return new Uint8Array(await response.arrayBuffer())
+    },
+    async stillExists(path) {
+      // The path is a validated uuid triple, so interpolating it cannot break out of the literal.
+      const found = await query(
+        `select 1 from storage.objects where bucket_id = '${ATTACHMENTS_BUCKET}' and name = '${path}'`,
+      )
+      return found.length > 0
     },
   })
 
   console.log(
     `Captured ${result.objectCount} attachment objects (${result.totalBytes} bytes) for ${result.rowCount} task_attachments rows.`,
   )
+  if (result.vanished > 0) {
+    console.log(
+      `${result.vanished} objects were deleted during the backup and are not in it -- expected when someone removes an attachment mid-run.`,
+    )
+  }
+  if (result.offShape > 0) {
+    console.log(
+      `::warning::${result.offShape} objects in the bucket are not <board>/<task>/<attachment> paths and were skipped. The upload command never writes those; look for a dashboard folder or a manual upload.`,
+    )
+  }
+  if (result.unsized > 0) {
+    console.log(
+      `::warning::${result.unsized} objects have no size in their metadata and were skipped, because a truncated download could not be detected.`,
+    )
+  }
   if (result.rowsWithoutObject > 0) {
     console.log(
       `::warning::${result.rowsWithoutObject} task_attachments rows have no object in the bucket -- those files cannot be restored from any backup.`,

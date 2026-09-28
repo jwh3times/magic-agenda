@@ -82,7 +82,13 @@ export function verifyBundle(dir) {
  * Upload every object, then read each back and compare hashes. `storage` is injected so the whole
  * flow is tested against a fake; the CLI below wires it to the Storage API.
  */
-export async function restoreAttachments({ dir, storage, concurrency = 4, attempts = 3 }) {
+export async function restoreAttachments({
+  dir,
+  storage,
+  concurrency = 4,
+  attempts = 3,
+  backoffMs = 2000,
+}) {
   const manifest = verifyBundle(dir)
   const objects = manifest.objects
   let next = 0
@@ -94,6 +100,7 @@ export async function restoreAttachments({ dir, storage, concurrency = 4, attemp
       let lastError
       let done = false
       for (let attempt = 1; attempt <= attempts && !done; attempt++) {
+        if (attempt > 1) await new Promise((r) => setTimeout(r, backoffMs * (attempt - 1)))
         try {
           await storage.upload(entry.path, bytes, entry.mime_type)
           const back = await storage.download(entry.path)
@@ -131,11 +138,12 @@ export function storageApi(baseUrl, key) {
           'x-upsert': 'true',
         },
         body: bytes,
+        signal: AbortSignal.timeout(120_000),
       })
       if (!response.ok) throw new Error(`upload failed with ${response.status}`)
     },
     async download(path) {
-      const response = await fetch(url(path), { headers })
+      const response = await fetch(url(path), { headers, signal: AbortSignal.timeout(120_000) })
       if (!response.ok) throw new Error(`read-back failed with ${response.status}`)
       return new Uint8Array(await response.arrayBuffer())
     },

@@ -52,20 +52,32 @@ log; a fine-grained access token needs `api_gateway_keys_read`, or the step fail
 `manifest.json` with each object's path, size, MIME type, and SHA-256. Everything lands inside
 `backup/`, so it is encrypted with the rest.
 
-Three checks make this a backup rather than a copy that happened to finish:
+Two checks make this a backup rather than a copy that happened to finish:
 
-- **Each download must match the size its object metadata records.** A short read is retried, and
-  then fails the job; a truncated file is never recorded as backed up.
-- **Object names must match `<uuid>/<uuid>/<uuid>`**, the only shape the upload command writes.
-  The name becomes a runner path and later an object path, so anything else is refused.
+- **Each download must match the size its object metadata records.** A failed or short read is
+  retried with backoff, each attempt bounded at two minutes. If the object still exists after the
+  last attempt, the job fails; a truncated or missing file is never recorded as backed up.
 - **After the decrypt round trip, `restore-attachments.mjs --verify-only` re-hashes every file**
   against the manifest from the decrypted copy — the copy a restore reads — and refuses a missing,
   altered, or unlisted file.
 
-Two conditions warn without failing. `task_attachments` rows with no object are counted, because an
-upload reservation in flight at dump time is legitimate (the row is reserved before the bytes
-land). And a bucket past **500 MB**, half the free tier, warns that #411's option 3 — separate object
-storage, off the nightly artifact — is now due. The log carries counts and byte totals only: object
+**Everything else is counted, not failed, because this step runs before the bundle is encrypted and
+uploaded, so a throw here costs that night's database backup too.** That was a review finding, not a
+hypothetical: an attachment deleted during the run would have failed the whole backup.
+
+- **An object deleted between the listing and its download** is re-checked against `storage.objects`
+  and left out.
+- **An object name outside `<uuid>/<uuid>/<uuid>`**, the only shape the upload command writes, is
+  skipped with a warning and never written to disk, since the name would become a runner path.
+  Expect one from a dashboard "create folder" or a manual upload.
+- **An object with no size in its metadata** is skipped with a warning, because a truncated download
+  could not be detected.
+- **`task_attachments` rows with no object** are counted: an upload reservation in flight at dump
+  time is legitimate, because the row is reserved before the bytes land.
+- **A bucket past 500 MB**, half the free tier, warns that #411's option 3 is now due: separate
+  object storage, off the nightly artifact.
+
+The job carries `timeout-minutes: 60`. The log shows counts and byte totals only, because object
 paths are Board and Task ids.
 
 Restoring the files is `scripts/restore-attachments.mjs`, run after `storage.sql`. It verifies the

@@ -55,6 +55,9 @@ describe('backupAttachments', () => {
       totalBytes: 17 + 35,
       rowsWithoutObject: 0,
       rowCount: 2,
+      vanished: 0,
+      offShape: 0,
+      unsized: 0,
     })
     expect(readFileSync(join(outDir, 'objects', B, T, path(1).split('/')[2]), 'utf8')).toBe(
       'a png, notionally',
@@ -67,27 +70,103 @@ describe('backupAttachments', () => {
     const flaky = async (name) =>
       ++calls === 1 ? production.get(name).slice(0, 3) : production.get(name)
     const outDir = tempDir()
-    await backupAttachments({ objects: objects.slice(0, 1), rows, download: flaky, outDir })
+    await backupAttachments({
+      objects: objects.slice(0, 1),
+      rows,
+      download: flaky,
+      outDir,
+      backoffMs: 0,
+    })
     expect(calls).toBe(2)
 
     const truncated = async (name) => production.get(name).slice(0, 3)
     await expect(
-      backupAttachments({ objects, rows, download: truncated, outDir: tempDir(), attempts: 2 }),
+      backupAttachments({
+        objects,
+        rows,
+        download: truncated,
+        outDir: tempDir(),
+        attempts: 2,
+        backoffMs: 0,
+      }),
     ).rejects.toThrow(/Object 1 of 2 failed after 2 attempts: read 3 of 17 bytes/)
   })
 
-  test('refuses an object name outside the generated path shape, before writing anything', async () => {
-    for (const name of ['../../etc/passwd', `${B}/${T}`, `/${path(1)}`, `${path(1)}/x`]) {
-      await expect(
-        backupAttachments({
-          objects: [{ name, size: '1', mime_type: null }],
-          rows: [],
-          download: fromProduction,
-          outDir: tempDir(),
-        }),
-      ).rejects.toThrow(/outside the attachments path shape/)
-    }
+  test('skips, never writes, an object name outside the generated path shape', async () => {
+    const outDir = tempDir()
+    const odd = [
+      '../../etc/passwd',
+      `${B}/${T}`,
+      `/${path(1)}`,
+      `${path(1)}/x`,
+      `${B}/.emptyFolderPlaceholder`,
+    ]
+    const result = await backupAttachments({
+      objects: [...odd.map((name) => ({ name, size: '1', mime_type: null })), objects[0]],
+      rows: [],
+      download: fromProduction,
+      outDir,
+    })
+    expect(result).toMatchObject({ objectCount: 1, offShape: odd.length })
+    expect(verifyBundle(outDir).objects.map((o) => o.path)).toEqual([path(1)])
     expect(STORAGE_PATH.test(path(1))).toBe(true)
+  })
+
+  test('skips an object with no size in its metadata rather than reading null as 0 bytes', async () => {
+    for (const size of [null, undefined, '', 'abc', '-1']) {
+      const result = await backupAttachments({
+        objects: [{ name: path(1), size, mime_type: null }],
+        rows: [],
+        download: fromProduction,
+        outDir: tempDir(),
+      })
+      expect(result).toMatchObject({ objectCount: 0, unsized: 1 })
+    }
+  })
+
+  test('an object deleted mid-run is left out, not a failed backup', async () => {
+    const outDir = tempDir()
+    const gone = async (name) => {
+      if (name === path(2)) throw new Error('download failed with 400')
+      return production.get(name)
+    }
+    const result = await backupAttachments({
+      objects,
+      rows,
+      download: gone,
+      stillExists: async (name) => name !== path(2),
+      outDir,
+      backoffMs: 0,
+    })
+    expect(result).toMatchObject({ objectCount: 1, vanished: 1, rowsWithoutObject: 1 })
+    expect(verifyBundle(outDir).object_count).toBe(1)
+  })
+
+  test('an object that still exists but will not download fails the backup', async () => {
+    const broken = async () => {
+      throw new Error('download failed with 503')
+    }
+    await expect(
+      backupAttachments({ objects, rows, download: broken, outDir: tempDir(), backoffMs: 0 }),
+    ).rejects.toThrow(/failed after 3 attempts: download failed with 503/)
+  })
+
+  test('waits longer before each retry', async () => {
+    let calls = 0
+    const times = []
+    const flaky = async (name) => {
+      times.push(Date.now())
+      return ++calls < 3 ? new Uint8Array(0) : production.get(name)
+    }
+    await backupAttachments({
+      objects: objects.slice(0, 1),
+      rows: [],
+      download: flaky,
+      outDir: tempDir(),
+      backoffMs: 40,
+    })
+    expect(times[1] - times[0]).toBeGreaterThanOrEqual(35)
+    expect(times[2] - times[1]).toBeGreaterThanOrEqual(75)
   })
 
   test('counts rows whose object is missing without failing the backup', async () => {
@@ -169,7 +248,12 @@ describe('restoreAttachments', () => {
     const dir = tempDir()
     await backupAttachments({ objects, rows, download: fromProduction, outDir: dir })
     await expect(
-      restoreAttachments({ dir, storage: fakeStorage({ corrupt: true }), attempts: 2 }),
+      restoreAttachments({
+        dir,
+        storage: fakeStorage({ corrupt: true }),
+        attempts: 2,
+        backoffMs: 0,
+      }),
     ).rejects.toThrow(/failed after 2 attempts: read-back hash does not match/)
   })
 

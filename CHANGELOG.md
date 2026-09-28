@@ -31,16 +31,19 @@ No unreleased changes.
 ### Internal
 
 - **The backup job checks the files, not just the download.**
-  - Each download must match the size its object metadata records; a short read is retried, then
-    fails the job.
-  - An object name outside the `<uuid>/<uuid>/<uuid>` shape is refused.
+  - Each download must match the size its object metadata records. A failed or short read is
+    retried with backoff and a two-minute bound per attempt, then fails the job if the object still
+    exists.
   - After the decrypt round trip, every file is re-hashed against the manifest.
-  - It warns, without failing, on `task_attachments` rows with no object and on a bucket past
-    500 MB. Past that size, separate object storage is the plan.
+  - Anything that is not a backup defect is counted instead, so it cannot cost the night's database
+    backup: an object deleted mid-run, an object name outside `<uuid>/<uuid>/<uuid>` (never written
+    to disk), an object with no recorded size, and `task_attachments` rows with no object.
+  - It warns on a bucket past 500 MB. Past that size, separate object storage is the plan.
+  - The Backup job is bounded at 60 minutes.
 - The service key is derived from the existing access token through the Management API. It prefers
   a new-style `secret` key over the legacy `service_role` key and is masked in the log, so no new
   repository secret is needed.
-- `scripts/attachments-backup.test.mjs` (16 tests) covers backup, verification and restore end to
+- `scripts/attachments-backup.test.mjs` (20 tests) covers backup, verification and restore end to
   end against fakes.
 
 ## [1.15.22] - 2026-09-28
