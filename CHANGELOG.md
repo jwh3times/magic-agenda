@@ -41,7 +41,7 @@ No unreleased changes.
   - It warns on a bucket past 500 MB. Past that size, separate object storage is the plan.
   - The Backup job is bounded at 60 minutes.
 - The service key is derived from the existing access token through the Management API. It prefers
-  a new-style `secret` key over the legacy `service_role` key and is masked in the log, so no new
+  a new-style `secret` key over the legacy `service_role` key and is held in memory only, never printed, so no new
   repository secret is needed.
 - `scripts/attachments-backup.test.mjs` (20 tests) covers backup, verification and restore end to
   end against fakes.

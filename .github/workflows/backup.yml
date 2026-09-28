@@ -121,7 +121,7 @@ jobs:
       # Every object in the `attachments` bucket lands at `backup/attachments/objects/<storage_path>`
       # with a `manifest.json` of sizes and SHA-256s, INSIDE `backup/`, so it is encrypted with the
       # rest before anything leaves the runner. The script checks each download against the size
-      # its metadata records, derives the service key from the access token (masked), and prints
+      # its metadata records, derives the service key from the access token (never printed), and prints
       # counts only -- paths are Board and Task ids, and this log is public. It warns, without
       # failing, on `task_attachments` rows with no object, and once the bucket passes 500 MB,
       # which is the point #411 names for moving to separate object storage.

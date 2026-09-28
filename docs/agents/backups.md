@@ -47,8 +47,8 @@ cleanly. The generator itself refuses to write a file with no bucket row or no p
 cost egress on the free tier, and must stay inside the encrypted bundle — until one of its named
 triggers fired. Shared Boards (#279) was that trigger: losing files someone else uploaded to your
 Board is not a personal problem. `scripts/backup-attachments.mjs` lists the bucket's objects through
-the Management API's read-only query, derives the service key from the access token (masked in the
-log; a fine-grained access token needs `api_gateway_keys_read`, or the step fails with 403), and downloads each object to `backup/attachments/objects/<storage_path>`. It writes a
+the Management API's read-only query, derives the service key from the access token (held in memory and never printed —
+not even to register a log mask, which CodeQL flags as clear-text logging; a fine-grained access token needs `api_gateway_keys_read`, or the step fails with 403), and downloads each object to `backup/attachments/objects/<storage_path>`. It writes a
 `manifest.json` with each object's path, size, MIME type, and SHA-256. Everything lands inside
 `backup/`, so it is encrypted with the rest.
 

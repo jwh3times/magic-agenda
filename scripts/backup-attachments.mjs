@@ -22,7 +22,8 @@
 // then the bytes land), and a missing object is a production fact to surface, not a backup defect.
 //
 // **Log hygiene.** This job's log is public. It prints counts and byte totals only -- never a
-// path, since paths are Board and Task ids -- and the service key it derives is masked.
+// path, since paths are Board and Task ids -- and the service key it derives is
+// never printed at all.
 
 import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
@@ -233,7 +234,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const { ref } = requireEnv()
 
   const serviceKey = selectServiceKey(await management('/api-keys?reveal=true'))
-  if (process.env.GITHUB_ACTIONS) console.log(`::add-mask::${serviceKey.key}`)
+  // Held in memory only, and deliberately NOT registered with `::add-mask::`: masking requires
+  // writing the key to stdout, which CodeQL rightly flags as clear-text logging (js/clear-text-
+  // logging, PR #462). Nothing here prints it -- every error carries an HTTP status, never a header.
   const headers = storageHeaders(serviceKey)
 
   const [objects, rows] = await Promise.all([query(OBJECTS_QUERY), query(ROWS_QUERY)])
