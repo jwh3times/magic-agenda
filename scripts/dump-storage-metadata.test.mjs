@@ -1,10 +1,6 @@
 // @vitest-environment node
 import { describe, expect, test } from 'vitest'
-import {
-  BUCKET_QUERY,
-  POLICY_QUERY,
-  renderStorageMetadata,
-} from './dump-storage-metadata.mjs'
+import { BUCKET_QUERY, POLICY_QUERY, renderStorageMetadata } from './dump-storage-metadata.mjs'
 
 /**
  * The renderer for the attachments storage backup (#401), tested without a database.
@@ -51,7 +47,7 @@ describe('renderStorageMetadata', () => {
     expect(sql).toContain('  as permissive')
     expect(sql).toContain('  for select')
     expect(sql).toContain('  to "authenticated"')
-    expect(sql).toContain('  using (bucket_id = \'attachments\')')
+    expect(sql).toContain("  using (bucket_id = 'attachments')")
     // A SELECT policy has no WITH CHECK; emitting an empty one would be a syntax error.
     expect(sql).not.toContain('with check')
   })
@@ -100,11 +96,12 @@ describe('renderStorageMetadata', () => {
     expect(() => renderStorageMetadata([bucket()], [])).toThrow(/no policies/)
   })
 
-  test('says plainly that the bytes are not here', () => {
+  test('says plainly that the bytes are not here, and where they are', () => {
     // The header is what someone reads during an outage, when they are deciding whether the files
     // are coming back. Leaving it implicit is how a restore surprises someone.
     const sql = renderStorageMetadata([bucket()], [policy()])
     expect(sql).toContain('NOT the object bytes')
+    expect(sql).toContain('scripts/restore-attachments.mjs')
   })
 })
 
@@ -113,8 +110,8 @@ test('the queries read only, and only the attachments bucket and storage.objects
     expect(query.trim().toLowerCase().startsWith('select')).toBe(true)
     expect(query).not.toMatch(/\b(insert|update|delete|drop|alter|create|grant|revoke)\b/i)
   }
-  // Never `select * from storage.objects`: those rows describe files whose bytes are in no backup,
-  // so restoring them would rebuild rows pointing at objects that do not exist.
+  // Never `select * from storage.objects` here: those rows are recreated by the Storage API when
+  // restore-attachments.mjs uploads the bytes (#411), not inserted from SQL.
   expect(POLICY_QUERY).toContain('pg_policies')
   expect(POLICY_QUERY).not.toMatch(/from\s+storage\.objects/i)
 })

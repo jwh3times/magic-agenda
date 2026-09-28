@@ -111,8 +111,8 @@ header arrives as `undefined`, which a null check would pass through into the co
 
 Restoring attachments through a file remains out of scope and is not the same question: it needs a
 v5 and a decision about bytes versus metadata, weighed against #400's unenforced storage quota.
-Together with #411 — object bytes are in no backup either — it means attachment bytes currently have
-no copy anywhere, which is the fact that should drive whether that work is scheduled.
+Attachment bytes do have an operator-side copy since v1.15.23 (#411): the nightly backup carries
+them. That is a disaster-recovery path, not a user-facing one, so it does not settle this question.
 
 `parseExport()` also owns cross-field Task invariants shared by every supported file version. In
 particular, a Task with Inbox placement and a Due Time is rejected before import planning;
