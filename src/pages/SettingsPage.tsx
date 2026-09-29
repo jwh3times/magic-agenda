@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useAuth } from '../auth/AuthProvider'
 import { ThemeProvider, useTheme } from '../theme/ThemeProvider'
@@ -17,6 +17,7 @@ import { TwoFactorSection } from '../components/TwoFactorSection'
 import { Spinner } from '../components/Spinner'
 import { useSettingsContext } from '../data/SettingsProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
+import { currentSection } from '../lib/sectionSpy'
 import { readLastUserId } from '../lib/lastUser'
 import { useRole } from '../access/useRole'
 import { useBoardSharing } from '../access/useBoardSharing'
@@ -92,7 +93,7 @@ function SettingsShell({ defaultView, onChangeView }: SectionContext) {
   const isMobile = useIsMobile()
   const { isAdmin } = useRole()
   const boardSharing = useBoardSharing()
-  const [active, setActive] = useActiveSection(SECTION_IDS, !isMobile)
+  const [active, jumpTo] = useActiveSection(SECTION_IDS, !isMobile)
 
   const card: CSSProperties = {
     background: conf.cellBg,
@@ -195,7 +196,7 @@ function SettingsShell({ defaultView, onChangeView }: SectionContext) {
                         // there. Focus moves to the heading so keyboard and screen-reader users land
                         // where sighted users do.
                         e.preventDefault()
-                        setActive(s.id)
+                        jumpTo(s.id)
                         document.getElementById(sectionId(s.id))?.scrollIntoView?.({
                           behavior: 'smooth',
                           block: 'start',
@@ -230,16 +231,28 @@ function SettingsShell({ defaultView, onChangeView }: SectionContext) {
 const SECTION_IDS = SECTIONS.map((s) => s.id)
 const sectionId = (id: string) => `section-${id}`
 
+/** How long the scroll must stay quiet before a nav jump's choice stops overriding the spy. */
+const JUMP_SETTLE_MS = 150
+
 /**
- * Which section the nav highlights: the last one whose top has scrolled into the upper third of the
- * window, or the last section outright once the page is scrolled to the bottom, since a short final
- * section can never reach that band. Tracked only while the nav is shown.
+ * Which section the nav highlights, from `currentSection` on every scroll. Tracked only while the
+ * nav is shown.
  *
- * The setter is returned too, so a nav click highlights its target at once rather than every
- * section the smooth scroll passes on the way.
+ * `jumpTo` marks a nav click's target at once and holds it until the smooth scroll it starts has
+ * been quiet for `JUMP_SETTLE_MS`. The held choice then stays until the next scroll. Without the
+ * hold, the scroll would re-decide on the way and could land elsewhere: near the bottom of the
+ * page, a section the page cannot scroll to the top reads as the last one (#464).
  */
 function useActiveSection(ids: string[], enabled: boolean) {
   const [active, setActive] = useState(ids[0])
+  const jumpTimer = useRef<number | null>(null)
+
+  const holdJump = useCallback(() => {
+    if (jumpTimer.current !== null) window.clearTimeout(jumpTimer.current)
+    jumpTimer.current = window.setTimeout(() => {
+      jumpTimer.current = null
+    }, JUMP_SETTLE_MS)
+  }, [])
 
   useEffect(() => {
     if (!enabled) return
@@ -247,29 +260,34 @@ function useActiveSection(ids: string[], enabled: boolean) {
     const measure = () => {
       frame = 0
       const root = document.documentElement
-      if (window.scrollY + window.innerHeight >= root.scrollHeight - 2) {
-        setActive(ids[ids.length - 1])
-        return
-      }
-      const band = window.innerHeight / 3
-      let current = ids[0]
-      for (const id of ids) {
-        const el = document.getElementById(sectionId(id))
-        if (el && el.getBoundingClientRect().top <= band) current = id
-      }
-      setActive(current)
+      const tops = ids.map(
+        (id) => document.getElementById(sectionId(id))?.getBoundingClientRect().top ?? null,
+      )
+      const atBottom = window.scrollY + window.innerHeight >= root.scrollHeight - 2
+      setActive(currentSection(ids, tops, { atBottom }))
     }
     const onScroll = () => {
-      if (!frame) frame = requestAnimationFrame(measure)
+      if (jumpTimer.current !== null) holdJump()
+      else if (!frame) frame = requestAnimationFrame(measure)
     }
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => {
       window.removeEventListener('scroll', onScroll)
       if (frame) cancelAnimationFrame(frame)
+      if (jumpTimer.current !== null) window.clearTimeout(jumpTimer.current)
+      jumpTimer.current = null
     }
-  }, [ids, enabled])
+  }, [ids, enabled, holdJump])
 
-  return [active, setActive] as const
+  const jumpTo = useCallback(
+    (id: string) => {
+      setActive(id)
+      holdJump()
+    },
+    [holdJump],
+  )
+
+  return [active, jumpTo] as const
 }
 
 function AppearanceSection({ defaultView, onChangeView }: SectionContext) {

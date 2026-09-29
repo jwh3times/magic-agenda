@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
@@ -163,6 +163,31 @@ test('on a wide screen, a section nav lists every section and jumps to the one c
   expect(screen.getByRole('heading', { level: 2, name: 'Labels' })).toHaveFocus()
   // The fragment is never followed: `public/`'s auth bootstrap owns `location.hash`.
   expect(window.location.hash).toBe('')
+})
+
+test('a nav jump keeps its choice while the scroll it started is still moving', async () => {
+  renderPage()
+  const nav = await screen.findByRole('navigation', { name: 'Settings sections' })
+  const keyboard = within(nav).getByRole('link', { name: 'Keyboard shortcuts' })
+  await userEvent.click(keyboard)
+
+  // jsdom lays nothing out, so every section's top is 0 and a measurement would pick the last
+  // section. Scroll events inside the settle window must not measure at all (#464).
+  fireEvent.scroll(window)
+  await new Promise((resolve) => setTimeout(resolve, 60))
+  fireEvent.scroll(window)
+  expect(keyboard).toHaveAttribute('aria-current', 'true')
+
+  // Once the scroll has been quiet, the next one is the user's own, and the spy decides again.
+  await new Promise((resolve) => setTimeout(resolve, 250))
+  fireEvent.scroll(window)
+  await waitFor(() =>
+    expect(within(nav).getByRole('link', { name: 'Danger zone' })).toHaveAttribute(
+      'aria-current',
+      'true',
+    ),
+  )
+  expect(keyboard).not.toHaveAttribute('aria-current')
 })
 
 // jsdom has no matchMedia, so the tests above render the desktop layout; these stub a phone.

@@ -154,8 +154,15 @@ rely on it.
 `<nav aria-label="Settings sections">` sits beside the content column and the page is capped at
 1480px (it was 640px); phones keep the single column. Nav links scroll the section into view and
 focus its heading, and **never set `location.hash`**: the blocking auth bootstrap in `public/` owns
-the URL fragment, and a stray hash could be read as a token fragment. The active entry follows
-scroll position.
+the URL fragment, and a stray hash could be read as a token fragment.
+
+The active entry follows scroll position through `currentSection` in `src/lib/sectionSpy.ts`: the
+last section whose top has reached `SPY_LINE` (80px, just below where a jump lands a section), or
+the last section at the bottom of the page. **Keep the line near the top.** The first cut used a
+third of the window, and on a 1440p monitor a short section's successor had already crossed it when
+the jump finished, so the nav highlighted the section after the one clicked. A nav click also holds
+its choice until the smooth scroll it started has been quiet for 150ms. Otherwise a section the page
+cannot scroll to the top, anything near the bottom, would read as the last section.
 
 ## Keyboard shortcuts, the command palette, and quick-add
 
