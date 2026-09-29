@@ -148,23 +148,27 @@ test.describe('signed out', () => {
 })
 
 test.describe('signed in', () => {
-  test('settings matches the a11y baseline', async ({ page }) => {
-    await page.clock.setFixedTime(new Date(PINNED_TIME))
-    await seedBoard({ anchor: PINNED_DAY })
-    await page.goto('/settings')
-    // NOT a redundant wait. SettingsPage renders <Spinner/> until the settings load resolves, and
-    // Spinner is `position: fixed; inset: 0` — which axe's isModalOpen() heuristic reads as an open
-    // modal (any absolute/fixed element covering >=75% of the viewport whose pointer-events is not
-    // 'none'). Both page-level rules carry passForModal: true and short-circuit through
-    // has-descendant-evaluate, so scanning the loading state makes landmark-one-main AND
-    // page-has-heading-one pass for free. That is exactly how the pre-2026-07-30 baseline came to
-    // hold one `region: #root` entry for this surface and nothing else: it never scanned the
-    // settings page at all. A scan that races a loading state does not merely miss content — a
-    // full-screen loader actively suppresses the page-level rules and scores clean.
-    await page.getByRole('heading', { name: 'Settings', level: 1 }).waitFor()
-    await settle(page)
-    await scanAndAssert(page, 'settings')
-  })
+  // Per theme for the same reason as the board below: since #464 every Settings control takes its
+  // colours from the theme, so one theme's scan says nothing about the other two.
+  for (const theme of ['cork', 'brutal', 'glass'] as Theme[]) {
+    test(`settings (${theme}) matches the a11y baseline`, async ({ page }) => {
+      await page.clock.setFixedTime(new Date(PINNED_TIME))
+      await seedBoard({ theme, anchor: PINNED_DAY })
+      await page.goto('/settings')
+      // NOT a redundant wait. SettingsPage renders <Spinner/> until the settings load resolves, and
+      // Spinner is `position: fixed; inset: 0` — which axe's isModalOpen() heuristic reads as an open
+      // modal (any absolute/fixed element covering >=75% of the viewport whose pointer-events is not
+      // 'none'). Both page-level rules carry passForModal: true and short-circuit through
+      // has-descendant-evaluate, so scanning the loading state makes landmark-one-main AND
+      // page-has-heading-one pass for free. That is exactly how the pre-2026-07-30 baseline came to
+      // hold one `region: #root` entry for this surface and nothing else: it never scanned the
+      // settings page at all. A scan that races a loading state does not merely miss content — a
+      // full-screen loader actively suppresses the page-level rules and scores clean.
+      await page.getByRole('heading', { name: 'Settings', level: 1 }).waitFor()
+      await settle(page)
+      await scanAndAssert(page, `settings-${theme}`)
+    })
+  }
 
   // Contrast risk is per-theme, so each theme is its own scan. Themes are seeded into
   // user_settings and the page reloaded, rather than driven through the settings UI.

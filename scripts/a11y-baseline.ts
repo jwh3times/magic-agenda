@@ -20,7 +20,9 @@ export interface BaselineEntry {
 export const EXPECTED_LABELS = [
   'landing',
   'login',
-  'settings',
+  'settings-cork',
+  'settings-brutal',
+  'settings-glass',
   'board-cork',
   'board-brutal',
   'board-glass',
@@ -222,13 +224,15 @@ export function parseScanCallSites(specSource: string): string[] {
   return args.flatMap((arg) => {
     const literal = /^'([^']+)'$/.exec(arg)
     if (literal) return [literal[1]]
-    if (/^`board-\$\{theme\}`$/.test(arg)) {
+    const perTheme = /^`(board|settings)-\$\{theme\}`$/.exec(arg)
+    if (perTheme) {
+      const surface = perTheme[1]
       if (!themes.length) {
         failParse(
-          'parseScanCallSites found the board loop but no theme literals to expand it with.',
+          `parseScanCallSites found the ${surface} loop but no theme literals to expand it with.`,
         )
       }
-      return themes.map((theme) => `board-${theme}`)
+      return themes.map((theme) => `${surface}-${theme}`)
     }
     return failParse(`parseScanCallSites cannot resolve the scanAndAssert argument: ${arg}`)
   })

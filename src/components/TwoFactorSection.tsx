@@ -2,6 +2,9 @@ import { useCallback, useEffect, useState, type CSSProperties, type FormEvent } 
 import { useAuth } from '../auth/AuthProvider'
 import type { AuthResult } from '../auth/authOutcome'
 import { nextFactorName, qrDataUri, type TotpEnrollment, type TotpFactor } from '../auth/mfa'
+import { useThemeOrDefault } from '../theme/ThemeProvider'
+import { Button, TextInput } from './controls'
+import { rowListStyle } from '../theme/controls'
 
 const hint: CSSProperties = { fontSize: 12, opacity: 0.7 }
 const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }
@@ -24,6 +27,7 @@ const CODE_LENGTH = 6
  */
 export function TwoFactorSection() {
   const { listTotpFactors, enrollTotp, verifyTotp, unenrollFactor } = useAuth()
+  const { conf } = useThemeOrDefault()
   const [factors, setFactors] = useState<TotpFactor[] | null>(null)
   const [enrollment, setEnrollment] = useState<TotpEnrollment | null>(null)
   const [code, setCode] = useState('')
@@ -115,7 +119,7 @@ export function TwoFactorSection() {
       </div>
 
       {factors.length > 0 && (
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 10 }}>
+        <ul style={rowListStyle(10)}>
           {factors.map((factor) => (
             <li key={factor.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={row}>
@@ -125,16 +129,22 @@ export function TwoFactorSection() {
                 {removing === factor.id ? (
                   <>
                     <span style={hint}>Remove it?</span>
-                    <button type="button" onClick={() => void remove(factor.id)} disabled={busy}>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => void remove(factor.id)}
+                      disabled={busy}
+                    >
                       {busy ? 'Removing…' : 'Confirm'}
-                    </button>
-                    <button type="button" onClick={() => setRemoving(null)} disabled={busy}>
+                    </Button>
+                    <Button size="sm" onClick={() => setRemoving(null)} disabled={busy}>
                       Cancel
-                    </button>
+                    </Button>
                   </>
                 ) : (
-                  <button
-                    type="button"
+                  <Button
+                    size="sm"
+                    variant="danger"
                     onClick={() => {
                       setError(null)
                       setRemoving(factor.id)
@@ -142,7 +152,7 @@ export function TwoFactorSection() {
                     disabled={busy}
                   >
                     Remove
-                  </button>
+                  </Button>
                 )}
               </div>
             </li>
@@ -165,17 +175,17 @@ export function TwoFactorSection() {
           <label htmlFor="mfa-secret" style={hint}>
             Or enter this key by hand
           </label>
-          <input
+          <TextInput
             id="mfa-secret"
             value={enrollment.secret}
             readOnly
             onFocus={(e) => e.currentTarget.select()}
-            style={{ fontSize: 16, padding: '8px 10px', fontFamily: 'ui-monospace, monospace' }}
+            style={{ fontFamily: 'ui-monospace, monospace' }}
           />
           <label htmlFor="mfa-code" style={hint}>
             Six-digit code
           </label>
-          <input
+          <TextInput
             id="mfa-code"
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, CODE_LENGTH))}
@@ -183,38 +193,37 @@ export function TwoFactorSection() {
             inputMode="numeric"
             autoComplete="one-time-code"
             disabled={busy}
-            // ≥16px so iOS Safari doesn't zoom on focus.
-            style={{ fontSize: 16, padding: '8px 10px', letterSpacing: '0.2em', maxWidth: 180 }}
+            style={{ letterSpacing: '0.2em', maxWidth: 180 }}
           />
           {error && (
-            <div role="alert" style={{ color: '#b42318', fontSize: 13 }}>
+            <div role="alert" style={{ color: conf.dangerFg, fontSize: 13 }}>
               {error}
             </div>
           )}
           <div style={row}>
-            <button type="submit" disabled={busy || code.length !== CODE_LENGTH}>
+            <Button type="submit" variant="primary" disabled={busy || code.length !== CODE_LENGTH}>
               {busy ? 'Verifying…' : 'Turn on two-factor'}
-            </button>
-            <button type="button" onClick={() => void abandon()} disabled={busy}>
+            </Button>
+            <Button onClick={() => void abandon()} disabled={busy}>
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
       ) : (
         <>
           {error && (
-            <div role="alert" style={{ color: '#b42318', fontSize: 13 }}>
+            <div role="alert" style={{ color: conf.dangerFg, fontSize: 13 }}>
               {error}
             </div>
           )}
-          <button
-            type="button"
+          <Button
+            variant="primary"
             onClick={() => void start()}
             disabled={busy}
             style={{ alignSelf: 'flex-start' }}
           >
             {busy ? 'Starting…' : 'Add authenticator app'}
-          </button>
+          </Button>
         </>
       )}
 

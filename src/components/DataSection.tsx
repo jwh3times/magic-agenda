@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
 import { useBoardDirectoryContext, useBoardSession } from '../board/BoardDirectoryProvider'
@@ -17,6 +17,8 @@ import { loadBoardTasks } from '../data/loadBoardTasks'
 import { countBoardAttachments, excludedAttachmentsNotice } from '../data/attachments'
 import { isTemplate } from '../types/task'
 import { ymd } from '../lib/dates'
+import { useThemeOrDefault } from '../theme/ThemeProvider'
+import { Button, Select } from './controls'
 
 const INSERT_CHUNK = 200
 const UNLABELED_MAPPING = 'unlabeled'
@@ -36,6 +38,7 @@ interface ImportProgress {
 /** Settings → Data: one-Board JSON export and additive import with explicit Label mapping. */
 export function DataSection() {
   const { user } = useAuth()
+  const { conf } = useThemeOrDefault()
   const userId = user?.id ?? ''
   const { selectedBoardId } = useBoardDirectoryContext()
   const { can } = useBoardSession()
@@ -84,19 +87,6 @@ export function DataSection() {
       current = false
     }
   }, [boardId, can.exportBoard])
-
-  const btn = (disabled: boolean): CSSProperties => ({
-    alignSelf: 'flex-start',
-    padding: '9px 14px',
-    borderRadius: 8,
-    border: '1px solid currentColor',
-    background: 'transparent',
-    color: 'inherit',
-    fontWeight: 700,
-    fontSize: 14,
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    opacity: disabled ? 0.55 : 1,
-  })
 
   const exportBoard = async () => {
     if (!can.exportBoard || !boardId) return
@@ -249,22 +239,12 @@ export function DataSection() {
         </p>
       )}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <button
-          type="button"
-          disabled={exportDisabled}
-          onClick={() => void exportBoard()}
-          style={btn(exportDisabled)}
-        >
+        <Button disabled={exportDisabled} onClick={() => void exportBoard()}>
           Export my data
-        </button>
-        <button
-          type="button"
-          disabled={importFileDisabled}
-          onClick={() => fileRef.current?.click()}
-          style={btn(importFileDisabled)}
-        >
+        </Button>
+        <Button disabled={importFileDisabled} onClick={() => fileRef.current?.click()}>
           Import from file…
-        </button>
+        </Button>
         <input
           ref={fileRef}
           type="file"
@@ -332,17 +312,12 @@ export function DataSection() {
                       />
                       {source.name}
                     </span>
-                    <select
+                    <Select
                       aria-label={`Destination for ${source.name}`}
                       value={selected}
                       disabled={busy || resuming}
                       onChange={(event) => chooseDestination(source.id, event.target.value)}
-                      style={{
-                        fontSize: 16,
-                        padding: '7px 9px',
-                        minWidth: 0,
-                        flex: '1 1 180px',
-                      }}
+                      style={{ padding: '7px 9px', flex: '1 1 180px' }}
                     >
                       <option value="">Choose destination…</option>
                       <option value={UNLABELED_MAPPING}>Unlabeled</option>
@@ -351,38 +326,35 @@ export function DataSection() {
                           {destination.name}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </label>
                 )
               })}
             </fieldset>
           )}
           <div style={{ display: 'flex', gap: 10 }}>
-            <button
-              type="button"
+            <Button
+              variant="primary"
               disabled={confirmDisabled}
               onClick={() => void confirmImport()}
-              style={btn(confirmDisabled)}
             >
               {resuming ? 'Resume import' : 'Import'}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
               disabled={busy}
               onClick={() => {
                 setPending(null)
                 setLabelMapping(new Map())
                 setImportProgress(null)
               }}
-              style={btn(busy)}
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
       )}
       {notice && <div style={{ color: '#3f9d63', fontSize: 13 }}>{notice}</div>}
-      {error && <div style={{ color: '#b42318', fontSize: 13 }}>{error}</div>}
+      {error && <div style={{ color: conf.dangerFg, fontSize: 13 }}>{error}</div>}
     </div>
   )
 }

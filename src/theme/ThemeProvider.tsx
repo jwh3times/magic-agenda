@@ -59,3 +59,16 @@ export function useTheme(): ThemeContextValue {
   if (!ctx) throw new Error('useTheme must be used within a ThemeProvider')
   return ctx
 }
+
+const FALLBACK = { theme: 'cork' as ThemeName, conf: themeConf('cork') }
+
+/**
+ * The current theme for a leaf control (#464), or cork outside a provider. `useTheme` throws there
+ * on purpose, since a page that forgot its provider should fail loudly. A button is not a page,
+ * though: it renders inside dozens of section-level unit tests that mount one section on its own,
+ * and making each of them mount a provider only to style a button would test nothing more.
+ */
+// oxlint-disable-next-line react/only-export-components
+export function useThemeOrDefault(): { theme: ThemeName; conf: ThemeConf } {
+  return useContext(ThemeContext) ?? FALLBACK
+}

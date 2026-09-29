@@ -141,3 +141,39 @@ test.describe('phone-width layout', () => {
     })
   }
 })
+
+/**
+ * Settings at phone width, signed in, per theme (#464). Its section lists hold rows of a text
+ * field beside themed buttons, and a grid column cannot shrink below a text input's default
+ * ~20-character width. That pushed a Label row's Delete button 35-57px off a 402px phone before
+ * `rowListStyle` let the column shrink. 360px is the narrowest common phone width, and the themes
+ * differ in border and padding widths, so each gets its own run.
+ */
+test.describe('phone-width settings', () => {
+  test.use({ viewport: { width: 360, height: 800 } })
+
+  for (const theme of ['cork', 'brutal', 'glass'] as const) {
+    test(`settings (${theme}) does not overflow horizontally at 360px`, async ({ page }) => {
+      await seedBoard({ theme })
+      await page.goto('/settings')
+      await page.getByRole('heading', { name: 'Settings', level: 1 }).waitFor()
+      // The sections that load on their own: Labels must have rows, and History must be done.
+      await page
+        .getByRole('button', { name: /^Delete / })
+        .first()
+        .waitFor()
+      await page.getByText('No completed tasks on this Board yet.').waitFor()
+      await page.evaluate(async () => {
+        await document.fonts.ready
+      })
+      const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        clientWidth: document.documentElement.clientWidth,
+      }))
+      expect(
+        scrollWidth,
+        `Settings (${theme}) is ${scrollWidth - clientWidth}px wider than the 360px viewport.`,
+      ).toBeLessThanOrEqual(clientWidth)
+    })
+  }
+})

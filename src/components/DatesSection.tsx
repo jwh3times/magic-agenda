@@ -1,6 +1,7 @@
 import { useMemo, type CSSProperties } from 'react'
 import { useSettingsContext } from '../data/SettingsProvider'
 import { browserTimezone, supportedTimezones, WEEKDAYS_LONG } from '../lib/dates'
+import { Select } from './controls'
 
 // The three week starts that exist in practice: Sunday (US/Canada/Japan), Monday (ISO 8601),
 // Saturday (much of the Middle East). The column accepts 0–6; this is only what we offer.
@@ -27,8 +28,7 @@ function groupZones(zones: string[]): { region: string; zones: string[] }[] {
   return regions.map((region) => ({ region, zones: [...(byRegion.get(region) ?? [])].sort() }))
 }
 
-// ≥16px so iOS Safari doesn't zoom the page on focus.
-const select: CSSProperties = { fontSize: 16, padding: '8px 10px', maxWidth: 280 }
+const select: CSSProperties = { maxWidth: 280 }
 const label: CSSProperties = { fontSize: 13, opacity: 0.7 }
 const field: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6 }
 
@@ -46,7 +46,7 @@ export function DatesSection() {
         <label htmlFor="settings-week-start" style={label}>
           Week starts on
         </label>
-        <select
+        <Select
           id="settings-week-start"
           value={String(settings.weekStart)}
           onChange={(e) => saveWeekStart(Number(e.target.value))}
@@ -57,14 +57,14 @@ export function DatesSection() {
               {WEEKDAYS_LONG[d]}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <div style={field}>
         <label htmlFor="settings-timezone" style={label}>
           Timezone
         </label>
-        <select
+        <Select
           id="settings-timezone"
           value={settings.timezone ?? ''}
           onChange={(e) => saveTimezone(e.target.value === '' ? null : e.target.value)}
@@ -80,7 +80,7 @@ export function DatesSection() {
               ))}
             </optgroup>
           ))}
-        </select>
+        </Select>
         <div style={{ fontSize: 12, opacity: 0.6 }}>
           Sets which day counts as “today” for the board and for overdue tasks.
         </div>

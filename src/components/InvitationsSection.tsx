@@ -8,10 +8,12 @@ import {
   type PendingInvitation,
 } from '../invite/invitations'
 import { invitationLink } from '../invite/pendingInvitation'
+import { useThemeOrDefault } from '../theme/ThemeProvider'
+import { Button, Select, TextInput } from './controls'
+import { rowListStyle } from '../theme/controls'
 
 const hint: CSSProperties = { fontSize: 12, opacity: 0.7 }
 const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }
-const danger = '#b42318'
 const ROLES: readonly InvitationRole[] = ['editor', 'viewer']
 
 /**
@@ -25,6 +27,7 @@ const ROLES: readonly InvitationRole[] = ['editor', 'viewer']
  * sees too.
  */
 export function InvitationsSection({ boardId, boardName }: { boardId: string; boardName: string }) {
+  const { conf } = useThemeOrDefault()
   const [pending, setPending] = useState<PendingInvitation[]>([])
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<InvitationRole>('editor')
@@ -103,7 +106,7 @@ export function InvitationsSection({ boardId, boardName }: { boardId: string; bo
           void create()
         }}
       >
-        <input
+        <TextInput
           type="email"
           required
           value={email}
@@ -111,28 +114,28 @@ export function InvitationsSection({ boardId, boardName }: { boardId: string; bo
           placeholder="name@example.com"
           aria-label="Email address to invite"
           disabled={busy}
-          // ≥16px so iOS Safari does not zoom the page on focus.
-          style={{ fontSize: 16, padding: '6px 8px', flex: '1 1 200px', minWidth: 0 }}
+          style={{ padding: '6px 8px', flex: '1 1 200px' }}
         />
-        <select
+        <Select
           aria-label="Role for the invitation"
           value={role}
           onChange={(e) => setRole(e.target.value === 'viewer' ? 'viewer' : 'editor')}
           disabled={busy}
+          style={{ padding: '6px 8px' }}
         >
           {ROLES.map((r) => (
             <option key={r} value={r}>
               {ROLE_LABELS[r]}
             </option>
           ))}
-        </select>
-        <button type="submit" disabled={busy || email.trim() === ''}>
+        </Select>
+        <Button type="submit" size="sm" variant="primary" disabled={busy || email.trim() === ''}>
           Create link
-        </button>
+        </Button>
       </form>
 
       {error && (
-        <div role="alert" style={{ color: danger, fontSize: 13 }}>
+        <div role="alert" style={{ color: conf.dangerFg, fontSize: 13 }}>
           {error}
         </div>
       )}
@@ -142,26 +145,26 @@ export function InvitationsSection({ boardId, boardName }: { boardId: string; bo
           <div style={hint}>
             Link for {link.email}. This is the only time it is shown — copy it now.
           </div>
-          <input
+          <TextInput
             readOnly
             value={link.url}
             aria-label={`Invitation link for ${link.email}`}
             onFocus={(e) => e.currentTarget.select()}
-            style={{ fontSize: 16, padding: '6px 8px', width: '100%', boxSizing: 'border-box' }}
+            style={{ padding: '6px 8px', width: '100%' }}
           />
           <div style={row}>
-            <button type="button" onClick={() => void copy()}>
+            <Button size="sm" variant="primary" onClick={() => void copy()}>
               {copied ? 'Copied' : 'Copy link'}
-            </button>
-            <button type="button" onClick={() => setLink(null)}>
+            </Button>
+            <Button size="sm" onClick={() => setLink(null)}>
               Done
-            </button>
+            </Button>
           </div>
         </div>
       )}
 
       {pending.length > 0 && (
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 6 }}>
+        <ul style={rowListStyle(6)}>
           {pending.map((invitation) => (
             <li key={invitation.id} style={row}>
               <span>{invitation.email}</span>
@@ -170,14 +173,15 @@ export function InvitationsSection({ boardId, boardName }: { boardId: string; bo
                 {new Date(invitation.expiresAt).toLocaleDateString()}
               </span>
               <div style={{ flex: 1 }} />
-              <button
-                type="button"
+              <Button
+                size="sm"
+                variant="danger"
                 onClick={() => void revoke(invitation)}
                 disabled={busy}
                 aria-label={`Revoke invitation for ${invitation.email}`}
               >
                 Revoke
-              </button>
+              </Button>
             </li>
           ))}
         </ul>

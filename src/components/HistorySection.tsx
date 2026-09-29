@@ -10,6 +10,8 @@ import { applyToggleCompletion } from '../data/selectors'
 import { completionStreak, historyWeeks, throughputWeeks, type HistoryEntry } from '../data/history'
 import { chipLabel, formatWeekRange, parseDay } from '../lib/dates'
 import { isTemplate, type Task } from '../types/task'
+import { Button } from './controls'
+import { rowListStyle } from '../theme/controls'
 
 type Action = 'archive' | 'unarchive' | 'reopen'
 
@@ -186,7 +188,7 @@ export function HistorySection() {
             <h3 style={{ margin: '0 0 6px', fontSize: 14 }}>
               {formatWeekRange(parseDay(week.weekStart))}
             </h3>
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 6 }}>
+            <ul style={rowListStyle(6)}>
               {week.entries.map((entry) => (
                 <HistoryRow
                   key={entry.task.id}
@@ -232,24 +234,22 @@ function HistoryRow({
       <span style={badge}>{archived ? 'Archived' : 'Completed'}</span>
       {!readOnly && (
         <>
-          <button
-            type="button"
-            style={btn}
+          <Button
+            size="sm"
             disabled={busy}
             onClick={() => onAction(archived ? 'unarchive' : 'archive')}
             aria-label={`${archived ? 'Unarchive' : 'Archive'} ${task.title}`}
           >
             {archived ? 'Unarchive' : 'Archive'}
-          </button>
-          <button
-            type="button"
-            style={btn}
+          </Button>
+          <Button
+            size="sm"
             disabled={busy}
             onClick={() => onAction('reopen')}
             aria-label={`Reopen ${task.title}`}
           >
             Reopen
-          </button>
+          </Button>
         </>
       )}
     </li>
@@ -266,15 +266,4 @@ const badge: CSSProperties = {
   padding: '2px 6px',
   borderRadius: 4,
   border: '1px solid currentColor',
-}
-
-const btn: CSSProperties = {
-  padding: '5px 10px',
-  borderRadius: 6,
-  border: '1px solid currentColor',
-  background: 'transparent',
-  color: 'inherit',
-  fontSize: 13,
-  fontWeight: 600,
-  cursor: 'pointer',
 }

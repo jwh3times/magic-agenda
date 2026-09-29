@@ -12,6 +12,40 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.15.24] - 2026-09-29
+
+### Changed
+
+- **Settings uses the width of a wide screen (#464).** On desktop, a sticky list of sections sits
+  beside the content. It jumps to the section you pick and highlights the one you are reading. The
+  page now runs up to 1480px wide instead of a 640px column that left most of a large monitor empty.
+  Phones keep the single column.
+- **Every Settings button, link, and field follows the theme.** "Enable on this device", "Calendar
+  feed…", "Members…", "Rename", "Delete…", and the buttons in Labels, Two-factor, and the Members and
+  Calendar feed panels used to render as bare browser defaults. The Admin and "← Board" links were
+  plain hyperlinks. They now share one set of per-theme styles: soft paper on cork, a hard black
+  edge and offset shadow on Neon, and translucent on Aurora. Text fields, dropdowns, checkboxes, and
+  colour pickers match too, with dark native pickers on Aurora. Destructive actions are outlined in
+  red, and the confirming click is a filled red button.
+- **Text fields show where focus is.** The app's stylesheet removes the browser's focus outline from
+  inputs, so a focused Settings field gave no sign of it. Fields now draw a ring in the theme's
+  focus colour.
+
+### Fixed
+
+- **Error and destructive text in Settings is readable on every theme.** The one red used
+  everywhere, `#b42318`, reached only 3.1:1 contrast on cork's card and 2.7:1 on Aurora's, below
+  the 4.5:1 AA minimum. A per-theme `dangerFg` token replaces it, and each value clears 4.5:1.
+
+### Internal
+
+- `src/theme/controls.ts` holds the per-theme control styles, and `src/components/controls.tsx`
+  wraps them as `Button`, `LinkButton`, `AnchorButton`, `TextInput`, `Select`, `Checkbox`, and
+  `ColorInput`. `useThemeOrDefault()` falls back to cork outside a `ThemeProvider`, so a section
+  can still be unit-tested on its own.
+- `controls.test.ts` checks WCAG AA contrast for every control in every theme against the card it
+  sits on. The E2E accessibility suite now scans Settings in all three themes rather than cork alone.
+
 ## [1.15.23] - 2026-09-28
 
 ### Added
@@ -4402,7 +4436,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.23...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.24...HEAD
+[1.15.24]: https://github.com/jwh3times/magic-agenda/compare/v1.15.23...v1.15.24
 [1.15.23]: https://github.com/jwh3times/magic-agenda/compare/v1.15.22...v1.15.23
 [1.15.22]: https://github.com/jwh3times/magic-agenda/compare/v1.15.21...v1.15.22
 [1.15.21]: https://github.com/jwh3times/magic-agenda/compare/v1.15.20...v1.15.21

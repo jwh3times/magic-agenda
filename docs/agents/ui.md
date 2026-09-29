@@ -124,6 +124,53 @@ real browser, which the `focus ring (<theme>)` visual canaries in `tests/e2e/vis
 this ring — the code comment at the call site exists specifically so nobody writes one later
 believing it proves something.
 
+## Themed controls and the Settings layout (#464)
+
+**New UI on a themed card uses the controls module, not raw elements or one-off styles.**
+`src/theme/controls.ts` holds per-theme style factories — `buttonStyle` (variants `primary`,
+`secondary`, `danger`, `destructive`; sizes `md`, `sm`), `fieldStyle`, `checkboxStyle`,
+`colorInputStyle`, `insetPanelStyle`, and `navItemStyle` — and `src/components/controls.tsx` wraps
+them as `Button`, `LinkButton`, `AnchorButton`, `TextInput`, `Select`, `Checkbox`, and `ColorInput`.
+Browser-default controls ignore the theme and were the visible seam on Settings. The wrappers read
+the theme through `useThemeOrDefault()` in `ThemeProvider.tsx`, which falls back to cork outside a
+provider so section unit tests need no provider; `useTheme` still throws, which is what you want
+where a missing provider is a bug. `src/theme/controls.test.ts` checks WCAG AA contrast of every
+control in every theme against the composited card, so a new variant or token is covered by adding
+it there.
+
+**`dangerFg` is a per-theme token, not a reuse of `#b42318`, for the same reason as `numTodayFg`:**
+the text sits on a card. `#b42318` measured 3.1:1 on cork's card and 2.7:1 on glass's, so cork is
+`#7f1a10`, brutal keeps `#b42318`, and glass is the light `#ff8f85`. The filled `destructive`
+button is the exception — it keeps `#b42318` (`DESTRUCTIVE_FILL`) with white text, since its
+background is its own fill rather than the card.
+
+**`TextInput` draws its own focus ring from `conf.focusRing`.** `src/index.css` sets
+`outline: none` on focused inputs, and an inline style cannot express `:focus-visible`, so a text
+input styled only by `fieldStyle` had no visible focus. Use `TextInput` rather than a bare
+`<input>` for text fields; do not delete the `index.css` rule to fix one input, as other surfaces
+rely on it.
+
+**A list of rows on a Settings card uses `rowListStyle(gap)`, not a bare `display: grid`.** A
+grid column's minimum is the widest row's min-content. A text input's min-content is its default
+~20-character width, whatever its `min-width`, so a row with a name field and themed buttons pushed
+a Label row's Delete button 35–57px off a 402px phone. `rowListStyle` makes the column
+`minmax(0, 1fr)`. The `phone-width settings` block in `tests/e2e/smoke.spec.ts` checks every theme
+at 360px, because jsdom has no layout engine to catch it.
+
+**The Settings layout branches on `useIsMobile()`, not a media query.** On desktop a sticky
+`<nav aria-label="Settings sections">` sits beside the content column and the page is capped at
+1480px (it was 640px); phones keep the single column. Nav links scroll the section into view and
+focus its heading, and **never set `location.hash`**: the blocking auth bootstrap in `public/` owns
+the URL fragment, and a stray hash could be read as a token fragment.
+
+The active entry follows scroll position through `currentSection` in `src/lib/sectionSpy.ts`: the
+last section whose top has reached `SPY_LINE` (80px, just below where a jump lands a section), or
+the last section at the bottom of the page. **Keep the line near the top.** The first cut used a
+third of the window, and on a 1440p monitor a short section's successor had already crossed it when
+the jump finished, so the nav highlighted the section after the one clicked. A nav click also holds
+its choice until the smooth scroll it started has been quiet for 150ms. Otherwise a section the page
+cannot scroll to the top, anything near the bottom, would read as the last section.
+
 ## Keyboard shortcuts, the command palette, and quick-add
 
 #269 split this into layers with one job each, so every rule is testable without a DOM.

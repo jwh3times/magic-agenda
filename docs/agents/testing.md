@@ -237,7 +237,10 @@ is a deliberate tradeoff worth understanding before it costs one:
   `page-has-heading-one` both carry `passForModal: true`, so they pass for free against a loading
   screen. That is how the original baseline came to hold a single `region: #root` entry for
   `settings` and nothing else: it never scanned the settings page. Every scan waits for real
-  content, and `FREEZE_ANIMATION` is injected before every scan because `page.clock` does not stop
+  content. Settings is now scanned in all three themes (#464) — labels `settings-cork`,
+  `settings-brutal`, and `settings-glass` in `EXPECTED_LABELS`, with `parseScanCallSites` expanding
+  both the `board-${theme}` and `settings-${theme}` loops — because Settings' controls are themed
+  and a contrast failure there is per-theme. `FREEZE_ANIMATION` is injected before every scan because `page.clock` does not stop
   CSS animations and a drifting glass blob turns a `color-contrast` violation into an `incomplete`.
 - **The a11y baseline asserts counts by strict equality, in both directions.** A count that rose is
   a regression; a count that FELL means the baseline is stale and the lower number must be
