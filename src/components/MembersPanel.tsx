@@ -7,6 +7,7 @@ import type { BoardSummary } from '../board/selection'
 import { readRemindUnassigned, writeRemindUnassigned } from '../board/reminderOptIn'
 import { useThemeOrDefault } from '../theme/ThemeProvider'
 import { Button, Checkbox, Select } from './controls'
+import { rowListStyle } from '../theme/controls'
 import { InvitationsSection } from './InvitationsSection'
 
 const hint: CSSProperties = { fontSize: 12, opacity: 0.7 }
@@ -124,7 +125,7 @@ export function MembersPanel({
       {members === null && !error && <div style={hint}>Loading members…</div>}
 
       {members !== null && (
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 6 }}>
+        <ul style={rowListStyle(6)}>
           {members.map((member) => {
             const self = member.membershipId === board.membershipId
             return (

@@ -4,7 +4,7 @@ import { BOARD_NAME_MAX_LENGTH } from '../board/boardName'
 import { capabilitiesFor } from '../board/role'
 import type { BoardSummary } from '../board/selection'
 import { useThemeOrDefault } from '../theme/ThemeProvider'
-import { insetPanelStyle } from '../theme/controls'
+import { insetPanelStyle, rowListStyle } from '../theme/controls'
 import { CalendarFeedPanel } from './CalendarFeedPanel'
 import { Button, TextInput } from './controls'
 import { MembersPanel } from './MembersPanel'
@@ -78,7 +78,7 @@ export function BoardsSection({ boardSharing = false }: { boardSharing?: boolean
         Each board keeps its own tasks and labels. Deleting one removes everything in it.
       </div>
 
-      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 10 }}>
+      <ul style={rowListStyle(10)}>
         {boards.map((board) => {
           const can = capabilitiesFor(board.role)
           const confirming = pending === board.id

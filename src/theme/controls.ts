@@ -218,3 +218,21 @@ export function navItemStyle(theme: ThemeName, conf: ThemeConf, active: boolean)
     ...(active ? activeLook : { background: 'transparent' }),
   }
 }
+
+/**
+ * A `<ul>` of Settings rows: unstyled, stacked with `gap`, and in one column that may shrink below
+ * its content (#464). A plain `display: grid` column cannot: its minimum is the widest row's
+ * min-content, and a text input's min-content is its default ~20-character width whatever its
+ * `min-width`. Once a row held a name field plus themed buttons, that pushed a Label row's Delete
+ * button off a 402px phone screen.
+ */
+export function rowListStyle(gap: number): CSSProperties {
+  return {
+    listStyle: 'none',
+    margin: 0,
+    padding: 0,
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr)',
+    gap,
+  }
+}

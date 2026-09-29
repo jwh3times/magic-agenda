@@ -6,6 +6,7 @@ import { useIsMobile } from '../lib/useMediaQuery'
 import { useTheme } from '../theme/ThemeProvider'
 import type { Label } from '../types/label'
 import { Button, ColorInput, TextInput } from './controls'
+import { rowListStyle } from '../theme/controls'
 
 const DEFAULT_NEW_COLOR = '#2563eb'
 
@@ -144,7 +145,7 @@ export function LabelsSection() {
       {labels.length === 0 ? (
         <div style={hint}>No labels yet. Every task on this board is Unlabeled.</div>
       ) : (
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 8 }}>
+        <ul style={rowListStyle(8)}>
           {labels.map((label, index) => (
             <LabelRow
               key={label.id}

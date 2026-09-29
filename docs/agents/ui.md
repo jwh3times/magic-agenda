@@ -150,6 +150,13 @@ input styled only by `fieldStyle` had no visible focus. Use `TextInput` rather t
 `<input>` for text fields; do not delete the `index.css` rule to fix one input, as other surfaces
 rely on it.
 
+**A list of rows on a Settings card uses `rowListStyle(gap)`, not a bare `display: grid`.** A
+grid column's minimum is the widest row's min-content. A text input's min-content is its default
+~20-character width, whatever its `min-width`, so a row with a name field and themed buttons pushed
+a Label row's Delete button 35–57px off a 402px phone. `rowListStyle` makes the column
+`minmax(0, 1fr)`. The `phone-width settings` block in `tests/e2e/smoke.spec.ts` checks every theme
+at 360px, because jsdom has no layout engine to catch it.
+
 **The Settings layout branches on `useIsMobile()`, not a media query.** On desktop a sticky
 `<nav aria-label="Settings sections">` sits beside the content column and the page is capped at
 1480px (it was 640px); phones keep the single column. Nav links scroll the section into view and

@@ -4,6 +4,7 @@ import type { AuthResult } from '../auth/authOutcome'
 import { nextFactorName, qrDataUri, type TotpEnrollment, type TotpFactor } from '../auth/mfa'
 import { useThemeOrDefault } from '../theme/ThemeProvider'
 import { Button, TextInput } from './controls'
+import { rowListStyle } from '../theme/controls'
 
 const hint: CSSProperties = { fontSize: 12, opacity: 0.7 }
 const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }
@@ -118,7 +119,7 @@ export function TwoFactorSection() {
       </div>
 
       {factors.length > 0 && (
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 10 }}>
+        <ul style={rowListStyle(10)}>
           {factors.map((factor) => (
             <li key={factor.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={row}>

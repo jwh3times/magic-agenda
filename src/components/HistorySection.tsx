@@ -11,6 +11,7 @@ import { completionStreak, historyWeeks, throughputWeeks, type HistoryEntry } fr
 import { chipLabel, formatWeekRange, parseDay } from '../lib/dates'
 import { isTemplate, type Task } from '../types/task'
 import { Button } from './controls'
+import { rowListStyle } from '../theme/controls'
 
 type Action = 'archive' | 'unarchive' | 'reopen'
 
@@ -187,7 +188,7 @@ export function HistorySection() {
             <h3 style={{ margin: '0 0 6px', fontSize: 14 }}>
               {formatWeekRange(parseDay(week.weekStart))}
             </h3>
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 6 }}>
+            <ul style={rowListStyle(6)}>
               {week.entries.map((entry) => (
                 <HistoryRow
                   key={entry.task.id}

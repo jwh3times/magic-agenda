@@ -10,6 +10,7 @@ import {
 import { invitationLink } from '../invite/pendingInvitation'
 import { useThemeOrDefault } from '../theme/ThemeProvider'
 import { Button, Select, TextInput } from './controls'
+import { rowListStyle } from '../theme/controls'
 
 const hint: CSSProperties = { fontSize: 12, opacity: 0.7 }
 const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }
@@ -163,7 +164,7 @@ export function InvitationsSection({ boardId, boardName }: { boardId: string; bo
       )}
 
       {pending.length > 0 && (
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 6 }}>
+        <ul style={rowListStyle(6)}>
           {pending.map((invitation) => (
             <li key={invitation.id} style={row}>
               <span>{invitation.email}</span>
