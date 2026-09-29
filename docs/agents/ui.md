@@ -124,6 +124,39 @@ real browser, which the `focus ring (<theme>)` visual canaries in `tests/e2e/vis
 this ring — the code comment at the call site exists specifically so nobody writes one later
 believing it proves something.
 
+## Themed controls and the Settings layout (#464)
+
+**New UI on a themed card uses the controls module, not raw elements or one-off styles.**
+`src/theme/controls.ts` holds per-theme style factories — `buttonStyle` (variants `primary`,
+`secondary`, `danger`, `destructive`; sizes `md`, `sm`), `fieldStyle`, `checkboxStyle`,
+`colorInputStyle`, `insetPanelStyle`, and `navItemStyle` — and `src/components/controls.tsx` wraps
+them as `Button`, `LinkButton`, `AnchorButton`, `TextInput`, `Select`, `Checkbox`, and `ColorInput`.
+Browser-default controls ignore the theme and were the visible seam on Settings. The wrappers read
+the theme through `useThemeOrDefault()` in `ThemeProvider.tsx`, which falls back to cork outside a
+provider so section unit tests need no provider; `useTheme` still throws, which is what you want
+where a missing provider is a bug. `src/theme/controls.test.ts` checks WCAG AA contrast of every
+control in every theme against the composited card, so a new variant or token is covered by adding
+it there.
+
+**`dangerFg` is a per-theme token, not a reuse of `#b42318`, for the same reason as `numTodayFg`:**
+the text sits on a card. `#b42318` measured 3.1:1 on cork's card and 2.7:1 on glass's, so cork is
+`#7f1a10`, brutal keeps `#b42318`, and glass is the light `#ff8f85`. The filled `destructive`
+button is the exception — it keeps `#b42318` (`DESTRUCTIVE_FILL`) with white text, since its
+background is its own fill rather than the card.
+
+**`TextInput` draws its own focus ring from `conf.focusRing`.** `src/index.css` sets
+`outline: none` on focused inputs, and an inline style cannot express `:focus-visible`, so a text
+input styled only by `fieldStyle` had no visible focus. Use `TextInput` rather than a bare
+`<input>` for text fields; do not delete the `index.css` rule to fix one input, as other surfaces
+rely on it.
+
+**The Settings layout branches on `useIsMobile()`, not a media query.** On desktop a sticky
+`<nav aria-label="Settings sections">` sits beside the content column and the page is capped at
+1480px (it was 640px); phones keep the single column. Nav links scroll the section into view and
+focus its heading, and **never set `location.hash`**: the blocking auth bootstrap in `public/` owns
+the URL fragment, and a stray hash could be read as a token fragment. The active entry follows
+scroll position.
+
 ## Keyboard shortcuts, the command palette, and quick-add
 
 #269 split this into layers with one job each, so every rule is testable without a DOM.
