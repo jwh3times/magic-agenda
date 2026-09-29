@@ -3,7 +3,10 @@ import { useBoardDirectoryContext } from '../board/BoardDirectoryProvider'
 import { BOARD_NAME_MAX_LENGTH } from '../board/boardName'
 import { capabilitiesFor } from '../board/role'
 import type { BoardSummary } from '../board/selection'
+import { useThemeOrDefault } from '../theme/ThemeProvider'
+import { insetPanelStyle } from '../theme/controls'
 import { CalendarFeedPanel } from './CalendarFeedPanel'
+import { Button, TextInput } from './controls'
 import { MembersPanel } from './MembersPanel'
 
 const hint: CSSProperties = { fontSize: 12, opacity: 0.7 }
@@ -31,6 +34,7 @@ const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flex
  */
 export function BoardsSection({ boardSharing = false }: { boardSharing?: boolean }) {
   const { boards, selectedBoardId, deleteBoard, renameBoard, reload } = useBoardDirectoryContext()
+  const { theme, conf } = useThemeOrDefault()
   const [pending, setPending] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [feedOpen, setFeedOpen] = useState<string | null>(null)
@@ -101,21 +105,21 @@ export function BoardsSection({ boardSharing = false }: { boardSharing?: boolean
                 {board.id === selectedBoardId && <span style={hint}>current</span>}
                 <div style={{ flex: 1 }} />
                 {!confirming && renaming !== board.id && feedOpen !== board.id && (
-                  <button type="button" onClick={() => setFeedOpen(board.id)} disabled={busy}>
+                  <Button size="sm" onClick={() => setFeedOpen(board.id)} disabled={busy}>
                     Calendar feed…
-                  </button>
+                  </Button>
                 )}
                 {boardSharing &&
                   !confirming &&
                   renaming !== board.id &&
                   membersOpen !== board.id && (
-                    <button type="button" onClick={() => setMembersOpen(board.id)} disabled={busy}>
+                    <Button size="sm" onClick={() => setMembersOpen(board.id)} disabled={busy}>
                       Members…
-                    </button>
+                    </Button>
                   )}
                 {can.configureBoard && !confirming && renaming !== board.id && (
-                  <button
-                    type="button"
+                  <Button
+                    size="sm"
                     onClick={() => {
                       setError(null)
                       setRenaming(board.id)
@@ -123,11 +127,12 @@ export function BoardsSection({ boardSharing = false }: { boardSharing?: boolean
                     disabled={busy}
                   >
                     Rename
-                  </button>
+                  </Button>
                 )}
                 {can.deleteBoard && !confirming && (
-                  <button
-                    type="button"
+                  <Button
+                    size="sm"
+                    variant="danger"
                     onClick={() => {
                       setError(null)
                       setConfirm('')
@@ -136,66 +141,65 @@ export function BoardsSection({ boardSharing = false }: { boardSharing?: boolean
                     disabled={busy}
                   >
                     Delete…
-                  </button>
+                  </Button>
                 )}
               </div>
 
               {error && renaming === board.id && (
-                <div role="alert" style={{ color: '#b42318', fontSize: 13 }}>
+                <div role="alert" style={{ color: conf.dangerFg, fontSize: 13 }}>
                   {error}
                 </div>
               )}
 
               {boardSharing && membersOpen === board.id && (
-                <MembersPanel
-                  board={board}
-                  onClose={() => setMembersOpen(null)}
-                  onOwnMembershipChanged={() => void reload()}
-                />
+                <div style={insetPanelStyle(theme)}>
+                  <MembersPanel
+                    board={board}
+                    onClose={() => setMembersOpen(null)}
+                    onOwnMembershipChanged={() => void reload()}
+                  />
+                </div>
               )}
 
               {feedOpen === board.id && (
-                <CalendarFeedPanel board={board} onClose={() => setFeedOpen(null)} />
+                <div style={insetPanelStyle(theme)}>
+                  <CalendarFeedPanel board={board} onClose={() => setFeedOpen(null)} />
+                </div>
               )}
 
               {confirming && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div
+                  style={{
+                    ...insetPanelStyle(theme),
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 8,
+                  }}
+                >
                   <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5 }}>
                     Permanently delete <strong>{board.name}</strong>, including every task and label
                     in it. This cannot be undone. Type <strong>{board.name}</strong> to confirm.
                   </p>
-                  <input
+                  <TextInput
                     value={confirm}
                     onChange={(e) => setConfirm(e.target.value)}
                     placeholder={board.name}
                     aria-label={`Type ${board.name} to confirm deletion`}
                     disabled={busy}
-                    // ≥16px so iOS Safari does not zoom the page on focus.
-                    style={{ fontSize: 16, padding: '8px 10px', maxWidth: 260 }}
+                    style={{ maxWidth: 260 }}
                   />
-                  {error && <div style={{ color: '#b42318', fontSize: 13 }}>{error}</div>}
+                  {error && <div style={{ color: conf.dangerFg, fontSize: 13 }}>{error}</div>}
                   <div style={row}>
-                    <button
-                      type="button"
+                    <Button
+                      variant={armed ? 'destructive' : 'danger'}
                       disabled={!armed || busy}
                       onClick={() => void remove(board)}
-                      style={{
-                        padding: '10px 14px',
-                        borderRadius: 8,
-                        border: '1px solid #b42318',
-                        background: armed && !busy ? '#b42318' : 'transparent',
-                        color: armed && !busy ? '#fff' : '#b42318',
-                        fontWeight: 700,
-                        fontSize: 14,
-                        cursor: armed && !busy ? 'pointer' : 'default',
-                        opacity: busy ? 0.6 : 1,
-                      }}
                     >
                       {busy ? 'Deleting…' : 'Delete board'}
-                    </button>
-                    <button type="button" onClick={cancel} disabled={busy}>
+                    </Button>
+                    <Button onClick={cancel} disabled={busy}>
                       Cancel
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -228,7 +232,7 @@ function BoardNameField({
   const [draft, setDraft] = useState(board.name)
 
   return (
-    <input
+    <TextInput
       aria-label={`Name for ${board.name}`}
       value={draft}
       maxLength={BOARD_NAME_MAX_LENGTH}
@@ -243,8 +247,7 @@ function BoardNameField({
           onCancel()
         }
       }}
-      // ≥16px so iOS Safari does not zoom the page on focus.
-      style={{ fontSize: 16, padding: '6px 8px', minWidth: 0, flex: '1 1 160px' }}
+      style={{ padding: '6px 8px', flex: '1 1 160px' }}
     />
   )
 }

@@ -6,10 +6,11 @@ import {
   subscribeUrl,
 } from '../board/calendarFeed'
 import type { BoardSummary } from '../board/selection'
+import { useThemeOrDefault } from '../theme/ThemeProvider'
+import { AnchorButton, Button, TextInput } from './controls'
 
 const hint: CSSProperties = { fontSize: 12, opacity: 0.7 }
 const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }
-const danger = '#b42318'
 
 /**
  * One Board's calendar feed link, for the caller's own Membership (#277).
@@ -30,6 +31,7 @@ export function CalendarFeedPanel({
   board: BoardSummary
   onClose: () => void
 }) {
+  const { conf } = useThemeOrDefault()
   const [token, setToken] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirming, setConfirming] = useState(false)
@@ -92,7 +94,7 @@ export function CalendarFeedPanel({
       </p>
 
       {error && (
-        <div role="alert" style={{ color: danger, fontSize: 13 }}>
+        <div role="alert" style={{ color: conf.dangerFg, fontSize: 13 }}>
           {error}
         </div>
       )}
@@ -101,23 +103,25 @@ export function CalendarFeedPanel({
 
       {url !== null && (
         <>
-          <input
+          <TextInput
             readOnly
             value={url}
             aria-label={`Calendar feed link for ${board.name}`}
             onFocus={(e) => e.currentTarget.select()}
-            // ≥16px so iOS Safari does not zoom the page on focus.
-            style={{ fontSize: 16, padding: '6px 8px', width: '100%', boxSizing: 'border-box' }}
+            style={{ padding: '6px 8px', width: '100%' }}
           />
           <div style={row}>
-            <button type="button" onClick={() => void copy()} disabled={busy}>
+            <Button size="sm" variant="primary" onClick={() => void copy()} disabled={busy}>
               {copied ? 'Copied' : 'Copy link'}
-            </button>
-            <a href={subscribeUrl(url)}>Subscribe</a>
+            </Button>
+            <AnchorButton size="sm" href={subscribeUrl(url)}>
+              Subscribe
+            </AnchorButton>
             <div style={{ flex: 1 }} />
             {!confirming && (
-              <button
-                type="button"
+              <Button
+                size="sm"
+                variant="danger"
                 onClick={() => {
                   setError(null)
                   setConfirming(true)
@@ -125,11 +129,11 @@ export function CalendarFeedPanel({
                 disabled={busy}
               >
                 Rotate link…
-              </button>
+              </Button>
             )}
-            <button type="button" onClick={onClose} disabled={busy}>
+            <Button size="sm" onClick={onClose} disabled={busy}>
               Hide
-            </button>
+            </Button>
           </div>
           <div style={hint}>
             Calendar apps refresh on their own schedule; some take hours to show a change.
@@ -139,9 +143,9 @@ export function CalendarFeedPanel({
 
       {url === null && error && (
         <div style={row}>
-          <button type="button" onClick={onClose}>
+          <Button size="sm" onClick={onClose}>
             Hide
-          </button>
+          </Button>
         </div>
       )}
 
@@ -152,17 +156,12 @@ export function CalendarFeedPanel({
             calendars. Subscribe again with the new link afterwards.
           </p>
           <div style={row}>
-            <button
-              type="button"
-              onClick={() => void rotate()}
-              disabled={busy}
-              style={{ color: danger, borderColor: danger }}
-            >
+            <Button size="sm" variant="destructive" onClick={() => void rotate()} disabled={busy}>
               {busy ? 'Rotating…' : 'Rotate'}
-            </button>
-            <button type="button" onClick={() => setConfirming(false)} disabled={busy}>
+            </Button>
+            <Button size="sm" onClick={() => setConfirming(false)} disabled={busy}>
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
       )}

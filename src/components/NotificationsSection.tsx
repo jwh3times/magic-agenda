@@ -2,9 +2,10 @@ import { useEffect, useState, type CSSProperties } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import { useSettingsContext } from '../data/SettingsProvider'
 import { browserPushGateway, type PushState } from '../notifications/pushGateway'
+import { Button, Select } from './controls'
 
 const LEADS = [0, 5, 10, 15, 30, 60, 120, 1440]
-const select: CSSProperties = { fontSize: 16, padding: '8px 10px', maxWidth: 320 }
+const select: CSSProperties = { maxWidth: 320 }
 const hint: CSSProperties = { margin: 0, fontSize: 13, opacity: 0.7, lineHeight: 1.45 }
 
 function leadLabel(minutes: number): string {
@@ -66,7 +67,7 @@ export function NotificationsSection() {
         <label htmlFor="settings-reminder-lead" style={{ fontSize: 13, opacity: 0.7 }}>
           Reminder timing
         </label>
-        <select
+        <Select
           id="settings-reminder-lead"
           value={settings.reminderLeadMinutes ?? ''}
           disabled={!hasConcreteTimezone}
@@ -81,7 +82,7 @@ export function NotificationsSection() {
               {leadLabel(minutes)}
             </option>
           ))}
-        </select>
+        </Select>
         {!hasConcreteTimezone && (
           <p style={hint}>
             Choose a specific timezone in Dates first. The sender cannot use Automatic because it
@@ -104,9 +105,13 @@ export function NotificationsSection() {
       )}
       {push?.availability === 'supported' && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
-          <button type="button" disabled={busy || !user} onClick={() => void changeDevice()}>
+          <Button
+            variant={push.subscribed ? 'secondary' : 'primary'}
+            disabled={busy || !user}
+            onClick={() => void changeDevice()}
+          >
             {busy ? 'Updating…' : push.subscribed ? 'Remove this device' : 'Enable on this device'}
-          </button>
+          </Button>
           <p style={hint}>
             {push.subscribed
               ? 'This device is subscribed.'

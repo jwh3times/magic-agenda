@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
-import { beforeEach, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { fakeBoardDirectory, fakeBoardSession } from '../board/fakeBoardDirectory'
 import { fakeLabelDirectory } from '../labels/fakeLabelDirectory'
 
@@ -133,4 +133,48 @@ test('the settings sections sit in a main landmark that preserves their spacing'
   // while not nested in sectioning content, and <main> is sectioning content.
   expect(screen.getByRole('banner')).toBeInTheDocument()
   expect(screen.getByRole('contentinfo')).toBeInTheDocument()
+})
+
+const SECTION_TITLES = [
+  'Appearance',
+  'Dates',
+  'Keyboard shortcuts',
+  'Notifications',
+  'Boards',
+  'Labels',
+  'History',
+  'Data',
+  'Two-factor authentication',
+  'Danger zone',
+]
+
+test('on a wide screen, a section nav lists every section and jumps to the one chosen', async () => {
+  renderPage()
+  const nav = await screen.findByRole('navigation', { name: 'Settings sections' })
+  const links = within(nav).getAllByRole('link')
+  expect(links.map((l) => l.textContent)).toEqual(SECTION_TITLES)
+  // Nothing has scrolled yet, so the first section is the current one.
+  expect(links[0]).toHaveAttribute('aria-current', 'true')
+
+  await userEvent.click(within(nav).getByRole('link', { name: 'Labels' }))
+  expect(within(nav).getByRole('link', { name: 'Labels' })).toHaveAttribute('aria-current', 'true')
+  expect(links[0]).not.toHaveAttribute('aria-current')
+  // Focus follows the jump, so keyboard and screen-reader users land where the page scrolled to.
+  expect(screen.getByRole('heading', { level: 2, name: 'Labels' })).toHaveFocus()
+  // The fragment is never followed: `public/`'s auth bootstrap owns `location.hash`.
+  expect(window.location.hash).toBe('')
+})
+
+// jsdom has no matchMedia, so the tests above render the desktop layout; these stub a phone.
+afterEach(() => vi.unstubAllGlobals())
+
+test('on a phone, there is no section nav: the sections stay one column', async () => {
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn(() => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} })),
+  )
+  renderPage()
+  await screen.findByRole('heading', { name: 'Settings' })
+  expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
+  expect(screen.getByRole('heading', { level: 2, name: 'Danger zone' })).toBeInTheDocument()
 })

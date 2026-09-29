@@ -1,8 +1,10 @@
-import { type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useAuth } from '../auth/AuthProvider'
 import { ThemeProvider, useTheme } from '../theme/ThemeProvider'
 import { ThemeSwitcher } from '../components/ThemeSwitcher'
+import { LinkButton, Select } from '../components/controls'
+import { navItemStyle } from '../theme/controls'
 import { DangerZone } from '../components/DangerZone'
 import { DataSection } from '../components/DataSection'
 import { BoardsSection } from '../components/BoardsSection'
@@ -86,17 +88,50 @@ export function SettingsPage() {
 }
 
 function SettingsShell({ defaultView, onChangeView }: SectionContext) {
-  const { conf } = useTheme()
+  const { theme, conf } = useTheme()
   const isMobile = useIsMobile()
   const { isAdmin } = useRole()
   const boardSharing = useBoardSharing()
+  const [active, setActive] = useActiveSection(SECTION_IDS, !isMobile)
 
   const card: CSSProperties = {
     background: conf.cellBg,
     border: conf.cellBorder,
     borderRadius: conf.cellRadius,
-    padding: isMobile ? 14 : 18,
+    padding: isMobile ? 14 : 20,
   }
+
+  // Desktop is a sticky section nav beside a content column that takes the rest of a width capped
+  // at 1480px (#464). The page used to be capped at 640px everywhere, which left a wide monitor
+  // mostly empty. Phones keep the single column: there is no width to spend there.
+  const sections = (
+    <main style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
+      {SECTIONS.map((s) => (
+        <section
+          key={s.id}
+          id={sectionId(s.id)}
+          aria-labelledby={`settings-${s.id}`}
+          style={{ ...card, scrollMarginTop: 28 }}
+        >
+          <h2
+            id={`settings-${s.id}`}
+            tabIndex={-1}
+            style={{
+              margin: '0 0 14px',
+              // Caveat, cork's hand-lettered face, sets far smaller than the other two themes' at the
+              // same size, so cork's headings get more of it.
+              fontSize: theme === 'cork' ? (isMobile ? 21 : 25) : isMobile ? 17 : 20,
+              fontFamily: conf.title,
+              outline: 'none',
+            }}
+          >
+            {s.title}
+          </h2>
+          {s.render({ defaultView, onChangeView, boardSharing })}
+        </section>
+      ))}
+    </main>
+  )
 
   return (
     <div
@@ -112,40 +147,72 @@ function SettingsShell({ defaultView, onChangeView }: SectionContext) {
     >
       <div
         style={{
-          maxWidth: 640,
+          maxWidth: isMobile ? 640 : 1480,
           margin: '0 auto',
           display: 'flex',
           flexDirection: 'column',
-          gap: 16,
+          gap: isMobile ? 16 : 22,
         }}
       >
-        <header style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
-          <Link to="/" style={{ color: 'inherit', textDecoration: 'none', fontWeight: 700 }}>
+        <header style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 12 : 18 }}>
+          <LinkButton to="/" size="sm">
             ← Board
-          </Link>
-          <h1 style={{ fontFamily: conf.title, fontSize: isMobile ? 26 : 32, margin: 0 }}>
+          </LinkButton>
+          <h1 style={{ fontFamily: conf.title, fontSize: isMobile ? 26 : 34, margin: 0 }}>
             Settings
           </h1>
           {isAdmin && (
-            <Link to="/admin" style={{ color: 'inherit', marginLeft: 'auto' }}>
+            <LinkButton to="/admin" size="sm" style={{ marginLeft: 'auto' }}>
               Admin
-            </Link>
+            </LinkButton>
           )}
         </header>
 
-        <main style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {SECTIONS.map((s) => (
-            <section key={s.id} aria-labelledby={`settings-${s.id}`} style={card}>
-              <h2
-                id={`settings-${s.id}`}
-                style={{ margin: '0 0 12px', fontSize: 17, fontFamily: conf.title }}
-              >
-                {s.title}
-              </h2>
-              {s.render({ defaultView, onChangeView, boardSharing })}
-            </section>
-          ))}
-        </main>
+        {isMobile ? (
+          sections
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '240px minmax(0, 1fr)',
+              gap: 28,
+              alignItems: 'start',
+            }}
+          >
+            <nav
+              aria-label="Settings sections"
+              style={{ ...card, padding: 8, position: 'sticky', top: 28 }}
+            >
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 2 }}>
+                {SECTIONS.map((s) => (
+                  <li key={s.id}>
+                    <a
+                      href={`#${sectionId(s.id)}`}
+                      aria-current={active === s.id ? 'true' : undefined}
+                      onClick={(e) => {
+                        // Scroll in place rather than follow the fragment: `public/`'s auth bootstrap
+                        // reads `location.hash` on load, so the URL never carries one it did not put
+                        // there. Focus moves to the heading so keyboard and screen-reader users land
+                        // where sighted users do.
+                        e.preventDefault()
+                        setActive(s.id)
+                        document.getElementById(sectionId(s.id))?.scrollIntoView?.({
+                          behavior: 'smooth',
+                          block: 'start',
+                        })
+                        document.getElementById(`settings-${s.id}`)?.focus({ preventScroll: true })
+                      }}
+                      style={navItemStyle(theme, conf, active === s.id)}
+                    >
+                      {s.title}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+            {sections}
+          </div>
+        )}
 
         <footer style={{ fontSize: 13, opacity: 0.7, display: 'flex', gap: 14 }}>
           <Link to="/privacy" style={{ color: 'inherit' }}>
@@ -160,29 +227,76 @@ function SettingsShell({ defaultView, onChangeView }: SectionContext) {
   )
 }
 
+const SECTION_IDS = SECTIONS.map((s) => s.id)
+const sectionId = (id: string) => `section-${id}`
+
+/**
+ * Which section the nav highlights: the last one whose top has scrolled into the upper third of the
+ * window, or the last section outright once the page is scrolled to the bottom, since a short final
+ * section can never reach that band. Tracked only while the nav is shown.
+ *
+ * The setter is returned too, so a nav click highlights its target at once rather than every
+ * section the smooth scroll passes on the way.
+ */
+function useActiveSection(ids: string[], enabled: boolean) {
+  const [active, setActive] = useState(ids[0])
+
+  useEffect(() => {
+    if (!enabled) return
+    let frame = 0
+    const measure = () => {
+      frame = 0
+      const root = document.documentElement
+      if (window.scrollY + window.innerHeight >= root.scrollHeight - 2) {
+        setActive(ids[ids.length - 1])
+        return
+      }
+      const band = window.innerHeight / 3
+      let current = ids[0]
+      for (const id of ids) {
+        const el = document.getElementById(sectionId(id))
+        if (el && el.getBoundingClientRect().top <= band) current = id
+      }
+      setActive(current)
+    }
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(measure)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      if (frame) cancelAnimationFrame(frame)
+    }
+  }, [ids, enabled])
+
+  return [active, setActive] as const
+}
+
 function AppearanceSection({ defaultView, onChangeView }: SectionContext) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
         <div style={{ fontSize: 13, opacity: 0.7, marginBottom: 6 }}>Theme</div>
-        <ThemeSwitcher />
+        {/* A flex row, so the switcher's pill hugs its three buttons instead of stretching. */}
+        <div style={{ display: 'flex' }}>
+          <ThemeSwitcher />
+        </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <label htmlFor="settings-default-view" style={{ fontSize: 13, opacity: 0.7 }}>
           Default view
         </label>
-        <select
+        <Select
           id="settings-default-view"
           value={defaultView}
           onChange={(e) => onChangeView(e.target.value as ViewName)}
-          // ≥16px so iOS Safari doesn't zoom on focus.
-          style={{ fontSize: 16, padding: '8px 10px', maxWidth: 240 }}
+          style={{ maxWidth: 240 }}
         >
           <option value="calendar">Calendar</option>
           <option value="week">Week</option>
           <option value="agenda">Agenda</option>
           <option value="kanban">Board</option>
-        </select>
+        </Select>
       </div>
     </div>
   )

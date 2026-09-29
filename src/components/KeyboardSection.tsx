@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import { useSettingsContext } from '../data/SettingsProvider'
+import { Checkbox } from './controls'
 
 const hint: CSSProperties = { margin: 0, fontSize: 13, opacity: 0.7, lineHeight: 1.45 }
 
@@ -16,11 +17,9 @@ export function KeyboardSection() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 600 }}>
-        <input
-          type="checkbox"
+        <Checkbox
           checked={settings.keyboardShortcuts}
           onChange={(e) => saveKeyboardShortcuts(e.target.checked)}
-          style={{ width: 18, height: 18 }}
         />
         Single-letter shortcuts on the board
       </label>

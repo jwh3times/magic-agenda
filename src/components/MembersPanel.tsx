@@ -5,11 +5,12 @@ import type { BoardOutcome } from '../board/outcome'
 import { asBoardRole, BOARD_ROLES, capabilitiesFor, ROLE_LABELS } from '../board/role'
 import type { BoardSummary } from '../board/selection'
 import { readRemindUnassigned, writeRemindUnassigned } from '../board/reminderOptIn'
+import { useThemeOrDefault } from '../theme/ThemeProvider'
+import { Button, Checkbox, Select } from './controls'
 import { InvitationsSection } from './InvitationsSection'
 
 const hint: CSSProperties = { fontSize: 12, opacity: 0.7 }
 const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }
-const danger = '#b42318'
 
 /**
  * One Board's current members, and what the caller may do about them (#438).
@@ -36,6 +37,7 @@ export function MembersPanel({
   onOwnMembershipChanged: () => void
 }) {
   const can = capabilitiesFor(board.role)
+  const { conf } = useThemeOrDefault()
   const [members, setMembers] = useState<BoardMember[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -115,7 +117,7 @@ export function MembersPanel({
       style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
     >
       {error && (
-        <div role="alert" style={{ color: danger, fontSize: 13 }}>
+        <div role="alert" style={{ color: conf.dangerFg, fontSize: 13 }}>
           {error}
         </div>
       )}
@@ -135,10 +137,11 @@ export function MembersPanel({
                   {member.email && <span style={hint}>{member.email}</span>}
                   <div style={{ flex: 1 }} />
                   {can.manageMembers ? (
-                    <select
+                    <Select
                       aria-label={`Role for ${nameOf(member)}`}
                       value={member.role}
                       disabled={busy}
+                      style={{ padding: '5px 8px' }}
                       onChange={(e) => {
                         const role = asBoardRole(e.target.value)
                         if (role) void act(() => changeMemberRole(member.membershipId, role), self)
@@ -149,18 +152,19 @@ export function MembersPanel({
                           {ROLE_LABELS[role]}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   ) : (
                     <span style={hint}>{ROLE_LABELS[member.role]}</span>
                   )}
                   {can.manageMembers && !self && removing !== member.membershipId && (
-                    <button
-                      type="button"
+                    <Button
+                      size="sm"
+                      variant="danger"
                       onClick={() => setRemoving(member.membershipId)}
                       disabled={busy}
                     >
                       Remove…
-                    </button>
+                    </Button>
                   )}
                 </div>
                 {removing === member.membershipId && (
@@ -168,17 +172,17 @@ export function MembersPanel({
                     <span style={{ fontSize: 13.5 }}>
                       Remove {nameOf(member)}? They lose access to this board immediately.
                     </span>
-                    <button
-                      type="button"
+                    <Button
+                      size="sm"
+                      variant="destructive"
                       onClick={() => void act(() => removeMember(member.membershipId))}
                       disabled={busy}
-                      style={{ color: danger, borderColor: danger }}
                     >
                       Remove
-                    </button>
-                    <button type="button" onClick={() => setRemoving(null)} disabled={busy}>
+                    </Button>
+                    <Button size="sm" onClick={() => setRemoving(null)} disabled={busy}>
                       Cancel
-                    </button>
+                    </Button>
                   </div>
                 )}
               </li>
@@ -190,8 +194,7 @@ export function MembersPanel({
       {members !== null && members.length > 1 && remindUnassigned !== null && (
         // Only on a Board more than one person is on: alone, every timed Task reminds you anyway.
         <label style={{ ...row, fontSize: 13.5 }}>
-          <input
-            type="checkbox"
+          <Checkbox
             checked={remindUnassigned}
             onChange={(e) => void toggleRemindUnassigned(e.target.checked)}
           />
@@ -203,31 +206,26 @@ export function MembersPanel({
 
       <div style={row}>
         {!leaving && (
-          <button type="button" onClick={() => setLeaving(true)} disabled={busy}>
+          <Button size="sm" variant="danger" onClick={() => setLeaving(true)} disabled={busy}>
             Leave board…
-          </button>
+          </Button>
         )}
         <div style={{ flex: 1 }} />
-        <button type="button" onClick={onClose} disabled={busy}>
+        <Button size="sm" onClick={onClose} disabled={busy}>
           Hide
-        </button>
+        </Button>
       </div>
       {leaving && (
         <div style={row}>
           <span style={{ fontSize: 13.5 }}>
             Leave <strong>{board.name}</strong>? You lose access until someone invites you back.
           </span>
-          <button
-            type="button"
-            onClick={() => void leave()}
-            disabled={busy}
-            style={{ color: danger, borderColor: danger }}
-          >
+          <Button size="sm" variant="destructive" onClick={() => void leave()} disabled={busy}>
             Leave
-          </button>
-          <button type="button" onClick={() => setLeaving(false)} disabled={busy}>
+          </Button>
+          <Button size="sm" onClick={() => setLeaving(false)} disabled={busy}>
             Cancel
-          </button>
+          </Button>
         </div>
       )}
     </div>

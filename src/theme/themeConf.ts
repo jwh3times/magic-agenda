@@ -65,6 +65,15 @@ export interface ThemeConf {
    * the title.
    */
   focusRingInset: number
+  /**
+   * Destructive text on a Settings card: refusals, and the outline of a Delete / Remove / Rotate
+   * button (#464). Its own token for the reason `numTodayFg` and `focusRing` are: the one red
+   * the app used before, `#b42318`, reads 6.6:1 on brutal's white card but only 3.1:1 on cork's
+   * translucent card over the cork page and 2.7:1 on glass's near-black one. Every value here
+   * clears 4.5:1 on its own theme's card. A FILLED destructive button does not use this, because
+   * white on `#b42318` is 6.6:1 whatever card is under it.
+   */
+  dangerFg: string
 }
 
 const CORK: ThemeConf = {
@@ -101,6 +110,7 @@ const CORK: ThemeConf = {
   scrollThumb: 'rgba(74,50,22,.38)',
   focusRing: '#2f1d0c',
   focusRingInset: 3,
+  dangerFg: '#7f1a10',
 }
 
 const BRUTAL: ThemeConf = {
@@ -138,6 +148,7 @@ const BRUTAL: ThemeConf = {
   scrollThumb: 'rgba(17,17,17,.55)',
   focusRing: '#111111',
   focusRingInset: 8,
+  dangerFg: '#b42318',
 }
 
 const GLASS: ThemeConf = {
@@ -174,6 +185,7 @@ const GLASS: ThemeConf = {
   scrollThumb: 'rgba(234,240,255,.28)',
   focusRing: '#eaf0ff',
   focusRingInset: 4,
+  dangerFg: '#ff8f85',
 }
 
 const CONF: Record<ThemeName, ThemeConf> = { cork: CORK, brutal: BRUTAL, glass: GLASS }

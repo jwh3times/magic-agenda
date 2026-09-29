@@ -5,11 +5,11 @@ import { explainProblem, NAME_MAX_LENGTH, type LabelProblem } from '../labels/la
 import { useIsMobile } from '../lib/useMediaQuery'
 import { useTheme } from '../theme/ThemeProvider'
 import type { Label } from '../types/label'
+import { Button, ColorInput, TextInput } from './controls'
 
 const DEFAULT_NEW_COLOR = '#2563eb'
 
-// ≥16px so iOS Safari does not zoom the page on focus.
-const textInput: CSSProperties = { fontSize: 16, padding: '8px 10px', minWidth: 0, flex: 1 }
+const textInput: CSSProperties = { flex: 1 }
 const hint: CSSProperties = { fontSize: 12, opacity: 0.7 }
 const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8 }
 
@@ -119,9 +119,9 @@ export function LabelsSection() {
         <div role="alert" style={{ fontSize: 13 }}>
           Could not load labels. {error}
         </div>
-        <button type="button" onClick={() => void reload()} style={{ alignSelf: 'flex-start' }}>
+        <Button size="sm" onClick={() => void reload()} style={{ alignSelf: 'flex-start' }}>
           Try again
-        </button>
+        </Button>
       </div>
     )
   }
@@ -192,7 +192,7 @@ export function LabelsSection() {
               New label
             </label>
             <div style={row}>
-              <input
+              <TextInput
                 id="settings-new-label"
                 value={draftName}
                 maxLength={NAME_MAX_LENGTH}
@@ -204,23 +204,21 @@ export function LabelsSection() {
                 }}
                 style={textInput}
               />
-              <input
-                type="color"
+              <ColorInput
                 aria-label="Colour for the new label"
                 value={draftColor}
                 disabled={busy || offline}
                 onChange={(e) => setDraftColor(e.target.value)}
-                style={{ width: 44, height: 36, padding: 2 }}
               />
             </div>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="primary"
             onClick={() => void onAdd()}
             disabled={busy || offline || draftName.trim() === ''}
           >
             Add label
-          </button>
+          </Button>
         </div>
       )}
 
@@ -309,18 +307,16 @@ function LabelRow({
   return (
     <li style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div style={row}>
-        <input
-          type="color"
+        <ColorInput
           aria-label={`Colour for ${label.name}`}
           value={label.dotColor}
           disabled={readOnly || busy}
           onChange={(e) => onRecolor(e.target.value)}
-          style={{ width: 36, height: 32, padding: 2, flex: '0 0 auto' }}
         />
         {readOnly ? (
-          <span style={{ ...textInput, padding: '8px 0' }}>{label.name}</span>
+          <span style={{ ...textInput, fontSize: 16, padding: '8px 0' }}>{label.name}</span>
         ) : (
-          <input
+          <TextInput
             aria-label={`Name for ${label.name}`}
             value={draft}
             maxLength={NAME_MAX_LENGTH}
@@ -336,30 +332,31 @@ function LabelRow({
         )}
         {!readOnly && (
           <>
-            <button
-              type="button"
+            <Button
+              size="sm"
               aria-label={`Move ${label.name} up`}
               disabled={isFirst || busy}
               onClick={() => onMove(-1)}
             >
               ↑
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              size="sm"
               aria-label={`Move ${label.name} down`}
               disabled={isLast || busy}
               onClick={() => onMove(1)}
             >
               ↓
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              size="sm"
+              variant="danger"
               aria-label={`Delete ${label.name}`}
               disabled={busy}
               onClick={onAskDelete}
             >
               Delete
-            </button>
+            </Button>
           </>
         )}
       </div>
@@ -375,12 +372,12 @@ function LabelRow({
           <span>
             Delete “{label.name}”? Tasks using it become Unlabeled — the tasks themselves are kept.
           </span>
-          <button type="button" onClick={onConfirmDelete} disabled={busy}>
+          <Button size="sm" variant="destructive" onClick={onConfirmDelete} disabled={busy}>
             Delete label
-          </button>
-          <button type="button" onClick={onCancelDelete} disabled={busy}>
+          </Button>
+          <Button size="sm" onClick={onCancelDelete} disabled={busy}>
             Cancel
-          </button>
+          </Button>
         </div>
       )}
     </li>

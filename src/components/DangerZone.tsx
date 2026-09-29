@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
+import { useThemeOrDefault } from '../theme/ThemeProvider'
+import { Button, TextInput } from './controls'
 
 const SOLE_OWNER_MESSAGE =
   'You are the only owner of a board other people are still on. Make someone else an owner, or ' +
@@ -24,6 +26,7 @@ function httpStatus(err: unknown): number | null {
  */
 export function DangerZone() {
   const { signOut } = useAuth()
+  const { conf } = useThemeOrDefault()
   const navigate = useNavigate()
   const [confirm, setConfirm] = useState('')
   const [busy, setBusy] = useState(false)
@@ -66,34 +69,22 @@ export function DangerZone() {
         Permanently delete your account and all of your tasks and settings. This cannot be undone.
         Type <strong>delete</strong> to confirm.
       </p>
-      <input
+      <TextInput
         value={confirm}
         onChange={(e) => setConfirm(e.target.value)}
         placeholder="delete"
         aria-label="Type delete to confirm"
-        // ≥16px so iOS Safari doesn't zoom on focus.
-        style={{ fontSize: 16, padding: '8px 10px', maxWidth: 240 }}
+        style={{ maxWidth: 240 }}
       />
-      {error && <div style={{ color: '#b42318', fontSize: 13 }}>{error}</div>}
-      <button
-        type="button"
+      {error && <div style={{ color: conf.dangerFg, fontSize: 13 }}>{error}</div>}
+      <Button
+        variant={armed ? 'destructive' : 'danger'}
         disabled={!armed || busy}
         onClick={() => void deleteAccount()}
-        style={{
-          alignSelf: 'flex-start',
-          padding: '10px 14px',
-          borderRadius: 8,
-          border: '1px solid #b42318',
-          background: armed && !busy ? '#b42318' : 'transparent',
-          color: armed && !busy ? '#fff' : '#b42318',
-          fontWeight: 700,
-          fontSize: 14,
-          cursor: armed && !busy ? 'pointer' : 'default',
-          opacity: busy ? 0.6 : 1,
-        }}
+        style={{ alignSelf: 'flex-start' }}
       >
         {busy ? 'Deleting…' : 'Delete my account'}
-      </button>
+      </Button>
     </div>
   )
 }
