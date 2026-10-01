@@ -116,14 +116,43 @@ test('lists accounts with dates and counts, and pages through them', async () =>
   expect(within(accounts).getByRole('button', { name: 'Next' })).toBeDisabled()
 })
 
-test('a database refusal explains the two-factor requirement instead of showing data', async () => {
+test('a database refusal explains the two-factor requirement once for the page (#470)', async () => {
   const refused = { ok: false, reason: 'forbidden', message: 'refused' } as const
   h.stats.mockResolvedValue(refused)
   h.users.mockResolvedValue(refused)
   renderAdmin()
-  const alerts = await screen.findAllByRole('alert')
-  expect(alerts).toHaveLength(2)
-  for (const alert of alerts) expect(alert).toHaveTextContent(/two-factor session/)
+  const overview = await screen.findByRole('region', { name: 'Overview' })
+  const accounts = screen.getByRole('region', { name: 'Accounts' })
+  await within(overview).findByText(/see the notice above/)
+  await within(accounts).findByText(/see the notice above/)
+
+  const alerts = screen.getAllByRole('alert')
+  expect(alerts).toHaveLength(1)
+  expect(alerts[0]).toHaveTextContent(/two-factor session/)
+  expect(within(alerts[0]).getByRole('link', { name: 'Open Settings' })).toHaveAttribute(
+    'href',
+    '/settings',
+  )
+  expect(screen.queryByText('42')).not.toBeInTheDocument()
+})
+
+test('one section refused still gets the page notice, and the other section loads', async () => {
+  h.users.mockResolvedValue({ ok: false, reason: 'forbidden', message: 'refused' })
+  renderAdmin()
+  expect(await screen.findByRole('alert')).toHaveTextContent(/two-factor session/)
+  const overview = screen.getByRole('region', { name: 'Overview' })
+  expect(await within(overview).findByText('900')).toBeInTheDocument()
+})
+
+test('a section that fails for another reason keeps its own error and raises no page notice', async () => {
+  h.stats.mockResolvedValue({ ok: false, reason: 'failed', message: 'network down' })
+  renderAdmin()
+  const overview = await screen.findByRole('region', { name: 'Overview' })
+  expect(await within(overview).findByRole('alert')).toHaveTextContent('network down')
+  const accounts = screen.getByRole('region', { name: 'Accounts' })
+  await within(accounts).findByText('first@example.test')
+  expect(screen.getAllByRole('alert')).toHaveLength(1)
+  expect(screen.queryByText(/two-factor session/)).not.toBeInTheDocument()
 })
 
 test('every control is themed rather than a browser default (#467)', async () => {
