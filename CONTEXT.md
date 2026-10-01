@@ -30,7 +30,7 @@ _Avoid_: owner, responsible, delegate
 The one name an Account chooses for itself, shown to the members of every Board shared with it: in
 the Members list, on Tasks it is the Assignee of, and to Owners in Board Activity Records. It is
 optional; an Account without one shows as "Unnamed member". Only the Account itself can set it, in
-Settings → Profile.
+Settings → Profile or, when it has none, while accepting a Board Invitation.
 _Avoid_: username, nickname, handle
 
 **Scheduled Day**:
