@@ -12,6 +12,30 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.16.3] - 2026-10-01
+
+### Changed
+
+- **Search and sort Admin's account list (#471).** Admin → Accounts has a **Search by email** field
+  and a sort menu: Newest first, Oldest first, Signed in most or least recently, Most Tasks, and Most
+  Boards. A search waits for typing to pause and starts from the first page, and the page count says
+  how many accounts matched. Accounts that never signed in always sort last. The list used to be
+  newest first only, with Previous and Next.
+- A single account now reads "1 account", not "1 accounts".
+
+### Security
+
+- The search and the sort run in the database. A migration replaces `admin_users` with a version
+  taking an optional email search, whose `%` and `_` always match literally, and a sort key from a
+  fixed allow-list. Anything else is refused, and no SQL is built from the input. It keeps the same
+  admin-on-two-factor gate and the same count-only columns, and revokes EXECUTE from every other API
+  role (#384). With only the paging arguments it behaves exactly as before, so an open tab of the
+  previous release keeps working.
+
+### Docs
+
+- `docs/agents/boards.md` describes the new parameters.
+
 ## [1.16.2] - 2026-10-01
 
 ### Changed
@@ -4543,7 +4567,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.16.2...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.16.3...HEAD
+[1.16.3]: https://github.com/jwh3times/magic-agenda/compare/v1.16.2...v1.16.3
 [1.16.2]: https://github.com/jwh3times/magic-agenda/compare/v1.16.1...v1.16.2
 [1.16.1]: https://github.com/jwh3times/magic-agenda/compare/v1.16.0...v1.16.1
 [1.16.0]: https://github.com/jwh3times/magic-agenda/compare/v1.15.28...v1.16.0
