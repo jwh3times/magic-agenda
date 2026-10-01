@@ -11,6 +11,8 @@ const h = vi.hoisted(() => ({
   stats: vi.fn(),
   users: vi.fn(),
   saveFlag: vi.fn(),
+  mobile: false,
+  timezone: null as string | null,
 }))
 
 vi.mock('../access/useRole', () => ({ useRole: () => h.role }))
@@ -23,8 +25,9 @@ vi.mock('../admin/adminApi', () => ({
   saveFeatureFlag: h.saveFlag,
 }))
 vi.mock('../data/SettingsProvider', () => ({
-  useSettingsContext: () => ({ settings: { theme: 'cork' }, loading: false }),
+  useSettingsContext: () => ({ settings: { theme: 'cork', timezone: h.timezone }, loading: false }),
 }))
+vi.mock('../lib/useMediaQuery', () => ({ useIsMobile: () => h.mobile }))
 
 import { ADMIN_PAGE_SIZE, AdminPage } from './AdminPage'
 
@@ -65,6 +68,8 @@ beforeEach(() => {
   vi.resetAllMocks()
   h.role = { isAdmin: true, loading: false }
   h.flags = []
+  h.mobile = false
+  h.timezone = null
   h.stats.mockResolvedValue({ ok: true, data: STATS })
   h.users.mockResolvedValue(usersPage(2, ['first@example.test', 'second@example.test']))
 })
@@ -114,6 +119,44 @@ test('lists accounts with dates and counts, and pages through them', async () =>
   expect(await within(accounts).findByText('last@example.test')).toBeInTheDocument()
   expect(h.users).toHaveBeenLastCalledWith(1, ADMIN_PAGE_SIZE)
   expect(within(accounts).getByRole('button', { name: 'Next' })).toBeDisabled()
+})
+
+test('account dates are days in the Account Timezone, not UTC (#469)', async () => {
+  // 23:30 UTC on the 1st is already the 2nd in Tokyo, and still the 1st in Los Angeles.
+  const page = usersPage(1, ['tz@example.test'])
+  if (page.ok) {
+    page.data.users[0].createdAt = '2026-09-01T23:30:00Z'
+    page.data.users[0].lastSignInAt = '2026-09-01T23:30:00Z'
+  }
+  h.users.mockResolvedValue(page)
+  h.timezone = 'Asia/Tokyo'
+  const { unmount } = renderAdmin()
+  const row = (await screen.findByText('tz@example.test')).closest('tr')!
+  expect(row).toHaveTextContent('2026-09-02')
+  expect(row).not.toHaveTextContent('2026-09-01')
+  expect(screen.queryByText(/(UTC)/, { selector: 'th' })).not.toBeInTheDocument()
+  unmount()
+
+  h.timezone = 'America/Los_Angeles'
+  renderAdmin()
+  const laRow = (await screen.findByText('tz@example.test')).closest('tr')!
+  expect(laRow).toHaveTextContent('2026-09-01')
+})
+
+test('on a phone each account is a stacked entry, not a table row (#469)', async () => {
+  h.mobile = true
+  renderAdmin()
+  const accounts = await screen.findByRole('region', { name: 'Accounts' })
+  await within(accounts).findByText('first@example.test')
+  expect(within(accounts).queryByRole('table')).not.toBeInTheDocument()
+  const entries = within(accounts).getAllByRole('listitem')
+  expect(entries).toHaveLength(2)
+  const first = entries[0]
+  expect(first).toHaveTextContent('first@example.test')
+  expect(within(first).getByText('Last sign-in').nextSibling).toHaveTextContent('Never')
+  expect(within(first).getByText('Two-factor').nextSibling).toHaveTextContent('On')
+  expect(within(first).getByText('Tasks').nextSibling).toHaveTextContent('7')
+  expect(within(accounts).getByRole('list').style.gridTemplateColumns).toBe('minmax(0, 1fr)')
 })
 
 test('a database refusal explains the two-factor requirement once for the page (#470)', async () => {

@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react'
 import { Navigate } from 'react-router'
 import { ThemeProvider, useTheme } from '../theme/ThemeProvider'
 import { Spinner } from '../components/Spinner'
@@ -6,6 +13,7 @@ import { Button, Checkbox, LinkButton, TextInput } from '../components/controls'
 import { insetPanelStyle, rowListStyle } from '../theme/controls'
 import { useSettingsContext } from '../data/SettingsProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
+import { dateYmd } from '../lib/dates'
 import { useRole } from '../access/useRole'
 import { useFlags, type FeatureFlag } from '../access/useFlags'
 import {
@@ -14,6 +22,7 @@ import {
   saveFeatureFlag,
   type AdminResult,
   type AdminStats,
+  type AdminUser,
   type AdminUserPage,
 } from '../admin/adminApi'
 
@@ -54,7 +63,6 @@ function AdminShell() {
     border: conf.cellBorder,
     borderRadius: conf.cellRadius,
     padding: isMobile ? 14 : 20,
-    overflowX: 'auto',
   }
   const section = (id: string, title: string, body: ReactNode) => (
     <section aria-labelledby={`admin-${id}`} style={card}>
@@ -221,9 +229,13 @@ function StatsSection({ onForbidden }: { onForbidden: () => void }) {
   )
 }
 
-const utcDay = (instant: string | null) => (instant ? instant.slice(0, 10) : 'Never')
+/** An instant's day in the admin's Account Timezone (#469); `dateYmd` survives an unknown zone. */
+const localDay = (instant: string | null, timezone: string | null) =>
+  instant ? dateYmd(new Date(instant), timezone) : 'Never'
 
 function AccountsSection({ onForbidden }: { onForbidden: () => void }) {
+  const isMobile = useIsMobile()
+  const timezone = useSettingsContext().settings?.timezone ?? null
   const [page, setPage] = useState(0)
   const [loaded, setLoaded] = useState<{
     page: number
@@ -256,33 +268,15 @@ function AccountsSection({ onForbidden }: { onForbidden: () => void }) {
   const pages = Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE))
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <table style={{ borderCollapse: 'collapse', fontSize: 14, width: '100%' }}>
-        <thead>
-          <tr>
-            <th style={cell}>Email</th>
-            <th style={cell}>Joined (UTC)</th>
-            <th style={cell}>Last sign-in (UTC)</th>
-            <th style={cell}>Two-factor</th>
-            <th style={cell}>Role</th>
-            <th style={numeric}>Boards</th>
-            <th style={numeric}>Tasks</th>
-          </tr>
-        </thead>
-        <tbody>
-          {users.map((user) => (
-            <tr key={user.id}>
-              <td style={cell}>{user.email ?? '(no email)'}</td>
-              <td style={cell}>{utcDay(user.createdAt)}</td>
-              <td style={cell}>{utcDay(user.lastSignInAt)}</td>
-              <td style={cell}>{user.hasMfa ? 'On' : 'Off'}</td>
-              <td style={cell}>{user.isAdmin ? 'Admin' : 'Member'}</td>
-              <td style={numeric}>{user.ownedBoards}</td>
-              <td style={numeric}>{user.ownedTasks}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <nav aria-label="Account pages" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      {isMobile ? (
+        <AccountList users={users} timezone={timezone} />
+      ) : (
+        <AccountTable users={users} timezone={timezone} />
+      )}
+      <nav
+        aria-label="Account pages"
+        style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}
+      >
         <Button size="sm" disabled={page === 0} onClick={() => setPage(page - 1)}>
           Previous
         </Button>
@@ -294,6 +288,93 @@ function AccountsSection({ onForbidden }: { onForbidden: () => void }) {
         </Button>
       </nav>
     </div>
+  )
+}
+
+interface AccountsProps {
+  users: AdminUser[]
+  timezone: string | null
+}
+
+/** Desktop: one row per account. Scrolls inside its own box if a narrow window cannot fit it. */
+function AccountTable({ users, timezone }: AccountsProps) {
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ borderCollapse: 'collapse', fontSize: 14, width: '100%' }}>
+        <thead>
+          <tr>
+            <th style={cell}>Email</th>
+            <th style={cell}>Joined</th>
+            <th style={cell}>Last sign-in</th>
+            <th style={cell}>Two-factor</th>
+            <th style={cell}>Role</th>
+            <th style={numeric}>Boards</th>
+            <th style={numeric}>Tasks</th>
+          </tr>
+        </thead>
+        <tbody>
+          {users.map((user) => (
+            <tr key={user.id}>
+              <td style={cell}>{user.email ?? '(no email)'}</td>
+              <td style={cell}>{localDay(user.createdAt, timezone)}</td>
+              <td style={cell}>{localDay(user.lastSignInAt, timezone)}</td>
+              <td style={cell}>{user.hasMfa ? 'On' : 'Off'}</td>
+              <td style={cell}>{user.isAdmin ? 'Admin' : 'Member'}</td>
+              <td style={numeric}>{user.ownedBoards}</td>
+              <td style={numeric}>{user.ownedTasks}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/**
+ * Phone: a seven-column table cannot fit, and scrolling it sideways hid most columns (#469). Each
+ * account is a stacked entry instead, with the email as its heading.
+ */
+function AccountList({ users, timezone }: AccountsProps) {
+  const { theme } = useTheme()
+  const term: CSSProperties = { opacity: 0.7 }
+  const value: CSSProperties = { margin: 0, fontVariantNumeric: 'tabular-nums' }
+  return (
+    <ul style={rowListStyle(10)}>
+      {users.map((user) => {
+        const fields: [string, string | number][] = [
+          ['Joined', localDay(user.createdAt, timezone)],
+          ['Last sign-in', localDay(user.lastSignInAt, timezone)],
+          ['Two-factor', user.hasMfa ? 'On' : 'Off'],
+          ['Role', user.isAdmin ? 'Admin' : 'Member'],
+          ['Boards', user.ownedBoards],
+          ['Tasks', user.ownedTasks],
+        ]
+        return (
+          <li key={user.id} style={{ ...insetPanelStyle(theme), minWidth: 0 }}>
+            <div style={{ fontWeight: 700, overflowWrap: 'anywhere', marginBottom: 6 }}>
+              {user.email ?? '(no email)'}
+            </div>
+            <dl
+              style={{
+                margin: 0,
+                display: 'grid',
+                gridTemplateColumns: 'auto minmax(0, 1fr)',
+                columnGap: 12,
+                rowGap: 2,
+                fontSize: 14,
+              }}
+            >
+              {fields.map(([label, v]) => (
+                <Fragment key={label}>
+                  <dt style={term}>{label}</dt>
+                  <dd style={value}>{v}</dd>
+                </Fragment>
+              ))}
+            </dl>
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 
