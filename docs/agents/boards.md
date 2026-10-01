@@ -389,11 +389,19 @@ Signed-out, offline, failed, and missing reads default to no admin role and disa
 `/admin` (`src/pages/AdminPage.tsx`, reached from a Settings link shown only to admins) reads
 through `src/admin/adminApi.ts` and two `security definer` RPCs in `public`: `admin_stats()`
 (Account, Board, and Task totals plus a 30-day UTC series) and `admin_users(page_limit,
-page_offset)` (email, sign-up and last sign-in dates, MFA enrolment, admin role, and counts of
-owned Boards and Tasks, at most 100 rows per page). **No per-Account Task content is reachable, by
+page_offset, search, sort_key, sort_desc)` (email, sign-up and last sign-in dates, MFA enrolment,
+admin role, and counts of owned Boards and Tasks, at most 100 rows per page). **No per-Account Task content is reachable, by
 design**: an admin dashboard on a personal task board is the easiest place in this codebase to
 build a surveillance surface, so neither function may ever select a title, description, checklist,
 label, or day. Task counts exclude hidden Series definitions, which `admin_stats()` reports apart.
+
+**Search and sort run in SQL (#471).** `search` is a case-insensitive email substring whose LIKE
+wildcards are escaped, so it always matches literally; `sort_key` is an allow-list (`joined`,
+`last_sign_in`, `boards`, `tasks`), anything else is refused with `22023`, and the order is
+chosen by `case` expressions rather than built from the input. Never-signed-in accounts sort last in
+both directions, `id` is the final tie-breaker so pages are stable, and `total_count` counts the
+filtered set. The three parameters default to the old behaviour (newest first, unfiltered), so a
+client still sending only the paging arguments keeps working.
 
 Both RPCs call `app_private.require_admin_session()`, which refuses with `42501` unless the caller
 holds a live admin role, the session JWT is `aal2`, **and** a verified factor existed before that

@@ -270,6 +270,107 @@ test('paging is bounded and ordered newest first', async () => {
   expect(rows[0].created_at >= rows[1].created_at).toBe(true)
 })
 
+test('search matches an email substring case-insensitively, and total_count is the filtered set (#471)', async () => {
+  // The random part of the member's address is unique to this run.
+  const fragment = member.email.slice(4, 16).toUpperCase()
+  const { data, error } = await admin.client.rpc('admin_users', {
+    page_limit: 10,
+    page_offset: 0,
+    search: `  ${fragment}  `,
+  })
+  expect(error).toBeNull()
+  const rows = data as AdminUserRow[]
+  expect(rows.map((row) => row.id)).toEqual([member.id])
+  expect(rows[0].total_count).toBe(1)
+
+  // A blank search is no filter at all.
+  const blank = await admin.client.rpc('admin_users', {
+    page_limit: 1,
+    page_offset: 0,
+    search: ' ',
+  })
+  expect((blank.data as AdminUserRow[])[0].total_count).toBeGreaterThanOrEqual(3)
+})
+
+test('LIKE wildcards in a search are matched literally, never as patterns', async () => {
+  // Test addresses are `rls-<uuid>@example.test`: no `%` or `_`, so a literal match finds nothing.
+  // Unescaped, `%` would match every account and `_` every non-empty one.
+  for (const search of ['%', '_', 'rls_', '\\']) {
+    const { data, error } = await admin.client.rpc('admin_users', {
+      page_limit: 10,
+      page_offset: 0,
+      search,
+    })
+    // The case rides in the compared value, so a failure names it.
+    expect({ search, error, data }).toEqual({ search, error: null, data: [] })
+  }
+})
+
+test('every sort key orders the page in both directions, with never-signed-in last', async () => {
+  const fields = {
+    joined: (row: AdminUserRow) => Date.parse(row.created_at),
+    last_sign_in: (row: AdminUserRow) =>
+      row.last_sign_in_at === null ? null : Date.parse(row.last_sign_in_at),
+    boards: (row: AdminUserRow) => row.owned_boards,
+    tasks: (row: AdminUserRow) => row.owned_tasks,
+  } as const
+  for (const [sort_key, value] of Object.entries(fields)) {
+    for (const sort_desc of [true, false]) {
+      const { data, error } = await admin.client.rpc('admin_users', {
+        page_limit: 100,
+        page_offset: 0,
+        sort_key,
+        sort_desc,
+      })
+      expect({ sort_key, sort_desc, error }).toEqual({ sort_key, sort_desc, error: null })
+      const values = (data as AdminUserRow[]).map(value)
+      const present = values.filter((v): v is number => v !== null)
+      // Nulls (never signed in) only ever trail the dated rows.
+      expect({ sort_key, sort_desc, leading: values.slice(0, present.length) }).toEqual({
+        sort_key,
+        sort_desc,
+        leading: present,
+      })
+      const expected = [...present].sort((a, b) => (sort_desc ? b - a : a - b))
+      expect({ sort_key, sort_desc, order: present }).toEqual({
+        sort_key,
+        sort_desc,
+        order: expected,
+      })
+    }
+  }
+})
+
+test('an unknown sort key, a null direction, or an over-long search is refused', async () => {
+  for (const args of [
+    { sort_key: 'email' },
+    { sort_key: 'created_at; drop table public.tasks' },
+    { sort_desc: null },
+    { search: 'x'.repeat(321) },
+  ]) {
+    const { error } = await admin.client.rpc('admin_users', {
+      page_limit: 10,
+      page_offset: 0,
+      ...args,
+    } as never)
+    expect({ args, code: error?.code }).toEqual({ args, code: '22023' })
+  }
+})
+
+test('the new parameters change nothing about who may call', async () => {
+  for (const client of [member.client, passwordOnlyAdmin.client, anonClient()]) {
+    await expectRefused(
+      client.rpc('admin_users', {
+        page_limit: 10,
+        page_offset: 0,
+        search: 'rls',
+        sort_key: 'tasks',
+        sort_desc: true,
+      }),
+    )
+  }
+})
+
 test('revoking the role applies to the same aal2 session immediately', async () => {
   try {
     await withPg((pg) => pg.query('delete from public.user_roles where user_id = $1', [admin.id]))

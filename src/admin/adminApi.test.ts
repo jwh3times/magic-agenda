@@ -111,7 +111,32 @@ test('loads one page of accounts with the total for paging', async () => {
       ],
     },
   })
-  expect(h.rpc).toHaveBeenCalledWith('admin_users', { page_limit: 25, page_offset: 50 })
+  // No query given: the server's own default order, and no search argument at all.
+  expect(h.rpc).toHaveBeenCalledWith('admin_users', {
+    page_limit: 25,
+    page_offset: 50,
+    sort_key: 'joined',
+    sort_desc: true,
+  })
+})
+
+test('passes a trimmed search and the chosen sort, and omits a blank search (#471)', async () => {
+  h.rpc.mockResolvedValue({ data: [], error: null })
+  await loadAdminUsers(0, 25, { search: '  ada@  ', sortKey: 'tasks', sortDesc: false })
+  expect(h.rpc).toHaveBeenLastCalledWith('admin_users', {
+    page_limit: 25,
+    page_offset: 0,
+    search: 'ada@',
+    sort_key: 'tasks',
+    sort_desc: false,
+  })
+  await loadAdminUsers(1, 25, { search: '   ', sortKey: 'last_sign_in', sortDesc: true })
+  expect(h.rpc).toHaveBeenLastCalledWith('admin_users', {
+    page_limit: 25,
+    page_offset: 25,
+    sort_key: 'last_sign_in',
+    sort_desc: true,
+  })
 })
 
 test('an empty page past the end still reports success', async () => {

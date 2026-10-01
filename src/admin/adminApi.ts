@@ -91,14 +91,36 @@ export async function loadAdminStats(): Promise<AdminResult<AdminStats>> {
     : { ok: false, reason: 'failed', message: 'Unexpected statistics response.' }
 }
 
-/** `page` is zero-based. */
+/** The columns `admin_users` can order by (#471). The server refuses anything else. */
+export type AdminUserSortKey = 'joined' | 'last_sign_in' | 'boards' | 'tasks'
+
+export interface AdminUserQuery {
+  /** A case-insensitive substring of the email; blank means no filter. Matched literally. */
+  search: string
+  sortKey: AdminUserSortKey
+  sortDesc: boolean
+}
+
+/** The server's own default: newest first, unfiltered. */
+export const DEFAULT_ADMIN_USER_QUERY: AdminUserQuery = {
+  search: '',
+  sortKey: 'joined',
+  sortDesc: true,
+}
+
+/** `page` is zero-based; `total` in the answer counts only the accounts the search matched. */
 export async function loadAdminUsers(
   page: number,
   pageSize: number,
+  query: AdminUserQuery = DEFAULT_ADMIN_USER_QUERY,
 ): Promise<AdminResult<AdminUserPage>> {
+  const search = query.search.trim()
   const { data, error } = await supabase.rpc('admin_users', {
     page_limit: pageSize,
     page_offset: page * pageSize,
+    ...(search ? { search } : {}),
+    sort_key: query.sortKey,
+    sort_desc: query.sortDesc,
   })
   if (error) return failure(error)
   const rows = data ?? []

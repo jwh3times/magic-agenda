@@ -9,7 +9,7 @@ import {
 import { Navigate } from 'react-router'
 import { ThemeProvider, useTheme } from '../theme/ThemeProvider'
 import { Spinner } from '../components/Spinner'
-import { Button, Checkbox, LinkButton, TextInput } from '../components/controls'
+import { Button, Checkbox, LinkButton, Select, TextInput } from '../components/controls'
 import { insetPanelStyle, rowListStyle } from '../theme/controls'
 import { useSettingsContext } from '../data/SettingsProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
@@ -25,6 +25,7 @@ import {
   type AdminStats,
   type AdminUser,
   type AdminUserPage,
+  type AdminUserSortKey,
 } from '../admin/adminApi'
 
 export const ADMIN_PAGE_SIZE = 25
@@ -254,60 +255,158 @@ function StatsSection({ onForbidden }: { onForbidden: () => void }) {
 const localDay = (instant: string | null, timezone: string | null) =>
   instant ? dateYmd(new Date(instant), timezone) : 'Never'
 
+/** The sort choices offered, each a key and direction the `admin_users` allow-list accepts (#471). */
+const ACCOUNT_SORTS: { id: string; label: string; sortKey: AdminUserSortKey; sortDesc: boolean }[] =
+  [
+    { id: 'joined-desc', label: 'Newest first', sortKey: 'joined', sortDesc: true },
+    { id: 'joined-asc', label: 'Oldest first', sortKey: 'joined', sortDesc: false },
+    {
+      id: 'last_sign_in-desc',
+      label: 'Signed in most recently',
+      sortKey: 'last_sign_in',
+      sortDesc: true,
+    },
+    {
+      id: 'last_sign_in-asc',
+      label: 'Signed in least recently',
+      sortKey: 'last_sign_in',
+      sortDesc: false,
+    },
+    { id: 'tasks-desc', label: 'Most Tasks', sortKey: 'tasks', sortDesc: true },
+    { id: 'boards-desc', label: 'Most Boards', sortKey: 'boards', sortDesc: true },
+  ]
+
+/** How long typing must pause before a search is sent: one request per word, not per keystroke. */
+export const ACCOUNT_SEARCH_DELAY_MS = 300
+
 function AccountsSection({ onForbidden }: { onForbidden: () => void }) {
   const isMobile = useIsMobile()
   const timezone = useSettingsContext().settings?.timezone ?? null
   const [page, setPage] = useState(0)
+  const [searchDraft, setSearchDraft] = useState('')
+  const [search, setSearch] = useState('')
+  const [sortId, setSortId] = useState(ACCOUNT_SORTS[0].id)
+  const sort = ACCOUNT_SORTS.find((s) => s.id === sortId) ?? ACCOUNT_SORTS[0]
+  // Everything that decides the answer, so a late response for an older query is never shown.
+  const queryKey = JSON.stringify([page, search, sort.sortKey, sort.sortDesc])
   const [loaded, setLoaded] = useState<{
-    page: number
+    key: string
     result: AdminResult<AdminUserPage>
   } | null>(null)
+
+  useEffect(() => {
+    const next = searchDraft.trim()
+    if (next === search) return
+    const timer = setTimeout(() => {
+      setSearch(next)
+      setPage(0)
+    }, ACCOUNT_SEARCH_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [searchDraft, search])
+
   useEffect(() => {
     let cancelled = false
-    void loadAdminUsers(page, ADMIN_PAGE_SIZE).then((result) => {
-      if (!cancelled) setLoaded({ page, result: reportForbidden(result, onForbidden) })
+    const query = { search, sortKey: sort.sortKey, sortDesc: sort.sortDesc }
+    void loadAdminUsers(page, ADMIN_PAGE_SIZE, query).then((result) => {
+      if (!cancelled) setLoaded({ key: queryKey, result: reportForbidden(result, onForbidden) })
     })
     return () => {
       cancelled = true
     }
-  }, [page, onForbidden])
+  }, [queryKey, page, search, sort.sortKey, sort.sortDesc, onForbidden])
 
-  if (!loaded || loaded.page !== page) return <Spinner label="Loading accounts…" />
-  if (!loaded.result.ok) return <Refusal result={loaded.result} />
-  const { users, total } = loaded.result.data
-  // `total` rides on the rows, so a page emptied by deletions cannot report one.
-  if (users.length === 0 && page > 0) {
-    return (
-      <p style={{ margin: 0 }}>
-        No accounts on this page.{' '}
-        <Button size="sm" onClick={() => setPage(0)}>
-          First page
-        </Button>
-      </p>
+  // A refusal is about the caller, not the query, so there is nothing to search or sort.
+  if (loaded && !loaded.result.ok && loaded.result.reason === 'forbidden') {
+    return <Refusal result={loaded.result} />
+  }
+
+  const current = loaded?.key === queryKey ? loaded.result : null
+  let body: ReactNode
+  if (!current) {
+    body = <Spinner label="Loading accounts…" />
+  } else if (!current.ok) {
+    body = <Refusal result={current} />
+  } else if (current.data.users.length === 0) {
+    // `total` rides on the rows, so an empty page cannot say how many there are.
+    body =
+      page > 0 ? (
+        <p style={{ margin: 0 }}>
+          No accounts on this page.{' '}
+          <Button size="sm" onClick={() => setPage(0)}>
+            First page
+          </Button>
+        </p>
+      ) : (
+        <p style={{ margin: 0 }}>
+          {search ? <>No accounts match &ldquo;{search}&rdquo;.</> : 'No accounts.'}
+        </p>
+      )
+  } else {
+    const { users, total } = current.data
+    const pages = Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE))
+    body = (
+      <>
+        {isMobile ? (
+          <AccountList users={users} timezone={timezone} />
+        ) : (
+          <AccountTable users={users} timezone={timezone} />
+        )}
+        <nav
+          aria-label="Account pages"
+          style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}
+        >
+          <Button size="sm" disabled={page === 0} onClick={() => setPage(page - 1)}>
+            Previous
+          </Button>
+          <span>
+            Page {page + 1} of {pages} · {total} {search ? 'matching ' : ''}
+            {total === 1 ? 'account' : 'accounts'}
+          </span>
+          <Button size="sm" disabled={page + 1 >= pages} onClick={() => setPage(page + 1)}>
+            Next
+          </Button>
+        </nav>
+      </>
     )
   }
-  const pages = Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE))
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {isMobile ? (
-        <AccountList users={users} timezone={timezone} />
-      ) : (
-        <AccountTable users={users} timezone={timezone} />
-      )}
-      <nav
-        aria-label="Account pages"
-        style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}
+      <div
+        role="search"
+        style={{
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          gap: 8,
+          alignItems: isMobile ? 'stretch' : 'center',
+        }}
       >
-        <Button size="sm" disabled={page === 0} onClick={() => setPage(page - 1)}>
-          Previous
-        </Button>
-        <span>
-          Page {page + 1} of {pages} · {total} accounts
-        </span>
-        <Button size="sm" disabled={page + 1 >= pages} onClick={() => setPage(page + 1)}>
-          Next
-        </Button>
-      </nav>
+        <TextInput
+          type="search"
+          aria-label="Search accounts by email"
+          placeholder="Search by email"
+          value={searchDraft}
+          maxLength={320}
+          onChange={(e) => setSearchDraft(e.target.value)}
+          style={{ flex: isMobile ? undefined : '0 1 320px', minWidth: 0 }}
+        />
+        <Select
+          aria-label="Sort accounts"
+          value={sort.id}
+          onChange={(e) => {
+            setSortId(e.target.value)
+            setPage(0)
+          }}
+          style={{ flex: isMobile ? undefined : '0 0 auto' }}
+        >
+          {ACCOUNT_SORTS.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
+      </div>
+      {body}
     </div>
   )
 }
