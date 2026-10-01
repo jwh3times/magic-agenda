@@ -27,7 +27,7 @@
       "explicitAcl": true,
       "executeGrantees": "authenticated"
     },
-    "admin_users(integer,integer)": {
+    "admin_users(integer,integer,text,text,boolean)": {
       "secdef": true,
       "config": "search_path=\"\"",
       "explicitAcl": true,

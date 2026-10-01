@@ -31,6 +31,8 @@ vi.mock('../lib/useMediaQuery', () => ({ useIsMobile: () => h.mobile }))
 
 import { ADMIN_PAGE_SIZE, AdminPage } from './AdminPage'
 
+const NEWEST_FIRST = { search: '', sortKey: 'joined', sortDesc: true }
+
 const STATS: AdminStats = {
   accounts: 42,
   accountsWithMfa: 5,
@@ -117,7 +119,7 @@ test('lists accounts with dates and counts, and pages through them', async () =>
 
   await userEvent.click(within(accounts).getByRole('button', { name: 'Next' }))
   expect(await within(accounts).findByText('last@example.test')).toBeInTheDocument()
-  expect(h.users).toHaveBeenLastCalledWith(1, ADMIN_PAGE_SIZE)
+  expect(h.users).toHaveBeenLastCalledWith(1, ADMIN_PAGE_SIZE, NEWEST_FIRST)
   expect(within(accounts).getByRole('button', { name: 'Next' })).toBeDisabled()
 })
 
@@ -263,5 +265,70 @@ test('a page emptied by deletions offers a way back instead of a wrong total', a
 
   await userEvent.click(within(accounts).getByRole('button', { name: 'First page' }))
   expect(await within(accounts).findByText('(no email)')).toBeInTheDocument()
-  expect(h.users).toHaveBeenLastCalledWith(0, ADMIN_PAGE_SIZE)
+  expect(h.users).toHaveBeenLastCalledWith(0, ADMIN_PAGE_SIZE, NEWEST_FIRST)
+})
+
+test('searching waits for typing to pause, starts from the first page, and keeps focus (#471)', async () => {
+  h.users.mockResolvedValue(usersPage(ADMIN_PAGE_SIZE + 1, ['first@example.test']))
+  renderAdmin()
+  const accounts = await screen.findByRole('region', { name: 'Accounts' })
+  await userEvent.click(await within(accounts).findByRole('button', { name: 'Next' }))
+  await waitFor(() => expect(h.users).toHaveBeenLastCalledWith(1, ADMIN_PAGE_SIZE, NEWEST_FIRST))
+  const calls = h.users.mock.calls.length
+
+  h.users.mockResolvedValue(usersPage(1, ['ada@example.test']))
+  const field = within(accounts).getByRole('searchbox', { name: 'Search accounts by email' })
+  await userEvent.type(field, 'ada')
+  // One request for the whole word, not one per keystroke.
+  await waitFor(() =>
+    expect(h.users).toHaveBeenLastCalledWith(0, ADMIN_PAGE_SIZE, {
+      ...NEWEST_FIRST,
+      search: 'ada',
+    }),
+  )
+  expect(h.users.mock.calls.length).toBe(calls + 1)
+  expect(await within(accounts).findByText('ada@example.test')).toBeInTheDocument()
+  expect(within(accounts).getByText(/1 matching account$/)).toBeInTheDocument()
+  // The field stayed mounted through the reload, so typing was never interrupted.
+  expect(field).toHaveFocus()
+})
+
+test('a search with no match says so', async () => {
+  renderAdmin()
+  const accounts = await screen.findByRole('region', { name: 'Accounts' })
+  await within(accounts).findByText('first@example.test')
+  h.users.mockResolvedValue(usersPage(0, []))
+  await userEvent.type(within(accounts).getByRole('searchbox'), 'nobody')
+  expect(await within(accounts).findByText('No accounts match “nobody”.')).toBeInTheDocument()
+})
+
+test('choosing a sort reloads from the first page with that key and direction', async () => {
+  renderAdmin()
+  const accounts = await screen.findByRole('region', { name: 'Accounts' })
+  await within(accounts).findByText('first@example.test')
+  const sort = within(accounts).getByRole('combobox', { name: 'Sort accounts' })
+  for (const [label, sortKey, sortDesc] of [
+    ['Most Tasks', 'tasks', true],
+    ['Signed in least recently', 'last_sign_in', false],
+    ['Oldest first', 'joined', false],
+    ['Most Boards', 'boards', true],
+  ] as const) {
+    await userEvent.selectOptions(sort, label)
+    await waitFor(() =>
+      expect(h.users).toHaveBeenLastCalledWith(0, ADMIN_PAGE_SIZE, {
+        search: '',
+        sortKey,
+        sortDesc,
+      }),
+    )
+  }
+})
+
+test('a refusal hides the search and sort controls, since there is nothing to query', async () => {
+  h.users.mockResolvedValue({ ok: false, reason: 'forbidden', message: 'refused' })
+  renderAdmin()
+  const accounts = await screen.findByRole('region', { name: 'Accounts' })
+  await within(accounts).findByText(/see the notice above/)
+  expect(within(accounts).queryByRole('searchbox')).not.toBeInTheDocument()
+  expect(within(accounts).queryByRole('combobox')).not.toBeInTheDocument()
 })

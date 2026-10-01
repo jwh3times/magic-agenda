@@ -650,7 +650,13 @@ export type Database = {
       }
       admin_stats: { Args: never; Returns: Json }
       admin_users: {
-        Args: { page_limit: number; page_offset: number }
+        Args: {
+          page_limit: number
+          page_offset: number
+          search?: string
+          sort_desc?: boolean
+          sort_key?: string
+        }
         Returns: {
           created_at: string
           email: string
