@@ -1,7 +1,9 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
-import { Link, Navigate } from 'react-router'
+import { Navigate } from 'react-router'
 import { ThemeProvider, useTheme } from '../theme/ThemeProvider'
 import { Spinner } from '../components/Spinner'
+import { Button, Checkbox, LinkButton, TextInput } from '../components/controls'
+import { rowListStyle } from '../theme/controls'
 import { useSettingsContext } from '../data/SettingsProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { useRole } from '../access/useRole'
@@ -41,18 +43,26 @@ export function AdminPage() {
 }
 
 function AdminShell() {
-  const { conf } = useTheme()
+  const { theme, conf } = useTheme()
   const isMobile = useIsMobile()
   const card: CSSProperties = {
     background: conf.cellBg,
     border: conf.cellBorder,
     borderRadius: conf.cellRadius,
-    padding: isMobile ? 14 : 18,
+    padding: isMobile ? 14 : 20,
     overflowX: 'auto',
   }
   const section = (id: string, title: string, body: ReactNode) => (
     <section aria-labelledby={`admin-${id}`} style={card}>
-      <h2 id={`admin-${id}`} style={{ margin: '0 0 12px', fontSize: 17, fontFamily: conf.title }}>
+      <h2
+        id={`admin-${id}`}
+        style={{
+          margin: '0 0 14px',
+          // Matches Settings: cork's hand-lettered face sets smaller than the other two at one size.
+          fontSize: theme === 'cork' ? (isMobile ? 21 : 25) : isMobile ? 17 : 20,
+          fontFamily: conf.title,
+        }}
+      >
         {title}
       </h2>
       {body}
@@ -73,21 +83,19 @@ function AdminShell() {
     >
       <div
         style={{
-          maxWidth: 820,
+          // The same cap as Settings (#464, #467); 820px left a wide monitor mostly empty.
+          maxWidth: isMobile ? 640 : 1480,
           margin: '0 auto',
           display: 'flex',
           flexDirection: 'column',
-          gap: 16,
+          gap: isMobile ? 16 : 22,
         }}
       >
-        <header style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
-          <Link
-            to="/settings"
-            style={{ color: 'inherit', textDecoration: 'none', fontWeight: 700 }}
-          >
+        <header style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 12 : 18 }}>
+          <LinkButton to="/settings" size="sm">
             ← Settings
-          </Link>
-          <h1 style={{ fontFamily: conf.title, fontSize: isMobile ? 26 : 32, margin: 0 }}>Admin</h1>
+          </LinkButton>
+          <h1 style={{ fontFamily: conf.title, fontSize: isMobile ? 26 : 34, margin: 0 }}>Admin</h1>
         </header>
         <p style={{ margin: 0, fontSize: 13, opacity: 0.75 }}>
           Counts only. This page never shows what anyone has written in their Tasks.
@@ -207,16 +215,16 @@ function AccountsSection() {
     return (
       <p style={{ margin: 0 }}>
         No accounts on this page.{' '}
-        <button type="button" onClick={() => setPage(0)}>
+        <Button size="sm" onClick={() => setPage(0)}>
           First page
-        </button>
+        </Button>
       </p>
     )
   }
   const pages = Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE))
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <table style={{ borderCollapse: 'collapse', fontSize: 14 }}>
+      <table style={{ borderCollapse: 'collapse', fontSize: 14, width: '100%' }}>
         <thead>
           <tr>
             <th style={cell}>Email</th>
@@ -243,15 +251,15 @@ function AccountsSection() {
         </tbody>
       </table>
       <nav aria-label="Account pages" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button type="button" disabled={page === 0} onClick={() => setPage(page - 1)}>
+        <Button size="sm" disabled={page === 0} onClick={() => setPage(page - 1)}>
           Previous
-        </button>
+        </Button>
         <span>
           Page {page + 1} of {pages} · {total} accounts
         </span>
-        <button type="button" disabled={page + 1 >= pages} onClick={() => setPage(page + 1)}>
+        <Button size="sm" disabled={page + 1 >= pages} onClick={() => setPage(page + 1)}>
           Next
-        </button>
+        </Button>
       </nav>
     </div>
   )
@@ -268,7 +276,7 @@ function FlagsSection() {
     )
   }
   return (
-    <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 12 }}>
+    <ul style={rowListStyle(12)}>
       {flags.map((flag) => (
         <FlagRow key={flag.key} flag={flag} onSaved={() => void reload()} />
       ))}
@@ -277,6 +285,7 @@ function FlagsSection() {
 }
 
 function FlagRow({ flag, onSaved }: { flag: FeatureFlag; onSaved: () => void }) {
+  const isMobile = useIsMobile()
   const [description, setDescription] = useState(flag.description)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -294,31 +303,52 @@ function FlagRow({ flag, onSaved }: { flag: FeatureFlag; onSaved: () => void }) 
     onSaved()
   }
 
+  // One row on desktop: the toggle and key, then the description and its Save. A phone stacks the
+  // toggle above them. `minWidth: 0` lets the field shrink instead of pushing Save off the card.
   return (
     <li style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700 }}>
-        <input
-          type="checkbox"
-          checked={flag.enabled}
-          disabled={pending}
-          onChange={(e) => void save({ enabled: e.target.checked })}
-        />
-        <code>{flag.key}</code>
-      </label>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <input
-          aria-label={`Description for ${flag.key}`}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          style={{ fontSize: 16, padding: '6px 8px', flex: '1 1 240px' }}
-        />
-        <button
-          type="button"
-          disabled={pending || description === flag.description}
-          onClick={() => void save({ description })}
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          alignItems: isMobile ? 'stretch' : 'center',
+          gap: isMobile ? 6 : 14,
+        }}
+      >
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            fontWeight: 700,
+            flex: isMobile ? undefined : '0 0 220px',
+            minWidth: 0,
+            overflowWrap: 'anywhere',
+          }}
         >
-          Save description
-        </button>
+          <Checkbox
+            checked={flag.enabled}
+            disabled={pending}
+            onChange={(e) => void save({ enabled: e.target.checked })}
+          />
+          <code>{flag.key}</code>
+        </label>
+        <div style={{ display: 'flex', gap: 8, flex: 1, minWidth: 0 }}>
+          <TextInput
+            aria-label={`Description for ${flag.key}`}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            style={{ flex: 1, minWidth: 0 }}
+          />
+          <Button
+            size="sm"
+            disabled={pending || description === flag.description}
+            onClick={() => void save({ description })}
+            style={{ flexShrink: 0 }}
+          >
+            Save description
+          </Button>
+        </div>
       </div>
       {error && (
         <p role="alert" style={{ margin: 0 }}>

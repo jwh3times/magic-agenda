@@ -12,6 +12,31 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.15.26] - 2026-10-01
+
+### Changed
+
+- **Admin's buttons, fields, and links follow the theme (#467).** The feature-flag checkbox, the
+  flag description field and its "Save description" button, the account list's Previous, Next and
+  First page buttons, and the "← Settings" link were bare browser defaults. They now use the same
+  per-theme controls as Settings (v1.15.24).
+- **Admin uses the width of a wide screen.** The page was capped at 820px and now runs up to 1480px
+  on desktop, like Settings, so the account table spans its card. On desktop each feature flag sits
+  on one row: toggle and name, then the description and Save. Phones stack them, and a long
+  description can no longer push Save off the card.
+
+### Internal
+
+- A unit test fails if any Admin control renders without its themed style.
+
+## [1.15.25] - 2026-09-29
+
+### Internal
+
+- Dependabot: bumped the `npm-minor-and-patch` group — `@supabase/supabase-js` 2.117.1 → 2.117.2,
+  `@types/node` 26.6.2 → 26.6.3, and the Supabase CLI 2.117.0 → 2.118.0 (#466). Backfilled by this
+  release, per the changelog guard's Dependabot exemption.
+
 ## [1.15.24] - 2026-09-29
 
 ### Changed
@@ -4436,7 +4461,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.24...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.26...HEAD
+[1.15.26]: https://github.com/jwh3times/magic-agenda/compare/v1.15.25...v1.15.26
+[1.15.25]: https://github.com/jwh3times/magic-agenda/compare/v1.15.24...v1.15.25
 [1.15.24]: https://github.com/jwh3times/magic-agenda/compare/v1.15.23...v1.15.24
 [1.15.23]: https://github.com/jwh3times/magic-agenda/compare/v1.15.22...v1.15.23
 [1.15.22]: https://github.com/jwh3times/magic-agenda/compare/v1.15.21...v1.15.22

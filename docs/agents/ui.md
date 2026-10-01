@@ -171,6 +171,11 @@ the jump finished, so the nav highlighted the section after the one clicked. A n
 its choice until the smooth scroll it started has been quiet for 150ms. Otherwise a section the page
 cannot scroll to the top, anything near the bottom, would read as the last section.
 
+**`AdminPage` follows the same controls and width cap (#467).** It uses `Button`, `LinkButton`,
+`TextInput`, and `Checkbox`, the same `isMobile ? 640 : 1480` cap and heading sizes, and
+`rowListStyle(12)` for the feature-flag list (one row per flag on desktop, stacked on phones). It has
+only three sections, so it has no section nav.
+
 ## Keyboard shortcuts, the command palette, and quick-add
 
 #269 split this into layers with one job each, so every rule is testable without a DOM.
