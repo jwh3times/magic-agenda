@@ -176,6 +176,16 @@ cannot scroll to the top, anything near the bottom, would read as the last secti
 `rowListStyle(12)` for the feature-flag list (one row per flag on desktop, stacked on phones). It has
 only three sections, so it has no section nav.
 
+**Admin's 30-day history is two column charts (#468), `src/admin/DailyChart.tsx`, not a library.**
+New accounts and New Tasks are separate charts because their counts differ by orders of magnitude;
+never put them on one chart with a second axis. The columns are plain elements rather than SVG, so
+they share the card's width without stretching the 4px rounded bar tops, and the plot is
+`aria-hidden` behind a one-sentence summary, with the exact values in the "Show as table"
+disclosure. Bars use the per-theme **`chartMark`** token, which is held to 3:1 against the card
+(WCAG 1.4.11 for graphics) in `controls.test.ts`. It is its own token for the same reason as
+`dangerFg`: cork's `accent` is only 2.5:1 on its translucent card, so cork darkens the rust to
+`#8f3520`, while brutal and glass reuse their accents.
+
 ## Keyboard shortcuts, the command palette, and quick-add
 
 #269 split this into layers with one job each, so every rule is testable without a DOM.

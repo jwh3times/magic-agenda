@@ -12,6 +12,27 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.16.2] - 2026-10-01
+
+### Changed
+
+- **Admin charts its last 30 days (#468).** The Overview's daily history used to be a table hidden
+  behind a collapsed "Last 30 days (UTC)" disclosure. It is now two always-visible column charts,
+  **New accounts** and **New Tasks**, side by side on desktop and stacked on a phone, each with its
+  30-day total. They are two charts because the counts differ by orders of magnitude. Pointing at a
+  day shows its date and count. The exact numbers are still under **Show as table**, and each chart
+  gives screen readers a one-sentence summary instead of thirty bars.
+
+### Fixed
+
+- **Chart bars stand out from the card in every theme.** A new per-theme `chartMark` colour clears
+  3:1 against its card. Cork's accent reached only 2.5:1, so cork's bars use a darker rust; brutal
+  and glass use their accents.
+
+### Docs
+
+- `docs/agents/ui.md` describes the Admin charts and the `chartMark` token.
+
 ## [1.16.1] - 2026-10-01
 
 ### Changed
@@ -4522,7 +4543,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.16.1...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.16.2...HEAD
+[1.16.2]: https://github.com/jwh3times/magic-agenda/compare/v1.16.1...v1.16.2
 [1.16.1]: https://github.com/jwh3times/magic-agenda/compare/v1.16.0...v1.16.1
 [1.16.0]: https://github.com/jwh3times/magic-agenda/compare/v1.15.28...v1.16.0
 [1.15.28]: https://github.com/jwh3times/magic-agenda/compare/v1.15.27...v1.15.28
