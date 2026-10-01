@@ -14,6 +14,7 @@ import { insetPanelStyle, rowListStyle } from '../theme/controls'
 import { useSettingsContext } from '../data/SettingsProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { dateYmd } from '../lib/dates'
+import { DailyChart } from '../admin/DailyChart'
 import { useRole } from '../access/useRole'
 import { useFlags, type FeatureFlag } from '../access/useFlags'
 import {
@@ -164,6 +165,7 @@ const cell: CSSProperties = { padding: '4px 8px', textAlign: 'left', whiteSpace:
 const numeric: CSSProperties = { ...cell, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }
 
 function StatsSection({ onForbidden }: { onForbidden: () => void }) {
+  const isMobile = useIsMobile()
   const [result, setResult] = useState<AdminResult<AdminStats> | null>(null)
   useEffect(() => {
     let cancelled = false
@@ -204,8 +206,27 @@ function StatsSection({ onForbidden }: { onForbidden: () => void }) {
           </div>
         ))}
       </dl>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'repeat(2, minmax(0, 1fr))',
+          gap: isMobile ? 18 : 28,
+        }}
+      >
+        <DailyChart
+          title="New accounts"
+          points={stats.daily.map((d) => ({ day: d.day, count: d.newAccounts }))}
+        />
+        <DailyChart
+          title="New Tasks"
+          points={stats.daily.map((d) => ({ day: d.day, count: d.newTasks }))}
+        />
+      </div>
+      <p style={{ margin: 0, fontSize: 12, opacity: 0.7 }}>
+        Last 30 days, by UTC day. Point at a bar for its count.
+      </p>
       <details>
-        <summary style={{ cursor: 'pointer' }}>Last 30 days (UTC)</summary>
+        <summary style={{ cursor: 'pointer' }}>Show as table</summary>
         <table style={{ borderCollapse: 'collapse', marginTop: 8, fontSize: 14 }}>
           <thead>
             <tr>
