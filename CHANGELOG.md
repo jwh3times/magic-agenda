@@ -12,6 +12,17 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.15.28] - 2026-10-01
+
+### Changed
+
+- **Admin's account list fits a phone (#469).** On a phone, the seven-column account table used to
+  scroll sideways inside its card. Each account is now its own entry, with the email as its heading
+  followed by Joined, Last sign-in, Two-factor, Role, Boards, and Tasks. Desktop keeps the table,
+  and the page controls wrap instead of overflowing.
+- **Admin shows account dates in your timezone.** Joined and Last sign-in now show the day in your
+  Account Timezone instead of UTC, so a sign-in late in the evening no longer shows as the next day.
+
 ## [1.15.27] - 2026-10-01
 
 ### Changed
@@ -4471,7 +4482,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.27...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.28...HEAD
+[1.15.28]: https://github.com/jwh3times/magic-agenda/compare/v1.15.27...v1.15.28
 [1.15.27]: https://github.com/jwh3times/magic-agenda/compare/v1.15.26...v1.15.27
 [1.15.26]: https://github.com/jwh3times/magic-agenda/compare/v1.15.25...v1.15.26
 [1.15.25]: https://github.com/jwh3times/magic-agenda/compare/v1.15.24...v1.15.25
