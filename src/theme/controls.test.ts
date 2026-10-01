@@ -73,6 +73,10 @@ describe('control colours clear WCAG AA on a Settings card, in every theme', () 
       expect(contrast(over(conf.dangerFg, card), card)).toBeGreaterThanOrEqual(4.5)
     })
 
+    it(`${theme}: a chart mark stands out from the card (3:1, WCAG 1.4.11)`, () => {
+      expect(contrast(over(conf.chartMark, card), card)).toBeGreaterThanOrEqual(3)
+    })
+
     it(`${theme}: field text reads against the field`, () => {
       const style = fieldStyle(theme, conf)
       const background = over(String(style.background), card)

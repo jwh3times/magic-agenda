@@ -74,6 +74,13 @@ export interface ThemeConf {
    * white on `#b42318` is 6.6:1 whatever card is under it.
    */
   dangerFg: string
+  /**
+   * The fill of a data mark — a bar in Admin's 30-day history (#468) — on a card. A mark is a
+   * graphic, so it needs 3:1 against the card (WCAG 1.4.11), not text's 4.5:1. brutal and glass
+   * reuse their `accent`, at 4.8:1 and 3.7:1; cork's `#b8472e` is only 2.5:1 on its translucent
+   * card, so cork darkens the same rust to `#8f3520` (3.7:1). `controls.test.ts` holds all three.
+   */
+  chartMark: string
 }
 
 const CORK: ThemeConf = {
@@ -111,6 +118,7 @@ const CORK: ThemeConf = {
   focusRing: '#2f1d0c',
   focusRingInset: 3,
   dangerFg: '#7f1a10',
+  chartMark: '#8f3520',
 }
 
 const BRUTAL: ThemeConf = {
@@ -149,6 +157,7 @@ const BRUTAL: ThemeConf = {
   focusRing: '#111111',
   focusRingInset: 8,
   dangerFg: '#b42318',
+  chartMark: '#CD4128',
 }
 
 const GLASS: ThemeConf = {
@@ -186,6 +195,7 @@ const GLASS: ThemeConf = {
   focusRing: '#eaf0ff',
   focusRingInset: 4,
   dangerFg: '#ff8f85',
+  chartMark: '#7452ff',
 }
 
 const CONF: Record<ThemeName, ThemeConf> = { cork: CORK, brutal: BRUTAL, glass: GLASS }
