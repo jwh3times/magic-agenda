@@ -11,6 +11,7 @@ import { BoardsSection } from '../components/BoardsSection'
 import { DatesSection } from '../components/DatesSection'
 import { KeyboardSection } from '../components/KeyboardSection'
 import { NotificationsSection } from '../components/NotificationsSection'
+import { ProfileSection } from '../components/ProfileSection'
 import { LabelsSection } from '../components/LabelsSection'
 import { HistorySection } from '../components/HistorySection'
 import { TwoFactorSection } from '../components/TwoFactorSection'
@@ -43,6 +44,7 @@ export interface SettingsSection {
 }
 
 const SECTIONS: SettingsSection[] = [
+  { id: 'profile', title: 'Profile', render: () => <ProfileSection /> },
   { id: 'appearance', title: 'Appearance', render: (ctx) => <AppearanceSection {...ctx} /> },
   { id: 'dates', title: 'Dates', render: () => <DatesSection /> },
   { id: 'keyboard', title: 'Keyboard shortcuts', render: () => <KeyboardSection /> },

@@ -136,6 +136,7 @@ test('the settings sections sit in a main landmark that preserves their spacing'
 })
 
 const SECTION_TITLES = [
+  'Profile',
   'Appearance',
   'Dates',
   'Keyboard shortcuts',

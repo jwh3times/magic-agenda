@@ -26,6 +26,13 @@ is Series Content, so an Occurrence inherits it from its Series. It stays out of
 because a person means nothing on another Board.
 _Avoid_: owner, responsible, delegate
 
+**Display Name**:
+The one name an Account chooses for itself, shown to the members of every Board shared with it: in
+the Members list, on Tasks it is the Assignee of, and to Owners in Board Activity Records. It is
+optional; an Account without one shows as "Unnamed member". Only the Account itself can set it, in
+Settings → Profile.
+_Avoid_: username, nickname, handle
+
 **Scheduled Day**:
 The calendar day a Task is planned for, or absent while it is in the Inbox. It anchors the Task's
 Due Moment, is freely changed by rescheduling, and is never an identity.
