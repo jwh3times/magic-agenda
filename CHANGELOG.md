@@ -12,6 +12,30 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.16.0] - 2026-10-01
+
+### Added
+
+- **Set your Display Name in Settings → Profile (#475).** Nothing in the app could set a name before,
+  so every member of a shared Board, the Owner included, showed as "Unnamed member". A new Profile
+  section at the top of Settings has a **Display name** field. Members of Boards shared with you see
+  it in the Members list and on Tasks assigned to you, and Owners see it in board activity. A Board
+  picks up a new name the next time it loads. The name may be up to 80 characters, and clearing it
+  makes you "Unnamed member" again.
+
+### Security
+
+- An Account can change only its own name. The database's own-row policy and its grant on that one
+  column were already the boundary; a new RLS test now proves that another Account's name cannot be
+  changed, that a profile cannot be re-keyed, and that the 80-character limit holds in the
+  database, not only in the form.
+
+### Docs
+
+- `CONTEXT.md` defines **Display Name**, and `docs/agents/boards.md` records where it is written.
+  README no longer describes Shared Boards as rolling out behind a flag; the flag has been on for
+  everyone since 2026-09-29.
+
 ## [1.15.28] - 2026-10-01
 
 ### Changed
@@ -4482,7 +4506,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.28...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.16.0...HEAD
+[1.16.0]: https://github.com/jwh3times/magic-agenda/compare/v1.15.28...v1.16.0
 [1.15.28]: https://github.com/jwh3times/magic-agenda/compare/v1.15.27...v1.15.28
 [1.15.27]: https://github.com/jwh3times/magic-agenda/compare/v1.15.26...v1.15.27
 [1.15.26]: https://github.com/jwh3times/magic-agenda/compare/v1.15.25...v1.15.26

@@ -79,14 +79,15 @@ of three hand‑built themes.
   Rename a Board you own from Settings → Boards, or delete it there behind a
   type‑the‑Board's‑name confirmation — deletion destroys everything in it. Deleting your last Board
   is allowed; you land on a screen offering to create a new one.
-- **Shared Boards** (rolling out behind the `board-sharing` feature flag, #279) — an Owner invites
-  someone by email from Settings → Boards → Members and sends them the link themselves; it works
-  only for a signed-in account with that verified address, once, for 14 days. Owners change roles
+- **Shared Boards** (#279; the `board-sharing` flag has been on for everyone since 2026-09-29) — an
+  Owner invites someone by email from Settings → Boards → Members and sends them the link
+  themselves; it works only for a signed-in account with that verified address, once, for 14 days. Owners change roles
   (Owner, Editor, Viewer) and remove members, and anyone can leave; a Board always keeps an Owner,
   and removal reaches an open tab within seconds. Tasks can be assigned to a member, with an
   "Assigned to me" filter, and reminders on a shared Board go to the Assignee. Every member can
   export, and each export is recorded for the Owners. Two people editing the same Task or Series at
-  once get a conflict screen instead of silently overwriting each other.
+  once get a conflict screen instead of silently overwriting each other. Members see each other by
+  the Display Name each sets in Settings → Profile.
 - **Calendar feed** — subscribe to a Board from Google Calendar, Apple Calendar, or Outlook with a
   read‑only iCalendar link from Settings → Boards → Calendar feed, available to every role including
   Viewer. The link is a capability — anyone holding it can read the board's scheduled tasks without

@@ -132,6 +132,49 @@ test('a member may change their own default_view but not their own role', async 
   expect(unchanged?.role).toBe('owner')
 })
 
+test('an account may rename itself but never another account (#475)', async () => {
+  // Settings → Profile writes `account_profiles.display_name` straight through the Data API, so the
+  // own-row UPDATE policy and the `display_name`-only column grant are the whole boundary.
+  const own = await alice.client
+    .from('account_profiles')
+    .update({ display_name: 'Alice A.' })
+    .eq('account_id', alice.id)
+    .select('display_name')
+  expect(own.error).toBeNull()
+  expect(own.data).toEqual([{ display_name: 'Alice A.' }])
+
+  // RLS filters rather than errors: the attempt matches no row, and Alice's name is untouched.
+  const other = await bob.client
+    .from('account_profiles')
+    .update({ display_name: 'Hijacked' })
+    .eq('account_id', alice.id)
+    .select('display_name')
+  expect(other.error).toBeNull()
+  expect(other.data).toEqual([])
+
+  // The grant covers `display_name` alone, so even an account's own row cannot be re-keyed.
+  const rekey = await bob.client
+    .from('account_profiles')
+    .update({ account_id: alice.id })
+    .eq('account_id', bob.id)
+  expect(rekey.error?.code).toBe('42501')
+
+  // Over the CHECK's 80 code points is refused by the database, not only by the client.
+  const tooLong = await alice.client
+    .from('account_profiles')
+    .update({ display_name: 'x'.repeat(81) })
+    .eq('account_id', alice.id)
+  expect(tooLong.error?.code).toBe('23514')
+
+  const stored = await withPg((pg) =>
+    pg.query<{ display_name: string }>(
+      'select display_name from public.account_profiles where account_id = $1',
+      [alice.id],
+    ),
+  )
+  expect(stored.rows[0].display_name).toBe('Alice A.')
+})
+
 test('a member cannot create boards or memberships directly', async () => {
   // Board lifecycle and membership administration are command-owned. No INSERT grant exists for
   // either table, so these fail on privilege before any policy is consulted.
