@@ -81,9 +81,46 @@ export function blobStyles(): CSSProperties[] {
   ]
 }
 
+/**
+ * One height for every control on the toolbar (#483). Settings, New task, and Sign out sit side by
+ * side and used to be three heights: `todayBtn` and `addBtn` had different padding and font sizes,
+ * and the ⚙ glyph made a third box. A fixed height with border-box sizing keeps them level whatever
+ * their text, font, or border.
+ */
+export const TOOLBAR_CONTROL_HEIGHT = 34
+
+/** A secondary control's fill: a light wash over the toolbar, the same in every theme. */
+export const TOOLBAR_CONTROL_FILL = 'rgba(255,255,255,.12)'
+
+/** A downward chevron for the toolbar's select, in the toolbar's own text colour. */
+function chevron(color: string): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`
+}
+
 export function toolbarChrome(theme: ThemeName, conf: ThemeConf) {
   const glass = theme === 'glass'
-  const brutal = theme === 'brutal'
+  const control: CSSProperties = {
+    boxSizing: 'border-box',
+    height: `${TOOLBAR_CONTROL_HEIGHT}px`,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontFamily: conf.ui,
+    fontSize: '13px',
+    fontWeight: 700,
+    lineHeight: 1,
+    whiteSpace: 'nowrap',
+  }
+  const secondary: CSSProperties = {
+    ...control,
+    padding: '0 14px',
+    background: TOOLBAR_CONTROL_FILL,
+    color: conf.toolbarFg,
+  }
   return {
     toolbar: {
       display: 'flex',
@@ -101,19 +138,12 @@ export function toolbarChrome(theme: ThemeName, conf: ThemeConf) {
       flexWrap: 'wrap',
     },
     navGroup: { display: 'flex', alignItems: 'center', gap: '8px' },
+    /** ‹ and ›: a square of the shared height. */
     navBtn: {
-      width: '30px',
-      height: '30px',
-      display: 'grid',
-      placeItems: 'center',
-      border: 'none',
-      borderRadius: '8px',
-      cursor: 'pointer',
+      ...secondary,
+      width: `${TOOLBAR_CONTROL_HEIGHT}px`,
+      padding: 0,
       fontSize: '18px',
-      lineHeight: 1,
-      background: 'rgba(255,255,255,.12)',
-      color: conf.toolbarFg,
-      fontFamily: conf.ui,
     },
     monthLabel: {
       fontFamily: conf.ui,
@@ -123,30 +153,65 @@ export function toolbarChrome(theme: ThemeName, conf: ThemeConf) {
       textAlign: 'center',
       color: conf.toolbarFg,
     },
-    todayBtn: {
-      marginLeft: '4px',
-      padding: '7px 13px',
-      border: 'none',
-      borderRadius: '8px',
-      cursor: 'pointer',
-      fontSize: '12.5px',
-      fontWeight: 700,
-      fontFamily: conf.ui,
-      background: 'rgba(255,255,255,.12)',
-      color: conf.toolbarFg,
+    /** Today, Sign out: text buttons on the toolbar's wash. */
+    todayBtn: secondary,
+    /** Settings (⚙): a square of the shared height, so the glyph cannot set its own size. */
+    iconBtn: {
+      ...secondary,
+      width: `${TOOLBAR_CONTROL_HEIGHT}px`,
+      padding: 0,
+      fontSize: '16px',
     },
+    /**
+     * New task: primary by colour alone. Brutal used to add a 2.5px #111 border and offset shadow,
+     * which on its #111 toolbar showed nothing and only made the button taller than its neighbours.
+     */
     addBtn: {
-      padding: '9px 16px',
-      border: brutal ? '2.5px solid #111' : 'none',
-      borderRadius: '9px',
-      cursor: 'pointer',
-      fontSize: '13px',
+      ...control,
+      padding: '0 16px',
       fontWeight: 800,
-      fontFamily: conf.ui,
       background: conf.accent,
       color: conf.accentFg,
-      boxShadow: brutal ? '3px 3px 0 #111' : '0 4px 14px rgba(0,0,0,.18)',
-      whiteSpace: 'nowrap',
+      // A soft lift where the toolbar has room to show it; brutal's would be #111 on #111.
+      boxShadow: theme === 'brutal' ? 'none' : '0 4px 14px rgba(0,0,0,.18)',
+    },
+    /**
+     * The Board select and the new-board name (#483). A native control, so keyboard and screen
+     * reader behaviour is the browser's, but drawn as part of the toolbar. 16px text so iOS Safari
+     * does not zoom on focus. Every toolbar is dark, so `colorScheme: 'dark'` gives the native
+     * option list light-on-dark text in every theme instead of light text on a white popup.
+     */
+    field: {
+      ...control,
+      justifyContent: 'flex-start',
+      cursor: 'auto',
+      fontSize: '16px',
+      fontWeight: 600,
+      padding: '0 10px',
+      background: TOOLBAR_CONTROL_FILL,
+      color: conf.toolbarFg,
+      colorScheme: 'dark',
+      minWidth: 0,
+    },
+    select: {
+      ...control,
+      justifyContent: 'flex-start',
+      fontSize: '16px',
+      fontWeight: 600,
+      padding: '0 26px 0 10px',
+      background: `${chevron(conf.toolbarFg)} no-repeat right 9px center / 10px 6px, ${TOOLBAR_CONTROL_FILL}`,
+      color: conf.toolbarFg,
+      colorScheme: 'dark',
+      appearance: 'none',
+      WebkitAppearance: 'none',
+      textOverflow: 'ellipsis',
+      overflow: 'hidden',
+      minWidth: 0,
+    },
+    /** An option in the select's list: a solid background, since the toolbar's may be translucent. */
+    option: {
+      background: glass ? conf.pageBg : conf.toolbarBg,
+      color: conf.toolbarFg,
     },
   } satisfies Record<string, CSSProperties>
 }

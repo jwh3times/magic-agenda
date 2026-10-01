@@ -90,7 +90,7 @@ export function Toolbar({
               onClick={onOpenSettings}
               aria-label="Settings"
               title="Settings"
-              style={{ ...c.todayBtn, flex: 'none' }}
+              style={{ ...c.iconBtn, flex: 'none' }}
             >
               ⚙
             </button>
@@ -99,7 +99,7 @@ export function Toolbar({
             <button
               type="button"
               onClick={onSignOut}
-              style={{ ...c.todayBtn, flex: 'none', whiteSpace: 'nowrap' }}
+              style={{ ...c.todayBtn, flex: 'none' }}
               title="Sign out"
             >
               Sign out
@@ -166,7 +166,7 @@ export function Toolbar({
             onClick={onOpenSettings}
             aria-label="Settings"
             title="Settings"
-            style={c.todayBtn}
+            style={c.iconBtn}
           >
             ⚙
           </button>

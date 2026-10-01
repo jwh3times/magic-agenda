@@ -1,5 +1,6 @@
-import { useState, type CSSProperties } from 'react'
+import { useState } from 'react'
 import { useOptionalBoardDirectory } from '../board/boardDirectoryContext'
+import { toolbarChrome } from '../theme/chrome'
 import { useTheme } from '../theme/ThemeProvider'
 
 /**
@@ -25,7 +26,8 @@ const MAX_NAME = 120
  */
 export function BoardSwitcher() {
   const directory = useOptionalBoardDirectory()
-  const { conf } = useTheme()
+  const { theme, conf } = useTheme()
+  const [focused, setFocused] = useState(false)
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
@@ -35,14 +37,9 @@ export function BoardSwitcher() {
   const { boards, selectedBoardId, selectBoard, createBoard } = directory
   if (boards.length === 0) return null
 
-  const control: CSSProperties = {
-    // ≥16px so iOS Safari does not zoom the page when the input takes focus.
-    fontSize: 16,
-    fontFamily: conf.ui,
-    padding: '6px 8px',
-    maxWidth: 190,
-    minWidth: 0,
-  }
+  // Toolbar-drawn rather than browser-default (#483); the styles keep 16px text, so iOS Safari
+  // does not zoom the page when either control takes focus.
+  const c = toolbarChrome(theme, conf)
 
   const cancel = () => {
     setCreating(false)
@@ -74,17 +71,35 @@ export function BoardSwitcher() {
           placeholder="Board name"
           autoFocus
           disabled={busy}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') void submit()
             if (e.key === 'Escape') cancel()
           }}
-          style={control}
+          style={{
+            ...c.field,
+            minWidth: 72,
+            maxWidth: 190,
+            // index.css removes the outline from focused inputs, so the field draws its own ring.
+            boxShadow: focused ? `0 0 0 2px ${conf.toolbarFg}` : 'none',
+          }}
         />
-        <button type="button" onClick={() => void submit()} disabled={busy}>
+        <button
+          type="button"
+          onClick={() => void submit()}
+          disabled={busy}
+          style={{ ...c.addBtn, flex: 'none' }}
+        >
           Create
         </button>
-        <button type="button" onClick={cancel} disabled={busy}>
+        <button
+          type="button"
+          onClick={cancel}
+          disabled={busy}
+          style={{ ...c.todayBtn, flex: 'none' }}
+        >
           Cancel
         </button>
         {error && (
@@ -108,14 +123,16 @@ export function BoardSwitcher() {
         }
         selectBoard(e.target.value)
       }}
-      style={control}
+      style={{ ...c.select, minWidth: 72, maxWidth: 190 }}
     >
       {boards.map((board) => (
-        <option key={board.id} value={board.id}>
+        <option key={board.id} value={board.id} style={c.option}>
           {board.name}
         </option>
       ))}
-      <option value={NEW_BOARD}>+ New board…</option>
+      <option value={NEW_BOARD} style={c.option}>
+        + New board…
+      </option>
     </select>
   )
 }

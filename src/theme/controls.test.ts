@@ -9,6 +9,7 @@ import {
   type ButtonVariant,
 } from './controls'
 import { themeConf } from './themeConf'
+import { TOOLBAR_CONTROL_FILL, TOOLBAR_CONTROL_HEIGHT, toolbarChrome } from './chrome'
 
 const THEMES: ThemeName[] = ['cork', 'brutal', 'glass']
 const VARIANTS: ButtonVariant[] = ['primary', 'secondary', 'danger', 'destructive']
@@ -144,4 +145,56 @@ describe('navItemStyle', () => {
       expect(navItemStyle(theme, conf, true).fontWeight).toBe(700)
     }
   })
+})
+
+// The toolbar is not a card: every theme draws it dark, and glass's is translucent over its page.
+describe('toolbar controls (#483)', () => {
+  for (const theme of THEMES) {
+    const conf = themeConf(theme)
+    const c = toolbarChrome(theme, conf)
+    const toolbar = over(conf.toolbarBg, parse(conf.pageBg)[0])
+    const wash = over(TOOLBAR_CONTROL_FILL, toolbar)
+
+    it(`${theme}: Settings, New task, Sign out, Today, and the arrows are one height`, () => {
+      for (const [name, style] of Object.entries({
+        settings: c.iconBtn,
+        newTask: c.addBtn,
+        signOut: c.todayBtn,
+        today: c.todayBtn,
+        arrow: c.navBtn,
+        select: c.select,
+        field: c.field,
+      })) {
+        expect({ name, height: style.height, boxSizing: style.boxSizing }).toEqual({
+          name,
+          height: `${TOOLBAR_CONTROL_HEIGHT}px`,
+          boxSizing: 'border-box',
+        })
+      }
+      // A border or margin on one of them is how the row drifted apart before.
+      for (const style of [c.iconBtn, c.addBtn, c.todayBtn]) {
+        expect(style.border).toBe('none')
+        expect('marginLeft' in style).toBe(false)
+      }
+      expect(c.addBtn.fontSize).toBe(c.todayBtn.fontSize)
+      expect(c.iconBtn.width).toBe(c.iconBtn.height)
+    })
+
+    it(`${theme}: text on the toolbar's controls reads at AA`, () => {
+      expect(contrast(over(conf.toolbarFg, wash), wash)).toBeGreaterThanOrEqual(4.5)
+      const accent = over(conf.accent, toolbar)
+      expect(contrast(over(conf.accentFg, accent), accent)).toBeGreaterThanOrEqual(4.5)
+      const option = over(String(c.option.background), toolbar)
+      expect(contrast(over(String(c.option.color), option), option)).toBeGreaterThanOrEqual(4.5)
+    })
+
+    it(`${theme}: the select is a native control drawn for a dark toolbar`, () => {
+      expect(c.select.appearance).toBe('none')
+      expect(c.select.colorScheme).toBe('dark')
+      // ≥16px, or iOS Safari zooms the page when the control takes focus.
+      expect(c.select.fontSize).toBe('16px')
+      expect(c.field.fontSize).toBe('16px')
+      expect(String(c.select.background)).toContain(encodeURIComponent(conf.toolbarFg))
+    })
+  }
 })
