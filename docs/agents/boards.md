@@ -246,7 +246,8 @@ row). It drops a role it does not recognize rather than defaulting it, and it is
 snapshotted: a stale list of who can read a Board is worse than none.
 `fakeListBoardMembers` applies the same email rule for tests of callers.
 
-**The Display Name is written from Settings → Profile (#475), through `src/data/accountProfile.ts`.**
+**The Display Name is written from Settings → Profile (#475) and from `/invite` (#476), both through
+`src/data/accountProfile.ts`.**
 That module is the only client code that touches `account_profiles`: it reads and updates the
 caller's own row, which the own-row UPDATE policy and the `display_name`-only column grant already
 confine. The schema had both since the Board foundation, but no client path wrote the column, so
@@ -254,6 +255,12 @@ every member of a shared Board read as "Unnamed member" until #475. A name is tr
 80 code points to match the `char_length` CHECK. An UPDATE that matches no row counts as a failure,
 because PostgREST reports a write that RLS filtered out as zero rows rather than an error. Nothing
 caches the name: `board_members()` reads it live, so a Board picks up a rename on its next load.
+
+`InvitePage` asks only an Account whose stored name is empty, and the field is optional. It saves
+the name **before** `accept_invitation`, so the member is never listed unnamed and the Owner's
+records of the join carry it; a failed save stops the join rather than joining unnamed behind the
+user's back. A name it cannot read skips the prompt, because the prompt is a courtesy and must
+never block joining.
 
 ## Membership administration is three commands under the Board row lock (#438)
 

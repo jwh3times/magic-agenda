@@ -12,6 +12,22 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.16.1] - 2026-10-01
+
+### Changed
+
+- **Name yourself when you accept a Board Invitation (#476).** Someone joining a shared Board used to
+  arrive as "Unnamed member" until they found Settings → Profile. If your Account has no name yet,
+  the invitation page now offers an optional **Your name** field above **Join**. The name is saved
+  before you join, so the Board's members never see you unnamed. If it cannot be saved, you are
+  told and not joined, and you can fix it or leave the field blank. A blank field joins exactly as
+  before, and an Account that already has a name is shown it instead of being asked again.
+
+### Docs
+
+- `CONTEXT.md`, `README.md`, and `docs/agents/boards.md` say where a Display Name can be set,
+  and why the invitation page saves it before accepting.
+
 ## [1.16.0] - 2026-10-01
 
 ### Added
@@ -4506,7 +4522,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.16.0...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.16.1...HEAD
+[1.16.1]: https://github.com/jwh3times/magic-agenda/compare/v1.16.0...v1.16.1
 [1.16.0]: https://github.com/jwh3times/magic-agenda/compare/v1.15.28...v1.16.0
 [1.15.28]: https://github.com/jwh3times/magic-agenda/compare/v1.15.27...v1.15.28
 [1.15.27]: https://github.com/jwh3times/magic-agenda/compare/v1.15.26...v1.15.27

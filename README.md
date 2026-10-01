@@ -87,7 +87,7 @@ of three hand‑built themes.
   "Assigned to me" filter, and reminders on a shared Board go to the Assignee. Every member can
   export, and each export is recorded for the Owners. Two people editing the same Task or Series at
   once get a conflict screen instead of silently overwriting each other. Members see each other by
-  the Display Name each sets in Settings → Profile.
+  the Display Name each sets in Settings → Profile, or when accepting an invitation.
 - **Calendar feed** — subscribe to a Board from Google Calendar, Apple Calendar, or Outlook with a
   read‑only iCalendar link from Settings → Boards → Calendar feed, available to every role including
   Viewer. The link is a capability — anyone holding it can read the board's scheduled tasks without

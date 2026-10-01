@@ -6,6 +6,13 @@ import { useBoardDirectoryContext } from '../board/BoardDirectoryProvider'
 import { ROLE_LABELS } from '../board/role'
 import { Spinner } from '../components/Spinner'
 import {
+  DISPLAY_NAME_MAX,
+  displayNameError,
+  loadDisplayName,
+  normalizeDisplayName,
+  saveDisplayName,
+} from '../data/accountProfile'
+import {
   FINAL_FOR_INVITEE,
   acceptInvitation,
   declineInvitation,
@@ -18,7 +25,7 @@ import {
   clearPendingInvitation,
   readPendingInvitation,
 } from '../invite/pendingInvitation'
-import { authCard, authLogo, authPage, authSubmit } from './authChrome'
+import { authCard, authField, authLogo, authPage, authSubmit } from './authChrome'
 import logoDark from '../assets/logo-dark.svg'
 
 const body = { margin: '0 0 14px', fontSize: 14, lineHeight: 1.5 } as const
@@ -92,8 +99,33 @@ export function InvitePage() {
   return <SignedInInvitation token={token} />
 }
 
+/**
+ * The invitee's stored Display Name, or `undefined` while loading. A failed read is `null`: the
+ * name prompt is a courtesy, so not knowing the name skips it rather than blocking the join.
+ */
+function useOwnDisplayName(accountId: string | null): string | null | undefined {
+  const [name, setName] = useState<{ accountId: string | null; value: string | null }>()
+  useEffect(() => {
+    if (!accountId) return
+    let current = true
+    void loadDisplayName(accountId).then((result) => {
+      if (current) setName({ accountId, value: result.ok ? result.data : null })
+    })
+    return () => {
+      current = false
+    }
+  }, [accountId])
+  if (!accountId) return null
+  return name?.accountId === accountId ? name.value : undefined
+}
+
 function SignedInInvitation({ token }: { token: string }) {
   const navigate = useNavigate()
+  const accountId = useAuth().user?.id ?? null
+  const storedName = useOwnDisplayName(accountId)
+  // Set once a name typed here has been saved, so a retried join neither asks nor saves again.
+  const [savedName, setSavedName] = useState<string | null>(null)
+  const [nameDraft, setNameDraft] = useState('')
   const { reload, selectBoard } = useBoardDirectoryContext()
   const [preview, setPreview] = useState<InvitationOutcome<InvitationPreview> | null>(null)
   const [busy, setBusy] = useState(false)
@@ -111,9 +143,25 @@ function SignedInInvitation({ token }: { token: string }) {
     }
   }, [token])
 
+  const currentName = savedName ?? storedName
+  // Ask only an Account known to have no name (#476). It is optional and never blocks joining.
+  const askForName = currentName === ''
+  const nameInvalid = askForName ? displayNameError(normalizeDisplayName(nameDraft)) : null
+
   const accept = async () => {
     setBusy(true)
     setFailure(null)
+    // The name is saved FIRST, so the new member is never listed unnamed and the Owner's records
+    // of the join carry it. A failed save stops the join: the user can fix it or clear the field.
+    if (askForName && accountId && normalizeDisplayName(nameDraft)) {
+      const saved = await saveDisplayName(accountId, nameDraft)
+      if (!saved.ok) {
+        setFailure(`Your name was not saved, so you have not joined yet. ${saved.message}`)
+        setBusy(false)
+        return
+      }
+      setSavedName(saved.data)
+    }
     const outcome = await acceptInvitation(token)
     if (!outcome.ok) {
       if (FINAL_FOR_INVITEE.has(outcome.reason)) clearPendingInvitation()
@@ -146,7 +194,7 @@ function SignedInInvitation({ token }: { token: string }) {
     void navigate('/', { replace: true })
   }
 
-  if (preview === null) return <Spinner label="Opening invitation…" />
+  if (preview === null || storedName === undefined) return <Spinner label="Opening invitation…" />
 
   if (!preview.ok) {
     return (
@@ -173,13 +221,51 @@ function SignedInInvitation({ token }: { token: string }) {
         Accepting gives you access to everything on this board, including attached files, and shows
         your name to its other members.
       </p>
+      {askForName ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, margin: '0 0 14px' }}>
+          <label htmlFor="invite-display-name" style={{ fontSize: 14, fontWeight: 700 }}>
+            Your name <span style={{ fontWeight: 400, opacity: 0.75 }}>(optional)</span>
+          </label>
+          <input
+            id="invite-display-name"
+            value={nameDraft}
+            autoComplete="name"
+            disabled={busy}
+            aria-invalid={nameInvalid ? true : undefined}
+            aria-describedby="invite-display-name-hint"
+            onChange={(e) => setNameDraft(e.target.value)}
+            style={authField}
+          />
+          <span id="invite-display-name-hint" style={{ fontSize: 13, opacity: 0.75 }}>
+            What the board&rsquo;s members see instead of &ldquo;Unnamed member&rdquo;. Up to{' '}
+            {DISPLAY_NAME_MAX} characters; you can change it later in Settings → Profile.
+          </span>
+          {nameInvalid && (
+            <span role="alert" style={{ fontSize: 13, color: '#fca5a5' }}>
+              {nameInvalid}
+            </span>
+          )}
+        </div>
+      ) : (
+        currentName && (
+          <p style={{ ...body, opacity: 0.8 }}>
+            Members will see you as <strong>{currentName}</strong>. You can change it in Settings →
+            Profile.
+          </p>
+        )
+      )}
       {failure && (
         <p role="alert" style={{ ...body, color: '#fca5a5' }}>
           {failure}
         </p>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <button type="button" style={authSubmit} disabled={busy} onClick={() => void accept()}>
+        <button
+          type="button"
+          style={authSubmit}
+          disabled={busy || !!nameInvalid}
+          onClick={() => void accept()}
+        >
           {busy ? 'Joining…' : `Join ${boardName}`}
         </button>
         <button type="button" disabled={busy} onClick={() => void decline()}>

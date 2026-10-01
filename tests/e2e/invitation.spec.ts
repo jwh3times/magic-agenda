@@ -7,7 +7,7 @@ import { testBoardId, testClient } from './fixtures/supabase'
  *
  * Covers what only a browser can: the blocking bootstrap scrubbing `?token=` before the app loads,
  * the token surviving a sign-in that happens on another page, the post-sign-in resume from `/`,
- * and acceptance joining the Board.
+ * acceptance joining the Board, and (#476) an unnamed invitee naming themselves on the way in.
  *
  * **Sign-up itself is not driven here, and cannot be on this stack.** The isolated stack runs
  * production's `supabase/config.toml`, whose SMTP points at `smtp.resend.com` with a dummy key,
@@ -46,6 +46,20 @@ test.describe('Board invitation', () => {
     const invitee = createClient(required('E2E_SUPABASE_URL'), required('E2E_SUPABASE_ANON_KEY'), {
       auth: { persistSession: false, autoRefreshToken: false },
     })
+    const signIn = await invitee.auth.signInWithPassword({
+      email: inviteeEmail,
+      password: inviteePassword,
+      options: { captchaToken: 'XXXX.DUMMY.TOKEN.XXXX' },
+    })
+    expect(signIn.error).toBeNull()
+    const inviteeId = signIn.data.user?.id
+    if (!inviteeId) throw new Error('the invitee has no account id')
+    // The name prompt appears only for an unnamed Account, so a retried run starts unnamed too.
+    const unnamed = await invitee
+      .from('account_profiles')
+      .update({ display_name: '' })
+      .eq('account_id', inviteeId)
+    expect(unnamed.error).toBeNull()
     try {
       await page.goto(`/invite?token=${token}`)
       // Scrubbed before the app ran: the token is gone from the address bar.
@@ -62,24 +76,33 @@ test.describe('Board invitation', () => {
       // Sign-in lands on `/`, which resumes the held invitation.
       await expect(page).toHaveURL(/\/invite$/, { timeout: 30_000 })
       await expect(page.getByTestId('invitation-consent')).toContainText('attached files')
+      await page.getByRole('textbox', { name: /Your name/ }).fill('Ivy Invitee')
       await page.getByRole('button', { name: /^Join / }).click()
       await expect(page).toHaveURL(/\/$/, { timeout: 30_000 })
 
-      const signIn = await invitee.auth.signInWithPassword({
-        email: inviteeEmail,
-        password: inviteePassword,
-        options: { captchaToken: 'XXXX.DUMMY.TOKEN.XXXX' },
-      })
-      expect(signIn.error).toBeNull()
       const { data: joined } = await invitee
         .from('board_memberships')
         .select('role')
         .eq('board_id', boardId)
         .is('ended_at', null)
       expect(joined).toEqual([{ role: 'viewer' }])
+
+      // The Owner's member list names the new member with what they typed on the way in.
+      const members = await owner.rpc('board_members', { p_board_id: boardId })
+      expect(members.error).toBeNull()
+      const rows: unknown = members.data
+      if (!Array.isArray(rows)) throw new Error('board_members returned no rows')
+      const joinedRow = (rows as { account_id: string; display_name: string }[]).find(
+        (row) => row.account_id === inviteeId,
+      )
+      expect(joinedRow?.display_name).toBe('Ivy Invitee')
     } finally {
       // Leave the shared Board so the main account's other specs see it as before.
       await invitee.rpc('leave_board', { p_board_id: boardId })
+      await invitee
+        .from('account_profiles')
+        .update({ display_name: '' })
+        .eq('account_id', inviteeId)
     }
   })
 })
