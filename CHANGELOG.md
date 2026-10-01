@@ -12,6 +12,16 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.15.27] - 2026-10-01
+
+### Changed
+
+- **Admin explains a missing two-factor session once (#470).** An admin without a qualifying
+  two-factor session is refused by both the Overview and the Accounts data, and the same long
+  message used to appear in each section. It now appears once, above the sections, with an
+  "Open Settings" button, and the refused sections just point to it. A section that fails for any
+  other reason still shows its own error, and a refused flag change keeps its own message.
+
 ## [1.15.26] - 2026-10-01
 
 ### Changed
@@ -4461,7 +4471,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.26...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.15.27...HEAD
+[1.15.27]: https://github.com/jwh3times/magic-agenda/compare/v1.15.26...v1.15.27
 [1.15.26]: https://github.com/jwh3times/magic-agenda/compare/v1.15.25...v1.15.26
 [1.15.25]: https://github.com/jwh3times/magic-agenda/compare/v1.15.24...v1.15.25
 [1.15.24]: https://github.com/jwh3times/magic-agenda/compare/v1.15.23...v1.15.24

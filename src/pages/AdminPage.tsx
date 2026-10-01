@@ -1,9 +1,9 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { Navigate } from 'react-router'
 import { ThemeProvider, useTheme } from '../theme/ThemeProvider'
 import { Spinner } from '../components/Spinner'
 import { Button, Checkbox, LinkButton, TextInput } from '../components/controls'
-import { rowListStyle } from '../theme/controls'
+import { insetPanelStyle, rowListStyle } from '../theme/controls'
 import { useSettingsContext } from '../data/SettingsProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { useRole } from '../access/useRole'
@@ -45,6 +45,10 @@ export function AdminPage() {
 function AdminShell() {
   const { theme, conf } = useTheme()
   const isMobile = useIsMobile()
+  // Both aggregate RPCs refuse for the same reason, so the refusal is stated once for the page
+  // (#470) rather than once per section, which read as several failures instead of one missing step.
+  const [forbidden, setForbidden] = useState(false)
+  const onForbidden = useCallback(() => setForbidden(true), [])
   const card: CSSProperties = {
     background: conf.cellBg,
     border: conf.cellBorder,
@@ -100,9 +104,26 @@ function AdminShell() {
         <p style={{ margin: 0, fontSize: 13, opacity: 0.75 }}>
           Counts only. This page never shows what anyone has written in their Tasks.
         </p>
+        {forbidden && (
+          <div
+            role="alert"
+            style={{
+              ...insetPanelStyle(theme),
+              display: 'flex',
+              flexDirection: isMobile ? 'column' : 'row',
+              alignItems: isMobile ? 'flex-start' : 'center',
+              gap: 12,
+            }}
+          >
+            <p style={{ margin: 0, flex: 1 }}>{FORBIDDEN_MESSAGE}</p>
+            <LinkButton to="/settings" size="sm" variant="primary" style={{ flexShrink: 0 }}>
+              Open Settings
+            </LinkButton>
+          </div>
+        )}
         <main style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {section('overview', 'Overview', <StatsSection />)}
-          {section('accounts', 'Accounts', <AccountsSection />)}
+          {section('overview', 'Overview', <StatsSection onForbidden={onForbidden} />)}
+          {section('accounts', 'Accounts', <AccountsSection onForbidden={onForbidden} />)}
           {section('flags', 'Feature flags', <FlagsSection />)}
         </main>
       </div>
@@ -110,12 +131,23 @@ function AdminShell() {
   )
 }
 
+/** Reports a `forbidden` result to the page-level notice; any other result passes through. */
+function reportForbidden<T>(result: AdminResult<T>, onForbidden: () => void): AdminResult<T> {
+  if (!result.ok && result.reason === 'forbidden') onForbidden()
+  return result
+}
+
+/**
+ * A section's own failure. A `forbidden` refusal is explained once by the page-level notice, so the
+ * section only points at it; any other failure is this section's alone and says so here.
+ */
 function Refusal({ result }: { result: Extract<AdminResult<unknown>, { ok: false }> }) {
+  if (result.reason === 'forbidden') {
+    return <p style={{ margin: 0, opacity: 0.75 }}>Unavailable — see the notice above.</p>
+  }
   return (
     <p role="alert" style={{ margin: 0 }}>
-      {result.reason === 'forbidden'
-        ? FORBIDDEN_MESSAGE
-        : `Could not load this section: ${result.message}`}
+      Could not load this section: {result.message}
     </p>
   )
 }
@@ -123,17 +155,17 @@ function Refusal({ result }: { result: Extract<AdminResult<unknown>, { ok: false
 const cell: CSSProperties = { padding: '4px 8px', textAlign: 'left', whiteSpace: 'nowrap' }
 const numeric: CSSProperties = { ...cell, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }
 
-function StatsSection() {
+function StatsSection({ onForbidden }: { onForbidden: () => void }) {
   const [result, setResult] = useState<AdminResult<AdminStats> | null>(null)
   useEffect(() => {
     let cancelled = false
     void loadAdminStats().then((next) => {
-      if (!cancelled) setResult(next)
+      if (!cancelled) setResult(reportForbidden(next, onForbidden))
     })
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [onForbidden])
 
   if (!result) return <Spinner label="Loading statistics…" />
   if (!result.ok) return <Refusal result={result} />
@@ -191,7 +223,7 @@ function StatsSection() {
 
 const utcDay = (instant: string | null) => (instant ? instant.slice(0, 10) : 'Never')
 
-function AccountsSection() {
+function AccountsSection({ onForbidden }: { onForbidden: () => void }) {
   const [page, setPage] = useState(0)
   const [loaded, setLoaded] = useState<{
     page: number
@@ -200,12 +232,12 @@ function AccountsSection() {
   useEffect(() => {
     let cancelled = false
     void loadAdminUsers(page, ADMIN_PAGE_SIZE).then((result) => {
-      if (!cancelled) setLoaded({ page, result })
+      if (!cancelled) setLoaded({ page, result: reportForbidden(result, onForbidden) })
     })
     return () => {
       cancelled = true
     }
-  }, [page])
+  }, [page, onForbidden])
 
   if (!loaded || loaded.page !== page) return <Spinner label="Loading accounts…" />
   if (!loaded.result.ok) return <Refusal result={loaded.result} />
