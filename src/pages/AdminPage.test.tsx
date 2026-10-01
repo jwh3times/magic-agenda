@@ -126,6 +126,24 @@ test('a database refusal explains the two-factor requirement instead of showing 
   for (const alert of alerts) expect(alert).toHaveTextContent(/two-factor session/)
 })
 
+test('every control is themed rather than a browser default (#467)', async () => {
+  h.flags = [{ key: 'beta_board', enabled: false, description: 'old' }]
+  renderAdmin()
+  await screen.findByText('first@example.test')
+  const controls = [
+    ...screen.getAllByRole('link'),
+    ...screen.getAllByRole('button'),
+    ...screen.getAllByRole('checkbox'),
+    ...screen.getAllByRole('textbox'),
+  ]
+  expect(screen.getByRole('link', { name: '← Settings' })).toHaveAttribute('href', '/settings')
+  // A raw control carries no inline style at all; the themed wrappers always set one.
+  for (const control of controls) expect(control).toHaveAttribute('style')
+  // The flag list's column must be able to shrink below a text field's min-content (#464).
+  const list = within(screen.getByRole('region', { name: 'Feature flags' })).getByRole('list')
+  expect(list.style.gridTemplateColumns).toBe('minmax(0, 1fr)')
+})
+
 test('toggles a flag and saves its description, then refreshes the flag list', async () => {
   h.flags = [{ key: 'beta_board', enabled: false, description: 'old' }]
   h.saveFlag.mockResolvedValue({
