@@ -186,6 +186,16 @@ disclosure. Bars use the per-theme **`chartMark`** token, which is held to 3:1 a
 `dangerFg`: cork's `accent` is only 2.5:1 on its translucent card, so cork darkens the rust to
 `#8f3520`, while brutal and glass reuse their accents.
 
+**The toolbar is not a card, so its controls come from `toolbarChrome` in `src/theme/chrome.ts` (#483),
+not from `controls.ts`.** Every toolbar is dark (glass's is translucent), and the card factories are
+tuned for paper. **Every toolbar control shares `TOOLBAR_CONTROL_HEIGHT` (34px, border-box):**
+Settings (`iconBtn`, a square), New task (`addBtn`), Sign out and Today (`todayBtn`), and the
+arrows (`navBtn`). Settings, New task, and Sign out sit side by side and used to be three heights.
+Keep a border, margin, or glyph from setting one control's size; `controls.test.ts` pins the shared
+height. The Board switcher's `select` and `field` styles keep 16px text (iOS zoom) and set
+`colorScheme: 'dark'`, so the native option list is light on dark in every theme. Its options also
+carry a solid background, because glass's toolbar is translucent.
+
 ## Keyboard shortcuts, the command palette, and quick-add
 
 #269 split this into layers with one job each, so every rule is testable without a DOM.

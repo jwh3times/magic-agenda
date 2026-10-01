@@ -12,6 +12,30 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.16.5] - 2026-10-01
+
+### Changed
+
+- **The Board switcher matches the toolbar (#483).** The Board dropdown on the main screen used to be
+  a plain browser control on every theme. It is now drawn in the toolbar's own colours, with a
+  matching arrow and a dark option list that stays legible on every theme. The "+ New board…"
+  name field and its Create and Cancel buttons match too.
+- **The toolbar's buttons are one size.** Settings, New task, and Sign out sit side by side but were
+  three different heights. Every toolbar button, including Today and the arrows, is now the same
+  height, Settings is a square, and New task stands out by colour alone.
+
+### Docs
+
+- `docs/agents/ui.md` describes the toolbar's shared control height and its select.
+
+## [1.16.4] - 2026-10-01
+
+### Internal
+
+- Dependabot: bumped `brace-expansion` 5.0.9 → 5.0.12, and the copy nested under `filelist`
+  2.1.4 → 2.1.7, in `package-lock.json` (#479). Backfilled by this release, per the changelog
+  guard's Dependabot exemption.
+
 ## [1.16.3] - 2026-10-01
 
 ### Changed
@@ -4567,7 +4591,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.16.3...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.16.5...HEAD
+[1.16.5]: https://github.com/jwh3times/magic-agenda/compare/v1.16.4...v1.16.5
+[1.16.4]: https://github.com/jwh3times/magic-agenda/compare/v1.16.3...v1.16.4
 [1.16.3]: https://github.com/jwh3times/magic-agenda/compare/v1.16.2...v1.16.3
 [1.16.2]: https://github.com/jwh3times/magic-agenda/compare/v1.16.1...v1.16.2
 [1.16.1]: https://github.com/jwh3times/magic-agenda/compare/v1.16.0...v1.16.1
