@@ -63,3 +63,11 @@ test('offers All labels, Unlabeled, and the selected Board’s Labels', async ()
   await userEvent.selectOptions(select, 'l2')
   expect(onChange).toHaveBeenCalledWith({ ...EMPTY_FILTER, labelId: 'l2' })
 })
+
+test('both filter selects draw a themed chevron instead of the browser arrow (#484)', () => {
+  renderBar(EMPTY_FILTER, vi.fn())
+  for (const name of ['Filter by label', 'Filter by status']) {
+    const style = screen.getByRole('combobox', { name }).getAttribute('style') ?? ''
+    expect({ name, chevron: style.includes('data:image/svg+xml') }).toEqual({ name, chevron: true })
+  }
+})

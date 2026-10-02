@@ -3,6 +3,7 @@ import type { ThemeName } from '../types/task'
 import type { ThemeConf } from './themeConf'
 import type { CellMeta } from '../data/selectors'
 import type { WorkflowStatusDef } from './constants'
+import { chevron } from './selectChevron'
 
 /**
  * Thin, theme-matched scrollbars for any container that can overflow.
@@ -91,12 +92,6 @@ export const TOOLBAR_CONTROL_HEIGHT = 34
 
 /** A secondary control's fill: a light wash over the toolbar, the same in every theme. */
 export const TOOLBAR_CONTROL_FILL = 'rgba(255,255,255,.12)'
-
-/** A downward chevron for the toolbar's select, in the toolbar's own text colour. */
-function chevron(color: string): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`
-}
 
 export function toolbarChrome(theme: ThemeName, conf: ThemeConf) {
   const glass = theme === 'glass'

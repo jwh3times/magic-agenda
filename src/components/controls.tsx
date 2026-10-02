@@ -15,6 +15,7 @@ import {
   type ButtonSize,
   type ButtonVariant,
 } from '../theme/controls'
+import { chevronSelect } from '../theme/selectChevron'
 import { useThemeOrDefault } from '../theme/ThemeProvider'
 
 /**
@@ -106,8 +107,11 @@ export function TextInput({
 
 export function Select({ style, disabled, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) {
   const { theme, conf } = useThemeOrDefault()
+  const field = fieldStyle(theme, conf, { disabled: !!disabled })
   const merged: CSSProperties = {
-    ...fieldStyle(theme, conf, { disabled: !!disabled }),
+    ...field,
+    // The browser's own arrow ignored the theme (#484): draw a chevron in the field's text colour.
+    ...chevronSelect(String(field.background), String(field.color), { y: 8, x: 10 }),
     cursor: disabled ? 'not-allowed' : 'pointer',
     ...style,
   }
