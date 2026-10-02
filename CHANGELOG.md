@@ -12,6 +12,18 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.4] - 2026-10-02
+
+### Internal
+
+- **Landing-page browser checks now wait for the live board preview (#498).** The preview loads
+  separately, behind a blank placeholder. The landing screenshots, the landing accessibility scan,
+  and the deployed-preview console-error check all waited only for the page heading, so they could
+  run against the empty placeholder. On #497's first CI run, that failed the mobile landing
+  screenshot. They now also wait for the rendered preview. No change to the app itself.
+- That investigation also found the placeholder is shorter than the preview it stands in for, so
+  the landing page shifts when the preview loads. It is tracked as #499.
+
 ## [1.17.3] - 2026-10-02
 
 ### Internal
@@ -4718,7 +4730,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.3...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.4...HEAD
+[1.17.4]: https://github.com/jwh3times/magic-agenda/compare/v1.17.3...v1.17.4
 [1.17.3]: https://github.com/jwh3times/magic-agenda/compare/v1.17.2...v1.17.3
 [1.17.2]: https://github.com/jwh3times/magic-agenda/compare/v1.17.1...v1.17.2
 [1.17.1]: https://github.com/jwh3times/magic-agenda/compare/v1.17.0...v1.17.1
