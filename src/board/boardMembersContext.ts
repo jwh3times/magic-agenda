@@ -28,9 +28,13 @@ export function isShared(value: BoardMembersValue): boolean {
   return value.members.length > 1
 }
 
-/** The name to show for a member; the Display Name, or a neutral fallback when they set none. */
+/**
+ * The name to show for a member: the Owner-private label when there is one (#490), then their own
+ * Display Name, then a neutral fallback. No role check is needed here: the server returns a label
+ * only to an Owner, and never on the viewer's own row, so for anyone else `nickname` is null.
+ */
 export function memberName(member: BoardMember | undefined): string {
-  return member?.displayName.trim() || 'Unnamed member'
+  return member?.nickname?.trim() || member?.displayName.trim() || 'Unnamed member'
 }
 
 /** Up to two initials from a Display Name, for a card badge. `?` when there is no name. */

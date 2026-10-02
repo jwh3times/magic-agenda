@@ -1,12 +1,19 @@
 import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import { listBoardMembers, type BoardMember } from '../board/boardMembers'
-import { changeMemberRole, leaveBoard, removeMember } from '../board/memberAdmin'
+import { memberName } from '../board/boardMembersContext'
+import {
+  changeMemberRole,
+  leaveBoard,
+  MEMBER_LABEL_MAX,
+  removeMember,
+  setMemberLabel,
+} from '../board/memberAdmin'
 import type { BoardOutcome } from '../board/outcome'
 import { asBoardRole, BOARD_ROLES, capabilitiesFor, ROLE_LABELS } from '../board/role'
 import type { BoardSummary } from '../board/selection'
 import { readRemindUnassigned, writeRemindUnassigned } from '../board/reminderOptIn'
 import { useThemeOrDefault } from '../theme/ThemeProvider'
-import { Button, Checkbox, Select } from './controls'
+import { Button, Checkbox, Select, TextInput } from './controls'
 import { rowListStyle } from '../theme/controls'
 import { InvitationsSection } from './InvitationsSection'
 
@@ -44,6 +51,9 @@ export function MembersPanel({
   const [busy, setBusy] = useState(false)
   const [removing, setRemoving] = useState<string | null>(null)
   const [leaving, setLeaving] = useState(false)
+  // The member whose Owner-private label is being edited (#490), and the draft.
+  const [labeling, setLabeling] = useState<string | null>(null)
+  const [labelDraft, setLabelDraft] = useState('')
   // Reminder opt-in for unassigned Tasks (#441): null until read.
   const [remindUnassigned, setRemindUnassigned] = useState<boolean | null>(null)
 
@@ -109,7 +119,20 @@ export function MembersPanel({
     else setError(outcome.failure.message)
   }
 
-  const nameOf = (member: BoardMember) => member.displayName.trim() || 'Unnamed member'
+  // The label when the caller is an Owner and set one, else the member's own name (#490).
+  const nameOf = (member: BoardMember) => memberName(member)
+  const ownName = (member: BoardMember) => member.displayName.trim() || 'Unnamed member'
+
+  const startLabel = (member: BoardMember) => {
+    setRemoving(null)
+    setLabeling(member.membershipId)
+    setLabelDraft(member.nickname ?? '')
+  }
+  const saveLabel = (member: BoardMember, nickname: string) => {
+    setLabeling(null)
+    void act(() => setMemberLabel(member.membershipId, nickname))
+  }
+  const labelTooLong = Array.from(labelDraft.trim()).length > MEMBER_LABEL_MAX
 
   return (
     <div
@@ -135,6 +158,8 @@ export function MembersPanel({
                     {nameOf(member)}
                     {self && <span style={hint}> (you)</span>}
                   </span>
+                  {/* A labelled member's own name stays visible, so an Owner can still tell who it is. */}
+                  {member.nickname && <span style={hint}>{ownName(member)}</span>}
                   {member.email && <span style={hint}>{member.email}</span>}
                   <div style={{ flex: 1 }} />
                   {can.manageMembers ? (
@@ -157,17 +182,84 @@ export function MembersPanel({
                   ) : (
                     <span style={hint}>{ROLE_LABELS[member.role]}</span>
                   )}
+                  {can.manageMembers && !self && labeling !== member.membershipId && (
+                    <Button size="sm" onClick={() => startLabel(member)} disabled={busy}>
+                      Name…
+                    </Button>
+                  )}
                   {can.manageMembers && !self && removing !== member.membershipId && (
                     <Button
                       size="sm"
                       variant="danger"
-                      onClick={() => setRemoving(member.membershipId)}
+                      onClick={() => {
+                        setLabeling(null)
+                        setRemoving(member.membershipId)
+                      }}
                       disabled={busy}
                     >
                       Remove…
                     </Button>
                   )}
                 </div>
+                {labeling === member.membershipId && (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      if (!labelTooLong && !busy) saveLabel(member, labelDraft)
+                    }}
+                    style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}
+                  >
+                    <div style={{ ...row, flexWrap: 'nowrap', minWidth: 0 }}>
+                      <TextInput
+                        aria-label={`Name on this board for ${ownName(member)}`}
+                        value={labelDraft}
+                        placeholder={ownName(member)}
+                        autoFocus
+                        disabled={busy}
+                        aria-invalid={labelTooLong ? true : undefined}
+                        onChange={(e) => setLabelDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') setLabeling(null)
+                        }}
+                        style={{ flex: 1, minWidth: 0, padding: '6px 8px' }}
+                      />
+                      <Button
+                        type="submit"
+                        size="sm"
+                        variant="primary"
+                        disabled={busy || labelTooLong}
+                        style={{ flexShrink: 0 }}
+                      >
+                        Save
+                      </Button>
+                    </div>
+                    <div style={row}>
+                      <span style={hint}>
+                        Only this board&rsquo;s owners see this name. Up to {MEMBER_LABEL_MAX}{' '}
+                        characters.
+                      </span>
+                      <div style={{ flex: 1 }} />
+                      {member.nickname && (
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          onClick={() => saveLabel(member, '')}
+                          disabled={busy}
+                        >
+                          Clear name
+                        </Button>
+                      )}
+                      <Button size="sm" onClick={() => setLabeling(null)} disabled={busy}>
+                        Cancel
+                      </Button>
+                    </div>
+                    {labelTooLong && (
+                      <div role="alert" style={{ color: conf.dangerFg, fontSize: 13 }}>
+                        Use at most {MEMBER_LABEL_MAX} characters.
+                      </div>
+                    )}
+                  </form>
+                )}
                 {removing === member.membershipId && (
                   <div style={row}>
                     <span style={{ fontSize: 13.5 }}>
