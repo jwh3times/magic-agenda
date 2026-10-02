@@ -12,6 +12,18 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.1] - 2026-10-02
+
+### Internal
+
+- **Read the clock outside render so oxlint 1.86 can land (#495).** oxlint 1.86 treats a
+  zero-argument `new Date()` as impure under `react/purity`, so four call sites failed the required
+  `Format` check and blocked the Dependabot bump in #492. The landing page reads its copyright year
+  and the board preview reads its "now" once per mount instead of on every render. Settings →
+  History's archive/reopen handler, which only ever ran on a click, is now memoized so the compiler
+  can see that. No visible change. The lint policy in `docs/agents/testing.md` records both
+  patterns.
+
 ## [1.17.0] - 2026-10-02
 
 ### Added
@@ -4680,7 +4692,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.0...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.1...HEAD
+[1.17.1]: https://github.com/jwh3times/magic-agenda/compare/v1.17.0...v1.17.1
 [1.17.0]: https://github.com/jwh3times/magic-agenda/compare/v1.16.8...v1.17.0
 [1.16.8]: https://github.com/jwh3times/magic-agenda/compare/v1.16.7...v1.16.8
 [1.16.7]: https://github.com/jwh3times/magic-agenda/compare/v1.16.6...v1.16.7

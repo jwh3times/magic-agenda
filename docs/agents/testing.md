@@ -413,6 +413,10 @@ version-pinned trigger refires on each Dependabot bump whether or not anything c
 how the earlier wording went stale unnoticed. To check, enable one in a scratch config and run
 `npx oxlint -c <config> <file>`: an unregistered rule fails with
 `Rule 'config' not found in plugin 'react'`, exactly like a misspelled one.
+Since 1.86, `react/purity` treats a zero-argument `new Date()` as impure (#495). In render, read the
+clock once in a lazy `useState` initializer. A handler passed bare through a custom component's
+prop (`onAction={…}`, not a DOM `onClick`) also counts as render-time code, so wrap it in
+`useCallback` rather than suppressing the rule.
 `options.reportUnusedDisableDirectives` makes stale inline suppressions errors, so every exception
 remains tied to a diagnostic it actually covers. A small explicit React correctness set covers
 invalid keys, props, and DOM children, while a test-file-only Vitest override rejects focused or
