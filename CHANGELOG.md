@@ -12,6 +12,32 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.3] - 2026-10-02
+
+### Internal
+
+- **Browser tests now run with Board sharing switched on, as production has since 2026-09-29
+  (#494).** The isolated E2E stack never enabled the `board-sharing` flag. As a result, every
+  signed-in test, accessibility scan, and screenshot comparison checked the app as it was before
+  sharing launched: no **Members…** button, and no member list loaded on the board. The E2E setup
+  now enables the flag with the runbook's own SQL. No change to the app itself.
+- **The Members panel has browser coverage for the first time.** A new test signs in as a Board's
+  owner, creates an invitation from Settings → Boards → Members, and has the invitee accept it. It
+  then sets and clears the owner-private name for that member (#490), checking the database as
+  well as the screen. Before this, every shared-Board screen had unit and database coverage only.
+- **The open Members panel is now accessibility-scanned in all three themes,** with a second member
+  on the Board so that every per-member control is on screen. It has no violations. The Settings
+  scans and the Settings screenshot now wait for the Members button, so they cannot capture the
+  page before its feature flags load. The Settings screenshot baseline is refreshed to include the
+  button.
+
+## [1.17.2] - 2026-10-02
+
+### Internal
+
+- `oxlint` bumped from 1.85.0 to 1.86.0 (#492). The four `react/purity` errors it introduced were
+  fixed beforehand in v1.17.1.
+
 ## [1.17.1] - 2026-10-02
 
 ### Internal
@@ -4692,7 +4718,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.1...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.3...HEAD
+[1.17.3]: https://github.com/jwh3times/magic-agenda/compare/v1.17.2...v1.17.3
+[1.17.2]: https://github.com/jwh3times/magic-agenda/compare/v1.17.1...v1.17.2
 [1.17.1]: https://github.com/jwh3times/magic-agenda/compare/v1.17.0...v1.17.1
 [1.17.0]: https://github.com/jwh3times/magic-agenda/compare/v1.16.8...v1.17.0
 [1.16.8]: https://github.com/jwh3times/magic-agenda/compare/v1.16.7...v1.16.8
