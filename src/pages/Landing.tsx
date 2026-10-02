@@ -48,6 +48,8 @@ const FEATURES = [
 export function Landing() {
   const [theme, setTheme] = useState<ThemeName>('cork')
   const isMobile = useIsMobile()
+  // Read once, not on every render: `react/purity` treats a bare `new Date()` in render as impure.
+  const [year] = useState(() => new Date().getFullYear())
   useDocumentTitle(
     'Magic Agenda — a drag-and-drop sticky-note task board',
     'A drag-and-drop task board that feels like a corkboard, not a spreadsheet. Three themes, recurring tasks, due times — synced across every device.',
@@ -240,7 +242,7 @@ export function Landing() {
             opacity: 0.5,
           }}
         >
-          <span>© {new Date().getFullYear()} Magic Agenda</span>
+          <span>© {year} Magic Agenda</span>
           <span style={{ display: 'flex', gap: 14 }}>
             <Link to="/privacy" style={{ color: 'inherit' }}>
               Privacy

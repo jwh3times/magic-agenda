@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { supabase } from '../lib/supabase'
 import { useBoardDirectoryContext, useBoardSession } from '../board/BoardDirectoryProvider'
 import { useSettingsContext } from '../data/SettingsProvider'
@@ -62,8 +62,11 @@ export function HistorySection() {
 
   const current = loaded?.boardId === boardId ? loaded : null
   const tasks = useMemo(() => current?.tasks ?? [], [current])
-  const setTasks = (update: (prev: Task[]) => Task[]) =>
-    setLoaded((prev) => (prev && prev.tasks ? { ...prev, tasks: update(prev.tasks) } : prev))
+  const setTasks = useCallback(
+    (update: (prev: Task[]) => Task[]) =>
+      setLoaded((prev) => (prev && prev.tasks ? { ...prev, tasks: update(prev.tasks) } : prev)),
+    [],
+  )
 
   const weeks = useMemo(
     () => historyWeeks(tasks, timezone, weekStart),
@@ -75,36 +78,41 @@ export function HistorySection() {
   )
   const streak = useMemo(() => completionStreak(tasks, today, timezone), [tasks, today, timezone])
 
-  const act = async (id: string, action: Action) => {
-    if (!can.editContent || pendingId) return
-    const now = new Date().toISOString()
-    // Reopen goes through the same selector as the board's quick action, so the Task lands at the
-    // bottom of its destination Kanban column rather than at a stale position from months ago.
-    const next =
-      action === 'reopen'
-        ? applyToggleCompletion(tasks, id, now).tasks.find((task) => task.id === id)
-        : (() => {
-            const current = tasks.find((task) => task.id === id)
-            return current && { ...current, ...archiveDecision(current, action, now) }
-          })()
-    if (!next) return
-    setPendingId(id)
-    setError(null)
-    try {
-      const { data, error: err } = await supabase
-        .from('tasks')
-        .update(taskToRow(next, boardId))
-        .eq('id', id)
-        .select()
-      if (err) throw new Error(err.message)
-      const saved = data?.[0] ? rowToTask(data[0]) : next
-      setTasks((prev) => prev.map((task) => (task.id === id ? saved : task)))
-    } catch {
-      setError('Could not save that change. Please try again.')
-    } finally {
-      setPendingId(null)
-    }
-  }
+  // Memoized so `react/purity` can see `act` runs from a click, not during render: passed bare
+  // through `onAction`, its `new Date()` read as a render-time call (oxlint 1.86).
+  const act = useCallback(
+    async (id: string, action: Action) => {
+      if (!can.editContent || pendingId) return
+      const now = new Date().toISOString()
+      // Reopen goes through the same selector as the board's quick action, so the Task lands at the
+      // bottom of its destination Kanban column rather than at a stale position from months ago.
+      const next =
+        action === 'reopen'
+          ? applyToggleCompletion(tasks, id, now).tasks.find((task) => task.id === id)
+          : (() => {
+              const current = tasks.find((task) => task.id === id)
+              return current && { ...current, ...archiveDecision(current, action, now) }
+            })()
+      if (!next) return
+      setPendingId(id)
+      setError(null)
+      try {
+        const { data, error: err } = await supabase
+          .from('tasks')
+          .update(taskToRow(next, boardId))
+          .eq('id', id)
+          .select()
+        if (err) throw new Error(err.message)
+        const saved = data?.[0] ? rowToTask(data[0]) : next
+        setTasks((prev) => prev.map((task) => (task.id === id ? saved : task)))
+      } catch {
+        setError('Could not save that change. Please try again.')
+      } finally {
+        setPendingId(null)
+      }
+    },
+    [can.editContent, pendingId, tasks, boardId, setTasks],
+  )
 
   if (!boardId) return <p style={muted}>Select a Board to see its history.</p>
   if (!current) return <p style={muted}>Loading history…</p>
