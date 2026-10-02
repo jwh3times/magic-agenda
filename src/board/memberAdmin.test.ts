@@ -4,7 +4,7 @@ import { boardFailure } from './outcome'
 const rpc = vi.fn()
 vi.mock('../lib/supabase', () => ({ supabase: { rpc } }))
 
-const { changeMemberRole, classifyMemberAdminError, leaveBoard, removeMember } =
+const { changeMemberRole, classifyMemberAdminError, leaveBoard, removeMember, setMemberLabel } =
   await import('./memberAdmin')
 
 beforeEach(() => {
@@ -48,4 +48,18 @@ test('a thrown call is a value, not a rejection', async () => {
     ok: false,
     failure: { reason: 'unknown', message: 'Failed to fetch' },
   })
+})
+
+test('setMemberLabel calls its RPC and maps its refusals like the other commands (#489)', async () => {
+  await setMemberLabel('m3', 'Bo (ops)')
+  expect(rpc).toHaveBeenLastCalledWith('set_member_label', {
+    p_membership_id: 'm3',
+    p_nickname: 'Bo (ops)',
+  })
+  rpc.mockResolvedValue({ data: null, error: { message: 'not-owner' } })
+  expect(await setMemberLabel('m3', 'x')).toEqual({ ok: false, failure: boardFailure('not-owner') })
+  // A token the UI never provokes is an unknown failure carrying the token, not a crash.
+  rpc.mockResolvedValue({ data: null, error: { message: 'invalid-label' } })
+  const refused = await setMemberLabel('m3', 'x')
+  expect(!refused.ok && refused.failure).toEqual({ reason: 'unknown', message: 'invalid-label' })
 })

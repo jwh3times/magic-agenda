@@ -61,6 +61,18 @@ export function changeMemberRole(membershipId: string, role: BoardRole): Promise
   )
 }
 
+/**
+ * An Owner sets, or with a blank `nickname` clears, the Owner-private label on another member
+ * (#489). The label is kept by Board and Account, so it returns if the member is re-invited. The
+ * server refuses a label on your own Membership, or over 80 characters, as `invalid-label`; the UI
+ * never offers either, so that falls through to `unknown` like `invalid-role`.
+ */
+export function setMemberLabel(membershipId: string, nickname: string): Promise<BoardOutcome> {
+  return run(() =>
+    supabase.rpc('set_member_label', { p_membership_id: membershipId, p_nickname: nickname }),
+  )
+}
+
 /** An Owner ends another member's Membership. Removing yourself is recorded as leaving. */
 export function removeMember(membershipId: string): Promise<BoardOutcome> {
   return run(() => supabase.rpc('remove_member', { p_membership_id: membershipId }))

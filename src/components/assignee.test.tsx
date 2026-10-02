@@ -33,6 +33,7 @@ const member = (over: Partial<BoardMember>): BoardMember => ({
   displayName: 'Ada Lovelace',
   joinedAt: '2026-09-27T00:00:00Z',
   email: null,
+  nickname: null,
   ...over,
 })
 

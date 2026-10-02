@@ -28,6 +28,11 @@ export interface BoardMember {
   joinedAt: string
   /** Present only when the caller is an Owner of this Board. */
   email: string | null
+  /**
+   * The Owner-private label for this member on this Board (#489). Present only when the caller is
+   * an Owner, and never on the caller's own row: the labelled person always sees their own name.
+   */
+  nickname: string | null
 }
 
 /** A row as the `board_members` RPC returns it. */
@@ -38,6 +43,7 @@ export interface BoardMemberRow {
   display_name: string
   joined_at: string
   email: string | null
+  nickname: string | null
 }
 
 /**
@@ -59,6 +65,7 @@ export function toBoardMembers(rows: readonly BoardMemberRow[]): BoardMember[] {
       displayName: row.display_name,
       joinedAt: row.joined_at,
       email: row.email,
+      nickname: row.nickname ?? null,
     })
   }
   return members
@@ -102,7 +109,13 @@ export function fakeListBoardMembers(
     const caller = members.find((member) => member.accountId === callerAccountId)
     if (!caller) return Promise.resolve(boardFailed('membership-ended'))
     const isOwner = caller.role === 'owner'
-    const value = members.map((m) => ({ ...m, email: isOwner ? m.email : null }))
+    // The server's two visibility rules: email to Owners, and labels to Owners but never on their
+    // own row.
+    const value = members.map((m) => ({
+      ...m,
+      email: isOwner ? m.email : null,
+      nickname: isOwner && m.accountId !== callerAccountId ? m.nickname : null,
+    }))
     return Promise.resolve({ ok: true, value })
   }
 }
