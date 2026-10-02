@@ -30,6 +30,7 @@ interface MemberRow {
   display_name: string
   joined_at: string
   email: string | null
+  nickname: string | null
 }
 
 let owner: TestUser
@@ -123,10 +124,20 @@ test('only an Owner sees email addresses', async () => {
   }
 })
 
-test('the result never carries the calendar-feed token, or any column beyond the six', async () => {
+test('the result never carries the calendar-feed token, or any column beyond the seven', async () => {
+  // The seventh, `nickname`, is the Owner-private label (#489); board_member_labels.test.ts pins
+  // who receives it.
   const [row] = await members(owner)
   expect(Object.keys(row).sort()).toEqual(
-    ['account_id', 'display_name', 'email', 'joined_at', 'membership_id', 'role'].sort(),
+    [
+      'account_id',
+      'display_name',
+      'email',
+      'joined_at',
+      'membership_id',
+      'nickname',
+      'role',
+    ].sort(),
   )
 })
 

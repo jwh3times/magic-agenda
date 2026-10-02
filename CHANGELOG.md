@@ -12,6 +12,32 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.16.8] - 2026-10-01
+
+### Added
+
+- **Groundwork for Owner-private member labels (#489, part 1 of 2 for #477).** A Board's Owners will
+  be able to give another member a private name on that Board. Only current Owners can set or see
+  it, the labelled person always sees their own Display Name, and the label returns if the member
+  leaves and is later re-invited. This release adds the database side only. The controls arrive with
+  #490, so nothing changes on screen yet.
+
+### Security
+
+- **Labels are written only by a new command, `set_member_label`.** It runs under the Board row
+  lock and refuses non-Owners, a member who has left, your own Membership, and labels over 80
+  characters.
+- Labels live in their own table, keyed by Board and Account, so the memberships table and its
+  feed-token protection are unchanged. The table has an Owner-only read policy that excludes labels
+  about the reader, no write grant, and no realtime publication. EXECUTE is revoked from every other
+  API role (#384).
+- **`board_members()` returns a seventh column, `nickname`,** filled only for a current Owner and
+  never on their own row, the same rule as `email`.
+
+### Docs
+
+- `docs/agents/boards.md` describes member labels and corrects the `board_members()` column count.
+
 ## [1.16.7] - 2026-10-01
 
 ### Fixed
@@ -4635,7 +4661,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.16.7...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.16.8...HEAD
+[1.16.8]: https://github.com/jwh3times/magic-agenda/compare/v1.16.7...v1.16.8
 [1.16.7]: https://github.com/jwh3times/magic-agenda/compare/v1.16.6...v1.16.7
 [1.16.6]: https://github.com/jwh3times/magic-agenda/compare/v1.16.5...v1.16.6
 [1.16.5]: https://github.com/jwh3times/magic-agenda/compare/v1.16.4...v1.16.5

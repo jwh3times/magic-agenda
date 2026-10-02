@@ -231,10 +231,10 @@ Sharing needs every member to see who else is on the Board, and the answer is **
 clause on either base table. `board_memberships` would leak the feed token above, and the domain
 model shows email addresses to **Owners only** — email lives in `auth.users`, which no `public`
 policy can reach. So `board_members(p_board_id uuid)` (`security definer` in `public`, empty
-`search_path`, `authenticated` only, no account parameter) returns exactly six columns for the
+`search_path`, `authenticated` only, no account parameter) returns exactly seven columns for the
 Board's **current** Memberships: membership id, account id, role, Display Name (from
-`account_profiles`, `''` when unset), joined time, and email — NULL unless the caller is a current
-Owner. It is ordered Owners, Editors, Viewers, then by join time. A caller with no current
+`account_profiles`, `''` when unset), joined time, email — NULL unless the caller is a current
+Owner — and, since #489, the Owner-private `nickname` (see member labels below). It is ordered Owners, Editors, Viewers, then by join time. A caller with no current
 Membership — ended, never joined, or a Board that does not exist — gets an empty set and cannot tell
 those apart, matching `NO_CAPABILITIES`. Both base tables stay own-rows only, and
 `tests/rls/board_members.test.ts` asserts that as well as every role's view, the column set, and
@@ -261,6 +261,31 @@ the name **before** `accept_invitation`, so the member is never listed unnamed a
 records of the join carry it; a failed save stops the join rather than joining unnamed behind the
 user's back. A name it cannot read skips the prompt, because the prompt is a courtesy and must
 never block joining.
+
+## Member labels are Owner-private and outlive the Membership (#477, #489)
+
+An Owner can give another member a **label** on one Board, a private name for them there. The
+maintainer's decisions (recorded on #477) shape every part of it:
+
+- **Only current Owners set or see a label,** and the labelled person never sees their own, even as
+  an Owner. Board Activity Records keep the actor's own Display Name.
+- **A label is remembered across leaving and re-invitation.** A re-invite creates a new Membership
+  row, so the label cannot live on `board_memberships`. It lives in
+  `board_member_labels`, keyed by `(board_id, account_id)` and cascading from the Board and the
+  Account. Keeping it off `board_memberships` also leaves that table's own-rows policy, which
+  guards the calendar-feed token, untouched.
+- **Written only by `set_member_label(p_membership_id, p_nickname)`.** It takes the Board row lock
+  like the commands below, refuses non-Owners (`not-owner`) and an ended target (`member-ended`),
+  and refuses a label on your own Membership or over 80 code points (`invalid-label`). A blank label
+  deletes the row. The table has SELECT for both API roles, as every public table does, behind an
+  Owner-only policy that also excludes rows about the caller, and no write grant.
+- **Read through `board_members()`**, whose seventh column `nickname` is filled only when the
+  caller is a current Owner and the row is not their own. That is the same shape as `email`, so
+  `memberName()` can prefer it without a client-side role check. `fakeListBoardMembers` applies
+  both rules for tests of callers.
+- **Not in `supabase_realtime`.** Labels are read when the member list loads.
+- `tests/rls/board_member_labels.test.ts` pins each rule, including a label returning after
+  `remove_member` and a fresh Membership.
 
 ## Membership administration is three commands under the Board row lock (#438)
 

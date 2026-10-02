@@ -134,6 +134,38 @@ export type Database = {
           },
         ]
       }
+      board_member_labels: {
+        Row: {
+          account_id: string
+          board_id: string
+          nickname: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          board_id: string
+          nickname: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          board_id?: string
+          nickname?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'board_member_labels_board_id_fkey'
+            columns: ['board_id']
+            isOneToOne: false
+            referencedRelation: 'boards'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       board_memberships: {
         Row: {
           account_id: string | null
@@ -725,6 +757,7 @@ export type Database = {
           email: string
           joined_at: string
           membership_id: string
+          nickname: string
           role: string
         }[]
       }
@@ -843,6 +876,10 @@ export type Database = {
       }
       rotate_ical_token: { Args: { p_board_id: string }; Returns: string }
       series_materialization_state: { Args: { p_from: string }; Returns: Json }
+      set_member_label: {
+        Args: { p_membership_id: string; p_nickname: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

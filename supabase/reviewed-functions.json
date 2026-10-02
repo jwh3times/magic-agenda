@@ -219,6 +219,12 @@
       "explicitAcl": true,
       "executeGrantees": "authenticated"
     },
+    "set_member_label(uuid,text)": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "authenticated"
+    },
     "stamp_task_attribution()": {
       "secdef": false,
       "config": "search_path=\"\"",

@@ -14,6 +14,7 @@ const row = (over: Record<string, unknown> = {}) => ({
   display_name: 'Ada',
   joined_at: '2026-09-26T10:00:00Z',
   email: 'ada@example.test',
+  nickname: null,
   ...over,
 })
 
@@ -42,6 +43,7 @@ test('maps rows to members in the server’s order', async () => {
         displayName: 'Ada',
         joinedAt: '2026-09-26T10:00:00Z',
         email: 'ada@example.test',
+        nickname: null,
       },
       {
         membershipId: 'm2',
@@ -50,6 +52,7 @@ test('maps rows to members in the server’s order', async () => {
         displayName: 'Ada',
         joinedAt: '2026-09-26T10:00:00Z',
         email: null,
+        nickname: null,
       },
     ],
   })
@@ -89,6 +92,7 @@ const member = (over: Partial<BoardMember>): BoardMember => ({
   displayName: '',
   joinedAt: '2026-09-26T10:00:00Z',
   email: 'a1@example.test',
+  nickname: null,
   ...over,
 })
 
@@ -106,4 +110,25 @@ test('the fake applies the server’s email rule and refuses a non-member', asyn
   ])
   expect(asEditor.ok && asEditor.value.map((m) => m.email)).toEqual([null, null])
   expect(asStranger).toEqual({ ok: false, failure: boardFailure('membership-ended') })
+})
+
+test('maps the Owner-private label, and the fake withholds it from non-Owners and on your own row (#489)', async () => {
+  rpc.mockResolvedValue({
+    data: [
+      row(),
+      row({ membership_id: 'm2', account_id: 'a2', role: 'editor', nickname: 'Bo (ops)' }),
+    ],
+    error: null,
+  })
+  const listed = await listBoardMembers('b1')
+  expect(listed.ok && listed.value.map((m) => m.nickname)).toEqual([null, 'Bo (ops)'])
+
+  const roster = [
+    member({ nickname: 'Self label' }),
+    member({ membershipId: 'm2', accountId: 'a2', role: 'editor', nickname: 'Bo (ops)' }),
+  ]
+  const asOwner = await fakeListBoardMembers(roster, 'a1')('b1')
+  expect(asOwner.ok && asOwner.value.map((m) => m.nickname)).toEqual([null, 'Bo (ops)'])
+  const asEditor = await fakeListBoardMembers(roster, 'a2')('b1')
+  expect(asEditor.ok && asEditor.value.map((m) => m.nickname)).toEqual([null, null])
 })
