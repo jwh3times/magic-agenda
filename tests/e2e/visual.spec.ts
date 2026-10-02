@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { seedBoard, SEEDED_TITLES, type Theme, type View } from './fixtures/seedBoard'
-import { PINNED_DAY, PINNED_TIME, settle } from './fixtures/determinism'
+import { landingReady, PINNED_DAY, PINNED_TIME, settle } from './fixtures/determinism'
 
 /**
  * Visual regression canaries (#280).
@@ -70,7 +70,7 @@ test.describe('signed out', () => {
   test('landing (desktop)', async ({ page }) => {
     await page.clock.setFixedTime(new Date(PINNED_TIME))
     await page.goto('/')
-    await page.getByRole('heading', { name: 'Your week, on sticky notes.' }).waitFor()
+    await landingReady(page)
     await settle(page)
     await expect(page).toHaveScreenshot('landing-desktop.png', { fullPage: true })
   })
@@ -81,7 +81,7 @@ test.describe('signed out', () => {
     test('landing (mobile)', async ({ page }) => {
       await page.clock.setFixedTime(new Date(PINNED_TIME))
       await page.goto('/')
-      await page.getByRole('heading', { name: 'Your week, on sticky notes.' }).waitFor()
+      await landingReady(page)
       await settle(page)
       await expect(page).toHaveScreenshot('landing-mobile.png', { fullPage: true })
     })

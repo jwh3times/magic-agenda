@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { seedBoard, SEEDED_TITLES, type Theme } from './fixtures/seedBoard'
-import { PINNED_DAY, PINNED_TIME, settle } from './fixtures/determinism'
+import { landingReady, PINNED_DAY, PINNED_TIME, settle } from './fixtures/determinism'
 import {
   inviteeSession,
   joinAsInvitee,
@@ -142,8 +142,8 @@ test.describe('signed out', () => {
     // NOT a redundant wait — same reason as the settings wait above. `/` routes through HomeRoute
     // (src/App.tsx), which renders <Spinner/> while auth is loading, and axe's isModalOpen()
     // heuristic passes landmark-one-main and page-has-heading-one for free against a full-screen
-    // Spinner. Wait for real content before scanning.
-    await page.getByRole('heading', { name: 'Your week, on sticky notes.' }).waitFor()
+    // Spinner. Wait for real content before scanning, the lazy board preview included (#498).
+    await landingReady(page)
     await settle(page)
     await scanAndAssert(page, 'landing')
   })

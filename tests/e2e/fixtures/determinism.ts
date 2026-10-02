@@ -26,6 +26,22 @@ export const FREEZE_ANIMATION = `*, *::before, *::after {
   transition: none !important;
 }`
 
+/**
+ * The signed-out landing page has painted, live board preview included (#498).
+ *
+ * The heading alone is not enough. `BoardPreview` is a separate lazy chunk behind a blank
+ * same-size placeholder (src/pages/Landing.tsx), so a page that has its heading can still be
+ * showing the placeholder. Measured on PR #497's first E2E run: `landing (mobile)` captured the
+ * empty box and failed against a baseline that shows the cards.
+ *
+ * The preview is `inert` and `aria-hidden`, so no role query can reach it; the `[inert]` wrapper
+ * exists only once the chunk has rendered, and the placeholder never carries it.
+ */
+export async function landingReady(page: Page): Promise<void> {
+  await page.getByRole('heading', { name: 'Your week, on sticky notes.' }).waitFor()
+  await page.getByRole('region', { name: 'Live board preview' }).locator('[inert]').waitFor()
+}
+
 /** Everything every surface needs between "content is on screen" and "scan or screenshot it". */
 export async function settle(page: Page): Promise<void> {
   await page.addStyleTag({ content: FREEZE_ANIMATION })

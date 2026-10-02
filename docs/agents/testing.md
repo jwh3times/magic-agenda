@@ -318,6 +318,12 @@ load-bearing:
   failed on every PR by a few hundred pixels on the date labels (#365). No `seedBoard` runs there,
   so no anchor has to agree with the pin. A diff confined to dates means an unpinned clock, not a
   regression: fix the pin rather than refreshing the baseline, which would only hide it for a week.
+  **The landing surfaces wait for `landingReady()`, not just the heading (#498).** The live board
+  preview is a separate lazy chunk behind a blank placeholder, so a page with its heading can still
+  be showing the placeholder. A canary that raced it captured the empty box and, because the
+  placeholder is shorter than the preview (#499), a shorter page too. The a11y landing scan and the
+  deployed-preview console-error probe use the same wait. An empty preview box in a landing
+  candidate means this wait was bypassed, not a regression: never commit that image as a baseline.
 - **Anything the board derives from a task's id must be fixed in the seed, and the tolerance
   must be absolute.** Card tilt is `rotOf(task.id)` in cork and brutal, and ties in a lane are read
   in id order, so a seed that let the database mint fresh UUIDs gave every run a different board.
