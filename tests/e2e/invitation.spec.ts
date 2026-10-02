@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { createClient } from '@supabase/supabase-js'
+import { inviteeSession, leaveAsInvitee, nameInvitee } from './fixtures/invitee'
 import { testBoardId, testClient } from './fixtures/supabase'
 
 /**
@@ -17,25 +17,18 @@ import { testBoardId, testClient } from './fixtures/supabase'
  * covers.
  */
 
-function required(name: string): string {
-  const value = process.env[name]
-  if (!value) throw new Error(`${name} is unset; scripts/e2e-local-setup.ts provides it.`)
-  return value
-}
-
 test.describe('Board invitation', () => {
   // The invitee's own browser: no stored session from global setup.
   test.use({ storageState: { cookies: [], origins: [] } })
 
   test('a signed-out invitee opens the link, signs in, and joins the Board', async ({ page }) => {
-    const inviteeEmail = required('E2E_INVITEE_EMAIL')
-    const inviteePassword = required('E2E_INVITEE_PASSWORD')
     const owner = await testClient()
     const boardId = await testBoardId(owner)
+    const invitee = await inviteeSession()
 
     const created = await owner.rpc('create_invitation', {
       p_board_id: boardId,
-      p_email: inviteeEmail,
+      p_email: invitee.email,
       p_role: 'viewer',
     })
     expect(created.error).toBeNull()
@@ -43,23 +36,8 @@ test.describe('Board invitation', () => {
     const token: unknown = created.data
     if (typeof token !== 'string') throw new Error('create_invitation returned no token')
 
-    const invitee = createClient(required('E2E_SUPABASE_URL'), required('E2E_SUPABASE_ANON_KEY'), {
-      auth: { persistSession: false, autoRefreshToken: false },
-    })
-    const signIn = await invitee.auth.signInWithPassword({
-      email: inviteeEmail,
-      password: inviteePassword,
-      options: { captchaToken: 'XXXX.DUMMY.TOKEN.XXXX' },
-    })
-    expect(signIn.error).toBeNull()
-    const inviteeId = signIn.data.user?.id
-    if (!inviteeId) throw new Error('the invitee has no account id')
     // The name prompt appears only for an unnamed Account, so a retried run starts unnamed too.
-    const unnamed = await invitee
-      .from('account_profiles')
-      .update({ display_name: '' })
-      .eq('account_id', inviteeId)
-    expect(unnamed.error).toBeNull()
+    await nameInvitee(invitee, '')
     try {
       await page.goto(`/invite?token=${token}`)
       // Scrubbed before the app ran: the token is gone from the address bar.
@@ -69,8 +47,8 @@ test.describe('Board invitation', () => {
       ).toBeVisible()
 
       await page.getByRole('link', { name: 'Sign in or create an account' }).click()
-      await page.getByPlaceholder('you@example.com').fill(inviteeEmail)
-      await page.getByPlaceholder('Password').fill(inviteePassword)
+      await page.getByPlaceholder('you@example.com').fill(invitee.email)
+      await page.getByPlaceholder('Password').fill(invitee.password)
       await page.getByRole('button', { name: 'Sign in', exact: true }).click({ timeout: 30_000 })
 
       // Sign-in lands on `/`, which resumes the held invitation.
@@ -80,7 +58,7 @@ test.describe('Board invitation', () => {
       await page.getByRole('button', { name: /^Join / }).click()
       await expect(page).toHaveURL(/\/$/, { timeout: 30_000 })
 
-      const { data: joined } = await invitee
+      const { data: joined } = await invitee.client
         .from('board_memberships')
         .select('role')
         .eq('board_id', boardId)
@@ -93,16 +71,13 @@ test.describe('Board invitation', () => {
       const rows: unknown = members.data
       if (!Array.isArray(rows)) throw new Error('board_members returned no rows')
       const joinedRow = (rows as { account_id: string; display_name: string }[]).find(
-        (row) => row.account_id === inviteeId,
+        (row) => row.account_id === invitee.accountId,
       )
       expect(joinedRow?.display_name).toBe('Ivy Invitee')
     } finally {
       // Leave the shared Board so the main account's other specs see it as before.
-      await invitee.rpc('leave_board', { p_board_id: boardId })
-      await invitee
-        .from('account_profiles')
-        .update({ display_name: '' })
-        .eq('account_id', inviteeId)
+      await leaveAsInvitee(invitee, boardId)
+      await nameInvitee(invitee, '')
     }
   })
 })

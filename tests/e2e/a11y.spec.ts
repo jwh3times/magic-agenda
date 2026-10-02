@@ -5,6 +5,14 @@ import path from 'node:path'
 import { seedBoard, SEEDED_TITLES, type Theme } from './fixtures/seedBoard'
 import { PINNED_DAY, PINNED_TIME, settle } from './fixtures/determinism'
 import {
+  inviteeSession,
+  joinAsInvitee,
+  leaveAsInvitee,
+  nameInvitee,
+  type InviteeSession,
+} from './fixtures/invitee'
+import { testBoardId, testClient } from './fixtures/supabase'
+import {
   baselineFor,
   EXPECTED_LABELS,
   formatContrast,
@@ -165,6 +173,9 @@ test.describe('signed in', () => {
       // settings page at all. A scan that races a loading state does not merely miss content — a
       // full-screen loader actively suppresses the page-level rules and scores clean.
       await page.getByRole('heading', { name: 'Settings', level: 1 }).waitFor()
+      // The flags load after the page renders, so this button is the sign the scan sees what
+      // production shows (#494) rather than the pre-sharing page.
+      await page.getByRole('button', { name: 'Members…' }).waitFor()
       await settle(page)
       await scanAndAssert(page, `settings-${theme}`)
     })
@@ -204,4 +215,40 @@ test.describe('signed in', () => {
       await scanAndAssert(page, `editor-${theme}`)
     })
   }
+
+  // The open Members panel (#494), never scanned while the E2E stack ran without `board-sharing`.
+  // With a second member on the Board, so the per-member controls an Owner sees — role, Name…,
+  // Remove… — and the unassigned-reminder opt-in are all on screen.
+  test.describe('members panel', () => {
+    let invitee: InviteeSession
+    let boardId: string
+
+    test.beforeAll(async () => {
+      const owner = await testClient()
+      boardId = await testBoardId(owner)
+      invitee = await inviteeSession()
+      await nameInvitee(invitee, 'Ivy Invitee')
+      await joinAsInvitee(owner, boardId, invitee, 'editor')
+    })
+
+    test.afterAll(async () => {
+      await leaveAsInvitee(invitee, boardId)
+      await nameInvitee(invitee, '')
+    })
+
+    for (const theme of ['cork', 'brutal', 'glass'] as Theme[]) {
+      test(`members (${theme}) matches the a11y baseline`, async ({ page }) => {
+        await page.clock.setFixedTime(new Date(PINNED_TIME))
+        await seedBoard({ theme, anchor: PINNED_DAY })
+        await page.goto('/settings')
+        await page.getByRole('button', { name: 'Members…' }).click()
+        const panel = page.getByRole('group', { name: /^Members of / })
+        await panel.getByRole('button', { name: 'Name…' }).waitFor()
+        // The opt-in reads on its own after the list does; it is the last control to paint.
+        await panel.getByRole('checkbox').waitFor()
+        await settle(page)
+        await scanAndAssert(page, `members-${theme}`)
+      })
+    }
+  })
 })

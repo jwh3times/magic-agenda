@@ -14,6 +14,7 @@ describe('local E2E setup', () => {
     const stack = parseLocalStack(
       JSON.stringify({
         API_URL: 'http://127.0.0.1:54321',
+        DB_URL: 'postgresql://postgres:postgres@127.0.0.1:54322/postgres',
         ANON_KEY: 'local-anon',
         SERVICE_ROLE_KEY: 'local-admin',
       }),
@@ -31,12 +32,15 @@ describe('local E2E setup', () => {
       E2E_INVITEE_EMAIL: LOCAL_E2E_INVITEE_EMAIL,
       E2E_INVITEE_PASSWORD: LOCAL_E2E_INVITEE_PASSWORD,
     })
-    expect(Object.values(localE2EEnvironment(stack))).not.toContain('local-admin')
+    const published = Object.values(localE2EEnvironment(stack))
+    expect(published).not.toContain('local-admin')
+    // The superuser connection string enables the flag in setup and goes no further.
+    expect(published.some((value) => value.startsWith('postgresql:'))).toBe(false)
   })
 
   it('rejects an incomplete CLI status payload', () => {
     expect(() => parseLocalStack('{"API_URL":"http://127.0.0.1:54321"}')).toThrow(
-      'Supabase status did not report a usable anonKey.',
+      'Supabase status did not report a usable dbUrl.',
     )
   })
 })

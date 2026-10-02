@@ -132,6 +132,8 @@ test.describe('signed in', () => {
     // which makes History's empty state the positive signal that it finished.
     await expect(page.getByText(/^Loading/)).toHaveCount(0)
     await page.getByText('No completed tasks on this Board yet.').waitFor()
+    // The flags load on their own too, and `board-sharing` adds this button (#494).
+    await page.getByRole('button', { name: 'Members…' }).waitFor()
     await settle(page)
     await expect(page).toHaveScreenshot('settings-cork.png', { fullPage: true })
   })

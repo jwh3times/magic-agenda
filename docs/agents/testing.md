@@ -210,6 +210,18 @@ fixed local-only credentials cross into later steps. A production service-role k
 CI. The fixture now meets the branch's own freshly migrated schema, eliminating the former
 one-release lag where a schema PR tested its client against production's previous schema.
 
+**The E2E stack runs with `board-sharing` enabled, as production has since 2026-09-29 (#494).**
+`e2e-local-setup.ts` upserts the flag with the runbook's own SQL over the local `DB_URL`:
+`feature_flags` grants nothing to `service_role`, and the E2E account is deliberately not an admin
+(an admin sees sharing whatever the flag says). Before this, every signed-in spec, a11y scan, and
+canary saw the pre-sharing app: no **Members…** button, no member fetch on the board. Waiting for
+that button is now how a Settings scan or screenshot knows the flags have loaded. `members.spec.ts`
+drives the panel as an Owner (an invitation created in the UI, then a member label set and
+cleared), and `fixtures/invitee.ts` signs the invitee in, joins it to the Board, and removes it
+again. Any spec that adds the invitee must remove it before finishing: on a Board with two members
+the board shows "Assigned to me" and the Assignee picker, which would change every later scan and
+screenshot.
+
 Five non-obvious constraints on the specs themselves. Four cost a real debugging pass; the fifth
 is a deliberate tradeoff worth understanding before it costs one:
 
@@ -239,11 +251,14 @@ is a deliberate tradeoff worth understanding before it costs one:
   `settings` and nothing else: it never scanned the settings page. Every scan waits for real
   content. Settings is now scanned in all three themes (#464) — labels `settings-cork`,
   `settings-brutal`, and `settings-glass` in `EXPECTED_LABELS`, with `parseScanCallSites` expanding
-  both the `board-${theme}` and `settings-${theme}` loops — because Settings' controls are themed
-  and a contrast failure there is per-theme. **The open task editor is scanned per theme too (#486)**:
+  every per-theme `<surface>-${theme}` loop — because Settings' controls are themed and a contrast
+  failure there is per-theme. **The open task editor is scanned per theme too (#486)**:
   `editor-cork`, `editor-brutal`, `editor-glass`. It had never been scanned, which is how two of its
   controls and the dialog itself shipped with no accessible name, and its secondary text at 3.37:1.
   Its baseline holds the board's three `nested-interactive` cards, which sit behind the modal.
+  **So is the open Members panel (#494)**: `members-cork`, `members-brutal`, `members-glass`, with
+  the invitee joined for the scan so an Owner's per-member controls (role, Name…, Remove…) and the
+  unassigned-reminder opt-in are on screen.
   `FREEZE_ANIMATION` is injected before every scan because `page.clock` does not stop
   CSS animations and a drifting glass blob turns a `color-contrast` violation into an `incomplete`.
 - **The a11y baseline asserts counts by strict equality, in both directions.** A count that rose is
