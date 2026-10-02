@@ -67,6 +67,9 @@ export function changeMemberRole(membershipId: string, role: BoardRole): Promise
  * server refuses a label on your own Membership, or over 80 characters, as `invalid-label`; the UI
  * never offers either, so that falls through to `unknown` like `invalid-role`.
  */
+/** Mirrors the `char_length(nickname) between 1 and 80` CHECK on `board_member_labels`. */
+export const MEMBER_LABEL_MAX = 80
+
 export function setMemberLabel(membershipId: string, nickname: string): Promise<BoardOutcome> {
   return run(() =>
     supabase.rpc('set_member_label', { p_membership_id: membershipId, p_nickname: nickname }),

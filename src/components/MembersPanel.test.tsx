@@ -11,6 +11,7 @@ const h = vi.hoisted(() => ({
   changeMemberRole: vi.fn(),
   removeMember: vi.fn(),
   leaveBoard: vi.fn(),
+  setLabel: vi.fn(),
   remind: false,
   writeRemind: vi.fn((_id: string, _value: boolean) => Promise.resolve(null as string | null)),
 }))
@@ -29,6 +30,8 @@ vi.mock('../board/memberAdmin', () => ({
   changeMemberRole: h.changeMemberRole,
   removeMember: h.removeMember,
   leaveBoard: h.leaveBoard,
+  setMemberLabel: h.setLabel,
+  MEMBER_LABEL_MAX: 80,
 }))
 
 import { MembersPanel } from './MembersPanel'
@@ -60,7 +63,7 @@ beforeEach(() => {
     member({ membershipId: 'm3', accountId: 'a3', role: 'viewer', displayName: '' }),
   ]
   h.list.mockImplementation(() => Promise.resolve({ ok: true, value: h.members }))
-  for (const command of [h.changeMemberRole, h.removeMember, h.leaveBoard])
+  for (const command of [h.changeMemberRole, h.removeMember, h.leaveBoard, h.setLabel])
     command.mockResolvedValue(ok)
 })
 
@@ -181,4 +184,75 @@ test('a failed opt-in write reverts the box and says why', async () => {
   await userEvent.click(box)
   expect(await screen.findByRole('alert')).toHaveTextContent('permission denied')
   expect(box).not.toBeChecked()
+})
+
+test('an Owner can name others on this board, never themselves (#490)', async () => {
+  renderPanel('owner')
+  await screen.findByText('Bo')
+  // Two others, so two Name buttons; none on the caller's own row.
+  expect(screen.getAllByRole('button', { name: 'Name…' })).toHaveLength(2)
+})
+
+test('Editors and Viewers get no Name control', async () => {
+  for (const [role, id] of [
+    ['editor', 'm2'],
+    ['viewer', 'm3'],
+  ] as const) {
+    const { unmount } = render(
+      <MembersPanel
+        board={fakeBoardSummary({ role, membershipId: id, name: 'Team' })}
+        onClose={() => {}}
+        onOwnMembershipChanged={() => {}}
+      />,
+    )
+    await screen.findByText('Ada')
+    expect(screen.queryByRole('button', { name: 'Name…' })).toBeNull()
+    unmount()
+  }
+})
+
+test('saving a name calls the command, re-reads, and shows the label with the own name beside it', async () => {
+  renderPanel('owner')
+  await screen.findByText('Bo')
+  await userEvent.click(screen.getAllByRole('button', { name: 'Name…' })[0])
+  const field = screen.getByRole('textbox', { name: 'Name on this board for Bo' })
+  expect(screen.getByText(/Only this board’s owners see this name/)).toBeInTheDocument()
+  await userEvent.type(field, 'Bo (ops)')
+
+  h.members = h.members.map((m) => (m.membershipId === 'm2' ? { ...m, nickname: 'Bo (ops)' } : m))
+  await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+  expect(h.setLabel).toHaveBeenCalledWith('m2', 'Bo (ops)')
+  expect(await screen.findByText('Bo (ops)')).toBeInTheDocument()
+  // The person's own Display Name stays visible beside the label.
+  expect(screen.getByText('Bo')).toBeInTheDocument()
+  expect(screen.getByLabelText('Role for Bo (ops)')).toBeInTheDocument()
+})
+
+test('an existing name can be cleared, and an over-long one is refused before any call', async () => {
+  h.members = h.members.map((m) => (m.membershipId === 'm2' ? { ...m, nickname: 'Bo (ops)' } : m))
+  renderPanel('owner')
+  await screen.findByText('Bo (ops)')
+  await userEvent.click(screen.getAllByRole('button', { name: 'Name…' })[0])
+  const field = screen.getByRole('textbox', { name: 'Name on this board for Bo' })
+  expect(field).toHaveValue('Bo (ops)')
+
+  await userEvent.clear(field)
+  await userEvent.click(field)
+  await userEvent.paste('x'.repeat(81))
+  expect(screen.getByRole('alert')).toHaveTextContent(/at most 80/)
+  expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+
+  await userEvent.click(screen.getByRole('button', { name: 'Clear name' }))
+  expect(h.setLabel).toHaveBeenCalledWith('m2', '')
+  expect(h.setLabel).toHaveBeenCalledTimes(1)
+})
+
+test('a refused name shows the server’s reason', async () => {
+  h.setLabel.mockResolvedValue(boardFailed('member-ended'))
+  renderPanel('owner')
+  await screen.findByText('Bo')
+  await userEvent.click(screen.getAllByRole('button', { name: 'Name…' })[0])
+  await userEvent.type(screen.getByRole('textbox', { name: 'Name on this board for Bo' }), 'Bo')
+  await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('no longer a member')
 })

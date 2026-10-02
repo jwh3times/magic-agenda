@@ -4,7 +4,7 @@ const a = { color: '#a78bfa' }
 
 export function Privacy() {
   return (
-    <LegalLayout title="Privacy Policy" lastUpdated="September 27, 2026">
+    <LegalLayout title="Privacy Policy" lastUpdated="October 2, 2026">
       <p>
         Magic Agenda (“we”, “us”) is a task‑board web app, for your own planning or for Boards you
         share with people you invite, available at{' '}
@@ -32,7 +32,10 @@ export function Privacy() {
           address you invited and the role you offered until the invitation is accepted, declined,
           revoked, or expires, and remove that address 30 days afterwards. When you share a Board,
           we record who is on it, their role, and who each task is assigned to, and we record each
-          export of the Board (who exported it and when) for the Board’s owners.
+          export of the Board (who exported it and when) for the Board’s owners. A Board’s owners
+          can also give a member a private name on that Board. Only the Board’s owners see it, never
+          the member it names, and it is kept, even if that member leaves and is later re-invited,
+          until an owner clears it, the Board is deleted, or the member deletes their account.
         </li>
         <li>
           <strong>Browser storage.</strong> We store session tokens to keep you signed in and cache
@@ -66,9 +69,10 @@ export function Privacy() {
         A Board is visible only to its members. If you share a Board, everyone on it can see
         everything on that Board — its tasks, Labels, and attached files — along with each member’s
         display name and role, and may export it. Only the Board’s owners see members’ email
-        addresses, pending invitations, and the record of exports. Someone who joins a Board can
-        keep a copy of what they saw there, so invite only people you trust with its content.
-        Leaving a Board, or being removed from it, ends your access to it immediately.
+        addresses, any private names owners have given members, pending invitations, and the record
+        of exports. Someone who joins a Board can keep a copy of what they saw there, so invite only
+        people you trust with its content. Leaving a Board, or being removed from it, ends your
+        access to it immediately.
       </p>
 
       <h2>Service providers</h2>

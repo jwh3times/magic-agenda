@@ -12,6 +12,25 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.0] - 2026-10-02
+
+### Added
+
+- **Owners can give members a private name on a Board (#490, completing #477).** In Settings →
+  Boards → Members, a Board's owners now have a **Name…** button on every other member's row. The
+  name shows wherever that member appears for the Board's owners: the Members list, the Assignee
+  picker, and the initials on task cards. Their own display name and email stay beside it in Members,
+  so it is always clear who it is.
+- **Only the Board's owners ever see these names.** Editors and Viewers, and the person named, keep
+  seeing the person's own display name, and board activity records keep the display name too.
+- **A name is remembered if the member leaves and is later re-invited.** It goes when an owner
+  clears it, the Board is deleted, or the member deletes their account.
+
+### Changed
+
+- **The Privacy Policy describes these names:** who sees them, and how long they are kept. It is
+  dated October 2, 2026.
+
 ## [1.16.8] - 2026-10-01
 
 ### Added
@@ -4661,7 +4680,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.16.8...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.0...HEAD
+[1.17.0]: https://github.com/jwh3times/magic-agenda/compare/v1.16.8...v1.17.0
 [1.16.8]: https://github.com/jwh3times/magic-agenda/compare/v1.16.7...v1.16.8
 [1.16.7]: https://github.com/jwh3times/magic-agenda/compare/v1.16.6...v1.16.7
 [1.16.6]: https://github.com/jwh3times/magic-agenda/compare/v1.16.5...v1.16.6
