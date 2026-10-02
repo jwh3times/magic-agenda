@@ -276,9 +276,9 @@ test('saving an atTime-only change to a recurring instance still shows the scope
 // beyond one Occurrence, so there is no scope to choose.
 test('saving a day-only change to a recurring instance skips the scope prompt', async () => {
   const user = userEvent.setup()
-  const { onSave, container } = renderEditor(mkInstance({ day: '2026-07-10' }))
+  const { onSave } = renderEditor(mkInstance({ day: '2026-07-10' }))
 
-  const dayInput = container.querySelector('input[type="date"]') as HTMLInputElement
+  const dayInput = screen.getByLabelText<HTMLInputElement>('Schedule')
   fireEvent.change(dayInput, { target: { value: '2026-07-17' } })
   await user.click(screen.getByRole('button', { name: 'Save' }))
 
@@ -320,7 +320,7 @@ test('an explicit Due Time clear remains Series Content after the Occurrence als
 
 test('scheduling a Task again does not restore the Due Time cleared by Inbox', async () => {
   const user = userEvent.setup()
-  const { onSave, container } = renderEditor(
+  const { onSave } = renderEditor(
     mkInstance({
       recurParentId: null,
       occurrenceDate: null,
@@ -330,7 +330,7 @@ test('scheduling a Task again does not restore the Due Time cleared by Inbox', a
   )
 
   await user.click(screen.getByRole('button', { name: 'Send to inbox' }))
-  const dayInput = container.querySelector('input[type="date"]') as HTMLInputElement
+  const dayInput = screen.getByLabelText<HTMLInputElement>('Schedule')
   fireEvent.change(dayInput, { target: { value: '2026-07-17' } })
 
   expect(screen.getByLabelText('Due time')).toHaveValue('')
@@ -438,10 +438,10 @@ test('a scope prompt dismissed by read-only does not come back when the board re
 // the task away as a template that materialized nothing and the card left the board with no error.
 // The warning copy already existed; only the gate was missing.
 //
-// The Repeat select and the Day input carry no accessible name, so these reach them the way the
-// day-scope tests above already do.
-const repeatSelect = (c: HTMLElement) => c.querySelector('select') as HTMLSelectElement
-const dayInput = (c: HTMLElement) => c.querySelector('input[type="date"]') as HTMLInputElement
+// Reached by their accessible names (#486): they used to have none, so these went by selector.
+const repeatSelect = (_c?: HTMLElement) =>
+  screen.getByRole<HTMLSelectElement>('combobox', { name: 'Repeat' })
+const dayInput = (_c?: HTMLElement) => screen.getByLabelText<HTMLInputElement>('Schedule')
 
 test('refuses to save a recurrence rule on an unscheduled task', async () => {
   const user = userEvent.setup()
@@ -584,7 +584,7 @@ test('weekday chips appear only for a weekly Rule', async () => {
   renderEditor(standalone({ recurFreq: 'weekly' }))
   expect(screen.getByRole('group', { name: 'Repeat on' })).toBeInTheDocument()
 
-  await user.selectOptions(screen.getByRole('combobox', { name: '' }), 'monthly')
+  await user.selectOptions(screen.getByRole('combobox', { name: 'Repeat' }), 'monthly')
   expect(screen.queryByRole('group', { name: 'Repeat on' })).not.toBeInTheDocument()
 })
 
@@ -629,7 +629,7 @@ test('changing away from weekly clears the weekday set rather than carrying it',
   const user = userEvent.setup()
   const { onSave } = renderEditor(standalone({ recurFreq: 'weekly', recurWeekdays: [1, 3] }))
 
-  await user.selectOptions(screen.getByRole('combobox', { name: '' }), 'daily')
+  await user.selectOptions(screen.getByRole('combobox', { name: 'Repeat' }), 'daily')
   await user.click(screen.getByRole('button', { name: 'Save' }))
   // tasks_recur_weekdays_weekly_only refuses the row otherwise: this is a save that fails, not a
   // field that is quietly ignored.
@@ -735,4 +735,43 @@ test('the new Repeat controls are inert when the board is read-only', () => {
 test('the Repeat select draws a themed chevron instead of the browser arrow (#484)', () => {
   const { container } = renderEditor(mkInstance({ recurParentId: null }))
   expect(repeatSelect(container).getAttribute('style')).toContain('data:image/svg+xml')
+})
+
+/** A form control's accessible name, by the routes the editor uses: aria-label, aria-labelledby, a wrapping <label>. */
+function nameOf(control: Element): string {
+  const labelledBy = control.getAttribute('aria-labelledby')
+  if (labelledBy) {
+    return labelledBy
+      .split(/\s+/)
+      .map((id) => document.getElementById(id)?.textContent ?? '')
+      .join(' ')
+      .trim()
+  }
+  return (control.getAttribute('aria-label') ?? control.closest('label')?.textContent ?? '').trim()
+}
+
+test('every field in the editor has an accessible name (#486)', () => {
+  // A weekly Rule with a checklist step, so the recurrence and checklist controls all render.
+  const { container } = renderEditor(
+    standalone({
+      recurFreq: 'weekly',
+      recurInterval: 1,
+      checklist: [{ id: 'c1', text: 'Buy soil', done: false }],
+    }),
+  )
+  const controls = [...container.querySelectorAll('input, select, textarea')].filter(
+    (el) => el.getAttribute('type') !== 'hidden' && el.getAttribute('type') !== 'file',
+  )
+  expect(controls.length).toBeGreaterThan(8)
+  const unnamed = controls.filter((el) => nameOf(el) === '').map((el) => el.outerHTML.slice(0, 80))
+  expect(unnamed).toEqual([])
+  // The two that had none, by the names a screen reader now announces.
+  expect(screen.getByRole('combobox', { name: 'Repeat' })).toBeInTheDocument()
+  expect(screen.getByLabelText('Schedule')).toHaveAttribute('type', 'date')
+  expect(screen.getByRole('textbox', { name: 'Checklist step 1' })).toHaveValue('Buy soil')
+})
+
+test('the editor dialog is named by its heading (#486)', () => {
+  renderEditor(standalone())
+  expect(screen.getByRole('dialog', { name: 'Edit task' })).toBeInTheDocument()
 })

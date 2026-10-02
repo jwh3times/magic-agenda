@@ -13,5 +13,20 @@
     "label": "board-glass",
     "ruleId": "nested-interactive",
     "count": 3
+  },
+  {
+    "label": "editor-brutal",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "editor-cork",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "editor-glass",
+    "ruleId": "nested-interactive",
+    "count": 3
   }
 ]

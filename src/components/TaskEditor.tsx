@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { removesRule, type RecurScope, type SaveModifiers } from '../data/series'
 import { intendDelete, intendSave } from '../data/editIntent'
 import { TASK_LIMITS, taskLimitError } from '../data/taskLimits'
@@ -108,6 +108,11 @@ export function TaskEditor({
 
   const chrome = editorChrome(theme, conf, isMobile)
   const { dark, panelBg, fg, sub, fieldBg, border, ctlFont, inputBase, fieldLabel, btn } = chrome
+  // The Schedule and Repeat headings are the visible labels of their controls (#486). Linked by id
+  // rather than duplicated as aria-label, so the spoken name cannot drift from the text on screen.
+  const dialogTitleId = useId()
+  const scheduleLabelId = useId()
+  const repeatLabelId = useId()
 
   // Read-only arrives when the board falls back to an offline snapshot. CLEAR the prompt rather
   // than hiding it: hiding left `scopePrompt` set, so flipping back re-opened a stale prompt.
@@ -233,6 +238,7 @@ export function TaskEditor({
         <div
           role="dialog"
           aria-modal="true"
+          aria-labelledby={dialogTitleId}
           style={{
             width: isMobile ? '100%' : 'min(520px,100%)',
             maxHeight: '90vh',
@@ -257,6 +263,7 @@ export function TaskEditor({
             }}
           >
             <div
+              id={dialogTitleId}
               style={{
                 fontSize: '12px',
                 fontWeight: 800,
@@ -294,6 +301,7 @@ export function TaskEditor({
           )}
           {/* Native maxLength counts UTF-16 units; handlers enforce PostgreSQL code points. */}
           <input
+            aria-label="Title"
             maxLength={TASK_LIMITS.title * 2}
             value={draft.title}
             onChange={(e) =>
@@ -305,6 +313,7 @@ export function TaskEditor({
             style={{ ...inputBase, fontSize: '17px', fontWeight: 700, marginBottom: '10px' }}
           />
           <textarea
+            aria-label="Description"
             maxLength={TASK_LIMITS.description * 2}
             value={draft.description}
             onChange={(e) =>
@@ -452,6 +461,7 @@ export function TaskEditor({
                   {it.done ? '✓' : ''}
                 </button>
                 <input
+                  aria-label={`Checklist step ${i + 1}`}
                   value={it.text}
                   onChange={(e) =>
                     patch({
@@ -512,6 +522,7 @@ export function TaskEditor({
                 +
               </span>
               <input
+                aria-label="New checklist step"
                 value={newItem}
                 onChange={(e) => setNewItem(e.target.value)}
                 onKeyDown={(e) => {
@@ -623,10 +634,13 @@ export function TaskEditor({
             📌 {draft.pinned ? 'Pinned' : 'Pin this note'}
           </button>
 
-          <div style={fieldLabel}>Schedule</div>
+          <div id={scheduleLabelId} style={fieldLabel}>
+            Schedule
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <input
               type="date"
+              aria-labelledby={scheduleLabelId}
               value={isScheduled(draft.day) ? draft.day : ''}
               onChange={(e) => {
                 if (e.target.value) patch({ day: e.target.value })
@@ -720,9 +734,12 @@ export function TaskEditor({
             </div>
           )}
 
-          <div style={fieldLabel}>Repeat</div>
+          <div id={repeatLabelId} style={fieldLabel}>
+            Repeat
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <select
+              aria-labelledby={repeatLabelId}
               value={draft.recurFreq}
               onChange={(e) => {
                 const recurFreq = e.target.value as RecurFreq

@@ -188,4 +188,20 @@ test.describe('signed in', () => {
       await scanAndAssert(page, `board-${theme}`)
     })
   }
+
+  // The open task editor (#486). It was never scanned, which is how two of its controls shipped
+  // with no accessible name. Per theme for the same reason as the board: its colours are themed.
+  for (const theme of ['cork', 'brutal', 'glass'] as Theme[]) {
+    test(`task editor (${theme}) matches the a11y baseline`, async ({ page }) => {
+      await page.clock.setFixedTime(new Date(PINNED_TIME))
+      await seedBoard({ theme, anchor: PINNED_DAY })
+      await page.goto('/')
+      for (const title of SEEDED_TITLES) await page.getByText(title).waitFor()
+      await page.getByText(SEEDED_TITLES[0]).first().click()
+      // An existing task's editor: Delete appears only there, and it is the last control to paint.
+      await page.getByRole('button', { name: 'Delete' }).waitFor()
+      await settle(page)
+      await scanAndAssert(page, `editor-${theme}`)
+    })
+  }
 })
