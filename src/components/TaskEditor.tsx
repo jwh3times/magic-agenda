@@ -13,6 +13,7 @@ import type { RecurFreq, TaskDraft } from '../types/task'
 import { useLabelDirectoryContext } from '../labels/LabelDirectoryProvider'
 import { AttachmentsSection } from './AttachmentsSection'
 import { isShared, memberName, useBoardMembers } from '../board/boardMembersContext'
+import { chevronSelect } from '../theme/selectChevron'
 import { UNLABELED_DOT_COLOR } from '../labels/presentation'
 
 export interface TaskEditorProps {
@@ -397,14 +398,14 @@ export function TaskEditor({
                 onChange={(e) => patch({ assigneeId: e.target.value || null })}
                 disabled={readOnly || !canEditContent}
                 style={{
-                  padding: '9px 12px',
                   borderRadius: '9px',
                   border: `1px solid ${border}`,
-                  background: fieldBg,
                   color: fg,
                   fontFamily: conf.ui,
                   fontSize: isMobile ? 16 : 13.5,
                   maxWidth: 280,
+                  colorScheme: dark ? 'dark' : 'light',
+                  ...chevronSelect(fieldBg, fg, { y: 9, x: 12 }),
                 }}
               >
                 <option value="">Unassigned</option>
@@ -737,15 +738,14 @@ export function TaskEditor({
               }}
               disabled={readOnly}
               style={{
-                padding: '9px 12px',
                 borderRadius: '9px',
                 border: `1px solid ${border}`,
-                background: fieldBg,
                 color: fg,
                 fontFamily: conf.ui,
                 fontSize: ctlFont,
                 fontWeight: 600,
                 colorScheme: dark ? 'dark' : 'light',
+                ...chevronSelect(fieldBg, fg, { y: 9, x: 12 }),
               }}
             >
               <option value="none">Does not repeat</option>

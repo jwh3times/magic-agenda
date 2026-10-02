@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from
 import { useIsMobile } from '../lib/useMediaQuery'
 import { COLORS, STATUS } from '../theme/constants'
 import type { BulkChange } from '../data/bulk'
+import { chevronSelect } from '../theme/selectChevron'
 import { INBOX, type Color, type WorkflowStatus } from '../types/task'
 
 export interface BulkActionBarProps {
@@ -82,6 +83,10 @@ export function BulkActionBar({
     colorScheme: 'dark',
   }
   const button: CSSProperties = { ...control, cursor: 'pointer', fontWeight: 600 }
+  const select: CSSProperties = {
+    ...control,
+    ...chevronSelect('#1d2a36', '#e6f0fa', { y: 7, x: 10 }),
+  }
 
   return (
     <div
@@ -181,7 +186,7 @@ export function BulkActionBar({
               if (e.target.value)
                 onApply({ kind: 'status', status: e.target.value as WorkflowStatus })
             }}
-            style={control}
+            style={select}
           >
             <option value="">Status…</option>
             {STATUS.map((s) => (
@@ -197,7 +202,7 @@ export function BulkActionBar({
             onChange={(e) => {
               if (e.target.value) onApply({ kind: 'color', color: e.target.value as Color })
             }}
-            style={control}
+            style={select}
           >
             <option value="">Color…</option>
             {COLORS.map((c) => (

@@ -196,6 +196,15 @@ height. The Board switcher's `select` and `field` styles keep 16px text (iOS zoo
 `colorScheme: 'dark'`, so the native option list is light on dark in every theme. Its options also
 carry a solid background, because glass's toolbar is translucent.
 
+**Every `<select>` draws its own chevron through `chevronSelect` in `src/theme/selectChevron.ts`
+(#484).** It sets `appearance: none` and layers an inline-SVG chevron, in the control's own text
+colour, over the control's fill, so the arrow meets the same contrast as its text. The element stays
+a native `<select>`. The helper writes `background` and `padding` as whole shorthands, so spread
+it **after** a control's own style rather than adding longhands over a shorthand, which React warns
+about. `Select` in `controls.tsx`, the filter bar, the bulk bar, the task editor, and the toolbar
+all use it; a new `<select>` should too. A select on a dark surface also needs
+`colorScheme: 'dark'`, or its native option list comes up light.
+
 ## Keyboard shortcuts, the command palette, and quick-add
 
 #269 split this into layers with one job each, so every rule is testable without a DOM.

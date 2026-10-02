@@ -731,3 +731,8 @@ test('the new Repeat controls are inert when the board is read-only', () => {
   expect(screen.getByRole('radio', { name: 'Never' })).toBeDisabled()
   expect(screen.getByLabelText('Number of repeats')).toBeDisabled()
 })
+
+test('the Repeat select draws a themed chevron instead of the browser arrow (#484)', () => {
+  const { container } = renderEditor(mkInstance({ recurParentId: null }))
+  expect(repeatSelect(container).getAttribute('style')).toContain('data:image/svg+xml')
+})

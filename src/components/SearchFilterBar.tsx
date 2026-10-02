@@ -5,6 +5,7 @@ import { STATUS } from '../theme/constants'
 import { EMPTY_FILTER, isFilterActive, type FilterQuery } from '../data/filters'
 import type { WorkflowStatus } from '../types/task'
 import { isShared, useBoardMembers } from '../board/boardMembersContext'
+import { chevronSelect } from '../theme/selectChevron'
 import { useLabelDirectoryContext } from '../labels/LabelDirectoryProvider'
 
 export interface SearchFilterBarProps {
@@ -69,7 +70,11 @@ export function SearchFilterBar({
         aria-label="Filter by label"
         value={query.labelId}
         onChange={(e) => onChange({ ...query, labelId: e.target.value })}
-        style={{ ...control, ...(isMobile && { flex: '1 1 40%', minWidth: 0 }) }}
+        style={{
+          ...control,
+          ...chevronSelect(bg, fg, { y: 8, x: 11 }),
+          ...(isMobile && { flex: '1 1 40%', minWidth: 0 }),
+        }}
       >
         <option value="all">All labels</option>
         <option value="unlabeled">Unlabeled</option>
@@ -83,7 +88,11 @@ export function SearchFilterBar({
         aria-label="Filter by status"
         value={query.status}
         onChange={(e) => onChange({ ...query, status: e.target.value as WorkflowStatus | 'all' })}
-        style={{ ...control, ...(isMobile && { flex: '1 1 40%', minWidth: 0 }) }}
+        style={{
+          ...control,
+          ...chevronSelect(bg, fg, { y: 8, x: 11 }),
+          ...(isMobile && { flex: '1 1 40%', minWidth: 0 }),
+        }}
       >
         <option value="all">All statuses</option>
         {STATUS.map((s) => (

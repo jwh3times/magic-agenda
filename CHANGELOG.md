@@ -12,6 +12,26 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.16.6] - 2026-10-01
+
+### Changed
+
+- **Every dropdown follows the theme (#484).** The board's "All labels" and "All statuses" filters,
+  the bulk-action "Status…" and "Color…" menus, the task editor's Assignee and Repeat, and the
+  dropdowns in Settings used to show the browser's own arrow beside otherwise themed controls. They
+  now draw a matching arrow in their own text colour, and the board's filter row is one height. Each
+  is still a native dropdown, so keyboards, screen readers, and phone pickers work as before.
+
+### Fixed
+
+- **The task editor's Assignee list is legible on Aurora.** Its open option list was light on the
+  dark theme. It is now dark, like the editor's other controls.
+
+### Docs
+
+- `docs/agents/ui.md` describes the shared select chevron and when a select needs a dark colour
+  scheme.
+
 ## [1.16.5] - 2026-10-01
 
 ### Changed
@@ -4591,7 +4611,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.16.5...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.16.6...HEAD
+[1.16.6]: https://github.com/jwh3times/magic-agenda/compare/v1.16.5...v1.16.6
 [1.16.5]: https://github.com/jwh3times/magic-agenda/compare/v1.16.4...v1.16.5
 [1.16.4]: https://github.com/jwh3times/magic-agenda/compare/v1.16.3...v1.16.4
 [1.16.3]: https://github.com/jwh3times/magic-agenda/compare/v1.16.2...v1.16.3
