@@ -35,7 +35,10 @@ export function editorChrome(theme: ThemeName, conf: ThemeConf, isMobile: boolea
   const dark = theme === 'glass'
   const panelBg = dark ? '#161a2e' : '#fffdf8'
   const fg = dark ? '#eaf0ff' : '#241c12'
-  const sub = dark ? 'rgba(234,240,255,.5)' : 'rgba(60,42,18,.55)'
+  // Secondary text — section headings and hints — on the editor's panel. Light themes were .55, which
+  // composites to #94897a on #fffdf8 at 3.37:1, the editor's first axe scan's only contrast failure
+  // (#486). .7 gives 5.2:1.
+  const sub = dark ? 'rgba(234,240,255,.5)' : 'rgba(60,42,18,.7)'
   const fieldBg = dark ? 'rgba(255,255,255,.05)' : '#f3efe6'
   const border = dark ? 'rgba(255,255,255,.12)' : 'rgba(60,42,18,.18)'
 

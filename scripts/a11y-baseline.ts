@@ -26,6 +26,9 @@ export const EXPECTED_LABELS = [
   'board-cork',
   'board-brutal',
   'board-glass',
+  'editor-cork',
+  'editor-brutal',
+  'editor-glass',
 ] as const
 
 export interface Finding {
@@ -224,7 +227,7 @@ export function parseScanCallSites(specSource: string): string[] {
   return args.flatMap((arg) => {
     const literal = /^'([^']+)'$/.exec(arg)
     if (literal) return [literal[1]]
-    const perTheme = /^`(board|settings)-\$\{theme\}`$/.exec(arg)
+    const perTheme = /^`(board|settings|editor)-\$\{theme\}`$/.exec(arg)
     if (perTheme) {
       const surface = perTheme[1]
       if (!themes.length) {

@@ -240,7 +240,11 @@ is a deliberate tradeoff worth understanding before it costs one:
   content. Settings is now scanned in all three themes (#464) — labels `settings-cork`,
   `settings-brutal`, and `settings-glass` in `EXPECTED_LABELS`, with `parseScanCallSites` expanding
   both the `board-${theme}` and `settings-${theme}` loops — because Settings' controls are themed
-  and a contrast failure there is per-theme. `FREEZE_ANIMATION` is injected before every scan because `page.clock` does not stop
+  and a contrast failure there is per-theme. **The open task editor is scanned per theme too (#486)**:
+  `editor-cork`, `editor-brutal`, `editor-glass`. It had never been scanned, which is how two of its
+  controls and the dialog itself shipped with no accessible name, and its secondary text at 3.37:1.
+  Its baseline holds the board's three `nested-interactive` cards, which sit behind the modal.
+  `FREEZE_ANIMATION` is injected before every scan because `page.clock` does not stop
   CSS animations and a drifting glass blob turns a `color-contrast` violation into an `incomplete`.
 - **The a11y baseline asserts counts by strict equality, in both directions.** A count that rose is
   a regression; a count that FELL means the baseline is stale and the lower number must be

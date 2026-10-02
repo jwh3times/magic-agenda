@@ -12,6 +12,30 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.16.7] - 2026-10-01
+
+### Fixed
+
+- **The task editor's fields have names a screen reader can announce (#486).** The Repeat dropdown
+  and the Schedule date field were announced only as "combobox" and "date", because their visible
+  headings were not connected to them. Both now carry those headings as their names. Checklist steps
+  ("Checklist step 1", …), the new-step field, and the title and description fields have names too,
+  where before they had only placeholders that disappear as you type.
+- **The editor itself is announced.** Its dialog had no name and is now "Edit task" or "New task".
+- **The editor's section headings and hints are readable.** On the Cork and Neon themes they reached
+  only 3.37:1 contrast, below the 4.5:1 minimum. They are now 5.2:1. The command palette and the
+  repeating-task scope prompt share the colour and get the fix too.
+
+### Internal
+
+- The accessibility E2E suite now opens the task editor and scans it in all three themes. It had
+  never been scanned, which is how the problems above shipped. Its baseline holds only the board's
+  known card finding behind the modal.
+
+### Docs
+
+- `docs/agents/testing.md` records the editor scans.
+
 ## [1.16.6] - 2026-10-01
 
 ### Changed
@@ -4611,7 +4635,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.16.6...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.16.7...HEAD
+[1.16.7]: https://github.com/jwh3times/magic-agenda/compare/v1.16.6...v1.16.7
 [1.16.6]: https://github.com/jwh3times/magic-agenda/compare/v1.16.5...v1.16.6
 [1.16.5]: https://github.com/jwh3times/magic-agenda/compare/v1.16.4...v1.16.5
 [1.16.4]: https://github.com/jwh3times/magic-agenda/compare/v1.16.3...v1.16.4
