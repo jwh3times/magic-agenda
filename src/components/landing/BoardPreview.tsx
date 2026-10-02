@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { Task, ThemeName } from '../../types/task'
 import { makeMockTasks } from '../../data/mockTasks'
 import { ThemeProvider, useTheme } from '../../theme/ThemeProvider'
@@ -24,10 +24,10 @@ const COLUMNS_DESKTOP = 4
 const COLUMNS_MOBILE = 2
 
 /** Mock tasks, trimmed to the next few days and dressed up to show off the card features. */
-function usePreviewTasks(columns: number): { dateStr: string; tasks: Task[] }[] {
+function usePreviewTasks(columns: number, now: Date): { dateStr: string; tasks: Task[] }[] {
   return useMemo(() => {
     const all = makeMockTasks()
-    const days = Array.from({ length: columns }, (_, i) => ymd(addDays(new Date(), i)))
+    const days = Array.from({ length: columns }, (_, i) => ymd(addDays(now, i)))
 
     return days.map((dateStr, col) => {
       const tasks = all
@@ -45,13 +45,15 @@ function usePreviewTasks(columns: number): { dateStr: string; tasks: Task[] }[] 
         }))
       return { dateStr, tasks }
     })
-  }, [columns])
+  }, [columns, now])
 }
 
 function PreviewGrid({ columns }: { columns: number }) {
   const { theme, conf } = useTheme()
-  const days = usePreviewTasks(columns)
-  const today = ymd(new Date())
+  // One instant for the whole preview, read once: `react/purity` forbids `new Date()` during render.
+  const [now] = useState(() => new Date())
+  const days = usePreviewTasks(columns, now)
+  const today = ymd(now)
 
   return (
     <div
