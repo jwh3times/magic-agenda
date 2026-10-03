@@ -12,6 +12,20 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.6] - 2026-10-03
+
+### Fixed
+
+- **The home page's board preview now has readable day names in the Neon-Brutalist theme (#502).**
+  With that theme selected, the day names (FRI, SAT, …) above each column were white on the cream
+  background and nearly invisible. They now sit on black bars, as they do on the real board. The
+  Cork and Aurora-Glass previews are unchanged.
+
+### Internal
+
+- A unit test checks the Neon-Brutalist preview's day names. The accessibility scan cannot catch
+  this, because it skips the decorative preview.
+
 ## [1.17.5] - 2026-10-03
 
 ### Fixed
@@ -4749,7 +4763,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.5...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.6...HEAD
+[1.17.6]: https://github.com/jwh3times/magic-agenda/compare/v1.17.5...v1.17.6
 [1.17.5]: https://github.com/jwh3times/magic-agenda/compare/v1.17.4...v1.17.5
 [1.17.4]: https://github.com/jwh3times/magic-agenda/compare/v1.17.3...v1.17.4
 [1.17.3]: https://github.com/jwh3times/magic-agenda/compare/v1.17.2...v1.17.3

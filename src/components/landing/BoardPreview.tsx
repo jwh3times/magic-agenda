@@ -85,7 +85,12 @@ function PreviewGrid({ columns, minHeight }: { columns: number; minHeight: numbe
         const c = cellChrome(theme, conf, meta)
         return (
           <div key={dateStr} style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-            <div style={weekdayStyle(theme, conf)}>{WEEKDAYS_SHORT[d.getDay()]}</div>
+            {/* `weekdayStyle` assumes the board's weekday strip behind it, which is dark in brutal
+                and transparent elsewhere (`boardChrome().weekRow`). The preview has no strip, so
+                each label carries the strip's colour itself (#502). */}
+            <div style={{ ...weekdayStyle(theme, conf), background: conf.weekBg }}>
+              {WEEKDAYS_SHORT[d.getDay()]}
+            </div>
             <div style={{ ...c.cell, minHeight: 132, flex: 1 }}>
               <div style={c.head}>
                 <span style={c.numStyle}>{meta.dayNum}</span>
