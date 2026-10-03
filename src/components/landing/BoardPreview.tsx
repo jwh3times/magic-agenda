@@ -8,6 +8,7 @@ import { addDays, ymd, WEEKDAYS_SHORT } from '../../lib/dates'
 import { useIsMobile } from '../../lib/useMediaQuery'
 import { LabelDirectoryContext } from '../../labels/labelDirectoryContext'
 import { MOCK_LABEL_DIRECTORY } from '../../data/mockLabels'
+import { previewHeight } from './previewHeight'
 
 /**
  * A real board, rendered small, for the signed-out landing page.
@@ -48,7 +49,7 @@ function usePreviewTasks(columns: number, now: Date): { dateStr: string; tasks: 
   }, [columns, now])
 }
 
-function PreviewGrid({ columns }: { columns: number }) {
+function PreviewGrid({ columns, minHeight }: { columns: number; minHeight: number }) {
   const { theme, conf } = useTheme()
   // One instant for the whole preview, read once: `react/purity` forbids `new Date()` during render.
   const [now] = useState(() => new Date())
@@ -63,6 +64,9 @@ function PreviewGrid({ columns }: { columns: number }) {
         gap: 8,
         padding: 12,
         borderRadius: 14,
+        // The landing page's reserved height (#499). The single row stretches to fill it, and each
+        // column passes that on to its cell, so the extra space is board rather than a gap below it.
+        minHeight,
         backgroundColor: conf.pageBg,
         backgroundImage: conf.pageImg,
         backgroundSize: conf.pageSize,
@@ -80,9 +84,9 @@ function PreviewGrid({ columns }: { columns: number }) {
         }
         const c = cellChrome(theme, conf, meta)
         return (
-          <div key={dateStr} style={{ minWidth: 0 }}>
+          <div key={dateStr} style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
             <div style={weekdayStyle(theme, conf)}>{WEEKDAYS_SHORT[d.getDay()]}</div>
-            <div style={{ ...c.cell, minHeight: 132 }}>
+            <div style={{ ...c.cell, minHeight: 132, flex: 1 }}>
               <div style={c.head}>
                 <span style={c.numStyle}>{meta.dayNum}</span>
               </div>
@@ -108,7 +112,10 @@ export function BoardPreview({ theme }: { theme: ThemeName }) {
     <div inert aria-hidden="true">
       <ThemeProvider initial={theme}>
         <LabelDirectoryContext.Provider value={MOCK_LABEL_DIRECTORY}>
-          <PreviewGrid columns={isMobile ? COLUMNS_MOBILE : COLUMNS_DESKTOP} />
+          <PreviewGrid
+            columns={isMobile ? COLUMNS_MOBILE : COLUMNS_DESKTOP}
+            minHeight={previewHeight(isMobile)}
+          />
         </LabelDirectoryContext.Provider>
       </ThemeProvider>
     </div>

@@ -320,10 +320,15 @@ load-bearing:
   regression: fix the pin rather than refreshing the baseline, which would only hide it for a week.
   **The landing surfaces wait for `landingReady()`, not just the heading (#498).** The live board
   preview is a separate lazy chunk behind a blank placeholder, so a page with its heading can still
-  be showing the placeholder. A canary that raced it captured the empty box and, because the
-  placeholder is shorter than the preview (#499), a shorter page too. The a11y landing scan and the
-  deployed-preview console-error probe use the same wait. An empty preview box in a landing
-  candidate means this wait was bypassed, not a regression: never commit that image as a baseline.
+  be showing the placeholder. A canary that raced it captured the empty box, and at the time a
+  shorter page too. The a11y landing scan and the deployed-preview console-error probe use the same
+  wait. An empty preview box in a landing candidate means this wait was bypassed, not a regression:
+  never commit that image as a baseline. **The placeholder and the preview now share one reserved
+  height (#499)**, `PREVIEW_HEIGHT` in `src/components/landing/previewHeight.ts`, which the
+  preview's cells stretch to fill, so the swap no longer moves the page. `smoke.spec.ts` holds the
+  chunk back with `page.route`, measures the placeholder, and fails when any theme renders at another
+  height at 360, 390, 761, or 1280 px. When it fails, raise the reservation rather than loosening
+  the test; the landing canaries change with it.
 - **Anything the board derives from a task's id must be fixed in the seed, and the tolerance
   must be absolute.** Card tilt is `rotOf(task.id)` in cork and brutal, and ties in a lane are read
   in id order, so a seed that let the database mint fresh UUIDs gave every run a different board.
