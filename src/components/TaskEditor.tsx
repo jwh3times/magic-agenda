@@ -428,6 +428,18 @@ export function TaskEditor({
             </>
           )}
 
+          {/* #508: a Board that went private keeps an assignment to its remaining member, hidden
+              from the card (#506) and with no picker to change it. Say so, but only for a task
+              that has one, and only with sharing on — exactly one member listed — so a Board that
+              was never shared looks as it always did. No link: leaving for Settings from here
+              would discard an unsaved draft. */}
+          {boardMembers.members.length === 1 && draft.assigneeId && (
+            <div style={{ fontSize: 12, color: sub, marginTop: 6 }}>
+              Assigned while this board was shared. Share it again from Settings → Boards → Members
+              to see or change the assignee.
+            </div>
+          )}
+
           <div style={fieldLabel}>Checklist</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
             {draft.checklist.map((it, i) => (
