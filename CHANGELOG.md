@@ -12,6 +12,15 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.7] - 2026-10-03
+
+### Internal
+
+- **The landing page's unit tests no longer race the board preview's loading (#504).** The tests
+  waited one second for the lazily loaded preview, which takes about that long to appear in the
+  test environment, so one test passed or failed by chance. They now wait up to four seconds. No
+  change to the app itself.
+
 ## [1.17.6] - 2026-10-03
 
 ### Fixed
@@ -4763,7 +4772,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.6...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.7...HEAD
+[1.17.7]: https://github.com/jwh3times/magic-agenda/compare/v1.17.6...v1.17.7
 [1.17.6]: https://github.com/jwh3times/magic-agenda/compare/v1.17.5...v1.17.6
 [1.17.5]: https://github.com/jwh3times/magic-agenda/compare/v1.17.4...v1.17.5
 [1.17.4]: https://github.com/jwh3times/magic-agenda/compare/v1.17.3...v1.17.4
