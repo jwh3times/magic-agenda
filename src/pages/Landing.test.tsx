@@ -14,9 +14,22 @@ function renderLanding() {
 
 const PREVIEW = '[aria-hidden="true"][inert]'
 
-/** The preview is lazy (it carries ~27 kB of card/theme code), so it arrives after first paint. */
+/**
+ * The preview is lazy (it carries ~27 kB of card/theme code), so it arrives after first paint.
+ *
+ * The first test to call this pays for the whole import, transformed on demand, and that ran past
+ * `waitFor`'s 1-second default locally right after a source edit (#504). `React.lazy` caches the
+ * module, so every later caller resolves at once. A broken preview still fails here, just later.
+ *
+ * Kept under Vitest's 5-second per-test default (the unit project sets no `testTimeout`): past it,
+ * the test is killed first and reports a bare timeout instead of this assertion.
+ */
+const PREVIEW_IMPORT_TIMEOUT = 4_000
+
 async function findPreview(container: HTMLElement): Promise<HTMLElement> {
-  await waitFor(() => expect(container.querySelector(PREVIEW)).not.toBeNull())
+  await waitFor(() => expect(container.querySelector(PREVIEW)).not.toBeNull(), {
+    timeout: PREVIEW_IMPORT_TIMEOUT,
+  })
   return container.querySelector(PREVIEW) as HTMLElement
 }
 
