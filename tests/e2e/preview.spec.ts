@@ -1,5 +1,6 @@
 import { expect, test, type ConsoleMessage, type Page } from '@playwright/test'
 import { cspSources } from '../../scripts/csp'
+import { landingReady } from './fixtures/determinism'
 
 /**
  * These probes intentionally run against the deployed Cloudflare Pages preview. Authenticated app
@@ -33,7 +34,9 @@ function isTurnstileFrame(url: string): boolean {
 test('landing renders with no console errors', async ({ page }) => {
   const errors = collectErrors(page)
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Your week, on sticky notes.' })).toBeVisible()
+  // The board preview is a separate lazy chunk (#498). Asserting on the heading alone could finish
+  // before that chunk loaded, so an error from fetching or rendering it could go unrecorded.
+  await landingReady(page)
   expect(errors).toEqual([])
 })
 
