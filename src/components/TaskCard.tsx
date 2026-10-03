@@ -7,7 +7,7 @@ import { chipLabel, formatTime } from '../lib/dates'
 import { useDueClock } from '../data/dueClockContext'
 import { useBoardActions } from './boardActionContext'
 import { useLabel } from '../labels/LabelDirectoryProvider'
-import { initialsOf, memberName, useBoardMembers } from '../board/boardMembersContext'
+import { initialsOf, isShared, memberName, useBoardMembers } from '../board/boardMembersContext'
 import { labelPresentation } from '../labels/presentation'
 
 // Theme-neutral, like the bulk action bar: a selected card must read as selected on every paper.
@@ -53,9 +53,14 @@ export function TaskCard({ task, variant, dragging, wrapStyle }: TaskCardProps) 
   const { theme } = useTheme()
   const label = labelPresentation(useLabel(task.labelId))
   const boardMembers = useBoardMembers()
-  const assignee = task.assigneeId
-    ? boardMembers.members.find((member) => member.accountId === task.assigneeId)
-    : undefined
+  // Only on a shared Board, the same test as the editor's picker and "Assigned to me" (#506). A
+  // Board that goes private can keep an assignment to its remaining member; it stays stored and
+  // reappears if the Board is shared again, but showing it here would leave a badge nobody can
+  // clear, since the picker is gone.
+  const assignee =
+    task.assigneeId && isShared(boardMembers)
+      ? boardMembers.members.find((member) => member.accountId === task.assigneeId)
+      : undefined
   const { nowMs, timezone } = useDueClock()
   const overdue = isOverdue(task, nowMs, timezone)
   const s = cardStyles(theme, task, variant, {
@@ -96,7 +101,7 @@ export function TaskCard({ task, variant, dragging, wrapStyle }: TaskCardProps) 
         {task.atTime && <span style={s.chipStyle}>{formatTime(task.atTime)}</span>}
         {isKanban && !task.atTime && <span style={s.chipStyle}>{chipLabel(task.day)}</span>}
         {assignee && (
-          // Initials only on a shared Board: the list is empty otherwise (#440).
+          // Initials only on a shared Board (#440, #506): see `assignee` above.
           <span
             style={s.chipStyle}
             title={`Assigned to ${memberName(assignee)}`}

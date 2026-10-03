@@ -12,6 +12,17 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.8] - 2026-10-03
+
+### Fixed
+
+- **A task's assignee initials no longer linger after a board stops being shared (#506).** If a
+  task was assigned to you and everyone else then left or was removed from the board, the card
+  kept showing your initials. The task editor had already hidden the Assignee picker, so there was
+  no way to clear them. Cards now show assignee initials only on a board with more than one
+  member, the same rule as the picker and the "Assigned to me" filter. The assignment itself is
+  kept, and shows again if the board is shared again.
+
 ## [1.17.7] - 2026-10-03
 
 ### Internal
@@ -4772,7 +4783,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.7...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.8...HEAD
+[1.17.8]: https://github.com/jwh3times/magic-agenda/compare/v1.17.7...v1.17.8
 [1.17.7]: https://github.com/jwh3times/magic-agenda/compare/v1.17.6...v1.17.7
 [1.17.6]: https://github.com/jwh3times/magic-agenda/compare/v1.17.5...v1.17.6
 [1.17.5]: https://github.com/jwh3times/magic-agenda/compare/v1.17.4...v1.17.5
