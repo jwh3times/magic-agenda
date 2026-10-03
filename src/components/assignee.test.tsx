@@ -22,8 +22,9 @@ import { TaskEditor } from './TaskEditor'
  * The Assignee UI (#440): card initials, the editor's picker, and "Assigned to me".
  *
  * All three read `BoardMembersContext`, which is empty unless the `board-sharing` flag is on and
- * holds one member on a Private Board — so each is asserted both present on a shared Board and
- * absent otherwise.
+ * holds one member on a Private Board — so each is asserted present on a shared Board and absent
+ * on a Private one. "Absent" must mean both of those states, not just sharing off: the card was
+ * checked only against the empty list, and showed an uncleanable badge on a Private Board (#506).
  */
 
 const member = (over: Partial<BoardMember>): BoardMember => ({
@@ -97,6 +98,18 @@ test('a card shows nothing when the members are unknown (sharing off)', () => {
   render(
     <Providers members={NO_BOARD_MEMBERS}>
       <TaskCard task={task({ assigneeId: 'a2' })} variant="inbox" />
+    </Providers>,
+  )
+  expect(screen.queryByLabelText(/Assigned to/)).toBeNull()
+})
+
+// The case that shipped broken (#506): an Owner assigns a task to themselves, then the only other
+// member leaves. The assignee is still a member, so the server keeps the assignment, and the list
+// still holds them — but the editor's picker is gone, so a badge here could never be cleared.
+test('a card shows nothing on a Private Board, even when its assignee is the remaining member', () => {
+  render(
+    <Providers members={PRIVATE}>
+      <TaskCard task={task({ assigneeId: 'a1' })} variant="inbox" />
     </Providers>,
   )
   expect(screen.queryByLabelText(/Assigned to/)).toBeNull()
