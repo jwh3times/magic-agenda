@@ -12,6 +12,25 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.5] - 2026-10-03
+
+### Fixed
+
+- **The home page no longer jumps when the live board preview appears (#499).** The preview loads
+  just after the rest of the page, and the space held for it was shorter than the preview itself.
+  When it arrived, the theme buttons and the feature list below it moved down by roughly 30–55
+  pixels, sometimes just as a visitor reached for them. The space is now held at the preview's full
+  height, so nothing moves when it loads, when the page's fonts finish loading, or when a visitor
+  switches the preview between themes. The preview is a little taller than before, and its day
+  cells fill the extra space. On very narrow phones (about 320 pixels wide) the preview can still
+  grow slightly rather than cut off its cards.
+
+### Internal
+
+- A browser test now checks that the preview renders at exactly its reserved height in all three
+  themes, at phone and desktop widths, and fails if a future change makes it outgrow that space.
+  The landing screenshot baselines are refreshed for the taller preview.
+
 ## [1.17.4] - 2026-10-02
 
 ### Internal
@@ -4730,7 +4749,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.4...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.5...HEAD
+[1.17.5]: https://github.com/jwh3times/magic-agenda/compare/v1.17.4...v1.17.5
 [1.17.4]: https://github.com/jwh3times/magic-agenda/compare/v1.17.3...v1.17.4
 [1.17.3]: https://github.com/jwh3times/magic-agenda/compare/v1.17.2...v1.17.3
 [1.17.2]: https://github.com/jwh3times/magic-agenda/compare/v1.17.1...v1.17.2
