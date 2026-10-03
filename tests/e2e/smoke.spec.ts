@@ -143,6 +143,61 @@ test.describe('phone-width layout', () => {
 })
 
 /**
+ * The landing page's board preview must not move the page when it loads (#499).
+ *
+ * The preview is a lazy chunk behind a placeholder, and the placeholder used to be shorter than the
+ * preview: 196 px against 229-270 px, so the theme buttons and feature list jumped down. Both now
+ * share a reserved height (`src/components/landing/previewHeight.ts`) that the preview fills.
+ *
+ * The chunk is held back so the placeholder is measurable at all; on a fast local server it is
+ * replaced before a test can see it. Then every theme must render at exactly that height, which
+ * fails as soon as one outgrows the reservation. 360 px is the narrowest width the reservation
+ * covers; 761 px is the narrowest desktop width, where the four columns wrap the most.
+ */
+test.describe('landing preview height', () => {
+  test.use({ storageState: { cookies: [], origins: [] } })
+
+  for (const width of [360, 390, 761, 1280]) {
+    test(`the preview fills its placeholder's height at ${width}px, in every theme`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 900 })
+      let release: () => void = () => {}
+      const held = new Promise<void>((resolve) => (release = resolve))
+      await page.route('**/assets/BoardPreview-*.js', async (route) => {
+        await held
+        await route.continue()
+      })
+      await page.goto('/')
+      const region = page.getByRole('region', { name: 'Live board preview' })
+      const placeholder = region.locator(':scope > div[aria-hidden="true"]:not([inert])')
+      const reserved = (await placeholder.boundingBox())?.height
+      if (!reserved) throw new Error('the preview placeholder did not render')
+
+      release()
+      const preview = region.locator(':scope > [inert]')
+      await preview.waitFor()
+      await page.evaluate(async () => {
+        await document.fonts.ready
+      })
+      for (const theme of ['Cork', 'Neon-Brutalist', 'Aurora-Glass']) {
+        await page.getByRole('button', { name: theme, exact: true }).click()
+        await expect(page.getByRole('button', { name: theme, exact: true })).toHaveAttribute(
+          'aria-pressed',
+          'true',
+        )
+        const height = (await preview.boundingBox())?.height
+        expect(
+          height,
+          `the ${theme} preview is ${height}px against a ${reserved}px placeholder at ${width}px. ` +
+            'Raise PREVIEW_HEIGHT in src/components/landing/previewHeight.ts.',
+        ).toBeCloseTo(reserved, 0)
+      }
+    })
+  }
+})
+
+/**
  * Settings at phone width, signed in, per theme (#464). Its section lists hold rows of a text
  * field beside themed buttons, and a grid column cannot shrink below a text input's default
  * ~20-character width. That pushed a Label row's Delete button 35-57px off a 402px phone before

@@ -3,11 +3,13 @@ import { Link } from 'react-router'
 import type { ThemeName } from '../types/task'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
 import { useIsMobile } from '../lib/useMediaQuery'
+import { previewHeight } from '../components/landing/previewHeight'
 
 // The preview drags in TaskCard, cardStyles, chrome and the mock board — ~30 kB that the hero,
 // the copy, and the CTA do not need. Loading it separately keeps the entry chunk (which every
 // visitor pays for, signed in or not) from growing, and the text above the fold paints first.
-// The placeholder below reserves its height so nothing shifts when it arrives.
+// The placeholder below reserves the preview's height (`previewHeight`, #499) so nothing shifts
+// when it arrives.
 const BoardPreview = lazy(() =>
   import('../components/landing/BoardPreview').then((m) => ({ default: m.BoardPreview })),
 )
@@ -23,9 +25,6 @@ const BoardPreview = lazy(() =>
  * Styling follows the auth pages (`authChrome.ts`), not the board themes: dark violet, so the
  * marketing chrome frames the preview instead of competing with it.
  */
-
-/** Matches the rendered preview's height so the lazy swap causes no layout shift. */
-const PREVIEW_HEIGHT = 196
 
 const THEMES: { key: ThemeName; label: string }[] = [
   { key: 'cork', label: 'Cork' },
@@ -163,7 +162,7 @@ export function Landing() {
               <div
                 aria-hidden="true"
                 style={{
-                  height: PREVIEW_HEIGHT,
+                  height: previewHeight(isMobile),
                   borderRadius: 14,
                   background: 'rgba(255,255,255,.03)',
                   border: '1px solid rgba(255,255,255,.06)',
