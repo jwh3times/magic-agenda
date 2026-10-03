@@ -354,8 +354,12 @@ on another Board, so export omits it and import arrives unassigned (see [Labels]
 In the app, `BoardPage` fills `BoardMembersContext` from `board_members` **only** when the
 `board-sharing` flag is on. Every Assignee control — the editor's picker, a card's initials, the
 "Assigned to me" filter (`FilterQuery.assignedTo`) — renders only when more than one member is on
-the Board, so Private Boards look exactly as before. Covered by `tests/rls/task_assignee.test.ts`
-and `src/components/assignee.test.tsx`.
+the Board, so Private Boards look exactly as before. One deliberate exception (#508): a Board that
+goes private keeps any assignment to its remaining member, because the server clears an Assignee
+only when that member leaves. The card hides it (#506), and the editor shows one muted line saying
+the task was assigned while the Board was shared. It appears only for a task with an `assigneeId`,
+and only when exactly one member is listed (sharing on), so a Board that was never shared sees
+nothing new. Covered by `tests/rls/task_assignee.test.ts` and `src/components/assignee.test.tsx`.
 
 ## Board Invitations: a link, a verified email, and limits enforced under the lock (#436)
 

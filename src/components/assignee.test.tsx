@@ -158,6 +158,35 @@ test('the editor offers no Assignee on a Private Board', () => {
   expect(screen.queryByLabelText('Assignee')).toBeNull()
 })
 
+// #508, option 3: a private Board says why an assignment it still stores can't be seen or changed,
+// and says nothing at all in every other case — so it is asserted in all four.
+const STORED_HINT = /Assigned while this board was shared/
+
+test('the editor explains a stored assignment on a Board that went private', () => {
+  renderEditor(PRIVATE, { assigneeId: 'a1' })
+  expect(screen.getByText(STORED_HINT)).toHaveTextContent(
+    'Share it again from Settings → Boards → Members to see or change the assignee.',
+  )
+  expect(screen.queryByLabelText('Assignee')).toBeNull()
+})
+
+test('the editor says nothing about assignment on a Private Board when the task has none', () => {
+  renderEditor(PRIVATE)
+  expect(screen.queryByText(STORED_HINT)).toBeNull()
+})
+
+test('the editor shows the picker, not the hint, on a shared Board', () => {
+  renderEditor(SHARED, { assigneeId: 'a1' })
+  expect(screen.getByLabelText('Assignee')).toHaveValue('a1')
+  expect(screen.queryByText(STORED_HINT)).toBeNull()
+})
+
+test('the editor says nothing about assignment when sharing is off', () => {
+  // The member list is empty with the flag off, so there is no sharing UI for the hint to name.
+  renderEditor(NO_BOARD_MEMBERS, { assigneeId: 'a1' })
+  expect(screen.queryByText(STORED_HINT)).toBeNull()
+})
+
 test('a Viewer sees the Assignee but cannot change it', () => {
   renderEditor(SHARED, { assigneeId: 'a2' }, false)
   expect(screen.getByLabelText('Assignee')).toBeDisabled()

@@ -12,6 +12,18 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.9] - 2026-10-03
+
+### Changed
+
+- **A private board now explains a task that is still assigned from when it was shared (#508).**
+  Assigning tasks is only offered on a board with more than one member, so once everyone else
+  leaves or is removed, the Assignee picker disappears, and until now nothing said why. Opening a
+  task that still holds an assignment from the shared days now shows one line in the editor:
+  _"Assigned while this board was shared. Share it again from Settings → Boards → Members to see or
+  change the assignee."_ Boards that were never shared, and tasks that were never assigned, look
+  exactly as before.
+
 ## [1.17.8] - 2026-10-03
 
 ### Fixed
@@ -4783,7 +4795,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.8...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.9...HEAD
+[1.17.9]: https://github.com/jwh3times/magic-agenda/compare/v1.17.8...v1.17.9
 [1.17.8]: https://github.com/jwh3times/magic-agenda/compare/v1.17.7...v1.17.8
 [1.17.7]: https://github.com/jwh3times/magic-agenda/compare/v1.17.6...v1.17.7
 [1.17.6]: https://github.com/jwh3times/magic-agenda/compare/v1.17.5...v1.17.6
