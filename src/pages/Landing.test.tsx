@@ -85,6 +85,25 @@ test('the theme toggle restyles the preview without touching stored settings', a
   expect(markup()).not.toBe(corkMarkup)
 })
 
+// The brutal weekday labels are white because, on the board, they sit on the dark weekday strip
+// (`boardChrome().weekRow`). The preview has no strip, so without their own backing they were white
+// on the cream page (#502). axe cannot catch this: the preview is inert and aria-hidden.
+test('the brutal preview backs its white weekday labels with the dark weekday strip colour', async () => {
+  const user = userEvent.setup()
+  const { container } = renderLanding()
+  await findPreview(container)
+  await user.click(screen.getByRole('button', { name: 'Neon-Brutalist' }))
+
+  const labels = within(container.querySelector(PREVIEW) as HTMLElement).getAllByText(
+    /^(Sun|Mon|Tue|Wed|Thu|Fri|Sat)$/,
+  )
+  expect(labels.length).toBeGreaterThan(0)
+  for (const label of labels) {
+    expect(label.style.color).toBe('rgb(255, 255, 255)')
+    expect(label.style.background).toBe('rgb(17, 17, 17)')
+  }
+})
+
 test('renders real task cards from the mock board, not placeholder text', async () => {
   const { container } = renderLanding()
   const preview = within(await findPreview(container))
