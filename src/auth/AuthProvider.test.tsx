@@ -46,6 +46,71 @@ test('the recovery flag survives a remount (page reload) via sessionStorage', as
   expect(sessionStorage.getItem('ma-password-recovery')).toBeNull()
 })
 
+test('redeeming a sign-up link raises the password gate, with its own reason', async () => {
+  // A confirmed sign-up has no password: the database discards whatever was stored before the
+  // address was confirmed. GoTrue reports the redemption as a plain SIGNED_IN, so nothing but
+  // the redeem call itself can raise the gate.
+  const { result } = renderHook(() => useAuth(), { wrapper })
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  expect(result.current.passwordGateReason).toBeNull()
+
+  await act(async () => {
+    await result.current.redeemToken('hash', 'signup')
+  })
+  expect(result.current.passwordRecovery).toBe(true)
+  expect(result.current.passwordGateReason).toBe('signup')
+  expect(sessionStorage.getItem('ma-password-recovery')).toBe('signup')
+
+  act(() => result.current.clearPasswordRecovery())
+  expect(result.current.passwordRecovery).toBe(false)
+})
+
+test('a sign-up link that fails to redeem leaves no password gate behind', async () => {
+  fake.next.redeemToken = { ok: false, failure: { reason: 'unknown', message: 'expired' } }
+  const { result } = renderHook(() => useAuth(), { wrapper })
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  await act(async () => {
+    await result.current.redeemToken('hash', 'signup')
+  })
+  expect(result.current.passwordRecovery).toBe(false)
+  expect(sessionStorage.getItem('ma-password-recovery')).toBeNull()
+})
+
+test('redeeming a recovery link does not raise the sign-up gate by itself', async () => {
+  // Recovery is raised by the PASSWORD_RECOVERY event, as before; the redeem call must not claim
+  // it as a sign-up.
+  const { result } = renderHook(() => useAuth(), { wrapper })
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  await act(async () => {
+    await result.current.redeemToken('hash', 'recovery')
+  })
+  expect(result.current.passwordGateReason).toBeNull()
+
+  act(() => fake.emit('PASSWORD_RECOVERY', fakeSession()))
+  expect(result.current.passwordGateReason).toBe('recovery')
+})
+
+test('a sign-up that signs in at once still owes a password', async () => {
+  fake.next.signUp = { ok: true, confirmationRequired: false }
+  const { result } = renderHook(() => useAuth(), { wrapper })
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  await act(async () => {
+    await result.current.signUp('a@b.co', 'throwaway', 'captcha')
+  })
+  expect(result.current.passwordGateReason).toBe('signup')
+})
+
+test('a sign-up awaiting confirmation raises nothing yet', async () => {
+  fake.next.signUp = { ok: true, confirmationRequired: true }
+  const { result } = renderHook(() => useAuth(), { wrapper })
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  await act(async () => {
+    await result.current.signUp('a@b.co', 'throwaway', 'captcha')
+  })
+  expect(result.current.passwordRecovery).toBe(false)
+})
+
 test('SIGNED_OUT clears the remembered board and view, and every offline snapshot', async () => {
   // The snapshot clearing is what makes storing task text at rest acceptable (see
   // src/data/snapshot.ts); this is the test that would fail if a future refactor of the

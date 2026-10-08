@@ -122,11 +122,19 @@ test('signup asks the user to check their email when confirmation is pending', a
   )
   act(() => challenge.callback('signup-challenge-token'))
   expect(submit).toBeEnabled()
+  // Sign-up asks for no password: it is chosen after the address is confirmed, because the
+  // database discards anything stored before that.
+  expect(screen.queryByPlaceholderText('Password')).not.toBeInTheDocument()
+  expect(screen.getByText(/choose your password after you open it/)).toBeInTheDocument()
   await userEvent.type(screen.getByPlaceholderText('you@example.com'), 'a@b.co')
-  await userEvent.type(screen.getByPlaceholderText('Password'), 'Longenough123!')
   await userEvent.click(submit)
 
-  expect(fake.calls.signUp).toEqual([['a@b.co', 'Longenough123!', 'signup-challenge-token']])
+  expect(fake.calls.signUp).toHaveLength(1)
+  const [sentEmail, sentPassword, sentToken] = fake.calls.signUp[0]
+  expect(sentEmail).toBe('a@b.co')
+  expect(sentToken).toBe('signup-challenge-token')
+  // A throwaway that satisfies the server's policy and is not guessable.
+  expect(sentPassword).toMatch(/^[0-9a-f]{64}aA1!$/)
   expect(resetChallenge).toHaveBeenCalledWith('challenge-1')
   // Confirmation now signs the user in — the old copy said "…, then sign in."
   expect(await screen.findByText('Check your email to confirm your account.')).toBeInTheDocument()
@@ -139,7 +147,6 @@ test('signup with an immediate session shows no check-your-email notice', async 
   await waitFor(() => expect(renderChallenge).toHaveBeenCalledTimes(1))
   act(() => challenge.callback('signup-challenge-token'))
   await userEvent.type(screen.getByPlaceholderText('you@example.com'), 'a@b.co')
-  await userEvent.type(screen.getByPlaceholderText('Password'), 'Longenough123!')
   await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
 
   expect(fake.calls.signUp).toHaveLength(1)
@@ -219,4 +226,21 @@ test('the logo is fluid so it cannot overflow the card', () => {
   // the actual overflow is measured by the 390px check in tests/e2e/smoke.spec.ts.
   expect(logo.style.maxWidth).toBe('100%')
   expect(logo.style.height).toBe('auto')
+})
+
+test('each sign-up sends a different throwaway password', async () => {
+  fake.next.signUp = { ok: true, confirmationRequired: true }
+  renderLogin()
+  await userEvent.click(screen.getByRole('button', { name: 'Sign up' }))
+  await waitFor(() => expect(renderChallenge).toHaveBeenCalledTimes(1))
+  await userEvent.type(screen.getByPlaceholderText('you@example.com'), 'a@b.co')
+  for (const token of ['first-token', 'second-token']) {
+    act(() => challenge.callback(token))
+    await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Create account' })).toBeDisabled(),
+    )
+  }
+  expect(fake.calls.signUp).toHaveLength(2)
+  expect(fake.calls.signUp[0][1]).not.toBe(fake.calls.signUp[1][1])
 })

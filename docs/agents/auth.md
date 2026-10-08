@@ -45,6 +45,34 @@ never succeed for this Account (unavailable, expired, email mismatch — not "un
 confirming fixes), "Not now", and `SIGNED_OUT`. An Invitation never establishes a session:
 `redeemDecision()` and the redemption paths are untouched.
 
+## A password is chosen after the address is confirmed
+
+**Sign-up asks for an email address and nothing else, and that is a security property, not a
+shortcut.** The auth server keeps the first password ever submitted for an unconfirmed address: a
+repeat sign-up does not replace it, and confirming by emailed link does not clear it. Anyone could
+therefore register someone else's address with a password of their own, wait for the real owner to
+confirm, and sign in as them. The server cannot tell who set the stored password, so nobody's
+survives:
+
+- The trigger `on_auth_user_first_confirmed` on `auth.users` nulls `encrypted_password` on the
+  transition from unconfirmed to confirmed (`20261008160000`). This is the boundary; everything
+  else is how the owner then gets a password.
+- `Login` sends `throwawayPassword()` because the sign-up request requires one. It is never shown
+  or used.
+- `AuthProvider.redeemToken` raises the per-tab password gate with the reason `signup` **before**
+  calling the gateway, since GoTrue reports a redeemed sign-up link as a plain `SIGNED_IN`. Every
+  route that already honoured `passwordRecovery` sends the session to `/auth/reset`, where
+  `ResetPassword` reads `passwordGateReason` for its copy.
+
+**The trigger spares an account whose confirmation was never emailed**
+(`old.confirmation_sent_at is not null`). `auth.admin.createUser({ email_confirm: true })` also
+confirms with an UPDATE in the same request, and an operator set that password. Removing the
+clause empties the password of every operator-created and every test account at creation.
+
+The gate is per-tab. Someone who confirms and closes the tab before choosing a password stays
+signed in on that device with no password; "Forgot password?" is their way to set one. Google
+sign-in is unaffected: the auth server already discards an unconfirmed password on that path.
+
 ## The auth seam: pages never touch `supabase.auth`
 
 **`src/auth/authGateway.ts` is the only module in `src/` that may call `supabase.auth.*`.** Until

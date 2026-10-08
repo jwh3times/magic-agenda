@@ -12,6 +12,32 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.15] - 2026-10-08
+
+### Security
+
+- **Signing up no longer asks for a password; you choose it after confirming your email.**
+  Previously the password typed at sign-up was stored before the address was proven, and the
+  first one ever submitted for an address was the one that stuck. Someone could register another
+  person's address with a password of their own, wait for the real owner to confirm, and then
+  sign in as them. Now any password stored before an address is confirmed is discarded at the
+  moment of confirmation, and the confirmation link takes you to a "choose a password" step
+  before your board. Existing accounts and Google sign-in are unaffected.
+
+### Changed
+
+- **Sign-up is email-only**, with a note that the password comes after the confirmation link.
+  If you confirm and close the tab before choosing a password, use "Forgot password?" on the
+  sign-in page to set one.
+
+### Internal
+
+- New migration `20261008160000_password_chosen_after_confirmation.sql`: the trigger
+  `on_auth_user_first_confirmed` on `auth.users`. It spares accounts whose confirmation was
+  never emailed, which is how operator-created accounts keep their passwords.
+- RLS coverage drives the real auth server: a pre-set password stops working when the owner
+  confirms, the owner's new one works, and an operator-created account keeps its own.
+
 ## [1.17.14] - 2026-10-08
 
 ### Security
@@ -4860,7 +4886,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.14...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.15...HEAD
+[1.17.15]: https://github.com/jwh3times/magic-agenda/compare/v1.17.14...v1.17.15
 [1.17.14]: https://github.com/jwh3times/magic-agenda/compare/v1.17.13...v1.17.14
 [1.17.13]: https://github.com/jwh3times/magic-agenda/compare/v1.17.12...v1.17.13
 [1.17.12]: https://github.com/jwh3times/magic-agenda/compare/v1.17.11...v1.17.12
