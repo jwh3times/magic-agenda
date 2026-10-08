@@ -128,22 +128,33 @@ export async function uploadAttachment(
 }
 
 /**
- * Delete an attachment: the row, then a best-effort object removal.
+ * Delete an attachment: the object, then the row.
  *
- * **The opposite order from Board deletion, deliberately.** There the Board row carries the
- * membership that authorizes the object delete, so the file has to go first or it can never go at
- * all. Here the Board survives, so the caller keeps that authorization either way and a leftover
- * object stays deletable -- by a retry, or by the Board sweep later. Removing the row first means
- * the UI never shows an attachment whose file is already gone.
+ * **Object first, because a row-less object is invisible to every API role.** The object policies
+ * require a `task_attachments` row for the path (`20261008120000`), and Storage resolves what to
+ * delete under the caller's SELECT policy. Removing the row first would leave a file nobody but
+ * the Board sweep could ever reach again.
  *
- * A failed object removal is therefore not an error the user needs to see. The issue accepts these
- * orphans explicitly and leaves a scheduled cleanup for later.
+ * Either half can fail and a retry heals both: removing an object that is already gone succeeds
+ * with nothing removed, and the row delete then proceeds. Until that retry the row describes a
+ * missing file, which shows as a placeholder thumbnail rather than as lost data.
+ *
+ * **The permission check comes from the row, not the object.** Storage answers a refused removal
+ * the same way as a missing object -- success, nothing removed -- so a Viewer's attempt is only
+ * observable at the row delete below.
  */
 export async function removeAttachment(attachment: Attachment): Promise<void> {
+  // storage-js resolves its failures as `{ error }` rather than rejecting, so this is checked, not
+  // caught. A failure here must stop the delete: the row is what keeps the object reachable.
+  const { error: removeError } = await supabase.storage
+    .from(ATTACHMENTS_BUCKET)
+    .remove([attachment.storagePath])
+  if (removeError) throw new Error(removeError.message)
+
   // **`.select()` is what tells a refusal from a success.** RLS denies a DELETE by matching zero
-  // rows, not by erroring -- so without this a Viewer's delete would return success, the object
-  // removal would be refused and ignored, and the attachment would simply reappear on the next
-  // load with no explanation. Asking for the deleted row back makes the refusal observable.
+  // rows, not by erroring -- so without this a Viewer's delete would return success and the
+  // attachment would simply reappear on the next load with no explanation. Asking for the deleted
+  // row back makes the refusal observable.
   const { data, error } = await supabase
     .from('task_attachments')
     .delete()
@@ -153,10 +164,6 @@ export async function removeAttachment(attachment: Attachment): Promise<void> {
   if (!data || data.length === 0) {
     throw new Error('You do not have permission to remove that attachment.')
   }
-
-  // Best-effort, and genuinely ignorable: the row is gone, which is what was asked for. storage-js
-  // resolves its failures as `{ error }` rather than rejecting, so this is checked, not caught.
-  await supabase.storage.from(ATTACHMENTS_BUCKET).remove([attachment.storagePath])
 }
 
 /**
@@ -186,6 +193,10 @@ export async function signedUrl(storagePath: string): Promise<string | null> {
  * Leaving them costs dead storage until the Board or account is deleted, when the sweep in #399
  * collects them — it enumerates storage rather than rows, so it finds exactly these. That is the
  * same class of cost #400 already tracks, and it destroys nothing.
+ *
+ * **They are not readable in the meantime.** The object policies require a `task_attachments` row
+ * for the path, so once the cascade has removed the row no member can list, download, or sign the
+ * file. Before that rule, a member invited after the delete could read it.
  *
  * **This is what makes #404 fixable**, and the two functions below are the fix: the bytes are
  * still there, so undo only has to put the rows back. Deleting the files here would have made that

@@ -245,44 +245,42 @@ test('an invalid file is refused without touching storage', async () => {
   expect(h.upload).not.toHaveBeenCalled()
 })
 
-test('delete removes the row BEFORE the object, the opposite of Board deletion', async () => {
-  // Deliberate and worth pinning: the Board survives here, so the caller keeps the membership that
-  // authorizes the object delete and a leftover object stays deletable. Row first means the UI
-  // never shows an attachment whose file is already gone.
+test('delete removes the object BEFORE the row', async () => {
+  // The object policies require a row for the path, so a row-less object is unreachable by every
+  // API role. Row first would strand the file until the Board sweep.
   const attachment = {
     id: 'a1',
     storagePath: `${BOARD}/${TASK}/a1`,
   } as Attachment
   await removeAttachment(attachment)
-  expect(h.calls).toEqual(['deleteRow', `remove:${BOARD}/${TASK}/a1`])
+  expect(h.calls).toEqual([`remove:${BOARD}/${TASK}/a1`, 'deleteRow'])
 })
 
-test('a failed row delete does not remove the object', async () => {
+test('a failed object removal keeps the row', async () => {
+  // The row is what keeps the object reachable for a retry. storage-js reports this as a resolved
+  // `{ error }` rather than a rejection.
+  h.state.removeFails = true
+  await expect(
+    removeAttachment({ id: 'a1', storagePath: `${BOARD}/${TASK}/a1` } as Attachment),
+  ).rejects.toThrow('storage unavailable')
+  expect(h.calls).not.toContain('deleteRow')
+})
+
+test('a failed row delete is surfaced', async () => {
   h.state.deleteError = { message: 'refused' }
   await expect(
     removeAttachment({ id: 'a1', storagePath: `${BOARD}/${TASK}/a1` } as Attachment),
   ).rejects.toThrow('refused')
-  expect(h.remove).not.toHaveBeenCalled()
 })
 
 test('a DELETE that matches no row is reported as a refusal, not a success', async () => {
-  // RLS denies a DELETE by matching zero rows, not by erroring. Without `.select()` a Viewer's
-  // remove would return success, the object removal would be refused and ignored, and the
-  // attachment would silently reappear on the next load with no explanation.
+  // RLS denies a DELETE by matching zero rows, not by erroring, and Storage answers a refused
+  // removal as a success that removed nothing. Without `.select()` a Viewer's remove would look
+  // like it worked and the attachment would reappear on the next load with no explanation.
   h.state.deleteMatches = false
   await expect(
     removeAttachment({ id: 'a1', storagePath: `${BOARD}/${TASK}/a1` } as Attachment),
   ).rejects.toThrow(/do not have permission/)
-  expect(h.remove).not.toHaveBeenCalled()
-})
-
-test('a failed object removal is not surfaced', async () => {
-  // The row is gone, which is what the user asked for. The orphan is accepted by the issue, and
-  // storage-js reports this as a resolved `{ error }` rather than a rejection.
-  h.state.removeFails = true
-  await expect(
-    removeAttachment({ id: 'a1', storagePath: `${BOARD}/${TASK}/a1` } as Attachment),
-  ).resolves.toBeUndefined()
 })
 
 test('a signed URL failure degrades to null rather than throwing', async () => {
