@@ -12,6 +12,52 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.13] - 2026-10-08
+
+### Security
+
+- **Files attached to a deleted task can no longer be read by other board members.** Deleting a
+  task removes its attachments from the board but keeps the files briefly so Undo can bring them
+  back. Until now those files stayed reachable through the storage API by every current member of
+  the board, including someone invited after the task was deleted. A file is now readable only
+  while an attachment on the board names it. Undo still restores a deleted task's attachments.
+  The files of deleted tasks are still stored until the board is deleted; they are hidden, not yet
+  erased.
+
+### Changed
+
+- **Removing an attachment now reports a storage failure.** The file is removed first and the
+  attachment second, so a failed removal leaves the attachment in place with an error to retry,
+  where before the attachment disappeared and the file could be left behind.
+
+### Internal
+
+- New migration `20261008120000_attachment_objects_require_row.sql`: `attachments_select_member`
+  requires a `task_attachments` row for the object's path, a unique index covers `storage_path`,
+  and the Undo restore check moves into the definer helper
+  `app_private.attachment_object_matches`.
+- RLS coverage for a deleted task's file: the Owner and a Viewer invited afterwards can neither
+  list, download nor sign it, and restoring the row restores the read.
+
+## [1.17.12] - 2026-10-07
+
+### Internal
+
+- `source-map-js` bumped from 1.2.1 to 1.2.2 (#512).
+
+## [1.17.11] - 2026-10-07
+
+### Internal
+
+- `vite-plugin-pwa` bumped from 1.3.0 to 2.0.0 (#511).
+
+## [1.17.10] - 2026-10-05
+
+### Internal
+
+- Development dependencies bumped (#510): `@types/node` 26.6.4, `pg` 8.23.1, `supabase` CLI
+  2.119.0, `vite` 8.3.2, and `vitest` 5.0.3.
+
 ## [1.17.9] - 2026-10-03
 
 ### Changed
@@ -4795,7 +4841,11 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.9...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.13...HEAD
+[1.17.13]: https://github.com/jwh3times/magic-agenda/compare/v1.17.12...v1.17.13
+[1.17.12]: https://github.com/jwh3times/magic-agenda/compare/v1.17.11...v1.17.12
+[1.17.11]: https://github.com/jwh3times/magic-agenda/compare/v1.17.10...v1.17.11
+[1.17.10]: https://github.com/jwh3times/magic-agenda/compare/v1.17.9...v1.17.10
 [1.17.9]: https://github.com/jwh3times/magic-agenda/compare/v1.17.8...v1.17.9
 [1.17.8]: https://github.com/jwh3times/magic-agenda/compare/v1.17.7...v1.17.8
 [1.17.7]: https://github.com/jwh3times/magic-agenda/compare/v1.17.6...v1.17.7
