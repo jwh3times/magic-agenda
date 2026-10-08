@@ -472,3 +472,8 @@ verify_jwt = false
 # `send-reminders`, checked in the handler; the gateway cannot validate that opaque secret.
 [functions.materialize-series]
 verify_jwt = false
+
+# The daily attachment sweep. Invoked only by pg_cron with the same bearer secret as
+# `send-reminders`, checked in the handler; the gateway cannot validate that opaque secret.
+[functions.sweep-attachments]
+verify_jwt = false

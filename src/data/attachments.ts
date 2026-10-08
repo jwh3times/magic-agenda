@@ -190,9 +190,9 @@ export async function signedUrl(storagePath: string): Promise<string | null> {
  * happens to the bytes. Deleting the files as well would make that loss irreversible at the moment
  * the user clicks a button that offers Undo beside it.
  *
- * Leaving them costs dead storage until the Board or account is deleted, when the sweep in #399
- * collects them — it enumerates storage rather than rows, so it finds exactly these. That is the
- * same class of cost #400 already tracks, and it destroys nothing.
+ * Leaving them costs storage only briefly: the daily `sweep-attachments` job removes an object
+ * once it has been row-less across two runs, which is long after any Undo. Deleting a Board or
+ * account still collects everything under its prefix at once (#399).
  *
  * **They are not readable in the meantime.** The object policies require a `task_attachments` row
  * for the path, so once the cascade has removed the row no member can list, download, or sign the

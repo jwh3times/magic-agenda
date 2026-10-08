@@ -12,6 +12,25 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.14] - 2026-10-08
+
+### Security
+
+- **Files of deleted tasks are now erased, not only hidden.** Since v1.17.13 a deleted task's
+  attachments could no longer be read, but the files stayed in storage and still counted toward
+  the board's attachment limit. A daily job now deletes them. A file is removed only after it has
+  gone unreferenced across two runs, so undoing a delete still brings its attachments back; in
+  practice a deleted task's files are gone within two days.
+
+### Internal
+
+- New migration `20261008140000_attachment_orphan_sweep.sql`: the `service_role`-only command
+  `collect_attachment_orphans`, its marks table in `app_private`, and a `pg_cron` job at 03:47
+  UTC.
+- New Edge Function `sweep-attachments`, invoked by that job with the cron bearer secret it shares
+  with `send-reminders` and `materialize-series`. Gateway JWT verification is off for it in
+  `supabase/config.toml`, as for the other two.
+
 ## [1.17.13] - 2026-10-08
 
 ### Security
@@ -4841,7 +4860,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.13...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.14...HEAD
+[1.17.14]: https://github.com/jwh3times/magic-agenda/compare/v1.17.13...v1.17.14
 [1.17.13]: https://github.com/jwh3times/magic-agenda/compare/v1.17.12...v1.17.13
 [1.17.12]: https://github.com/jwh3times/magic-agenda/compare/v1.17.11...v1.17.12
 [1.17.11]: https://github.com/jwh3times/magic-agenda/compare/v1.17.10...v1.17.11

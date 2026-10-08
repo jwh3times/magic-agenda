@@ -185,9 +185,18 @@ the delete. Two things follow, and both are easy to undo by accident:
 - The restore check cannot run as the caller, who can no longer see the orphan. It lives in
   `app_private.attachment_object_matches`, a definer helper the INSERT policy calls.
 - Storage resolves what to delete under the caller's SELECT policy, so `removeAttachment` removes
-  the **object first, then the row**. Row first strands the file where only the Board sweep
-  (`delete-board`, `delete-account`) reaches it. That sweep uses the service role and still
-  collects orphans; nothing else deletes them yet.
+  the **object first, then the row**. Row first strands the file where only a service-role sweep
+  reaches it.
+
+**Row-less objects are erased by a daily sweep.** `pg_cron` calls the `sweep-attachments` Edge
+Function at 03:47 UTC with the cron bearer secret. The function asks
+`collect_attachment_orphans` which paths to remove and deletes exactly those through the Storage
+API, since Supabase forbids direct DML on the storage tables. The command never offers an object on
+the call that first sees it without a row: it records the path in
+`app_private.attachment_orphan_marks` and offers it on a later run, after an hour's grace, so an
+Undo in progress cannot lose its file. A restored row withdraws the mark. In practice a deleted
+Task's files are gone within two days. The Board sweep in `delete-board` and `delete-account` is
+unchanged and still removes everything under a Board's prefix at once.
 
 **Task attribution is stamped by the database (#291).** The invoker trigger
 `stamp_task_attribution` sets `author_id = auth.uid()`, `author_kind = 'author'`, and `revision = 1`
