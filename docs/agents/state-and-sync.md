@@ -70,7 +70,9 @@ composite foreign key gives the rows nowhere to point until the Task is back, an
 deleted ones, and UPDATE on that table grants `filename` alone, so a merging upsert would be
 refused outright. The original ids come back with the rows, which is what matters: `storage_path`
 is generated from `id`, so a restored row addresses the same object — and it is still there
-because deleting a Task deliberately leaves its files in storage.
+because deleting a Task deliberately leaves its files in storage. Between the delete and the
+restore no member can read that file: the object policy requires a row for its path
+([Boards](boards.md)).
 
 Board snapshots are an offline cache, so old data is repaired at its read seam as well as at the
 database mapper. A current-version snapshot written before #369 may contain Inbox plus Due Time;

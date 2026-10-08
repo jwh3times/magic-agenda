@@ -622,10 +622,12 @@ test('object access follows board membership, by path prefix', async () => {
   //   - It is the path production uses, so it exercises the policies the way a client will.
   //   - Supabase forbids direct DML on the storage tables with a trigger ("Direct deletion from
   //     storage tables is not allowed"), so the direct route cannot even clean up after itself.
-  const alicePath = `${aliceBoardId}/${aliceTaskId}/${crypto.randomUUID()}`
-  const png = new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])], {
-    type: 'image/png',
-  })
+  // The object needs its row: since 20261008120000 a row-less object is readable by no API role,
+  // so without the reservation every read below would be refused for the wrong reason.
+  const reserved = await reserveAttachment()
+  expect(reserved.error).toBeNull()
+  const alicePath = `${reserved.boardId}/${reserved.taskId}/${reserved.id}`
+  const png = new Blob([pngBytes], { type: 'image/png' })
 
   const directUpload = await alice.client.storage
     .from('attachments')
@@ -666,7 +668,8 @@ test('object access follows board membership, by path prefix', async () => {
   expect(afterEnded.error).not.toBeNull()
 
   await revokeBob()
-  await alice.client.storage.from('attachments').remove([alicePath])
+  await serviceClient().storage.from('attachments').remove([alicePath])
+  await alice.client.from('task_attachments').delete().eq('id', reserved.id)
 })
 
 test('an editor cannot upload into a board they do not belong to', async () => {
@@ -779,9 +782,10 @@ test('an object path that is not <board>/<task>/<file> is refused', async () => 
 test('direct object moves are denied even to editors', async () => {
   // Object identity is immutable. The upload command is the only writer, so no authenticated
   // client receives UPDATE access to storage.objects.
-  const path = `${aliceBoardId}/${aliceTaskId}/${crypto.randomUUID()}`
-  const png = new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], { type: 'image/png' })
-  await serviceClient().storage.from('attachments').upload(path, png, { contentType: 'image/png' })
+  // Seeded with its row, so the object is visible to the caller and the refusals below are the
+  // missing UPDATE policy rather than an object the caller cannot see.
+  const seeded = await seedAttachment()
+  const path = seeded.path
 
   await grantBob('viewer')
   const viewerMove = await bob.client.storage
@@ -801,7 +805,8 @@ test('direct object moves are denied even to editors', async () => {
     .move(path, `${bobBoardId}/${aliceTaskId}/${crypto.randomUUID()}`)
   expect(crossBoard.error).not.toBeNull()
 
-  await alice.client.storage.from('attachments').remove([path])
+  await serviceClient().storage.from('attachments').remove([path])
+  await alice.client.from('task_attachments').delete().eq('id', seeded.id)
 })
 
 // ---------------------------------------------------------------------------
@@ -856,6 +861,77 @@ test('an attachment row re-inserted with its original id addresses the surviving
 
   await alice.client.storage.from('attachments').remove([restored!.storage_path])
   await alice.client.from('tasks').delete().eq('id', task!.id)
+})
+
+test('the files of a deleted task are unreadable until a row names them again', async () => {
+  // Deleting a Task cascades the row and leaves the object for Undo. Before 20261008120000 the
+  // object policy authorized on the Board prefix alone, so that file stayed listable and
+  // downloadable by every current member -- including one invited after the Task was deleted.
+  const { data: task } = await alice.client
+    .from('tasks')
+    .insert({ title: 'deleted before the invitation', board_id: aliceBoardId })
+    .select('id')
+    .single()
+  const seeded = await seedAttachment({ taskId: task!.id })
+  const storage = (who: TestUser) => who.client.storage.from('attachments')
+
+  // While the row exists, the Owner sees the object. This is what makes the refusals below mean
+  // something: the same calls succeed until the row goes.
+  expect((await storage(alice).download(seeded.path)).error).toBeNull()
+  const listedBefore = await storage(alice).list(`${aliceBoardId}/${task!.id}`)
+  expect(listedBefore.data?.map((o) => o.name)).toEqual([seeded.id])
+
+  await alice.client.from('tasks').delete().eq('id', task!.id)
+
+  // The bytes are still there, which Undo depends on.
+  const kept = await serviceClient().storage.from('attachments').download(seeded.path)
+  expect(kept.error).toBeNull()
+
+  // A Viewer who joins afterwards cannot find the file, fetch it, or sign it.
+  await grantBob('viewer')
+  for (const who of [bob, alice]) {
+    const folders = await storage(who).list(aliceBoardId)
+    expect(folders.error).toBeNull()
+    expect(folders.data?.map((o) => o.name)).not.toContain(task!.id)
+    const files = await storage(who).list(`${aliceBoardId}/${task!.id}`)
+    expect(files.data ?? []).toEqual([])
+    expect((await storage(who).download(seeded.path)).error).not.toBeNull()
+    expect((await storage(who).createSignedUrl(seeded.path, 60)).error).not.toBeNull()
+  }
+
+  // Nor can an Owner remove it through the API: Storage resolves the objects to delete under the
+  // same SELECT policy, so the request succeeds and removes nothing.
+  await storage(alice).remove([seeded.path])
+  expect((await serviceClient().storage.from('attachments').download(seeded.path)).error).toBeNull()
+
+  // Undo still works: the restore check runs in a definer helper, so it can see the orphan the
+  // caller cannot. Once the row is back, so is the Viewer's read.
+  await alice.client
+    .from('tasks')
+    .insert({ id: task!.id, title: 'restored', board_id: aliceBoardId })
+  const restored = await alice.client
+    .from('task_attachments')
+    .insert(attachmentRow({ id: seeded.id, task_id: task!.id, size_bytes: pngBytes.byteLength }))
+  expect(restored.error).toBeNull()
+  expect((await storage(bob).download(seeded.path)).error).toBeNull()
+
+  await revokeBob()
+  await storage(alice).remove([seeded.path])
+  await alice.client.from('tasks').delete().eq('id', task!.id)
+})
+
+test('the restore helper is not a Data API function', async () => {
+  // It answers whether an object exists at a path, as the table owner. It lives in `app_private`
+  // so no client can ask it directly; only the INSERT policy does, beside a Membership check.
+  const result = await alice.client.rpc(
+    'attachment_object_matches' as never,
+    {
+      p_storage_path: `${aliceBoardId}/${aliceTaskId}/${crypto.randomUUID()}`,
+      p_size_bytes: 8,
+      p_mime_type: 'image/png',
+    } as never,
+  )
+  expect(result.error).not.toBeNull()
 })
 
 test('restoring a row that never left is ignored, not refused', async () => {

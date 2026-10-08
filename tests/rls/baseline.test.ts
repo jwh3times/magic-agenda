@@ -96,6 +96,11 @@ import reviewed from '../../supabase/reviewed-functions.json'
  * of `board_memberships` (without their `ical_token`), their Display Names, and — for an Owner
  * only — their emails from `auth.users`. A caller with no current Membership gets an empty set.
  *
+ * `app_private.attachment_object_matches(text,bigint,text)` is a policy helper of the first kind:
+ * `task_attachments_insert_editor` calls it to confirm that the object a restored row names exists
+ * with that size and MIME type. It is a definer because the object policy hides a row-less object
+ * from every API role, and a restore is exactly the insert of that row.
+ *
  * `is_current_board_owner(uuid,uuid)`, `delete_board_as_owner(uuid,uuid)`, and
  * `account_deletion_plan(uuid)` (#447) are `service_role`-only, like `ical_feed`: they are the
  * `delete-board` and `delete-account` Edge Functions' whole reach into the Board tables, which grant

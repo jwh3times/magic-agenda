@@ -33,6 +33,12 @@
       "explicitAcl": true,
       "executeGrantees": "authenticated"
     },
+    "app_private.attachment_object_matches(text,bigint,text)": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "authenticated"
+    },
     "app_private.is_admin()": {
       "secdef": true,
       "config": "search_path=\"\"",

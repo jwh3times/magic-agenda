@@ -176,6 +176,19 @@ Direct `task_attachments` INSERT remains only for Undo. Its policy requires the 
 path to exist already and the row's size and MIME to match Storage metadata exactly. This preserves
 restoring a cascaded row with its original id without reopening a client upload path.
 
+**An object is readable only while a row names it.** `attachments_select_member` requires a
+`task_attachments` row for the object's path as well as current Membership of its Board. Deleting a
+Task cascades the rows and deliberately leaves the files for Undo, and on a Shared Board those
+files would otherwise stay listable and downloadable by every member, including one invited after
+the delete. Two things follow, and both are easy to undo by accident:
+
+- The restore check cannot run as the caller, who can no longer see the orphan. It lives in
+  `app_private.attachment_object_matches`, a definer helper the INSERT policy calls.
+- Storage resolves what to delete under the caller's SELECT policy, so `removeAttachment` removes
+  the **object first, then the row**. Row first strands the file where only the Board sweep
+  (`delete-board`, `delete-account`) reaches it. That sweep uses the service role and still
+  collects orphans; nothing else deletes them yet.
+
 **Task attribution is stamped by the database (#291).** The invoker trigger
 `stamp_task_attribution` sets `author_id = auth.uid()`, `author_kind = 'author'`, and `revision = 1`
 on INSERT; every UPDATE increments the stored revision, and both paths stamp `last_editor_id`.
