@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '../auth/AuthProvider'
-import { MIN_PASSWORD, PASSWORD_RULE } from '../auth/passwordPolicy'
+import { throwawayPassword } from '../auth/passwordPolicy'
 import { TurnstileWidget, type TurnstileWidgetHandle } from '../auth/TurnstileWidget'
 import logoDark from '../assets/logo-dark.svg'
 import { authCard, authField, authLinkBtn, authLogo, authPage, authSubmit } from './authChrome'
@@ -105,7 +105,8 @@ export function Login() {
         setNotice('If an account exists for that email, a password reset link is on its way.')
       else setError(outcome.failure.message)
     } else if (mode === 'signup') {
-      const outcome = await signUp(email, password, captchaToken)
+      // No password is asked for at sign-up: it is chosen after the address is confirmed.
+      const outcome = await signUp(email, throwawayPassword(), captchaToken)
       if (!outcome.ok) setError(outcome.failure.message)
       else if (outcome.confirmationRequired) setNotice('Check your email to confirm your account.')
     } else {
@@ -183,21 +184,20 @@ export function Login() {
             onChange={(e) => setEmail(e.target.value)}
             style={authField}
           />
-          {mode !== 'forgot' && (
-            <>
-              <input
-                type="password"
-                required
-                minLength={mode === 'signup' ? MIN_PASSWORD : undefined}
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={authField}
-              />
-              {mode === 'signup' && (
-                <div style={{ fontSize: 12, opacity: 0.5, lineHeight: 1.4 }}>{PASSWORD_RULE}</div>
-              )}
-            </>
+          {mode === 'signin' && (
+            <input
+              type="password"
+              required
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={authField}
+            />
+          )}
+          {mode === 'signup' && (
+            <div style={{ fontSize: 12, opacity: 0.5, lineHeight: 1.4 }}>
+              We’ll email you a confirmation link. You’ll choose your password after you open it.
+            </div>
           )}
 
           {mode === 'signin' && (

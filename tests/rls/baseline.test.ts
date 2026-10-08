@@ -101,6 +101,10 @@ import reviewed from '../../supabase/reviewed-functions.json'
  * with that size and MIME type. It is a definer because the object policy hides a row-less object
  * from every API role, and a restore is exactly the insert of that row.
  *
+ * `discard_unverified_password()` is a trigger function on `auth.users`, owner-only like
+ * `handle_new_user()`. It empties the password when an address is first confirmed, so a password
+ * set by whoever registered an address first cannot outlive its real owner's confirmation.
+ *
  * `collect_attachment_orphans(integer,integer)` is `service_role`-only, like the other cron
  * commands: the `sweep-attachments` Edge Function is its one caller. It is a definer because it
  * reads `storage.objects` and keeps its marks in `app_private`, which no API role can reach.

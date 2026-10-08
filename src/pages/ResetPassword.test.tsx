@@ -184,3 +184,24 @@ test('the logo is fluid so it cannot overflow the card', async () => {
   expect(logo.style.maxWidth).toBe('100%')
   expect(logo.style.height).toBe('auto')
 })
+
+// ——— a newly confirmed sign-up ———
+
+test('a newly confirmed account is asked to choose its first password', async () => {
+  // The database discards any password stored before the address was confirmed, so the session a
+  // sign-up link creates has none. Same form, different words: nothing is being reset.
+  sessionStorage.setItem('ma-password-recovery', 'signup')
+  fake = fakeAuthGateway({ session: fakeSession() })
+  render(tree())
+
+  expect(
+    await screen.findByText('Your email is confirmed. Choose a password for your account.'),
+  ).toBeInTheDocument()
+  await userEvent.type(screen.getByPlaceholderText('Password'), 'Longenough123!')
+  await userEvent.type(screen.getByPlaceholderText('Confirm password'), 'Longenough123!')
+  await userEvent.click(screen.getByRole('button', { name: 'Set password' }))
+
+  expect(fake.calls.setPassword).toEqual(['Longenough123!'])
+  expect(await screen.findByText('BOARD')).toBeInTheDocument()
+  expect(sessionStorage.getItem('ma-password-recovery')).toBeNull()
+})

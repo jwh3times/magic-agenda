@@ -135,6 +135,12 @@
       "explicitAcl": true,
       "executeGrantees": "(owner only)"
     },
+    "discard_unverified_password()": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "(owner only)"
+    },
     "expire_board_invitations()": {
       "secdef": true,
       "config": "search_path=\"\"",

@@ -22,6 +22,7 @@ export function ResetPassword() {
     session,
     loading,
     passwordRecovery,
+    passwordGateReason,
     clearPasswordRecovery,
     setPassword: setAccountPassword,
   } = useAuth()
@@ -57,6 +58,9 @@ export function ResetPassword() {
   if (loading) return <Spinner />
 
   const showForm = Boolean(session) && passwordRecovery
+  // The same form serves a newly confirmed Account, which has no password yet: the database
+  // discards whatever was stored before the address was confirmed.
+  const firstPassword = passwordGateReason === 'signup'
 
   if (showForm) {
     return (
@@ -66,7 +70,9 @@ export function ResetPassword() {
             <img src={logoDark} alt="Magic Agenda" style={authLogo} />
           </h1>
           <p style={{ margin: '0 0 22px', opacity: 0.55, fontSize: 14 }}>
-            Choose a new password for your account.
+            {firstPassword
+              ? 'Your email is confirmed. Choose a password for your account.'
+              : 'Choose a new password for your account.'}
           </p>
           <form
             onSubmit={(event) => void submit(event)}
@@ -76,7 +82,7 @@ export function ResetPassword() {
               type="password"
               required
               minLength={MIN_PASSWORD}
-              placeholder="New password"
+              placeholder={firstPassword ? 'Password' : 'New password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               style={authField}
@@ -84,7 +90,7 @@ export function ResetPassword() {
             <input
               type="password"
               required
-              placeholder="Confirm new password"
+              placeholder={firstPassword ? 'Confirm password' : 'Confirm new password'}
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               style={authField}
@@ -102,7 +108,7 @@ export function ResetPassword() {
                 opacity: busy ? 0.6 : 1,
               }}
             >
-              {busy ? 'Please wait…' : 'Set new password'}
+              {busy ? 'Please wait…' : firstPassword ? 'Set password' : 'Set new password'}
             </button>
           </form>
         </main>

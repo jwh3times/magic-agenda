@@ -20,7 +20,21 @@ import { clearLastUserId, writeLastUserId } from '../lib/lastUser'
 // Recovery-session marker. Persisted per-tab so a reload of /auth/reset can't
 // silently drop the "must set a new password" gate (the PASSWORD_RECOVERY event
 // only fires when the emailed link is first redeemed, never on reload).
+//
+// The value says why a password is owed: '1' for a recovery link, 'signup' for an Account whose
+// address was just confirmed. The database discards any password stored before that confirmation
+// (`20261008160000`), so a newly confirmed Account has none until this gate is passed.
 const RECOVERY_FLAG_KEY = 'ma-password-recovery'
+const SIGNUP_FLAG_VALUE = 'signup'
+
+/** Why the session must set a password before reaching the board. */
+export type PasswordGateReason = 'recovery' | 'signup'
+
+function readPasswordGate(): PasswordGateReason | null {
+  const stored = sessionStorage.getItem(RECOVERY_FLAG_KEY)
+  if (stored === null) return null
+  return stored === SIGNUP_FLAG_VALUE ? 'signup' : 'recovery'
+}
 
 /**
  * The auth interface for the whole app: session state *and* the actions that change it.
@@ -37,8 +51,13 @@ interface AuthContextValue {
   session: Session | null
   user: User | null
   loading: boolean
-  /** True while the session came from a password-recovery link and hasn't set a new password. */
+  /**
+   * True while the session owes a password: it came from a password-recovery link, or from a
+   * sign-up confirmation link, and has not set one yet.
+   */
   passwordRecovery: boolean
+  /** Which of the two it is, for the copy on the form. `null` when no password is owed. */
+  passwordGateReason: PasswordGateReason | null
   clearPasswordRecovery: () => void
   /**
    * Whether this session still owes a TOTP code — `null` until it has been determined for the
@@ -75,9 +94,8 @@ export function AuthProvider({
 }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
-  const [passwordRecovery, setPasswordRecovery] = useState(
-    () => sessionStorage.getItem(RECOVERY_FLAG_KEY) === '1',
-  )
+  const [passwordGate, setPasswordGate] = useState<PasswordGateReason | null>(readPasswordGate)
+  const passwordRecovery = passwordGate !== null
   // Keyed by user id rather than held as a bare boolean, and that is what makes the two awkward
   // cases fall out for free. A token refresh replaces the session object roughly hourly; clearing
   // the answer first would blink a spinner over the board every time, so the previous one is kept
@@ -99,12 +117,12 @@ export function AuthProvider({
       if (next?.user.id) writeLastUserId(next.user.id)
       if (event === 'PASSWORD_RECOVERY') {
         sessionStorage.setItem(RECOVERY_FLAG_KEY, '1')
-        setPasswordRecovery(true)
+        setPasswordGate('recovery')
       }
       // A recovery flow abandoned before setting a new password must not haunt the next sign-in.
       if (event === 'SIGNED_OUT') {
         sessionStorage.removeItem(RECOVERY_FLAG_KEY)
-        setPasswordRecovery(false)
+        setPasswordGate(null)
         // Next sign-in should land on the default view and the default Board, not the signed-out
         // user's last ones. A Board id grants nothing by itself, but leaving it behind would make
         // this block's promise conditional, and that promise is the whole justification below.
@@ -148,7 +166,15 @@ export function AuthProvider({
 
   const clearPasswordRecovery = useCallback(() => {
     sessionStorage.removeItem(RECOVERY_FLAG_KEY)
-    setPasswordRecovery(false)
+    setPasswordGate(null)
+  }, [])
+
+  // A sign-up confirmation leaves the Account with no password, so the session it creates owes
+  // one. Raised here rather than from an auth event because there is none: GoTrue reports a
+  // redeemed sign-up link as a plain SIGNED_IN.
+  const requirePasswordSetup = useCallback(() => {
+    sessionStorage.setItem(RECOVERY_FLAG_KEY, SIGNUP_FLAG_VALUE)
+    setPasswordGate('signup')
   }, [])
 
   // Wrapped rather than passed through, so an adapter that uses `this` still works — and memoized
@@ -157,20 +183,33 @@ export function AuthProvider({
     () => ({
       signIn: (email: string, password: string, captchaToken: string) =>
         gateway.signIn(email, password, captchaToken),
-      signUp: (email: string, password: string, captchaToken: string) =>
-        gateway.signUp(email, password, captchaToken),
+      signUp: async (email: string, password: string, captchaToken: string) => {
+        const outcome = await gateway.signUp(email, password, captchaToken)
+        // A stack without email confirmation signs the user in at once, holding a password they
+        // never saw (`throwawayPassword`). They owe a real one just the same.
+        if (outcome.ok && !outcome.confirmationRequired) requirePasswordSetup()
+        return outcome
+      },
       sendPasswordReset: (email: string, captchaToken: string) =>
         gateway.sendPasswordReset(email, captchaToken),
       startGoogleSignIn: () => gateway.startGoogleSignIn(),
       setPassword: (password: string) => gateway.setPassword(password),
-      redeemToken: (tokenHash: string, type: RedeemType) => gateway.redeemToken(tokenHash, type),
+      redeemToken: async (tokenHash: string, type: RedeemType) => {
+        // Raised BEFORE the call, not after it: the session arrives through onAuthStateChange
+        // before this resolves, and AuthConfirm leaves for the board as soon as it does. Raising
+        // it afterwards would paint the board for a frame first.
+        if (type === 'signup') requirePasswordSetup()
+        const outcome = await gateway.redeemToken(tokenHash, type)
+        if (type === 'signup' && !outcome.ok) clearPasswordRecovery()
+        return outcome
+      },
       signOut: () => gateway.signOut(),
       enrollTotp: (friendlyName: string) => gateway.enrollTotp(friendlyName),
       verifyTotp: (factorId: string, code: string) => gateway.verifyTotp(factorId, code),
       listTotpFactors: () => gateway.listTotpFactors(),
       unenrollFactor: (factorId: string) => gateway.unenrollFactor(factorId),
     }),
-    [gateway],
+    [gateway, requirePasswordSetup, clearPasswordRecovery],
   )
 
   const value = useMemo<AuthContextValue>(
@@ -179,6 +218,7 @@ export function AuthProvider({
       user: session?.user ?? null,
       loading,
       passwordRecovery,
+      passwordGateReason: passwordGate,
       clearPasswordRecovery,
       stepUpRequired: session
         ? assurance?.userId === session.user.id
@@ -187,7 +227,7 @@ export function AuthProvider({
         : false,
       ...actions,
     }),
-    [session, loading, passwordRecovery, clearPasswordRecovery, assurance, actions],
+    [session, loading, passwordRecovery, passwordGate, clearPasswordRecovery, assurance, actions],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
