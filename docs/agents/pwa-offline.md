@@ -68,7 +68,8 @@ POST and an aggregate-only 200 from the Vault-backed invocation are the activati
 `reminder_function_url` entry, its function name swapped in at call time — deliberately, rather than
 provisioning a second secret for a job whose worst case is an idempotent, bounded insert. Rotating
 `reminder_cron_secret` now rotates both jobs' credential at once; redeploying only one function's
-`REMINDER_CRON_SECRET` after a rotation leaves the other one 401ing every run.
+`REMINDER_CRON_SECRET` after a rotation leaves the other one 401ing every run. The daily
+`sweep-attachments` job ([Boards](boards.md)) is a third consumer of the same two entries.
 
 `src/sw.ts` is **hand-authored, not generated.** `vite-plugin-pwa` runs in `injectManifest` mode
 (`vite.config.ts`), which only supplies `self.__WB_MANIFEST` (the precache URL list) — none of

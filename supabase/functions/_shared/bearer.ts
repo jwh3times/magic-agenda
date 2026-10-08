@@ -1,6 +1,6 @@
 /**
  * Constant-time check of a cron job's bearer secret, shared by the functions `pg_cron` invokes
- * (`send-reminders`, `materialize-series`).
+ * (`send-reminders`, `materialize-series`, `sweep-attachments`).
  *
  * Both sides are hashed first, so the comparison always runs over two 32-byte digests: its timing
  * reveals neither the secret's length nor how many leading bytes matched. An empty expected secret

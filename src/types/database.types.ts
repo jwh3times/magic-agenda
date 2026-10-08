@@ -770,6 +770,10 @@ export type Database = {
         Args: { p_membership_id: string; p_role: string }
         Returns: undefined
       }
+      collect_attachment_orphans: {
+        Args: { p_grace_seconds: number; p_limit: number }
+        Returns: string[]
+      }
       create_board: { Args: { board_name: string }; Returns: string }
       create_invitation: {
         Args: { p_board_id: string; p_email: string; p_role: string }

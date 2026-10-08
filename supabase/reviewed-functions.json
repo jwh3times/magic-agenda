@@ -87,6 +87,12 @@
       "explicitAcl": true,
       "executeGrantees": "(owner only)"
     },
+    "collect_attachment_orphans(integer,integer)": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "service_role"
+    },
     "create_board(text)": {
       "secdef": true,
       "config": "search_path=\"\"",
