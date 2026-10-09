@@ -137,7 +137,13 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
   const [templatesVersion, bumpTemplatesVersion] = useReducer((version: number) => version + 1, 0)
   const tasksRef = useRef<Task[]>([])
   const templatesRef = useRef<SeriesDefinition[]>([])
-  const inFlight = useRef(false)
+  // The Board whose load is running, and that load's number. A reload for the same Board is
+  // dropped while one runs; a reload for another Board supersedes it, and the superseded load
+  // checks `loadSeq` after every await so its rows never land on the Board now selected.
+  const inFlight = useRef<string | null>(null)
+  const loadSeq = useRef(0)
+  // The Board that `tasks`, the Series definitions, and the revisions belong to.
+  const heldBoard = useRef(boardId)
   // Set true only by reload()'s success path, and only when that load actually happened under a
   // real session — never by hydrateFromSnapshot(), and never by a sessionless reload's empty
   // `{ data: [], error: null }` (RLS answering "nothing" is not the same as "board confirmed
@@ -293,6 +299,9 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       // call site on the cheap clock.
       const instances = pendingInstances(templates, board, ymd(new Date()), newId)
       if (instances.length === 0) return false
+      // The insert below still belongs to this Board if the user switches during it; what must
+      // not happen is its outcome being applied to the Board selected since.
+      const switched = () => heldBoard.current !== boardId
       // missingInstances already excludes covered occurrences, so these are all new; a plain insert
       // avoids ON CONFLICT (which can't target the partial unique index). The index still blocks
       // true duplicates at the DB level.
@@ -307,6 +316,10 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
           .from('tasks')
           .insert(instances.map((t) => taskToRow(t, boardId)))
           .select(WRITTEN)
+        if (switched()) {
+          abandonWrites(ids)
+          return false
+        }
         if (err) abandonWrites(ids)
         else {
           settleWrites(data)
@@ -320,7 +333,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         if (err) throw new Error(err.message)
       } catch (e) {
         abandonWrites(ids)
-        setError(errorMessage(e))
+        if (!switched()) setError(errorMessage(e))
       }
       return false
     },
@@ -357,14 +370,35 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     // asynchronously, so this hook mounts with no Board selected. An unfiltered load in that window
     // would fetch every task the account owns across every Board — which is precisely the
     // "unfiltered production task load" this phase exists to make impossible.
+    // Another Board's cards must not outlive the switch. Every write stamps the row with the
+    // current `boardId`, so a card left on screen while this load is slow, or after it fails, is
+    // one click from being saved into the Board now selected. Before the guards below, so that
+    // selecting no Board clears them too.
+    if (heldBoard.current !== boardId) {
+      heldBoard.current = boardId
+      templatesRef.current = []
+      bumpTemplatesVersion()
+      revisions.current = new Map()
+      hasLoadedFromServer.current = false
+      boardGen.current += 1
+      setTasks([])
+      setOffline(false)
+      setFallbackReason(null)
+      setSavedAt(null)
+    }
     if (!userId || !boardId) {
+      loadSeq.current += 1
+      inFlight.current = null
       setLoading(false)
       return
     }
     // Guard against concurrent loads (notably React StrictMode's double-invoked effect),
     // which would materialize the same instances twice and hit the unique index.
-    if (inFlight.current) return
-    inFlight.current = true
+    if (inFlight.current === boardId) return
+    inFlight.current = boardId
+    loadSeq.current += 1
+    const seq = loadSeq.current
+    const superseded = () => seq !== loadSeq.current
     boardGen.current += 1
     hasLoadedFromServer.current = false
     setLoading(true)
@@ -372,6 +406,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     try {
       while (true) {
         const response = await loadBoardTasks(boardId)
+        if (superseded()) return
         const { data, error: err } = response
         if (err) {
           const reason = snapshotFallbackReason(response.status)
@@ -392,17 +427,21 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         setTasks(instances)
         // Pass the freshly-loaded instances directly: tasksRef.current is not yet updated here.
         const raced = await materialize(templatesRef.current, instances)
-        if (!raced) break
+        if (superseded() || !raced) break
       }
     } catch (e) {
+      if (superseded()) return
       // postgrest resolves fetch failures rather than throwing, so this is defensive: a future
       // .throwOnError() must not turn an offline boot into an unhandled rejection.
       const message = errorMessage(e)
       if (hydrateFromSnapshot('request-error', message)) return
       setError(message)
     } finally {
-      setLoading(false)
-      inFlight.current = false
+      // A superseded load leaves both to the load that replaced it.
+      if (!superseded()) {
+        setLoading(false)
+        inFlight.current = null
+      }
     }
   }, [userId, boardId, setTasks, materialize, hydrateFromSnapshot, hasSession])
 
@@ -573,6 +612,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
           .from('tasks')
           .update(taskToRow(task, boardId))
           .eq('id', task.id)
+          .eq('board_id', boardId)
           .select()
         if (err) throw new Error(err.message)
         // Only a status change reconciles: the lifecycle trigger stamps its values. Otherwise the
@@ -655,6 +695,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
           .from('tasks')
           .update(taskToRow(task, boardId))
           .eq('id', task.id)
+          .eq('board_id', boardId)
           .eq('revision', expectedRevision)
           .select()
         if (err) throw new Error(err.message)
@@ -703,7 +744,11 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       markWrites([id])
       try {
         await beforeDelete?.()
-        const { error: err } = await supabase.from('tasks').delete().eq('id', id)
+        const { error: err } = await supabase
+          .from('tasks')
+          .delete()
+          .eq('id', id)
+          .eq('board_id', boardId)
         if (err) throw new Error(err.message)
         // Deliberately never settled: the row's DELETE echo stays ours for the whole TTL.
         return true
@@ -715,7 +760,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         return false
       }
     },
-    [setTasks, markWrites, abandonWrites],
+    [setTasks, boardId, markWrites, abandonWrites],
   )
 
   const toggleCompletion = useCallback(
@@ -733,6 +778,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
           .from('tasks')
           .update(taskToRow(toggled, boardId))
           .eq('id', id)
+          .eq('board_id', boardId)
           .select()
         if (err) throw new Error(err.message)
         reconcileReturnedRows(data)

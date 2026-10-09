@@ -10,6 +10,11 @@ const h = vi.hoisted(() => {
     selectError: { message: string } | null
     selectStatus: number
     failLaterPage: boolean
+    /**
+     * Answers one Board's load in place of `rows`, so two Boards can hold different Tasks
+     * and one of them can be held open. `undefined` falls through to `rows`.
+     */
+    loadFor: ((boardId: unknown) => Promise<unknown> | undefined) | null
     writeRows: unknown[] | null
     insertError: { code?: string; message: string } | null
     /** What a post-conflict read of the Task answers (#433): the other writer's row, or none. */
@@ -29,6 +34,7 @@ const h = vi.hoisted(() => {
     selectError: null,
     selectStatus: 200,
     failLaterPage: false,
+    loadFor: null,
     writeRows: null,
     insertError: null,
     attachments: [],
@@ -61,9 +67,8 @@ const h = vi.hoisted(() => {
   const failedWrite = (message: string) => {
     const rejected = Promise.reject(new Error(message))
     rejected.catch(() => {})
-    return Object.assign(rejected, { select: () => rejected }) as unknown as ReturnType<
-      typeof selectable
-    >
+    const write: unknown = Object.assign(rejected, { select: () => rejected, eq: () => write })
+    return write as ReturnType<typeof selectable>
   }
   // Stable spies so tests can assert on the rows reload/materialize/updateSeries write.
   const insert = vi.fn(selectable)
@@ -74,6 +79,8 @@ const h = vi.hoisted(() => {
   // Stable spy behind `.update(...).eq(...)` so a test can force it to reject (throw),
   // proving a throw takes the same rollback + setError path as a resolved `{ error }`.
   const updateEq = vi.fn(selectable)
+  // The row each single-row UPDATE sends, for the tests that care which Board it names.
+  const update = vi.fn((_row: unknown) => ({ eq: updateEq }))
   // `.delete().eq(...)` is used both as a one-level chain (removeTask, deleteSeriesFuture's
   // whole-series delete) and as a two-level chain (`.eq(...).gt/gte(...)`, updateSeries's
   // truncation-delete / deleteSeriesFuture's instance-delete). Give `.eq(...)`'s return value
@@ -81,9 +88,11 @@ const h = vi.hoisted(() => {
   // and spy-able `.gt`/`.gte` legs (so a test can force just that leg to reject).
   const deleteGt = vi.fn(ok)
   const deleteGte = vi.fn(ok)
+  // `removeTask` narrows its `.eq('id')` by Board with a second `.eq`.
+  const deleteBoardEq = vi.fn((_column: string, _value: unknown) => ok())
   const deleteEq = vi.fn(() => {
     capture.trace.push('deleteTask')
-    return Object.assign(ok(), { gt: deleteGt, gte: deleteGte })
+    return Object.assign(ok(), { gt: deleteGt, gte: deleteGte, eq: deleteBoardEq })
   })
   // `.delete().in('id', ids)`: bulk delete's one batched request (#270).
   const deleteIn = vi.fn(() => {
@@ -163,8 +172,10 @@ const h = vi.hoisted(() => {
     writeSelect,
     insert,
     upsert,
+    update,
     updateEq,
     deleteEq,
+    deleteBoardEq,
     deleteGt,
     deleteGte,
     deleteIn,
@@ -186,7 +197,7 @@ vi.mock('../lib/supabase', () => ({
           status: h.capture.selectStatus,
         }
         return {
-          eq: vi.fn(() =>
+          eq: vi.fn((_column: string, value: unknown) =>
             Object.assign(Promise.resolve(result), {
               maybeSingle: () => Promise.resolve({ data: h.capture.latestRow, error: null }),
               is: () => ({
@@ -194,6 +205,7 @@ vi.mock('../lib/supabase', () => ({
               }),
               order: () => ({
                 range: (from: number, to: number) =>
+                  h.capture.loadFor?.(value) ??
                   Promise.resolve({
                     ...result,
                     data: h.capture.rows.slice(from, Math.min(to + 1, from + 1000)),
@@ -209,7 +221,7 @@ vi.mock('../lib/supabase', () => ({
       }),
       insert: h.insert,
       upsert: h.upsert,
-      update: vi.fn(() => ({ eq: h.updateEq })),
+      update: h.update,
       delete: vi.fn(() => ({ eq: h.deleteEq, in: h.deleteIn })),
     })),
     channel: vi.fn(() => h.channel),
@@ -298,6 +310,7 @@ beforeEach(() => {
   h.capture.selectError = null
   h.capture.selectStatus = 200
   h.capture.failLaterPage = false
+  h.capture.loadFor = null
   h.capture.writeRows = null
   h.capture.insertError = null
   h.capture.latestRow = null
@@ -306,6 +319,7 @@ beforeEach(() => {
   h.rpc.mockClear()
   h.insert.mockClear()
   h.upsert.mockClear()
+  h.update.mockClear()
   h.updateEq.mockReset()
   h.updateEq.mockImplementation(h.selectable)
   h.writeSelect.mockClear()
@@ -735,9 +749,8 @@ test('a foreign edit held during a failed save survives the rollback (#432)', as
     const pending = new Promise<{ data: null; error: { message: string } }>((resolve) => {
       fail = () => resolve({ data: null, error: { message: 'save failed' } })
     })
-    return Object.assign(pending, { select: () => pending }) as unknown as ReturnType<
-      typeof h.selectable
-    >
+    const write: unknown = Object.assign(pending, { select: () => pending, eq: () => write })
+    return write as ReturnType<typeof h.selectable>
   })
 
   let saving!: Promise<void>
@@ -1922,4 +1935,80 @@ test('a reorder that comes back short reloads instead of re-creating the missing
   expect(args.p_inserts).toEqual([])
   expect(args.p_updates).toHaveLength(2)
   await waitFor(() => expect(result.current.tasks.map((t) => t.id)).toEqual(['t1']))
+})
+
+// ——— a Board's Tasks belong to that Board ———
+
+const boardLoad = (rows: unknown[]) =>
+  Promise.resolve({ data: rows, count: rows.length, error: null, status: 200 })
+const failedLoad = () =>
+  Promise.resolve({ data: null, count: null, error: { message: 'load failed' }, status: 500 })
+
+test('switching Boards clears the previous Board even when the new load fails', async () => {
+  h.capture.loadFor = (board) => (board === 'b2' ? failedLoad() : undefined)
+  const { result, rerender } = renderHook(({ board }) => useTasks('u1', board, true), {
+    initialProps: { board: 'b1' },
+  })
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  expect(result.current.tasks.map((t) => t.id)).toEqual(['t1'])
+
+  rerender({ board: 'b2' })
+  await waitFor(() => expect(result.current.error).toBe('load failed'))
+  expect(result.current.tasks).toEqual([])
+  await act(async () => {
+    await result.current.toggleCompletion('t1')
+  })
+  expect(h.update).not.toHaveBeenCalled()
+})
+
+test('a load still in flight for the previous Board does not land on the new one', async () => {
+  let finishFirst!: () => void
+  h.capture.loadFor = (board) =>
+    board === 'b1'
+      ? new Promise((resolve) => {
+          finishFirst = () => resolve({ data: [serverRow()], count: 1, error: null, status: 200 })
+        })
+      : boardLoad([serverRow({ id: 't2', board_id: 'b2', title: 'theirs' })])
+  const { result, rerender } = renderHook(({ board }) => useTasks('u1', board, true), {
+    initialProps: { board: 'b1' },
+  })
+  await waitFor(() => expect(finishFirst).toBeDefined())
+
+  rerender({ board: 'b2' })
+  await waitFor(() => expect(result.current.tasks.map((t) => t.id)).toEqual(['t2']))
+  await act(async () => {
+    finishFirst()
+    await Promise.resolve()
+  })
+  expect(result.current.tasks.map((t) => t.id)).toEqual(['t2'])
+  expect(result.current.loading).toBe(false)
+})
+
+test('every single-row write names the Board it was loaded from', async () => {
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  const task = result.current.tasks[0]
+
+  await act(async () => {
+    await result.current.updateTask({ ...task, title: 'edited' })
+  })
+  expect(h.revisionEq).toHaveBeenLastCalledWith('board_id', 'b1')
+
+  h.revisionEq.mockClear()
+  await act(async () => {
+    await result.current.saveTask(task, { ...task, title: 'saved' }, false, undefined, undefined, 1)
+  })
+  expect(h.revisionEq).toHaveBeenCalledWith('board_id', 'b1')
+
+  h.revisionEq.mockClear()
+  await act(async () => {
+    await result.current.toggleCompletion('t1')
+  })
+  expect(h.revisionEq).toHaveBeenLastCalledWith('board_id', 'b1')
+
+  h.deleteBoardEq.mockClear()
+  await act(async () => {
+    await result.current.removeTask('t1')
+  })
+  expect(h.deleteBoardEq).toHaveBeenCalledWith('board_id', 'b1')
 })

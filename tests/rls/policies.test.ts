@@ -84,14 +84,18 @@ test('alice cannot move her task into another board', async () => {
   // longer an authorization input, the row stays in a board only alice can reach, and the column is
   // dropped once nothing reads it. What must not be possible is moving a task ACROSS a board
   // boundary with a plain update — content transfer is a deliberate command, not a field write.
+  //
+  // The refusal used to be the policy's (42501). `tasks_enforce_board_immutable` now answers first,
+  // because a BEFORE trigger runs ahead of WITH CHECK and it refuses every caller — including one
+  // who can edit both Boards, whom the policy let through (`task_board_immutable.test.ts`).
   const { data: bobBoard } = await bob.client.from('board_memberships').select('board_id').single()
 
   const { error } = await alice.client
     .from('tasks')
     .update({ board_id: bobBoard!.board_id })
     .eq('id', aliceTaskId)
-  expect(error).not.toBeNull()
-  expect(error?.code).toBe('42501')
+  expect(error?.code).toBe('23514')
+  expect(error?.message).toBe('task-board-immutable')
 
   // ...and the task is still where it was.
   const { data: after } = await alice.client.from('tasks').select('id').eq('id', aliceTaskId)

@@ -123,6 +123,12 @@
       "explicitAcl": true,
       "executeGrantees": "(owner only)"
     },
+    "enforce_task_board_immutable()": {
+      "secdef": false,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "(owner only)"
+    },
     "enforce_reminder_preferences()": {
       "secdef": false,
       "config": "search_path=\"\"",
