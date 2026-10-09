@@ -211,6 +211,13 @@ PostgREST upserts and excluding attribution and database timestamps. `recur_week
 what `taskToRow` now sends. Grants can run ahead of the payload; they must never fall behind it — a
 column the payload names and the grant omits is a `403` on every write, which is the whole reason
 the grant half of a column-half-only migration cannot be deferred to the client's release.
+**`tasks.board_id` is immutable.** `board_id` must stay in the UPDATE grant because client writes
+resend the whole row, and `tasks_update_editor` is satisfied by a caller who can edit both Boards,
+so one UPDATE could otherwise move a Task from a private Board to a shared one. The
+`tasks_enforce_board_immutable` trigger (`public.enforce_task_board_immutable()`, owner-only,
+security invoker) refuses any change with errcode `23514` and message `task-board-immutable`, ahead
+of the policy's `42501`. No feature moves Tasks between Boards. Covered by
+`tests/rls/task_board_immutable.test.ts`.
 **Leave `author_id` untouched in the UPDATE trigger:** the grant prevents client forgery, while the
 foreign key must still be able to SET NULL when an author deletes their account. `tests/rls/task_attribution.test.ts` covers canonical
 writes and upserts, protected-column forgery, account deletion, and concurrent revision increments.

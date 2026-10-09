@@ -176,6 +176,13 @@ writes read their returned rows for the revision **only** — reconciling them w
 response overwrite a newer optimistic edit, which is why only status changes (trigger-stamped
 Completion values) replace the optimistic row.
 
+**`useTasks` is bound to the Board it loaded.** On a Board switch `reload()` first clears the
+Board-bound state (tasks, Series definitions, revisions, offline flags). Its in-flight guard is
+per-Board, and a load for another Board supersedes the running one through `loadSeq`; the
+superseded load re-checks after each await so its rows never land, and `materialize` likewise
+drops its outcome after a switch. Every Task write that targets one row (`updateTask`, the
+compare-and-swap save, `toggleCompletion`, `removeTask`) also filters `.eq('board_id', boardId)`.
+
 **Editor saves of one Task or Occurrence are compare-and-swap (#433).** `useTasks` keeps the last
 server revision it saw per Task, from loads, realtime events, and every write that returns rows
 (`revisionOf`). `Board` records it when the editor opens, and `saveTask` passes it down, so the
