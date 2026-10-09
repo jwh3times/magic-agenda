@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { beforeEach, expect, test } from 'vitest'
+import { beforeEach, expect, test, vi } from 'vitest'
 import type { ReactNode } from 'react'
 import { AuthProvider, useAuth } from './AuthProvider'
 import { fakeAuthGateway, fakeSession, type FakeAuth } from './fakeAuthGateway'
@@ -184,4 +184,93 @@ test('action identities are stable across re-renders', async () => {
   act(() => fake.emit('SIGNED_IN', fakeSession()))
   expect(result.current.session).not.toBeNull() // proves a re-render happened
   expect(result.current.redeemToken).toBe(before)
+})
+
+// ——— the device's push subscription follows the session ———
+
+function pushSpy() {
+  const order: string[] = []
+  return {
+    order,
+    push: {
+      release: vi.fn((accountId: string | null) => {
+        order.push(`release:${accountId}`)
+        return Promise.resolve()
+      }),
+      reconcile: vi.fn((_accountId: string) => Promise.resolve()),
+    },
+  }
+}
+
+test('signing out releases this device before the session is gone', async () => {
+  const session = fakeSession()
+  fake = fakeAuthGateway({ session })
+  const signOut = fake.gateway.signOut.bind(fake.gateway)
+  const { push, order } = pushSpy()
+  fake.gateway.signOut = () => {
+    order.push('signOut')
+    return signOut()
+  }
+  const { result } = renderHook(() => useAuth(), {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <AuthProvider gateway={fake.gateway} push={push}>
+        {children}
+      </AuthProvider>
+    ),
+  })
+  await waitFor(() => expect(result.current.user).not.toBeNull())
+
+  await act(async () => {
+    await result.current.signOut()
+  })
+  expect(order).toEqual([`release:${session.user.id}`, 'signOut'])
+})
+
+test('a sign-out that fails to release the device still signs out', async () => {
+  fake = fakeAuthGateway({ session: fakeSession() })
+  const { push } = pushSpy()
+  push.release.mockRejectedValue(new Error('no service worker'))
+  const { result } = renderHook(() => useAuth(), {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <AuthProvider gateway={fake.gateway} push={push}>
+        {children}
+      </AuthProvider>
+    ),
+  })
+  await waitFor(() => expect(result.current.user).not.toBeNull())
+  await act(async () => {
+    await result.current.signOut()
+  })
+  expect(fake.calls.signOut).toBe(1)
+})
+
+test('SIGNED_OUT from anywhere retires the browser subscription', () => {
+  const { push } = pushSpy()
+  renderHook(() => useAuth(), {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <AuthProvider gateway={fake.gateway} push={push}>
+        {children}
+      </AuthProvider>
+    ),
+  })
+  act(() => fake.emit('SIGNED_OUT', null))
+  expect(push.release).toHaveBeenCalledWith(null)
+})
+
+test('a session reconciles the subscription it inherited from this browser', async () => {
+  const session = fakeSession()
+  fake = fakeAuthGateway({ session })
+  const { push } = pushSpy()
+  const { result } = renderHook(() => useAuth(), {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <AuthProvider gateway={fake.gateway} push={push}>
+        {children}
+      </AuthProvider>
+    ),
+  })
+  await waitFor(() => expect(result.current.user).not.toBeNull())
+  await waitFor(() => expect(push.reconcile).toHaveBeenCalledWith(session.user.id))
+  // A token refresh replaces the session object, not the Account: once is enough.
+  act(() => fake.emit('TOKEN_REFRESHED', fakeSession()))
+  expect(push.reconcile).toHaveBeenCalledTimes(1)
 })

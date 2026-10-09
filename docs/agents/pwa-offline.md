@@ -9,6 +9,27 @@ Account-owned `push_subscriptions` table. Each browser or installed app is indep
 lead in `user_settings.reminder_lead_minutes` enables or disables delivery across them. A deployment
 without the public VAPID value stays usable and says that Push is unconfigured rather than throwing.
 
+**A subscription belongs to the Account that made it, and the browser does not know that.** The
+browser keeps one subscription per origin whoever is signed in, so the only tie to an Account is
+the `push_subscriptions` row for its endpoint. Three things keep the two aligned, and all three go
+through the gateway:
+
+- **Sign-out releases the device.** `AuthProvider.signOut` calls `release(accountId)` before the
+  session ends: it deletes the row while there is still a session to delete it with, then retires
+  the browser subscription. It is best-effort and capped at two seconds, because sign-out must not
+  wait on it (`navigator.serviceWorker.ready` can stay pending). The `SIGNED_OUT` sweep calls
+  `release(null)` for every other way out (another tab, account deletion, a revoked session),
+  where only the browser half is still possible. A row left behind points at a dead endpoint, and
+  `send-reminders` deletes it on the first 404 or 410.
+- **`state(accountId)` reports subscribed only when that Account owns a row for the current
+  endpoint.** A read that fails falls back to what the browser holds.
+- **`subscribe` replaces another Account's subscription instead of adopting it**, and a new
+  session runs `reconcile(accountId)` once to retire one it does not own. Saving a second row for
+  a shared endpoint would deliver both Accounts' reminders to the device.
+
+Not covered: rows have no link to a session, so a password change or "sign out everywhere" does
+not revoke another device's subscription, and there is no per-Account device list.
+
 iOS and iPadOS expose standards-based Web Push only to a Home Screen web app. The Settings section
 therefore gives install guidance before generic feature-detection messaging when it recognizes an
 Apple mobile device outside standalone display mode. The actual capability decision remains feature

@@ -16,6 +16,7 @@ import { clearRememberedBoard } from '../board/rememberedBoard'
 import { clearSnapshots } from '../data/snapshot'
 import { clearPendingInvitation } from '../invite/pendingInvitation'
 import { clearLastUserId, writeLastUserId } from '../lib/lastUser'
+import { browserPushGateway, type PushGateway } from '../notifications/pushGateway'
 
 // Recovery-session marker. Persisted per-tab so a reload of /auth/reset can't
 // silently drop the "must set a new password" gate (the PASSWORD_RECOVERY event
@@ -88,9 +89,12 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 export function AuthProvider({
   children,
   gateway = supabaseAuthGateway,
+  push = browserPushGateway,
 }: {
   children: ReactNode
   gateway?: AuthGateway
+  /** The device's push subscription, which is given up with the session. Stable, like `gateway`. */
+  push?: Pick<PushGateway, 'release' | 'reconcile'>
 }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
@@ -137,13 +141,27 @@ export function AuthProvider({
         // A held Board Invitation (#437) belongs to whoever was about to sign in with it; the next
         // Account on this device must not be routed into someone else's invitation.
         clearPendingInvitation()
+        // Reminders carry Task titles, and the browser's subscription is not tied to an Account:
+        // left in place it keeps delivering this Account's reminders to whoever uses the browser
+        // next. `signOut` below has already removed the row when it could; this covers every
+        // other way here (another tab, account deletion, a revoked session), where there is no
+        // session left to remove it with and retiring the endpoint is what is still possible.
+        void push.release(null).catch(() => {})
       }
     })
     return () => {
       active = false
       unsubscribe()
     }
-  }, [gateway])
+  }, [gateway, push])
+
+  // A subscription already in this browser when an Account signs in may be someone else's: one
+  // made before sign-out released it, or one whose release never ran. Keyed by the id, so a token
+  // refresh does not repeat it.
+  const sessionUserId = session?.user.id ?? null
+  useEffect(() => {
+    if (sessionUserId) void push.reconcile(sessionUserId).catch(() => {})
+  }, [push, sessionUserId])
 
   // Local: `getAssuranceLevel` decodes the stored JWT and reads the session's own factor list,
   // so this costs no network and answers offline.
@@ -203,13 +221,18 @@ export function AuthProvider({
         if (type === 'signup' && !outcome.ok) clearPasswordRecovery()
         return outcome
       },
-      signOut: () => gateway.signOut(),
+      signOut: async () => {
+        // Before the session goes: the row can only be removed by the Account that owns it.
+        const current = await gateway.getSession().catch(() => null)
+        if (current) await push.release(current.user.id).catch(() => {})
+        await gateway.signOut()
+      },
       enrollTotp: (friendlyName: string) => gateway.enrollTotp(friendlyName),
       verifyTotp: (factorId: string, code: string) => gateway.verifyTotp(factorId, code),
       listTotpFactors: () => gateway.listTotpFactors(),
       unenrollFactor: (factorId: string) => gateway.unenrollFactor(factorId),
     }),
-    [gateway, requirePasswordSetup, clearPasswordRecovery],
+    [gateway, push, requirePasswordSetup, clearPasswordRecovery],
   )
 
   const value = useMemo<AuthContextValue>(

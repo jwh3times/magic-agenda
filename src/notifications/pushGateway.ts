@@ -24,13 +24,35 @@ interface PushDependencies {
   standalone: boolean
   save: (row: SubscriptionInsert) => Promise<void>
   remove: (accountId: string, endpoint: string) => Promise<void>
+  /** Whether this Account has a row for this endpoint. Rejects when it cannot tell. */
+  owns: (accountId: string, endpoint: string) => Promise<boolean>
 }
 
+/**
+ * The browser keeps one push subscription per origin, whoever is signed in, so nothing ties it
+ * to an Account except the row that Account saved for its endpoint. Every method that answers
+ * "is this device subscribed" or changes it therefore takes the Account, and the subscription is
+ * given up when the session is (`release`).
+ */
 export interface PushGateway {
-  state: () => Promise<PushState>
+  /** `accountId` is null when nobody is signed in, which is never subscribed. */
+  state: (accountId: string | null) => Promise<PushState>
   subscribe: (accountId: string) => Promise<void>
+  /** The Settings action: fails loudly if the row cannot be removed, and keeps the device. */
   unsubscribe: (accountId: string) => Promise<void>
+  /**
+   * Give this device up at sign-out. Best-effort and bounded, because sign-out must not wait on
+   * it: the row is removed while there is still a session to remove it with, and the browser
+   * subscription is retired either way. A row left behind points at a dead endpoint, which the
+   * reminder sender deletes on its first 404 or 410. Pass null once the session is already gone.
+   */
+  release: (accountId: string | null) => Promise<void>
+  /** Retire a subscription this browser holds that the signed-in Account does not own. */
+  reconcile: (accountId: string) => Promise<void>
 }
+
+/** How long `release` may hold up a sign-out. `navigator.serviceWorker.ready` can stay pending. */
+const RELEASE_TIMEOUT_MS = 2000
 
 function decodePublicKey(value: string): Uint8Array<ArrayBuffer> {
   const padded = `${value}${'='.repeat((4 - (value.length % 4)) % 4)}`
@@ -48,7 +70,7 @@ function availability(deps: PushDependencies): PushAvailability {
 }
 
 export function createPushGateway(deps: PushDependencies): PushGateway {
-  const state = async (): Promise<PushState> => {
+  const state = async (accountId: string | null): Promise<PushState> => {
     const available = availability(deps)
     const permission = deps.notification?.permission ?? 'default'
     if (available !== 'supported') {
@@ -56,7 +78,13 @@ export function createPushGateway(deps: PushDependencies): PushGateway {
     }
     const registration = await deps.serviceWorkerReady!
     const subscription = await registration.pushManager.getSubscription()
-    return { availability: available, permission, subscribed: subscription !== null }
+    if (!subscription || !accountId) {
+      return { availability: available, permission, subscribed: false }
+    }
+    // A read that fails (offline) says what the browser holds: `release` and `reconcile` keep
+    // that honest in the ordinary case, and "not subscribed" would offer a button that cannot work.
+    const subscribed = await deps.owns(accountId, subscription.endpoint).catch(() => true)
+    return { availability: available, permission, subscribed }
   }
 
   const subscribe = async (accountId: string): Promise<void> => {
@@ -75,7 +103,15 @@ export function createPushGateway(deps: PushDependencies): PushGateway {
     if (permission !== 'granted') throw new Error('Notification permission was denied.')
 
     const registration = await deps.serviceWorkerReady!
-    const existing = await registration.pushManager.getSubscription()
+    let existing = await registration.pushManager.getSubscription()
+    // Another Account's subscription is replaced, never adopted: saving a second row for the same
+    // endpoint would deliver both Accounts' reminders to this device. Retiring it kills the
+    // endpoint, so the other Account's row stops working too. This throws when the read fails,
+    // which is right: the save below needs the same connection.
+    if (existing && !(await deps.owns(accountId, existing.endpoint))) {
+      await existing.unsubscribe()
+      existing = null
+    }
     const subscription =
       existing ??
       (await registration.pushManager.subscribe({
@@ -108,7 +144,31 @@ export function createPushGateway(deps: PushDependencies): PushGateway {
     await subscription.unsubscribe()
   }
 
-  return { state, subscribe, unsubscribe }
+  const release = async (accountId: string | null): Promise<void> => {
+    if (!deps.serviceWorkerReady) return
+    const ready = deps.serviceWorkerReady
+    const work = (async () => {
+      const subscription = await (await ready).pushManager.getSubscription()
+      if (!subscription) return
+      if (accountId) await deps.remove(accountId, subscription.endpoint).catch(() => {})
+      await subscription.unsubscribe()
+    })().catch(() => {})
+    await Promise.race([
+      work,
+      new Promise<void>((resolve) => setTimeout(resolve, RELEASE_TIMEOUT_MS)),
+    ])
+  }
+
+  const reconcile = async (accountId: string): Promise<void> => {
+    if (availability(deps) !== 'supported') return
+    const subscription = await (await deps.serviceWorkerReady!).pushManager.getSubscription()
+    if (!subscription) return
+    // Not knowing is not the same as not owning: a failed read retires nothing.
+    const owned = await deps.owns(accountId, subscription.endpoint).catch(() => true)
+    if (!owned) await subscription.unsubscribe()
+  }
+
+  return { state, subscribe, unsubscribe, release, reconcile }
 }
 
 function isIosDevice(): boolean {
@@ -153,5 +213,15 @@ export const browserPushGateway = createPushGateway({
       .eq('account_id', accountId)
       .eq('endpoint', endpoint)
     if (error) throw error
+  },
+  owns: async (accountId, endpoint) => {
+    const { data, error } = await supabase
+      .from('push_subscriptions')
+      .select('id')
+      .eq('account_id', accountId)
+      .eq('endpoint', endpoint)
+      .maybeSingle()
+    if (error) throw error
+    return data !== null
   },
 })
