@@ -73,10 +73,39 @@ Deno.test("a served feed may be cached for five minutes, privately", async () =>
   await res.body?.cancel();
 });
 
-Deno.test("an Automatic timezone is passed through as floating time", async () => {
+Deno.test("an Automatic timezone with no zone on the link is floating time", async () => {
   const { handler } = setup({ ...FEED, timezone: null });
   const body = await (await handler(get(`?token=${TOKEN}`))).text();
   assertStringIncludes(body, "DTSTART:20260922T093000\r\n");
+});
+
+Deno.test("an Automatic timezone resolves through the zone the link carries", async () => {
+  // Floating time is read as device-local by Apple Calendar and as UTC by Google Calendar, which
+  // showed a 09:45 Task at 05:45 in New York. An exact instant is the one form they agree on.
+  const { handler } = setup({ ...FEED, timezone: null });
+  const body = await (
+    await handler(get(`?token=${TOKEN}&tz=America%2FNew_York`))
+  ).text();
+  assertStringIncludes(body, "DTSTART:20260922T133000Z\r\n");
+});
+
+Deno.test("a named Account Timezone wins over the zone on the link", async () => {
+  const { handler } = setup();
+  const body = await (
+    await handler(get(`?token=${TOKEN}&tz=Asia%2FTokyo`))
+  ).text();
+  assertStringIncludes(body, "DTSTART:20260922T133000Z\r\n");
+});
+
+Deno.test("an unusable zone on the link degrades to floating time, never to a missing event", async () => {
+  // `tz` is not part of the capability. A holder of a valid token must not be able to blank the
+  // timed events by editing it, which is what an unresolvable zone does inside the serializer.
+  const { handler } = setup({ ...FEED, timezone: null });
+  for (const zone of ["Not/AZone", "", "a".repeat(65), "America/New_York%0d%0aX:1", "<script>"]) {
+    const res = await handler(get(`?token=${TOKEN}&tz=${zone}`));
+    assertEquals(res.status, 200);
+    assertStringIncludes(await res.text(), "DTSTART:20260922T093000\r\n");
+  }
 });
 
 Deno.test("an unknown or revoked token is 404, and is not cached", async () => {

@@ -23,6 +23,35 @@ export interface HandlerDependencies {
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** The shape of an IANA zone name; whether it names a real zone is `Intl`'s call below. */
+const ZONE_RE = /^[A-Za-z0-9_+\/-]{1,64}$/;
+
+/**
+ * The zone the feed link was copied in, when it is a real one.
+ *
+ * **Only consulted when the Account Timezone is Automatic.** Automatic means "follow the device",
+ * and a calendar server is not that device. Without a zone the serializer can only emit floating
+ * time, which RFC 5545 defines as "this wall clock wherever you are" and which clients do not
+ * agree on: Apple Calendar reads it as device-local, Google Calendar reads it as UTC and shows a
+ * 09:45 Task at 05:45 in New York. The link therefore carries the browser's zone as `tz`, and the
+ * feed resolves through it to an exact instant every client agrees on.
+ *
+ * It selects how times are written and nothing else. It is not part of the capability, so a
+ * wrong, absent, or hostile value degrades to floating time rather than to a refusal: the
+ * serializer drops timed events for a zone it cannot resolve, and a holder of a valid token must
+ * not be able to blank their own feed by editing the URL.
+ */
+function linkZone(url: URL): string | null {
+  const zone = url.searchParams.get("tz");
+  if (zone === null || !ZONE_RE.test(zone)) return null;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: zone });
+    return zone;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Serves one Board as a read-only iCalendar feed, to anyone holding its URL (#277).
  *
@@ -52,7 +81,8 @@ export function createHandler(deps: HandlerDependencies) {
     }
 
     // Exactly one well-formed token, or the same 404 an unknown token gets.
-    const tokens = new URL(request.url).searchParams.getAll("token");
+    const url = new URL(request.url);
+    const tokens = url.searchParams.getAll("token");
     if (tokens.length !== 1 || !UUID_RE.test(tokens[0])) return notFound();
 
     let feed: Feed | null;
@@ -77,7 +107,8 @@ export function createHandler(deps: HandlerDependencies) {
       })),
       {
         calendarName: feed.board_name,
-        timezone: feed.timezone,
+        // A named Account Timezone always wins; the link's zone only fills in for Automatic.
+        timezone: feed.timezone ?? linkZone(url),
         now: deps.now(),
       },
     );

@@ -19,9 +19,12 @@
  *   all. Hand-written VTIMEZONE is a large surface to get subtly wrong for every past and future
  *   DST rule; `dueMomentAtZone` already resolves the wall clock to an instant the rest of the app
  *   agrees with, including through gaps and overlaps.
- *   The one exception is an Automatic Account Timezone (`null`), which has no zone to resolve
- *   through: it is emitted as floating local time, the RFC 5545 form that means "this wall clock,
- *   wherever you are" -- which is what Automatic means in the app.
+ *   The one exception is an Automatic Account Timezone (`null`) **with no zone on the feed link**:
+ *   it is emitted as floating local time, the RFC 5545 form that means "this wall clock, wherever
+ *   you are". That reads correctly in Apple Calendar and as UTC in Google Calendar, which is why
+ *   the link now carries the zone it was copied in and the handler passes that here instead of
+ *   `null` (see `linkZone` in `ical/handler.ts`). Floating time is the fallback for a link without
+ *   one, not the normal case.
  */
 import { dueMomentAtZone } from "../../../src/data/dueMomentCore.ts";
 

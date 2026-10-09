@@ -29,12 +29,12 @@ const link = () => screen.getByRole('textbox', { name: /calendar feed link for p
 test("shows the caller's feed link for this Board, with the subscribe form beside it", async () => {
   render(<CalendarFeedPanel board={BOARD} onClose={() => {}} />)
 
-  expect(await screen.findByDisplayValue(new RegExp(`/functions/v1/ical\\?token=${OLD}$`))).toBe(
+  expect(await screen.findByDisplayValue(new RegExp(`/functions/v1/ical\\?token=${OLD}&tz=`))).toBe(
     link(),
   )
   expect(readCalendarFeedToken).toHaveBeenCalledWith('b1')
   expect(screen.getByRole('link', { name: /subscribe/i }).getAttribute('href')).toMatch(
-    new RegExp(`^webcal://.*/functions/v1/ical\\?token=${OLD}$`),
+    new RegExp(`^webcal://.*/functions/v1/ical\\?token=${OLD}&tz=`),
   )
 })
 
@@ -116,7 +116,7 @@ test('copy puts the https link on the clipboard', async () => {
 
   await user.click(screen.getByRole('button', { name: /copy link/i }))
   expect(await navigator.clipboard.readText()).toMatch(
-    new RegExp(`^https?://.*/functions/v1/ical\\?token=${OLD}$`),
+    new RegExp(`^https?://.*/functions/v1/ical\\?token=${OLD}&tz=`),
   )
   expect(await screen.findByRole('button', { name: /copied/i })).toBeTruthy()
 })
