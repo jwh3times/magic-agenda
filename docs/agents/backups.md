@@ -12,7 +12,13 @@ keys. The data dump excludes `auth.sessions`, `auth.refresh_tokens`, `auth.mfa_a
 requires a new sign-in. Durable accounts, OAuth links, and enrolled MFA factors remain in the
 bundle. The verify step requires `public.tasks`, `auth.users`, and `auth.identities` and refuses any
 of those six excluded tables before encryption/upload. `scripts/backup.test.ts` exercises the
-workflow's actual verification shell with both INSERT and COPY fixtures. Older encrypted bundles
+workflow's actual verification shell with both INSERT and COPY fixtures. **The table scan reads
+statements, not lines**: a string literal keeps its raw newlines in the dump, so a Task description
+can hold a line shaped exactly like a statement header, and a line-anchored `grep` let that line
+fail the job every night or stand in for a table the dump had lost. The scan skips whatever lies
+inside a literal or a `COPY` payload, asserts `standard_conforming_strings = on` because the quote
+counting rests on it, and refuses a dump that ends inside either. Keep any new assertion about
+`data.sql` on `tables()` rather than a fresh `grep`. Older encrypted bundles
 still contain the auth state captured when they were made; this change does not rewrite them.
 
 **`storage.sql` is the third file, and it exists because `schema.sql` covers `public` only
@@ -116,8 +122,8 @@ silently, indistinguishable at a glance from every user losing their data.
 Because this repository is public and **GitHub artifacts on public repos are downloadable by
 anyone**, the bundle is GPG-symmetric-encrypted on the runner before upload; the plaintext never
 leaves the job. Never add a step that uploads anything unencrypted, and never echo dump contents to
-the log — the verify step prints table names only, matched at line start and identifier-filtered,
-because `COPY` payload rows are user data.
+the log — the verify step prints table names only, taken from statement headers and identifier-filtered,
+because row values are user data.
 
 Restoring is not just "load the file": `on_auth_user_created` seeds a conflicting `user_settings`
 row, so data loads under `session_replication_role = replica` — which `data.sql` already sets on its

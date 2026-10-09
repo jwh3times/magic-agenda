@@ -140,8 +140,29 @@ jobs:
           # The trailing filter keeps only things shaped like an identifier: COPY payload rows are
           # raw user data, and a task titled "INSERT INTO ..." would otherwise print to this log,
           # which is public.
+          #
+          # Headers are read statement by statement, never line by line. A string literal keeps its
+          # raw newlines in this dump, so a Task description with a line reading
+          # `INSERT INTO "auth"."sessions" (` used to count as that table being present — and
+          # failed this job every night, before encryption and upload, for as long as the row
+          # existed. The reverse held too: user text could stand in for a table that was missing.
+          # So the scan skips whatever lies inside a literal or a COPY payload. A doubled quote
+          # is an escaped quote, which leaves the count on a line even, so an odd count is exactly
+          # a literal opening or closing; a COPY payload runs to its `\.` line. Both rest on
+          # `standard_conforming_strings = on`, which is asserted below rather than assumed.
+          # It exits non-zero when the file ends inside either, so a dump it cannot follow is
+          # refused instead of half-read.
+          scan='
+            copying { if ($0 == "\\.") copying = 0; next }
+            !quoted && match($0, /^(COPY|INSERT INTO) +[^ (]+/) {
+              print substr($0, RSTART, RLENGTH)
+              if ($0 ~ /^COPY .* FROM stdin;$/) { copying = 1; next }
+            }
+            { if (gsub(q, q) % 2) quoted = !quoted }
+            END { if (quoted || copying) exit 3 }
+          '
           tables() {
-            grep -oE '^(COPY|INSERT INTO) +[^ (]+' "$1" \
+            awk -v q="'" "$scan" "$1" \
               | awk '{ print $NF }' \
               | tr -d '"' \
               | grep -E '^[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*$' \
@@ -174,6 +195,11 @@ jobs:
 
           grep -q 'CREATE TABLE' backup/schema.sql \
             || fail "schema.sql contains no CREATE TABLE — the schema was not captured"
+
+          grep -qx 'SET standard_conforming_strings = on;' backup/data.sql \
+            || fail "data.sql does not set standard_conforming_strings = on — its statements cannot be told apart from the text inside them"
+          awk -v q="'" "$scan" backup/data.sql > /dev/null \
+            || fail "data.sql ends inside a string literal or a COPY payload — its statements could not be read"
 
           # Table names only — never row values.
           echo "Tables captured in data.sql:"; tables backup/data.sql | head -30

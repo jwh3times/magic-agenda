@@ -12,6 +12,28 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.19] - 2026-10-09
+
+### Fixed
+
+- **Text in a task can no longer stop the nightly backup.** The backup job checks which tables its
+  dump contains before encrypting and uploading it, and it read the dump one line at a time. A
+  task description keeps its line breaks in the dump, so a description with a line that looked
+  like the start of a table's data was counted as that table. One such line naming a table the
+  backup must leave out made the job refuse the whole backup, every night, for as long as the
+  task existed. No backup was affected: this was found by reading the check, and no run has failed
+  this way.
+
+### Internal
+
+- The verify step's `tables()` scan in `backup.yml` skips string literals and `COPY` payloads,
+  asserts `standard_conforming_strings = on`, and refuses a dump that ends inside either. User
+  text can no longer stand in for a required table the dump has lost, which was the same flaw in
+  the other direction.
+- `scripts/backup.test.ts` builds its fixtures in the shape `supabase db dump` writes (a header
+  line, then rows), and adds cases for user text shaped like a statement in both `INSERT` and
+  `COPY` form.
+
 ## [1.17.18] - 2026-10-09
 
 ### Security
@@ -4945,7 +4967,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.18...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.19...HEAD
+[1.17.19]: https://github.com/jwh3times/magic-agenda/compare/v1.17.18...v1.17.19
 [1.17.18]: https://github.com/jwh3times/magic-agenda/compare/v1.17.17...v1.17.18
 [1.17.17]: https://github.com/jwh3times/magic-agenda/compare/v1.17.16...v1.17.17
 [1.17.16]: https://github.com/jwh3times/magic-agenda/compare/v1.17.15...v1.17.16
