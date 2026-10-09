@@ -25,6 +25,12 @@ No unreleased changes.
   Calendar feed and resubscribe**; a link copied before this release keeps the old behaviour. A
   named timezone in Settings → Dates was never affected and still takes priority.
 
+- **Timed tasks now appear as one-hour blocks in the calendar feed.** They were sent with no end
+  time, and each calendar app filled the gap its own way: Apple Calendar showed a start and end at
+  the same minute, Google Calendar made up an hour, and GNOME Calendar showed no time at all.
+  Every app now gets the same thing, the task's due time plus one hour. All-day tasks are
+  unchanged.
+
 ### Internal
 
 - The `ical` function validates the link's `tz` and falls back to floating time for an unusable

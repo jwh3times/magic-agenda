@@ -75,8 +75,23 @@ Deno.test("a timed Task becomes a UTC instant derived from the account timezone"
     ics([task({ day: "2026-09-22", atTime: "09:30" })], "America/New_York"),
   );
   assertEquals(lines.includes("DTSTART:20260922T133000Z"), true);
-  // No DTEND: a Task due at a time is a point, not a commitment of some invented length.
-  assertEquals(lines.some((l) => l.startsWith("DTEND")), false);
+  // A one-hour block. With no DTEND, Apple Calendar showed a zero-length event, Google Calendar
+  // invented an hour, and GNOME Calendar showed no time at all.
+  assertEquals(lines.includes("DTEND:20260922T143000Z"), true);
+});
+
+Deno.test("a timed Task's hour crosses midnight, month end and year end", () => {
+  const late = logicalLines(
+    ics([task({ day: "2026-12-31", atTime: "23:30" })], "UTC"),
+  );
+  assertEquals(late.includes("DTSTART:20261231T233000Z"), true);
+  assertEquals(late.includes("DTEND:20270101T003000Z"), true);
+  // Floating time has no zone to do the arithmetic for it.
+  const floating = logicalLines(
+    ics([task({ day: "2028-02-29", atTime: "23:15" })], null),
+  );
+  assertEquals(floating.includes("DTSTART:20280229T231500"), true);
+  assertEquals(floating.includes("DTEND:20280301T001500"), true);
 });
 
 Deno.test("a timed Task on a DST spring-forward day is still a real instant", () => {
@@ -100,7 +115,7 @@ Deno.test("an Automatic timezone emits floating local time, not a dropped event"
     ics([task({ day: "2026-09-22", atTime: "09:30" })], null),
   );
   assertEquals(lines.includes("DTSTART:20260922T093000"), true);
-  assertEquals(lines.some((l) => l.startsWith("DTEND")), false);
+  assertEquals(lines.includes("DTEND:20260922T103000"), true);
   // Untimed Tasks never depended on a zone, and still do not.
   const allDay = logicalLines(ics([task({ id: "t2", atTime: null })], null));
   assertEquals(allDay.includes("DTSTART;VALUE=DATE:20260922"), true);
