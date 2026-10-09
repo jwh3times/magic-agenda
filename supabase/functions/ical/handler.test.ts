@@ -101,7 +101,14 @@ Deno.test("an unusable zone on the link degrades to floating time, never to a mi
   // `tz` is not part of the capability. A holder of a valid token must not be able to blank the
   // timed events by editing it, which is what an unresolvable zone does inside the serializer.
   const { handler } = setup({ ...FEED, timezone: null });
-  for (const zone of ["Not/AZone", "", "a".repeat(65), "America/New_York%0d%0aX:1", "<script>"]) {
+  const zones = [
+    "Not/AZone",
+    "",
+    "a".repeat(65),
+    "America/New_York%0d%0aX:1",
+    "<script>",
+  ];
+  for (const zone of zones) {
     const res = await handler(get(`?token=${TOKEN}&tz=${zone}`));
     assertEquals(res.status, 200);
     assertStringIncludes(await res.text(), "DTSTART:20260922T093000\r\n");
