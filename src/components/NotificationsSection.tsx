@@ -23,15 +23,15 @@ export function NotificationsSection() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
-  const refresh = () => {
+  // Keyed by the Account: "subscribed" means this Account's subscription, not the browser's.
+  const accountId = user?.id ?? null
+  useEffect(() => {
     void browserPushGateway
-      .state()
+      .state(accountId)
       .then(setPush, () =>
         setPush({ availability: 'unsupported', permission: 'default', subscribed: false }),
       )
-  }
-
-  useEffect(refresh, [])
+  }, [accountId])
 
   if (!settings) return null
   const hasConcreteTimezone = settings.timezone !== null
@@ -43,7 +43,7 @@ export function NotificationsSection() {
     try {
       if (push?.subscribed) await browserPushGateway.unsubscribe(user.id)
       else await browserPushGateway.subscribe(user.id)
-      setPush(await browserPushGateway.state())
+      setPush(await browserPushGateway.state(user.id))
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Could not update this device.'
       setError(

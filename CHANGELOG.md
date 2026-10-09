@@ -12,6 +12,36 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.20] - 2026-10-09
+
+### Security
+
+- **Signing out now stops reminders on that device.** A browser keeps one notification
+  subscription for the site no matter who is signed in, and signing out left it in place. Reminders
+  show task titles, so the signed-out account's reminders kept arriving for whoever used that
+  browser profile next. Signing out now removes the device from your account and retires the
+  browser's subscription. This also happens when you are signed out another way, such as from
+  another tab or by deleting your account. **If you want reminders on a device after signing back
+  in, enable them again in Settings → Notifications.**
+
+### Fixed
+
+- **"This device is subscribed" now means your account.** Settings used to show a device as
+  subscribed whenever the browser held any subscription, including one a different account had
+  made. It now checks that the subscription belongs to the account you are signed in to.
+- **Enabling reminders no longer shares a device between two accounts.** If the browser still held
+  another account's subscription, enabling reminders reused it, and the device then received both
+  accounts' reminders. The old subscription is now replaced, and one left over from before this
+  release is retired the next time anyone signs in on that browser.
+
+### Internal
+
+- `pushGateway` gains `release()` and `reconcile()`, and `state()` takes the Account.
+  `AuthProvider` calls them from `signOut`, the `SIGNED_OUT` sweep, and once per session. The
+  release is best-effort and capped at two seconds so it cannot hold up a sign-out.
+- Not covered: subscription rows are not linked to a session, so a password change does not revoke
+  another device's subscription, and there is no per-Account device list.
+
 ## [1.17.19] - 2026-10-09
 
 ### Fixed
@@ -4967,7 +4997,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.19...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.20...HEAD
+[1.17.20]: https://github.com/jwh3times/magic-agenda/compare/v1.17.19...v1.17.20
 [1.17.19]: https://github.com/jwh3times/magic-agenda/compare/v1.17.18...v1.17.19
 [1.17.18]: https://github.com/jwh3times/magic-agenda/compare/v1.17.17...v1.17.18
 [1.17.17]: https://github.com/jwh3times/magic-agenda/compare/v1.17.16...v1.17.17
