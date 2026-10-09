@@ -11,17 +11,22 @@
  *
  * Two choices here are deliberate and cheap to reverse if they read wrong in a real client:
  *
- * - **A timed Task gets no `DTEND`.** A Task due at 14:00 is a point in time, not a commitment of
- *   some invented length, and RFC 5545 §3.6.1 gives a DATE-TIME `DTSTART` with no end a zero
- *   duration. Some clients render a zero-length event as a marker rather than a block. Giving it a
- *   default half hour would look better and would be a fact nobody entered.
+ * - **A timed Task is a one-hour block.** A Task due at 14:00 is a point in time, and v1 emitted
+ *   it with no `DTEND`, which RFC 5545 §3.6.1 defines as zero duration. A real-client check showed
+ *   what that leaves to each client: Apple Calendar showed start and end at the same minute,
+ *   Google Calendar invented an hour of its own, and GNOME Calendar showed no time at all. The
+ *   hour is a fact nobody entered, and the maintainer chose it over three clients disagreeing
+ *   (2026-10-09). It is `TIMED_EVENT_MINUTES`, in one place.
  * - **Everything timed is emitted as a UTC instant**, so the feed carries no `VTIMEZONE` block at
  *   all. Hand-written VTIMEZONE is a large surface to get subtly wrong for every past and future
  *   DST rule; `dueMomentAtZone` already resolves the wall clock to an instant the rest of the app
  *   agrees with, including through gaps and overlaps.
- *   The one exception is an Automatic Account Timezone (`null`), which has no zone to resolve
- *   through: it is emitted as floating local time, the RFC 5545 form that means "this wall clock,
- *   wherever you are" -- which is what Automatic means in the app.
+ *   The one exception is an Automatic Account Timezone (`null`) **with no zone on the feed link**:
+ *   it is emitted as floating local time, the RFC 5545 form that means "this wall clock, wherever
+ *   you are". That reads correctly in Apple Calendar and as UTC in Google Calendar, which is why
+ *   the link now carries the zone it was copied in and the handler passes that here instead of
+ *   `null` (see `linkZone` in `ical/handler.ts`). Floating time is the fallback for a link without
+ *   one, not the normal case.
  */
 import { dueMomentAtZone } from "../../../src/data/dueMomentCore.ts";
 
@@ -53,6 +58,9 @@ const UID_DOMAIN = "magicagenda.app";
 const DAY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const MAX_OCTETS = 75;
 const CLOCK_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+/** How long a timed Task is shown for. See the header: a Task has no duration of its own. */
+const TIMED_EVENT_MINUTES = 60;
+const TIMED_EVENT_MS = TIMED_EVENT_MINUTES * 60_000;
 
 /**
  * Escape a TEXT value per RFC 5545 §3.3.11.
@@ -134,6 +142,15 @@ function utcStamp(epochMs: number): string {
   }Z`;
 }
 
+/**
+ * `YYYYMMDDTHHMMSS` with no `Z`: floating local time, for a wall clock given as epoch
+ * milliseconds **as if it were UTC**. Arithmetic on a wall clock goes through `Date.UTC` so that
+ * an hour added at 23:30 lands on the next day, across month and year ends, without a zone.
+ */
+function floatingStamp(wallClockMs: number): string {
+  return new Date(wallClockMs).toISOString().replace(/[-:]/g, "").slice(0, 15);
+}
+
 function eventLines(
   task: IcsTask,
   timezone: string | null,
@@ -154,15 +171,29 @@ function eventLines(
     // is viewed in -- which is what "follow the device" means. It bypasses the zone resolver, so
     // the clock needs its own check or a malformed one would be pasted into DTSTART verbatim.
     const clock = CLOCK_RE.exec(task.atTime);
-    if (clock === null) return [];
-    when.push(`DTSTART:${basicDate(task.day)}T${clock[1]}${clock[2]}00`);
+    const date = DAY_RE.exec(task.day);
+    if (clock === null || date === null) return [];
+    const start = Date.UTC(
+      Number(date[1]),
+      Number(date[2]) - 1,
+      Number(date[3]),
+      Number(clock[1]),
+      Number(clock[2]),
+    );
+    when.push(
+      `DTSTART:${floatingStamp(start)}`,
+      `DTEND:${floatingStamp(start + TIMED_EVENT_MS)}`,
+    );
   } else {
     // A timed Task that cannot be resolved to an instant — an unusable timezone, or a wall clock
     // the zone does not have — is dropped rather than emitted at a guessed offset. A calendar
     // missing an event is a visible problem; one showing the wrong hour is not.
     const moment = dueMomentAtZone(task.day, task.atTime, timezone);
     if (moment === null || moment.kind !== "timed") return [];
-    when.push(`DTSTART:${utcStamp(moment.instantMs)}`);
+    when.push(
+      `DTSTART:${utcStamp(moment.instantMs)}`,
+      `DTEND:${utcStamp(moment.instantMs + TIMED_EVENT_MS)}`,
+    );
   }
 
   const lines = [

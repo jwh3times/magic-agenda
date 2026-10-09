@@ -1,3 +1,4 @@
+import { browserTimezone } from '../lib/dates'
 import { supabase } from '../lib/supabase'
 import { boardFailed, boardFailureUnknown, type BoardOutcome } from './outcome'
 
@@ -16,12 +17,23 @@ import { boardFailed, boardFailureUnknown, type BoardOutcome } from './outcome'
 
 const FEED_PATH = '/functions/v1/ical'
 
-/** The `ical` Edge Function's URL for one token. The base defaults to the configured project. */
+/**
+ * The `ical` Edge Function's URL for one token. The base defaults to the configured project.
+ *
+ * **The link carries this device's timezone as `tz`.** A calendar server is not the user's device,
+ * so an Automatic Account Timezone gives the feed no zone to resolve a Due Time through, and the
+ * fallback — floating time — is read as device-local by some calendar apps and as UTC by others.
+ * The feed uses `tz` only when the Account Timezone is Automatic; a named one always wins. It is
+ * fixed when the link is copied, so someone who moves zones copies the link again. `null` omits
+ * it.
+ */
 export function calendarFeedUrl(
   token: string,
   base: string = import.meta.env.VITE_SUPABASE_URL,
+  timezone: string | null = browserTimezone(),
 ): string {
-  return `${base.replace(/\/+$/, '')}${FEED_PATH}?token=${encodeURIComponent(token)}`
+  const zone = timezone ? `&tz=${encodeURIComponent(timezone)}` : ''
+  return `${base.replace(/\/+$/, '')}${FEED_PATH}?token=${encodeURIComponent(token)}${zone}`
 }
 
 /**

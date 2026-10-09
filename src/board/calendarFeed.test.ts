@@ -22,13 +22,25 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
-test('the feed URL names the ical function and carries the token as its only parameter', () => {
-  expect(calendarFeedUrl(TOKEN, 'https://ref.supabase.co')).toBe(
+test('the feed URL names the ical function and carries the token', () => {
+  expect(calendarFeedUrl(TOKEN, 'https://ref.supabase.co', null)).toBe(
     `https://ref.supabase.co/functions/v1/ical?token=${TOKEN}`,
   )
   // A configured base with a trailing slash must not produce `//functions`.
-  expect(calendarFeedUrl(TOKEN, 'https://ref.supabase.co/')).toBe(
+  expect(calendarFeedUrl(TOKEN, 'https://ref.supabase.co/', null)).toBe(
     `https://ref.supabase.co/functions/v1/ical?token=${TOKEN}`,
+  )
+})
+
+test("the feed URL carries the device's timezone, encoded", () => {
+  // An Automatic Account Timezone gives the server no zone, and the floating time it would fall
+  // back to is read as UTC by Google Calendar. The link supplies the zone it was copied in.
+  expect(calendarFeedUrl(TOKEN, 'https://ref.supabase.co', 'America/New_York')).toBe(
+    `https://ref.supabase.co/functions/v1/ical?token=${TOKEN}&tz=America%2FNew_York`,
+  )
+  // By default it is this browser's zone, whatever that is.
+  expect(calendarFeedUrl(TOKEN, 'https://ref.supabase.co')).toMatch(
+    new RegExp(`\\?token=${TOKEN}&tz=[A-Za-z0-9_%+-]+$`),
   )
 })
 
