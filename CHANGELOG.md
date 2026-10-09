@@ -12,6 +12,41 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.18] - 2026-10-09
+
+### Security
+
+- **A task can no longer be moved from one Board to another.** If you can edit two Boards, the
+  database used to accept a single update that carried a task from one into the other, so a task
+  on a private Board could end up on a shared Board where its members could read it. Nothing in
+  the app offers that move, but the app could send it by accident (see below). The Board a task
+  belongs to is now fixed when the task is created, for every caller.
+
+### Fixed
+
+- **Switching Boards no longer leaves the previous Board's cards on screen.** When the new Board
+  was slow to load, failed to load, or was selected while the previous one was still loading, the
+  old cards could stay visible, and completing, pinning, or saving one wrote it into the Board
+  you had just switched to. The previous Board's cards are now cleared the moment you switch, a
+  Board that is still loading can no longer overwrite the one you switched to, and every
+  single-task save names the Board the task was loaded from.
+
+### Internal
+
+- `tasks_enforce_board_immutable` refuses a changed `board_id` with `task-board-immutable`.
+  `tests/rls/task_board_immutable.test.ts` covers a caller who can edit both Boards, the one the
+  update policy cannot stop.
+- `useTasks` supersedes an in-flight load when the Board changes instead of dropping the new
+  load behind it. A second load of the same Board is still dropped, which is what keeps React
+  StrictMode from materializing a Series twice.
+
+## [1.17.17] - 2026-10-09
+
+### Internal
+
+- `@vitejs/plugin-react` bumped from 6.1.1 to 6.1.2, `jsdom` from 30.1.1 to 30.1.2, `oxlint` from
+  1.86.0 to 1.87.0, and `vite` from 8.3.2 to 8.3.3 (#518).
+
 ## [1.17.16] - 2026-10-09
 
 ### Fixed
@@ -4910,7 +4945,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.16...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.18...HEAD
+[1.17.18]: https://github.com/jwh3times/magic-agenda/compare/v1.17.17...v1.17.18
+[1.17.17]: https://github.com/jwh3times/magic-agenda/compare/v1.17.16...v1.17.17
 [1.17.16]: https://github.com/jwh3times/magic-agenda/compare/v1.17.15...v1.17.16
 [1.17.15]: https://github.com/jwh3times/magic-agenda/compare/v1.17.14...v1.17.15
 [1.17.14]: https://github.com/jwh3times/magic-agenda/compare/v1.17.13...v1.17.14
