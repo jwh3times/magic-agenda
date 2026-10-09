@@ -12,6 +12,24 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.16] - 2026-10-09
+
+### Fixed
+
+- **Calendar feed times are now right in Google Calendar when your timezone is set to
+  Automatic.** With Automatic, the feed sent each timed task as a bare wall-clock time with no
+  timezone attached. Apple Calendar read that as local time, but Google Calendar read it as UTC,
+  so a task due at 9:45 AM in New York showed at 5:45 AM. The feed link now carries the timezone
+  of the device you copy it on, and the feed uses it to send exact times every calendar app
+  agrees on. **If your timezone is Automatic, copy the link again from Settings → Boards →
+  Calendar feed and resubscribe**; a link copied before this release keeps the old behaviour. A
+  named timezone in Settings → Dates was never affected and still takes priority.
+
+### Internal
+
+- The `ical` function validates the link's `tz` and falls back to floating time for an unusable
+  one, so editing the URL cannot blank a feed's timed events.
+
 ## [1.17.15] - 2026-10-08
 
 ### Security
@@ -4886,7 +4904,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.15...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.16...HEAD
+[1.17.16]: https://github.com/jwh3times/magic-agenda/compare/v1.17.15...v1.17.16
 [1.17.15]: https://github.com/jwh3times/magic-agenda/compare/v1.17.14...v1.17.15
 [1.17.14]: https://github.com/jwh3times/magic-agenda/compare/v1.17.13...v1.17.14
 [1.17.13]: https://github.com/jwh3times/magic-agenda/compare/v1.17.12...v1.17.13
