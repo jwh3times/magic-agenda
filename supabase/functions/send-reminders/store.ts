@@ -6,11 +6,10 @@ import type { Database } from "../../../src/types/database.types.ts";
 import { dueMomentAtZone } from "../../../src/data/dueMomentCore.ts";
 import {
   candidateKey,
-  type CurrentMembership,
+  pairingKey,
   planReminderCandidates,
   type ReminderCandidate,
-  type ReminderPreference,
-  type ReminderTask,
+  type ReminderPairing,
 } from "./domain.ts";
 import type {
   DeliveryClaim,
@@ -49,51 +48,40 @@ async function endpointHash(endpoint: string): Promise<string> {
 export class SupabaseReminderStore implements ReminderStore {
   constructor(private readonly client: Client) {}
 
-  private async inputs(): Promise<{
-    preferences: ReminderPreference[];
-    memberships: CurrentMembership[];
-    tasks: ReminderTask[];
-  }> {
+  /** One pairing per row, keyed by (Account, Task); never regrouped. */
+  private async pairings(): Promise<Map<string, ReminderPairing>> {
     const result = await this.client.rpc("reminder_candidate_rows");
     if (result.error) {
       throw new Error(`load reminder candidates: ${result.error.message}`);
     }
-    const preferences = new Map<string, ReminderPreference>();
-    const memberships = new Map<string, CurrentMembership>();
-    const tasks = new Map<string, ReminderTask>();
+    const pairings = new Map<string, ReminderPairing>();
     for (const row of result.data ?? []) {
-      preferences.set(row.account_id, {
-        accountId: row.account_id,
-        timezone: row.timezone,
-        leadMinutes: row.lead_minutes,
-      });
-      memberships.set(`${row.account_id}|${row.board_id}`, {
-        accountId: row.account_id,
-        boardId: row.board_id,
-      });
-      tasks.set(row.task_id, {
-        id: row.task_id,
-        boardId: row.board_id,
-        title: row.task_title,
-        day: row.task_day,
-        atTime: row.task_at_time,
-        status: row.task_status,
-        recurFreq: row.recur_freq,
-        recurParentId: row.recur_parent_id,
-        updatedAtMs: Date.parse(row.task_updated_at),
+      pairings.set(pairingKey(row.account_id, row.task_id), {
+        preference: {
+          accountId: row.account_id,
+          timezone: row.timezone,
+          leadMinutes: row.lead_minutes,
+        },
+        task: {
+          id: row.task_id,
+          boardId: row.board_id,
+          title: row.task_title,
+          day: row.task_day,
+          atTime: row.task_at_time,
+          status: row.task_status,
+          recurFreq: row.recur_freq,
+          recurParentId: row.recur_parent_id,
+          updatedAtMs: Date.parse(row.task_updated_at),
+        },
       });
     }
-    return {
-      preferences: [...preferences.values()],
-      memberships: [...memberships.values()],
-      tasks: [...tasks.values()],
-    };
+    return pairings;
   }
 
   async candidates(nowMs: number): Promise<ReminderCandidate[]> {
-    const inputs = await this.inputs();
+    const pairings = await this.pairings();
     const candidates = new Map(
-      planReminderCandidates(inputs, nowMs).map((
+      planReminderCandidates([...pairings.values()], nowMs).map((
         candidate,
       ) => [candidateKey(candidate), candidate]),
     );
@@ -121,16 +109,13 @@ export class SupabaseReminderStore implements ReminderStore {
     if (deliveries.error) {
       throw new Error(`load retry deliveries: ${deliveries.error.message}`);
     }
-    const taskById = new Map(inputs.tasks.map((task) => [task.id, task]));
-    const preferenceById = new Map(
-      inputs.preferences.map((
-        preference,
-      ) => [preference.accountId, preference]),
-    );
     for (const delivery of deliveries.data ?? []) {
-      const task = taskById.get(delivery.task_id);
-      const preference = preferenceById.get(delivery.account_id);
-      if (!task || !preference || !task.day) continue;
+      const pairing = pairings.get(
+        pairingKey(delivery.account_id, delivery.task_id),
+      );
+      if (!pairing) continue;
+      const { preference, task } = pairing;
+      if (!task.day) continue;
       const due = dueMomentAtZone(task.day, task.atTime, preference.timezone);
       if (!due || due.instantMs !== Date.parse(delivery.due_moment)) continue;
       const candidate: ReminderCandidate = {
@@ -200,23 +185,19 @@ export class SupabaseReminderStore implements ReminderStore {
   }
 
   async recheck(claim: DeliveryClaim, _nowMs: number): Promise<Recheck> {
-    const inputs = await this.inputs();
-    const task = inputs.tasks.find((row) => row.id === claim.candidate.taskId);
-    if (!task) return "ineligible";
+    const pairing = (await this.pairings()).get(
+      pairingKey(claim.candidate.accountId, claim.candidate.taskId),
+    );
+    // No row means the database no longer pairs this Account with this Task:
+    // the Task is gone or unscheduled, the Membership or the Reminder
+    // preference ended, or the Task was assigned to someone else.
+    if (!pairing) return "ineligible";
+    const { preference, task } = pairing;
     if (task.status === "done") return "completed";
     if (
       !task.day || (task.recurFreq !== "none" && task.recurParentId === null)
     ) return "ineligible";
-    const setting = inputs.preferences.find(
-      (row) => row.accountId === claim.candidate.accountId,
-    );
-    const membership = inputs.memberships.some(
-      (row) =>
-        row.accountId === claim.candidate.accountId &&
-        row.boardId === task.boardId,
-    );
-    if (!setting || !membership) return "ineligible";
-    const due = dueMomentAtZone(task.day, task.atTime, setting.timezone);
+    const due = dueMomentAtZone(task.day, task.atTime, preference.timezone);
     return due?.instantMs === claim.candidate.dueMomentMs
       ? "eligible"
       : "rescheduled";

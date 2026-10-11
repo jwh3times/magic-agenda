@@ -1,28 +1,39 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { type CandidateInputs, planReminderCandidates } from "./domain.ts";
+import {
+  planReminderCandidates,
+  type ReminderPairing,
+  type ReminderPreference,
+  type ReminderTask,
+} from "./domain.ts";
 
-const inputs = (overrides: Partial<CandidateInputs> = {}): CandidateInputs => ({
-  preferences: [{
+const TASK: ReminderTask = {
+  id: "t1",
+  boardId: "b1",
+  title: "Report",
+  day: "2026-09-15",
+  atTime: "09:00",
+  status: "todo",
+  recurFreq: "none",
+  recurParentId: null,
+  updatedAtMs: Date.parse("2026-09-14T12:00:00Z"),
+};
+
+/** Pairs every given Account with every given Task, as one Board would. */
+const inputs = (
+  overrides: {
+    preferences?: ReminderPreference[];
+    tasks?: ReminderTask[];
+  } = {},
+): ReminderPairing[] => {
+  const preferences = overrides.preferences ?? [{
     accountId: "a1",
     timezone: "America/New_York",
     leadMinutes: 15,
-  }],
-  memberships: [{ accountId: "a1", boardId: "b1" }],
-  tasks: [
-    {
-      id: "t1",
-      boardId: "b1",
-      title: "Report",
-      day: "2026-09-15",
-      atTime: "09:00",
-      status: "todo",
-      recurFreq: "none",
-      recurParentId: null,
-      updatedAtMs: Date.parse("2026-09-14T12:00:00Z"),
-    },
-  ],
-  ...overrides,
-});
+  }];
+  return preferences.flatMap((preference) =>
+    (overrides.tasks ?? [TASK]).map((task) => ({ preference, task }))
+  );
+};
 
 Deno.test("shared Board members receive Account-specific Due Moments", () => {
   const planned = planReminderCandidates(
@@ -30,10 +41,6 @@ Deno.test("shared Board members receive Account-specific Due Moments", () => {
       preferences: [
         { accountId: "ny", timezone: "America/New_York", leadMinutes: 15 },
         { accountId: "la", timezone: "America/Los_Angeles", leadMinutes: 15 },
-      ],
-      memberships: [
-        { accountId: "ny", boardId: "b1" },
-        { accountId: "la", boardId: "b1" },
       ],
     }),
     Date.parse("2026-09-15T12:45:00Z"),
@@ -46,7 +53,7 @@ Deno.test("untimed Tasks open relative to next local midnight", () => {
   const planned = planReminderCandidates(
     inputs({
       preferences: [{ accountId: "a1", timezone: "UTC", leadMinutes: 60 }],
-      tasks: [{ ...inputs().tasks[0], atTime: null }],
+      tasks: [{ ...TASK, atTime: null }],
     }),
     Date.parse("2026-09-15T23:00:00Z"),
   );
@@ -54,13 +61,12 @@ Deno.test("untimed Tasks open relative to next local midnight", () => {
 });
 
 Deno.test("Inbox, Completed, and Series definition rows are never eligible", () => {
-  const base = inputs().tasks[0];
   const planned = planReminderCandidates(
     inputs({
       tasks: [
-        { ...base, id: "inbox", day: null },
-        { ...base, id: "done", status: "done" },
-        { ...base, id: "series", recurFreq: "daily", recurParentId: null },
+        { ...TASK, id: "inbox", day: null },
+        { ...TASK, id: "done", status: "done" },
+        { ...TASK, id: "series", recurFreq: "daily", recurParentId: null },
       ],
     }),
     Date.parse("2026-09-15T12:45:00Z"),
@@ -69,7 +75,6 @@ Deno.test("Inbox, Completed, and Series definition rows are never eligible", () 
 });
 
 Deno.test("DST gap and overlap use the client-compatible instant", () => {
-  const base = inputs().tasks[0];
   const spring = planReminderCandidates(
     inputs({
       preferences: [{
@@ -77,7 +82,7 @@ Deno.test("DST gap and overlap use the client-compatible instant", () => {
         timezone: "America/New_York",
         leadMinutes: 0,
       }],
-      tasks: [{ ...base, day: "2026-03-08", atTime: "02:30" }],
+      tasks: [{ ...TASK, day: "2026-03-08", atTime: "02:30" }],
     }),
     Date.parse("2026-03-08T07:30:00Z"),
   );
@@ -88,7 +93,7 @@ Deno.test("DST gap and overlap use the client-compatible instant", () => {
         timezone: "America/New_York",
         leadMinutes: 0,
       }],
-      tasks: [{ ...base, day: "2026-11-01", atTime: "01:30" }],
+      tasks: [{ ...TASK, day: "2026-11-01", atTime: "01:30" }],
     }),
     Date.parse("2026-11-01T05:30:00Z"),
   );
@@ -100,10 +105,7 @@ Deno.test("at-Due-Moment delivery allows one scheduler interval of grace", () =>
   const planned = planReminderCandidates(
     inputs({
       preferences: [{ accountId: "a1", timezone: "UTC", leadMinutes: 0 }],
-      tasks: [{
-        ...inputs().tasks[0],
-        atTime: "13:00",
-      }],
+      tasks: [{ ...TASK, atTime: "13:00" }],
     }),
     Date.parse("2026-09-15T13:04:00Z"),
   );
@@ -116,7 +118,7 @@ Deno.test("a Task reopened after its Due Moment does not replay a missed Reminde
       inputs({
         preferences: [{ accountId: "a1", timezone: "UTC", leadMinutes: 0 }],
         tasks: [{
-          ...inputs().tasks[0],
+          ...TASK,
           atTime: "13:00",
           updatedAtMs: Date.parse("2026-09-15T13:01:00Z"),
         }],
