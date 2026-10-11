@@ -22,6 +22,7 @@ import type {
 type Client = SupabaseClient<Database>;
 const CLAIM_MS = 4 * 60_000;
 const MAX_ATTEMPTS = 20;
+const PAGE_SIZE = 1000;
 
 function required<T>(
   data: T | null,
@@ -48,34 +49,60 @@ async function endpointHash(endpoint: string): Promise<string> {
 export class SupabaseReminderStore implements ReminderStore {
   constructor(private readonly client: Client) {}
 
-  /** One pairing per row, keyed by (Account, Task); never regrouped. */
+  /**
+   * One pairing per row, keyed by (Account, Task); never regrouped.
+   *
+   * Every row or an error, never a successful partial answer: PostgREST caps
+   * a response at `max_rows` without saying so, and a truncated answer would
+   * drop Reminders and make `recheck()` suppress claims whose row was cut.
+   * The exact count keeps a lower cap from looking like the last page; the
+   * stable order and the count and duplicate checks catch drift between
+   * pages. Separate requests are still not a transactional snapshot.
+   */
   private async pairings(): Promise<Map<string, ReminderPairing>> {
-    const result = await this.client.rpc("reminder_candidate_rows");
-    if (result.error) {
-      throw new Error(`load reminder candidates: ${result.error.message}`);
-    }
+    const incomplete = () =>
+      new Error("load reminder candidates: incomplete answer");
     const pairings = new Map<string, ReminderPairing>();
-    for (const row of result.data ?? []) {
-      pairings.set(pairingKey(row.account_id, row.task_id), {
-        preference: {
-          accountId: row.account_id,
-          timezone: row.timezone,
-          leadMinutes: row.lead_minutes,
-        },
-        task: {
-          id: row.task_id,
-          boardId: row.board_id,
-          title: row.task_title,
-          day: row.task_day,
-          atTime: row.task_at_time,
-          status: row.task_status,
-          recurFreq: row.recur_freq,
-          recurParentId: row.recur_parent_id,
-          updatedAtMs: Date.parse(row.task_updated_at),
-        },
-      });
+    let expected: number | null = null;
+    for (;;) {
+      const result = await this.client
+        .rpc("reminder_candidate_rows", undefined, { count: "exact" })
+        .order("account_id", { ascending: true })
+        .order("task_id", { ascending: true })
+        .range(pairings.size, pairings.size + PAGE_SIZE - 1);
+      if (result.error) {
+        throw new Error(`load reminder candidates: ${result.error.message}`);
+      }
+      if (result.count === null || result.data === null) throw incomplete();
+      expected ??= result.count;
+      if (result.count !== expected) throw incomplete();
+      for (const row of result.data) {
+        const key = pairingKey(row.account_id, row.task_id);
+        if (pairings.has(key)) throw incomplete();
+        pairings.set(key, {
+          preference: {
+            accountId: row.account_id,
+            timezone: row.timezone,
+            leadMinutes: row.lead_minutes,
+          },
+          task: {
+            id: row.task_id,
+            boardId: row.board_id,
+            title: row.task_title,
+            day: row.task_day,
+            atTime: row.task_at_time,
+            status: row.task_status,
+            recurFreq: row.recur_freq,
+            recurParentId: row.recur_parent_id,
+            updatedAtMs: Date.parse(row.task_updated_at),
+          },
+        });
+      }
+      if (pairings.size === expected) return pairings;
+      if (pairings.size > expected || result.data.length === 0) {
+        throw incomplete();
+      }
     }
-    return pairings;
   }
 
   async candidates(nowMs: number): Promise<ReminderCandidate[]> {

@@ -77,8 +77,16 @@ candidate per pairing; `recheck()` and the retry resume look the same pair up. U
 store split the rows into Accounts, Memberships and Tasks and the planner re-crossed them by Board,
 which reminded every member about every qualifying Task and undid the targeting above while the
 SQL test stayed green. `supabase/functions/send-reminders/store.test.ts` covers the sender side with
-two members holding one Task each. The RPC result is still read in one unpaginated call, so
-`max_rows` caps it silently.
+two members holding one Task each.
+
+**The store reads that answer in pages and refuses a partial one (v1.17.22).** PostgREST caps a
+response at `max_rows` without an error, and a truncated answer both drops Reminders and makes
+`recheck()` suppress claims whose row was cut. `pairings()` follows `loadBoardTasks`: an exact
+count, a stable `(account_id, task_id)` order, and count and duplicate checks, throwing rather than
+planning from an incomplete answer. A thrown load fails that five-minute run and the next one
+retries. `store.test.ts` covers the loop over a page-capping fake, and
+`tests/rls/reminder_targeting.test.ts` asks the real PostgREST for the count, order and range the
+loop depends on. Like `loadBoardTasks`, separate requests are not a transactional snapshot.
 
 Deploy the function and its tables before adding the `pg_cron` invocation; that staging keeps a
 release from scheduling code or credentials that do not exist yet. The constant-time compare and the

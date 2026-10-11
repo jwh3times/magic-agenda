@@ -12,6 +12,28 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.22] - 2026-10-11
+
+### Fixed
+
+- **Reminders are no longer dropped once there are many of them.** Every five minutes the sender
+  asks the database which tasks to remind whom about, and the answer was read in a single request
+  that the server silently cuts off at 1,000 rows. Past that point some reminders would not have
+  been sent, and one already in progress could have been held back past its due time. The sender
+  now reads the whole answer in pages, and if it cannot get a complete one it sends nothing on that
+  run and tries again on the next. Whether production has ever reached that size was not checked.
+
+### Internal
+
+- `SupabaseReminderStore.pairings()` pages `reminder_candidate_rows()` the way `loadBoardTasks`
+  pages a Board: an exact count, a stable `(account_id, task_id)` order, and count and duplicate
+  checks that throw instead of planning from a partial answer.
+- `store.test.ts` covers the loop over a fake that caps each page.
+  `tests/rls/reminder_targeting.test.ts` checks that PostgREST honours the exact count, order and
+  range on that RPC, which the fake cannot show.
+- Not covered: pages are separate requests, not one snapshot. A change between pages that keeps
+  the row count the same can still be missed for one run.
+
 ## [1.17.21] - 2026-10-11
 
 ### Fixed
@@ -5020,7 +5042,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.21...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.22...HEAD
+[1.17.22]: https://github.com/jwh3times/magic-agenda/compare/v1.17.21...v1.17.22
 [1.17.21]: https://github.com/jwh3times/magic-agenda/compare/v1.17.20...v1.17.21
 [1.17.20]: https://github.com/jwh3times/magic-agenda/compare/v1.17.19...v1.17.20
 [1.17.19]: https://github.com/jwh3times/magic-agenda/compare/v1.17.18...v1.17.19

@@ -121,6 +121,32 @@ test('an unassigned Task reaches only members who opted in for that Board', asyn
   }
 })
 
+/**
+ * The sender reads this answer in pages, because `max_rows` caps a response without an error and
+ * a truncated answer drops Reminders silently. Its loop needs three things from PostgREST on an
+ * RPC: an exact count that ignores the range, an order, and a range. The sender's own tests use a
+ * fake client, so this is the only place the real one is asked.
+ */
+test('the answer can be paged: an exact count, a stable order, and a range', async () => {
+  const page = (from: number, to: number) =>
+    serviceClient()
+      .rpc('reminder_candidate_rows', undefined, { count: 'exact' })
+      .order('account_id', { ascending: true })
+      .order('task_id', { ascending: true })
+      .range(from, to)
+  const key = (row: { account_id: string; task_id: string }) => `${row.account_id}|${row.task_id}`
+
+  const first = await page(0, 0)
+  const second = await page(1, 1)
+  expect(first.error).toBeNull()
+  expect(second.error).toBeNull()
+  // One row each, although this file alone gives the function three to answer.
+  expect(first.data).toHaveLength(1)
+  expect(second.data).toHaveLength(1)
+  expect(first.count).toBeGreaterThanOrEqual(3)
+  expect(key(first.data![0]) < key(second.data![0])).toBe(true)
+})
+
 test('a member can set their own opt-in and nobody else’s', async () => {
   const { rows } = await withPg((pg) =>
     pg.query<{ id: string }>(
