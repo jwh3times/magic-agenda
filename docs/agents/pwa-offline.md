@@ -71,6 +71,15 @@ own row through a column grant, like Default View, from the Members panel. Witho
 Board would push every member a reminder for every timed Task. `tests/rls/reminder_targeting.test.ts`
 covers the single-member, assigned, opted-in, and not-opted-in cases.
 
+**Each row of that answer is one (Account, Task) pairing, and the sender must not regroup it.**
+`store.ts` keys the rows by `pairingKey(accountId, taskId)` and `planReminderCandidates` plans one
+candidate per pairing; `recheck()` and the retry resume look the same pair up. Until v1.17.21 the
+store split the rows into Accounts, Memberships and Tasks and the planner re-crossed them by Board,
+which reminded every member about every qualifying Task and undid the targeting above while the
+SQL test stayed green. `supabase/functions/send-reminders/store.test.ts` covers the sender side with
+two members holding one Task each. The RPC result is still read in one unpaginated call, so
+`max_rows` caps it silently.
+
 Deploy the function and its tables before adding the `pg_cron` invocation; that staging keeps a
 release from scheduling code or credentials that do not exist yet. The constant-time compare and the
 bearer-header parse are `supabase/functions/_shared/bearer.ts`, shared with `materialize-series`
