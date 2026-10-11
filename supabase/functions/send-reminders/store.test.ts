@@ -1,4 +1,4 @@
-import { assertEquals } from "jsr:@std/assert@1";
+import { assertEquals, assertRejects } from "jsr:@std/assert@1";
 import type { Database } from "../../../src/types/database.types.ts";
 import type { ReminderCandidate } from "./domain.ts";
 import { SupabaseReminderStore } from "./store.ts";
@@ -42,12 +42,49 @@ function query(rows: unknown[]): unknown {
   return chain;
 }
 
+interface Paging {
+  /** The most rows one request answers, as `max_rows` caps it. */
+  cap: number;
+  /** The exact count reported on each successive request. */
+  counts?: number[];
+}
+
+/** The candidate RPC: honours `range`, caps the page, reports a count. */
+function candidateRpc(rows: CandidateRow[], paging: Paging) {
+  let request = 0;
+  return () => {
+    let from = 0;
+    let to = Number.POSITIVE_INFINITY;
+    const chain = {
+      order: () => chain,
+      range: (first: number, last: number) => {
+        from = first;
+        to = last;
+        return chain;
+      },
+      then: (
+        resolve: (value: unknown) => unknown,
+        reject: (reason: unknown) => unknown,
+      ) => {
+        const last = Math.min(to + 1, from + paging.cap);
+        return Promise.resolve({
+          data: rows.slice(from, last),
+          count: paging.counts?.[request++] ?? rows.length,
+          error: null,
+        }).then(resolve, reject);
+      },
+    };
+    return chain;
+  };
+}
+
 function storeOver(
   rows: CandidateRow[],
   tables: Record<string, unknown[]> = {},
+  paging: Paging = { cap: 1000 },
 ): SupabaseReminderStore {
   return new SupabaseReminderStore({
-    rpc: () => Promise.resolve({ data: rows, error: null }),
+    rpc: candidateRpc(rows, paging),
     from: (table: string) => query(tables[table] ?? []),
   } as unknown as Client);
 }
@@ -119,4 +156,40 @@ Deno.test("a retry is resumed only for a pairing that is still offered", async (
   const resumed = await store.candidates(Date.parse("2026-09-15T13:10:00Z"));
 
   assertEquals(pairings(resumed), ["ben|ben-task"]);
+});
+
+const NOW = Date.parse("2026-09-15T12:50:00Z");
+const FIVE = ["t1", "t2", "t3", "t4", "t5"].map((id) => row("ada", id));
+
+Deno.test("every pairing is read when the server caps a page", async () => {
+  const planned = await storeOver(FIVE, {}, { cap: 2 }).candidates(NOW);
+
+  assertEquals(pairings(planned), [
+    "ada|t1",
+    "ada|t2",
+    "ada|t3",
+    "ada|t4",
+    "ada|t5",
+  ]);
+});
+
+Deno.test("an answer that changes between pages is refused, not planned", async () => {
+  const store = storeOver(FIVE, {}, { cap: 2, counts: [5, 4] });
+
+  await assertRejects(
+    () => store.candidates(NOW),
+    Error,
+    "load reminder candidates: incomplete",
+  );
+});
+
+Deno.test("a pairing repeated across pages is refused, not planned", async () => {
+  const repeated = [FIVE[0], FIVE[1], FIVE[1], FIVE[2]];
+  const store = storeOver(repeated, {}, { cap: 2 });
+
+  await assertRejects(
+    () => store.candidates(NOW),
+    Error,
+    "load reminder candidates: incomplete",
+  );
 });
