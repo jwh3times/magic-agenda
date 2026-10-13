@@ -1,9 +1,16 @@
 import { configDefaults, defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { readBuildFacts, resolveBuildInfo, type BuildInfo } from './scripts/build-info'
+
+// Tests get a fixed value: a suite that read the real checkout would change with every commit.
+const buildInfo: BuildInfo = process.env.VITEST
+  ? { version: '0.0.0', commit: '0000000' }
+  : resolveBuildInfo(readBuildFacts())
 
 // https://vite.dev/config/  +  https://vitest.dev/config/
 export default defineConfig({
+  define: { __BUILD_INFO__: JSON.stringify(buildInfo) },
   plugins: [
     react(),
     VitePWA({

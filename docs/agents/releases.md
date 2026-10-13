@@ -38,3 +38,24 @@ besides, since both inserted a section at the same offset under `## [Unreleased]
 before either merges, so the failure always lands after review. The fix is mechanical — renumber the
 section, fix its two compare links, resolve the conflict — and `ship` now checks for a competing
 claim before writing, so it is reported up front instead of discovered from a red check.
+
+**The app shows its own release, resolved at build time** (Settings footer, for example
+`v1.17.22 · a37c862`). The version is in no source file: `package.json` carries only the
+major/minor line, and the build number is the tag `Version` pushes after the merge, while
+Cloudflare Pages builds the same commit on its own schedule. `scripts/build-info.ts` therefore
+resolves it while Vite builds, and `vite.config.ts` injects the result as `__BUILD_INFO__`:
+
+- a tag on the commit itself wins, because `Version` may finish before the deploy build starts and
+  counting on from the highest tag would then name the _next_ release;
+- otherwise `computeNextVersion` from `next-version.mjs`, the same computation the tag workflow
+  runs, so the two cannot disagree;
+- **anything uncertain resolves to no version and the commit alone is shown** (`Build a37c862`): a
+  branch or Pages preview build, a shallow clone, or a line with no tags. Someone reads this to
+  decide whether a fix is live, so a wrong version is worse than none.
+
+The branch and commit come from `CF_PAGES_BRANCH` and `CF_PAGES_COMMIT_SHA` when Pages sets them,
+since it checks a commit out detached. Vitest gets a fixed `v0.0.0 · 0000000`, and the settings
+visual canary rewrites the label to `Build 0000000` before its screenshot, because a PR build shows
+a commit that changes on every run. Whether the production build can see the tags is a property of
+Cloudflare's checkout, which no test here reaches; if the live footer shows only a commit, that is
+the reason.
