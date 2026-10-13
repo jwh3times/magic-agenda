@@ -12,6 +12,26 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.23] - 2026-10-13
+
+### Added
+
+- **Settings now shows which release you are running.** The bottom of the Settings page names the
+  version and build, for example `v1.17.22 · a37c862`. The app updates often, and an installed copy
+  can stay on an older release until it refreshes, so this is how to tell whether a fix has reached
+  a particular device.
+
+### Internal
+
+- `scripts/build-info.ts` resolves the version while the bundle is built, since it exists only as
+  a tag pushed after the merge: the tag on the commit when there is one, otherwise the
+  `next-version.mjs` computation. A branch or preview build, a shallow clone, and a line with no
+  tags resolve to no version and show the commit alone.
+- The settings visual canary pins the label's text, and its baseline is refreshed for the new
+  footer line.
+- Not verified until this is live: that the production build's checkout holds the tags. If it does
+  not, the footer shows the commit without a version.
+
 ## [1.17.22] - 2026-10-11
 
 ### Fixed
@@ -5042,7 +5062,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.22...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.23...HEAD
+[1.17.23]: https://github.com/jwh3times/magic-agenda/compare/v1.17.22...v1.17.23
 [1.17.22]: https://github.com/jwh3times/magic-agenda/compare/v1.17.21...v1.17.22
 [1.17.21]: https://github.com/jwh3times/magic-agenda/compare/v1.17.20...v1.17.21
 [1.17.20]: https://github.com/jwh3times/magic-agenda/compare/v1.17.19...v1.17.20
