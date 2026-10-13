@@ -10,3 +10,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+/** Injected by `define` in vite.config.ts from `scripts/build-info.ts`. */
+declare const __BUILD_INFO__: { version: string | null; commit: string | null }

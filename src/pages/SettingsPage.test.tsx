@@ -112,6 +112,13 @@ test('links to the legal pages from the footer', async () => {
   expect(screen.getByRole('link', { name: 'Terms' })).toHaveAttribute('href', '/terms')
 })
 
+test('the footer names the build this device is running', async () => {
+  renderPage()
+  await screen.findByRole('heading', { name: 'Settings' })
+  // vite.config.ts pins the build info under Vitest; a real build resolves it from git.
+  expect(within(screen.getByRole('contentinfo')).getByText('v0.0.0 · 0000000')).toBeVisible()
+})
+
 // Same defect class as BoardPage: ProtectedRoute now admits an offline sessionless visitor with
 // a remembered id (no session, so `user` is null), and this page must not re-derive a stricter
 // gate from `user` that spins forever instead of rendering.

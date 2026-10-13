@@ -20,6 +20,7 @@ import { useSettingsContext } from '../data/SettingsProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { currentSection } from '../lib/sectionSpy'
 import { readLastUserId } from '../lib/lastUser'
+import { buildInfo, buildLabel } from '../lib/buildInfo'
 import { useRole } from '../access/useRole'
 import { useBoardSharing } from '../access/useBoardSharing'
 import { useBoardDirectoryContext, useBoardSession } from '../board/BoardDirectoryProvider'
@@ -96,6 +97,7 @@ function SettingsShell({ defaultView, onChangeView }: SectionContext) {
   const { isAdmin } = useRole()
   const boardSharing = useBoardSharing()
   const [active, jumpTo] = useActiveSection(SECTION_IDS, !isMobile)
+  const version = buildLabel(buildInfo)
 
   const card: CSSProperties = {
     background: conf.cellBg,
@@ -224,6 +226,9 @@ function SettingsShell({ defaultView, onChangeView }: SectionContext) {
           <Link to="/terms" style={{ color: 'inherit' }}>
             Terms
           </Link>
+          {/* Which release this device is running: every merge is one, and an installed app can
+              lag behind the newest until its service worker updates. */}
+          {version && <span style={{ marginLeft: 'auto' }}>{version}</span>}
         </footer>
       </div>
     </div>
