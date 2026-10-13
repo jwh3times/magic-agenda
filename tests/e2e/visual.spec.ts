@@ -134,6 +134,14 @@ test.describe('signed in', () => {
     await page.getByText('No completed tasks on this Board yet.').waitFor()
     // The flags load on their own too, and `board-sharing` adds this button (#494).
     await page.getByRole('button', { name: 'Members…' }).waitFor()
+    // The footer names the build, and a PR build shows its commit, which differs on every run.
+    // Pin the text rather than mask it: a mask is as wide as the text it covers.
+    await page
+      .getByRole('contentinfo')
+      .getByText(/^(Build [0-9a-f]{7}|v\d+\.\d+\.\d+ · [0-9a-f]{7})$/)
+      .evaluate((label) => {
+        label.textContent = 'Build 0000000'
+      })
     await settle(page)
     await expect(page).toHaveScreenshot('settings-cork.png', { fullPage: true })
   })
