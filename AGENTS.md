@@ -238,9 +238,12 @@ exception, so a new one without it is the anomaly, not one more case to weigh. T
 `reviewed-functions.json` / `baseline.test.ts` / `verify-function-grants.mjs` trio above enforces
 this too, via the `config` field.
 
-**A new foreign key needs a covering index, and a new table needs RLS enabled with at least one
-policy — both are checked against production too.** `scripts/verify-schema-posture.mjs` runs
-alongside `verify-function-grants.mjs` in `Deploy Migrations`, asserting RLS-with-a-policy, policy
+**A new foreign key needs a covering index, and a new table in `public` needs RLS enabled with at
+least one policy — both are checked against production too.** The policy half is scoped to `public`
+because that is the schema the Data API exposes: a table in `app_private` still enables RLS, and
+having no policy there is the intended default-deny, not an omission.
+`scripts/verify-schema-posture.mjs` runs alongside `verify-function-grants.mjs` in
+`Deploy Migrations`, asserting RLS-with-a-policy, policy
 role targeting and hoisted `auth.*()` calls, and foreign-key index coverage directly against
 production (#397). `tests/rls/production_posture.test.ts` imports the same queries and comparisons
 and runs them against the local stack, so the two can never ask different questions. **Which one
