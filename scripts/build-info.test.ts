@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { resolveBuildInfo, type BuildFacts } from './build-info'
+import { parseRemoteRefs, resolveBuildInfo, type BuildFacts } from './build-info'
 
 const SHA = 'a37c862f0e5d4c3b2a19087f6e5d4c3b2a190871'
 const facts = (overrides: Partial<BuildFacts> = {}): BuildFacts => ({
   packageVersion: '1.17.0',
   sha: SHA,
   branch: 'main',
-  shallow: false,
   tags: ['v1.17.20', 'v1.17.21', 'v1.16.9', 'v1.1.1.3'],
   tagsAtHead: [],
+  tagsComplete: true,
+  headIsTip: true,
   ...overrides,
 })
 
@@ -34,15 +35,21 @@ describe('resolveBuildInfo', () => {
     expect(resolveBuildInfo(facts({ branch: null })).version).toBeNull()
   })
 
-  it('claims no version from a shallow clone, whose tag list cannot be trusted', () => {
+  it('claims no version from an incomplete tag list, which a shallow clone has', () => {
     // A shallow clone holds only the tags that point into the history it fetched, so the highest
     // one it knows may be stale. A wrong version is worse than none.
-    expect(resolveBuildInfo(facts({ shallow: true })).version).toBeNull()
+    expect(resolveBuildInfo(facts({ tagsComplete: false })).version).toBeNull()
   })
 
-  it('still trusts a tag on the commit itself in a shallow clone', () => {
-    const info = resolveBuildInfo(facts({ shallow: true, tagsAtHead: ['v1.17.22'] }))
+  it('still trusts a tag on the commit itself when the list is incomplete', () => {
+    const info = resolveBuildInfo(facts({ tagsComplete: false, tagsAtHead: ['v1.17.22'] }))
     expect(info.version).toBe('1.17.22')
+  })
+
+  it('does not count on for a commit that is no longer the newest', () => {
+    // Two merges in quick succession: the older one is built while still untagged, after the
+    // newer one has its tag. Counting on would give the older commit a third release's number.
+    expect(resolveBuildInfo(facts({ headIsTip: false })).version).toBeNull()
   })
 
   it('claims no version when the line has no tag at all', () => {
@@ -61,5 +68,44 @@ describe('resolveBuildInfo', () => {
     })
     expect(resolveBuildInfo(facts({ sha: 'not-a-sha' })).commit).toBeNull()
     expect(resolveBuildInfo(facts({ packageVersion: 'garbage' })).version).toBeNull()
+  })
+})
+
+describe('parseRemoteRefs', () => {
+  const OTHER = 'b'.repeat(40)
+  const TAG_OBJECT = 'c'.repeat(40)
+  const listing = [
+    `${TAG_OBJECT}\trefs/tags/v1.17.22`,
+    `${SHA}\trefs/tags/v1.17.22^{}`,
+    `${OTHER}\trefs/tags/v1.17.21`,
+    `${OTHER}\trefs/tags/v1.17.21^{}`,
+    `${SHA}\trefs/heads/main`,
+  ].join('\n')
+
+  it('lists each tag once and finds the annotated tag that peels to this commit', () => {
+    const refs = parseRemoteRefs(listing, SHA)
+    expect(refs.tags.sort()).toEqual(['v1.17.21', 'v1.17.22'])
+    expect(refs.tagsAtHead).toEqual(['v1.17.22'])
+    expect(refs.headIsTip).toBe(true)
+  })
+
+  it('knows when the commit is behind the branch tip', () => {
+    const refs = parseRemoteRefs(listing, OTHER)
+    expect(refs.headIsTip).toBe(false)
+    expect(refs.tagsAtHead).toEqual(['v1.17.21'])
+  })
+
+  it('matches a lightweight tag, which has no peeled line', () => {
+    expect(parseRemoteRefs(`${SHA}\trefs/tags/v1.17.30\n`, SHA).tagsAtHead).toEqual(['v1.17.30'])
+  })
+
+  it('reads an empty listing as knowing nothing', () => {
+    expect(parseRemoteRefs('', SHA)).toEqual({ tags: [], tagsAtHead: [], headIsTip: false })
+  })
+
+  it('feeds the resolver: the tip with no tag yet is the next build', () => {
+    const untagged = `${OTHER}\trefs/tags/v1.17.21^{}\n${SHA}\trefs/heads/main`
+    const info = resolveBuildInfo(facts({ ...parseRemoteRefs(untagged, SHA), tagsComplete: true }))
+    expect(info.version).toBe('1.17.22')
   })
 })
