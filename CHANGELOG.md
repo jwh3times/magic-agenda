@@ -12,6 +12,15 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.27] - 2026-10-13
+
+### Docs
+
+- `AGENTS.md` now says the "RLS enabled with at least one policy" rule applies to tables in
+  `public`, which is what the production posture check has always asserted. A table in
+  `app_private` enables RLS and carries no policy on purpose, and the unscoped wording read as if
+  that were a defect.
+
 ## [1.17.26] - 2026-10-13
 
 ### Fixed
@@ -5095,7 +5104,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.26...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.27...HEAD
+[1.17.27]: https://github.com/jwh3times/magic-agenda/compare/v1.17.26...v1.17.27
 [1.17.26]: https://github.com/jwh3times/magic-agenda/compare/v1.17.25...v1.17.26
 [1.17.25]: https://github.com/jwh3times/magic-agenda/compare/v1.17.24...v1.17.25
 [1.17.24]: https://github.com/jwh3times/magic-agenda/compare/v1.17.23...v1.17.24
