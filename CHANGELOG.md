@@ -12,6 +12,39 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.26] - 2026-10-13
+
+### Fixed
+
+- **The Settings footer now shows the version, not only the build.** The label added in v1.17.23
+  read `Build` and a commit on the live site, with no version number. It now reads, for example,
+  `v1.17.26 · 1a2b3c4`.
+
+### Internal
+
+- Cloudflare Pages builds from a shallow clone that carries no tags, so the resolver had nothing
+  to read and, as designed, claimed nothing. A Pages build of `main` now asks the remote for its
+  tags and branch tip with `git ls-remote`. Local and PR builds are unchanged and need no network.
+- The tag on the commit still wins. Counting on from the highest tag is allowed only when the
+  commit is the tip of `main`, so an older commit still waiting for its tag is not given a later
+  release's number; it shows its commit alone.
+- Not verified until this is live: the result on a real Pages build. It was simulated locally with
+  Pages' environment variables against the real remote.
+
+## [1.17.25] - 2026-10-13
+
+### Internal
+
+- `@supabase/supabase-js` bumped from 2.117.2 to 2.117.3, `@types/node` from 26.6.4 to 26.6.5,
+  the `supabase` CLI from 2.119.0 to 2.120.0, and `vite` from 8.3.3 to 8.3.4 (#525).
+
+## [1.17.24] - 2026-10-13
+
+### Internal
+
+- `actions/upload-artifact` bumped from 7.0.1 to 7.0.2 and `actions/setup-node` from 7.0.0 to
+  7.1.0 in the CI and backup workflows (#524).
+
 ## [1.17.23] - 2026-10-13
 
 ### Added
@@ -5062,7 +5095,10 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.23...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.26...HEAD
+[1.17.26]: https://github.com/jwh3times/magic-agenda/compare/v1.17.25...v1.17.26
+[1.17.25]: https://github.com/jwh3times/magic-agenda/compare/v1.17.24...v1.17.25
+[1.17.24]: https://github.com/jwh3times/magic-agenda/compare/v1.17.23...v1.17.24
 [1.17.23]: https://github.com/jwh3times/magic-agenda/compare/v1.17.22...v1.17.23
 [1.17.22]: https://github.com/jwh3times/magic-agenda/compare/v1.17.21...v1.17.22
 [1.17.21]: https://github.com/jwh3times/magic-agenda/compare/v1.17.20...v1.17.21

@@ -48,14 +48,21 @@ resolves it while Vite builds, and `vite.config.ts` injects the result as `__BUI
 - a tag on the commit itself wins, because `Version` may finish before the deploy build starts and
   counting on from the highest tag would then name the _next_ release;
 - otherwise `computeNextVersion` from `next-version.mjs`, the same computation the tag workflow
-  runs, so the two cannot disagree;
+  runs, so the two cannot disagree — but only when every tag is in view **and** the commit is the
+  tip of `main`. An older commit still waiting for its tag would otherwise be given a later
+  release's number;
 - **anything uncertain resolves to no version and the commit alone is shown** (`Build a37c862`): a
-  branch or Pages preview build, a shallow clone, or a line with no tags. Someone reads this to
-  decide whether a fix is live, so a wrong version is worse than none.
+  branch or Pages preview build, an incomplete tag list, or a line with no tags. Someone reads this
+  to decide whether a fix is live, so a wrong version is worse than none.
 
-The branch and commit come from `CF_PAGES_BRANCH` and `CF_PAGES_COMMIT_SHA` when Pages sets them,
-since it checks a commit out detached. Vitest gets a fixed `v0.0.0 · 0000000`, and the settings
-visual canary rewrites the label to `Build 0000000` before its screenshot, because a PR build shows
-a commit that changes on every run. Whether the production build can see the tags is a property of
-Cloudflare's checkout, which no test here reaches; if the live footer shows only a commit, that is
-the reason.
+**Cloudflare Pages builds from a shallow clone with no tags**, measured on the first production
+build (v1.17.23), which showed a commit and no version. So a Pages build of `main` (`CF_PAGES` set
+and `CF_PAGES_BRANCH=main`) reads the tags and the branch tip from the remote with
+`git ls-remote`; the repository is public, so that needs no credential. Every other build reads
+the local clone and needs no network. The branch and commit come from `CF_PAGES_BRANCH` and
+`CF_PAGES_COMMIT_SHA` on Pages, since it checks a commit out detached.
+
+Vitest gets a fixed `v0.0.0 · 0000000`, and the settings visual canary rewrites the label to
+`Build 0000000` before its screenshot, because a PR build shows a commit that changes on every run.
+No test reaches a real Pages build: after changing `scripts/build-info.ts`, read the footer on the
+live site, or the `{version,commit}` object in the deployed bundle.
