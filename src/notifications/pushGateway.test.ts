@@ -4,7 +4,7 @@ import { createPushGateway } from './pushGateway'
 function fixture(overrides: Partial<Parameters<typeof createPushGateway>[0]> = {}) {
   const unsubscribe = vi.fn(() => Promise.resolve(true))
   const subscription = {
-    endpoint: 'https://push.example.test/device',
+    endpoint: 'https://fcm.googleapis.com/fcm/send/device',
     expirationTime: null,
     toJSON: () => ({ keys: { p256dh: 'public-key', auth: 'auth-secret' } }),
     unsubscribe,
@@ -61,11 +61,30 @@ test('subscribes on demand and persists exactly the browser credential', async (
   expect(options.applicationServerKey).toBeInstanceOf(Uint8Array)
   expect(save).toHaveBeenCalledWith({
     account_id: 'account-1',
-    endpoint: 'https://push.example.test/device',
+    endpoint: 'https://fcm.googleapis.com/fcm/send/device',
     p256dh: 'public-key',
     auth_secret: 'auth-secret',
     expiration_time: null,
   })
+})
+
+test('a browser whose push service is not supported is refused before anything is saved', async () => {
+  // The reminder sender posts only to known push services, so saving this row would offer
+  // "subscribed" for a device that can never ring.
+  const { gateway, subscribe, save } = fixture()
+  const elsewhere = vi.fn(() => Promise.resolve(true))
+  subscribe.mockResolvedValueOnce({
+    endpoint: 'https://push.unknown-browser.test/device',
+    expirationTime: null,
+    toJSON: () => ({ keys: { p256dh: 'public-key', auth: 'auth-secret' } }),
+    unsubscribe: elsewhere,
+  } as unknown as PushSubscription)
+
+  await expect(gateway.subscribe('account-1')).rejects.toThrow(
+    "This browser's push service is not supported",
+  )
+  expect(save).not.toHaveBeenCalled()
+  expect(elsewhere).toHaveBeenCalled()
 })
 
 test('a denied permission creates no subscription or database row', async () => {
@@ -82,14 +101,17 @@ test('a denied permission creates no subscription or database row', async () => 
 test('unsubscribing removes the server credential before retiring the browser endpoint', async () => {
   const base = fixture()
   const subscription = {
-    endpoint: 'https://push.example.test/device',
+    endpoint: 'https://fcm.googleapis.com/fcm/send/device',
     unsubscribe: base.unsubscribe,
   } as unknown as PushSubscription
   base.getSubscription.mockResolvedValue(subscription)
 
   await base.gateway.unsubscribe('account-1')
 
-  expect(base.remove).toHaveBeenCalledWith('account-1', 'https://push.example.test/device')
+  expect(base.remove).toHaveBeenCalledWith(
+    'account-1',
+    'https://fcm.googleapis.com/fcm/send/device',
+  )
   expect(base.unsubscribe).toHaveBeenCalled()
   expect(base.remove.mock.invocationCallOrder[0]).toBeLessThan(
     base.unsubscribe.mock.invocationCallOrder[0],
@@ -104,7 +126,7 @@ test('unsubscribing removes the server credential before retiring the browser en
 function subscribedFixture(overrides: Partial<Parameters<typeof createPushGateway>[0]> = {}) {
   const base = fixture(overrides)
   const subscription = {
-    endpoint: 'https://push.example.test/device',
+    endpoint: 'https://fcm.googleapis.com/fcm/send/device',
     expirationTime: null,
     toJSON: () => ({ keys: { p256dh: 'public-key', auth: 'auth-secret' } }),
     unsubscribe: base.unsubscribe,
@@ -119,7 +141,7 @@ test('a subscription made by another Account does not read as subscribed', async
 
   expect((await gateway.state('account-1')).subscribed).toBe(true)
   expect((await gateway.state('account-2')).subscribed).toBe(false)
-  expect(owns).toHaveBeenLastCalledWith('account-2', 'https://push.example.test/device')
+  expect(owns).toHaveBeenLastCalledWith('account-2', 'https://fcm.googleapis.com/fcm/send/device')
 })
 
 test('an ownership read that fails falls back to what the browser holds', async () => {
@@ -143,7 +165,10 @@ test('subscribing over another Account’s subscription replaces it rather than 
 test('releasing removes the row and retires the browser subscription', async () => {
   const base = subscribedFixture()
   await base.gateway.release('account-1')
-  expect(base.remove).toHaveBeenCalledWith('account-1', 'https://push.example.test/device')
+  expect(base.remove).toHaveBeenCalledWith(
+    'account-1',
+    'https://fcm.googleapis.com/fcm/send/device',
+  )
   expect(base.unsubscribe).toHaveBeenCalled()
 })
 

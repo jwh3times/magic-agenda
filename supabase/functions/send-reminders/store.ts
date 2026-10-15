@@ -420,7 +420,8 @@ export class SupabaseReminderStore implements ReminderStore {
   async targetDead(
     target: TargetClaim,
     token: string,
-    status: number,
+    status: number | null,
+    reason: string,
     _nowMs: number,
   ): Promise<void> {
     await this.updateTarget(target, token, {
@@ -430,7 +431,7 @@ export class SupabaseReminderStore implements ReminderStore {
       claimed_at: null,
       claim_expires_at: null,
       last_status_code: status,
-      last_error: "Push endpoint is no longer registered.",
+      last_error: reason,
     });
   }
 

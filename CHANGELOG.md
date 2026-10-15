@@ -12,6 +12,21 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.31] - 2026-10-14
+
+### Security
+
+- **Reminders are sent only to browser push services.** The reminder sender posted to whatever
+  address a device registered, so an account could make it send a request to a host of its own
+  choosing. It now posts only over HTTPS to the push services of Chrome and other Chromium
+  browsers, Edge, Firefox, and Safari. A registration anywhere else is never contacted and is
+  removed.
+
+### Changed
+
+- **Enabling reminders in a browser with an unsupported push service now says so.** The device is
+  not saved, rather than appearing subscribed and never receiving anything.
+
 ## [1.17.30] - 2026-10-14
 
 ### Security
@@ -5157,7 +5172,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.30...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.31...HEAD
+[1.17.31]: https://github.com/jwh3times/magic-agenda/compare/v1.17.30...v1.17.31
 [1.17.30]: https://github.com/jwh3times/magic-agenda/compare/v1.17.29...v1.17.30
 [1.17.29]: https://github.com/jwh3times/magic-agenda/compare/v1.17.28...v1.17.29
 [1.17.28]: https://github.com/jwh3times/magic-agenda/compare/v1.17.27...v1.17.28

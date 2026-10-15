@@ -54,7 +54,12 @@ The server-only `reminder_deliveries` row is Account × Task × Due Moment. A co
 four-minute lease serializes overlapping scheduler runs. `reminder_delivery_targets` snapshots the
 Account's enrolled devices on the first attempt, so a later retry sends only to the original device
 set and skips devices that already succeeded. Transient failures back off per target; 404/410 marks
-the target dead and removes its subscription. The sender exposes only aggregate counts and its logs
+the target dead and removes its subscription. **The sender posts only to browser push services**
+(`src/notifications/pushEndpoint.ts`: HTTPS on the default port, no credentials, and an FCM,
+Mozilla, Apple, or `*.notify.windows.com` host), because the endpoint is whatever the subscribing
+client saved. Any other endpoint is never requested: its target is marked dead and its subscription
+removed. Settings checks the same rule before saving, so a browser with another push service is
+told it is unsupported instead of showing a device that can never ring. The sender exposes only aggregate counts and its logs
 must never contain task titles, endpoints, subscription keys, provider response bodies, VAPID
 material, or the dedicated cron bearer secret.
 
