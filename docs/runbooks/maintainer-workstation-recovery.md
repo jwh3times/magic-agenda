@@ -75,6 +75,7 @@ skill implements those rules for agent sessions.
 
 ## What this runbook deliberately does not contain
 
-Vault or item names, `op://` references, the companion's remote URL, and any private security
-reasoning. If you find yourself wanting to add one of those here, it belongs in
+Vault or item names, `op://` references, resolved credentials, and any private security
+reasoning. (The companion's name and remote URL are not secret — `AGENTS.md` records that decision —
+but there is no reason to repeat them here.) If you find yourself wanting to add one of those here, it belongs in
 `private/RECOVERY.md` instead.

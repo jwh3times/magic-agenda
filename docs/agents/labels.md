@@ -55,8 +55,8 @@ Two things step 3 took with it, worth knowing rather than rediscovering:
   outcome, different mechanism, and it was untested on both sides of the move — `boards.test.ts`
   now covers it, mutation-checked by disabling the Board drop. One behavioural difference for when
   sharing exists: the old foreign key deleted a departing Account's Tasks even from a Board it did
-  not own, and the new path does not. That is the better answer, and it is moot while every Board
-  has exactly one Membership.
+  not own, and the new path does not. That is the better answer, and it is less likely to matter on a Board with
+  one Membership, but shared Boards are live, so it is the case that now applies.
 
 Two traps this uncovered, both of which would have shipped silently:
 
@@ -151,7 +151,7 @@ Label directory stayed stale, so `TaskEditor` went on offering a chip for the de
 the save was then rejected by `tasks_label_same_board`. **Partial freshness is worse than uniform
 staleness**: the board looked trustworthy while the vocabulary under it was not.
 
-`useLabels` is now a third `useSyncedTable` adapter beside `useTasks` and `useSettings`, filtered on
+`useLabels` joined `useTasks` and `useSettings` as a `useSyncedTable` adapter (there are four now, with `useBoardDirectory`), filtered on
 `board_id` for the same reason `tasks` is — an account-scoped subscription would deliver definitions
 for every Board the account belongs to. Two consequences of joining it are easy to get wrong:
 

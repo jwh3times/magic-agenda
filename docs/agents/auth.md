@@ -3,6 +3,10 @@
 Sign-in, email-token redemption, and two-factor. Read before touching `src/auth/`, `Login`,
 `ResetPassword`, `AuthConfirm`, `AuthCallback`, `ProtectedRoute`, or `HomeRoute`.
 
+Sign-out also releases this device's Web Push subscription: `AuthProvider.signOut` calls
+`push.release(accountId)`, and the `SIGNED_OUT` sweep calls `release(null)` for every other way out.
+The detail is in [Installable PWA and offline read](pwa-offline.md).
+
 ## PKCE, not implicit-flow URL fragments
 
 `src/lib/supabase.ts` sets `flowType: 'pkce'` and, critically, `detectSessionInUrl: () => false` (the

@@ -96,7 +96,7 @@ loop depends on. Like `loadBoardTasks`, separate requests are not a transactiona
 Deploy the function and its tables before adding the `pg_cron` invocation; that staging keeps a
 release from scheduling code or credentials that do not exist yet. The constant-time compare and the
 bearer-header parse are `supabase/functions/_shared/bearer.ts`, shared with `materialize-series`
-below.
+below and `sweep-attachments`.
 
 The production schedule is named `send-task-reminders` and runs every five minutes. Its
 `cron.job.command` contains only the Supabase Vault names `reminder_function_url` and
@@ -175,7 +175,7 @@ the browser can run a later tiny deferred script while the module's dependency g
 loading. Do not move the scrub into the app module or an effect. If the console reports a blocked
 inline script, copy the hash from that message into `script-src`.
 
-Offline read uses three versioned `localStorage` envelopes, all in `src/data/snapshot.ts` and all
+Offline read uses four versioned `localStorage` envelopes, all in `src/data/snapshot.ts` and all
 keyed to the signed-in user id: a board snapshot **per Board** (`ma-snapshot-board.<boardId>`;
 tasks, the hidden recurrence templates, and a `savedAt` timestamp), a directory snapshot (which
 Boards this device last saw — and only that; it carried the open Board's id until #331, which
@@ -184,24 +184,27 @@ snapshot. The calendar feed's Membership token (#277) is deliberately never in a
 a working read capability, read on demand into component state by `src/board/calendarFeed.ts` and
 dropped when its panel closes. One account can hold several board snapshots at once, so the board
 key is namespaced rather than singular — that is also what makes purging one Board's snapshot
-possible without clearing every cached Board to do it.
+possible without clearing every cached Board to do it. The fourth envelope is the per-Board Label
+snapshot (`ma-snapshot-labels.<boardId>`), namespaced the same way and for the same reason.
 `useTasks` treats visible Tasks and hidden Series definitions as independent debounce triggers for
 rewriting that Board envelope; watching only the visible `tasks` state leaves a template-only
 realtime edit stale offline even though the snapshot persists both collections.
 `cachedBoardIds()` enumerates them by a `localStorage` prefix scan for the two callers that cannot
 yet name a Board: `hasAnyBoardSnapshot()` (the offline-boot gate checked in `App` and
-`ProtectedRoute` before a Board is selected or even known) and `clearSnapshots()`'s sign-out sweep. A version, user-id, or
+`ProtectedRoute` before a Board is selected or even known) and `useBoardDirectory`'s purge of Boards
+the server no longer returns. `clearSnapshots()`'s sign-out sweep does its own prefix scan instead. A version, user-id, or
 **board-id** mismatch drops the envelope rather than migrating it. The version is **one constant
-shared by all three**, so bumping it for a shape change in one drops the other two as well — cheap,
+shared by all four**, so bumping it for a shape change in one drops the other three as well — cheap,
 since each is a cache the next successful load rewrites, but it is why a bump shows up as failures
 in the settings and route tests too. A board snapshot's own `boardId`
 field guards against a hand-edited or collided key rendering one Board's tasks under another Board's
-name. **All three are cleared on `SIGNED_OUT`** (`AuthProvider`) — that clearing is the entire
+name. **All four are cleared on `SIGNED_OUT`** (`AuthProvider`) — that clearing is the entire
 justification for storing task text at rest in `localStorage` in the first place; see the dated
-security review in `private/` before changing what gets persisted or when it's cleared. Two smaller
+security review in `private/` before changing what gets persisted or when it's cleared. Three smaller
 keys are swept beside them from the same block and are the reason to state the rule as _everything_
-rather than _the snapshots_: `ma-last-user` (`lib/lastUser.ts`) and `ma-selected-board`
-(`board/rememberedBoard.ts`, shaped like `lib/viewStorage.ts` and cleared next to it). The second
+rather than _the snapshots_: `ma-last-user` (`lib/lastUser.ts`), `ma-selected-board`
+(`board/rememberedBoard.ts`, shaped like `lib/viewStorage.ts` and cleared next to it), and
+`ma-pending-invitation` (`src/invite/pendingInvitation.ts`, cleared by the same `SIGNED_OUT` block). The second
 was the one exception until #298, harmless on its own — a Board id grants nothing and
 `resolveSelection` falls back when it names a Board the next account cannot see — which is exactly
 why it survived: a rule with a harmless exception is still a rule nobody can rely on. `useTasks`
@@ -216,9 +219,9 @@ everything rather than preserving it — but only under a real session, since a 
 succeeding with `[]` must not be read as "this Account has no Boards" (the same hazard
 `canPersistSnapshot` exists to prevent elsewhere).
 
-`tsconfig.worker.json` is a **third project-reference sibling** (alongside the app and node
-configs): it gives `src/sw.ts` and `src/sw/policy.ts` the WebWorker lib with no DOM, so the worker
-can't accidentally reference `window` or `document`. Its `include` is an explicit two-file list,
+`tsconfig.worker.json` is one of the four project references in `tsconfig.json` (alongside the app,
+node, and test configs): it gives `src/sw.ts`, `src/sw/policy.ts`, and `src/sw/notifications.ts` the WebWorker lib with no DOM, so the worker
+can't accidentally reference `window` or `document`. Its `include` is an explicit three-file list,
 not a glob, specifically to keep `src/sw/policy.test.ts` out of this project — that test typechecks
 today only by accident, and the first ambient-globals or DOM-typed assertion added to it would
 break `tsc -b` from a project it has no business being part of.
