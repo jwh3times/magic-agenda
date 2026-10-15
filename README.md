@@ -99,8 +99,9 @@ of three hand‑built themes.
   network, the last‑synced board renders read‑only from a local snapshot instead of a dead login
   screen.
 - **Per-device notifications** — choose an Account reminder lead and subscribe each supported
-  browser or installed app independently. A concrete IANA timezone keeps server delivery aligned
-  with the same Due Moment used for Overdue.
+  browser or installed app independently, and remove any of them from Settings on another
+  device. A concrete IANA timezone keeps server delivery aligned with the same Due Moment used for
+  Overdue.
 
 ## Tech stack
 

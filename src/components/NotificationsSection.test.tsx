@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, test, vi } from 'vitest'
 
@@ -6,6 +6,8 @@ const h = vi.hoisted(() => ({
   state: vi.fn(),
   subscribe: vi.fn(),
   unsubscribe: vi.fn(),
+  devices: vi.fn(),
+  removeDevice: vi.fn(),
   saveLead: vi.fn(),
   timezone: 'America/New_York' as string | null,
   lead: null as number | null,
@@ -16,6 +18,8 @@ vi.mock('../notifications/pushGateway', () => ({
     state: h.state,
     subscribe: h.subscribe,
     unsubscribe: h.unsubscribe,
+    devices: h.devices,
+    removeDevice: h.removeDevice,
   },
 }))
 
@@ -45,6 +49,8 @@ beforeEach(() => {
   })
   h.subscribe.mockReset().mockResolvedValue(undefined)
   h.unsubscribe.mockReset().mockResolvedValue(undefined)
+  h.devices.mockReset().mockResolvedValue([])
+  h.removeDevice.mockReset().mockResolvedValue(undefined)
   h.saveLead.mockReset()
 })
 
@@ -105,4 +111,105 @@ test('an existing subscription can be removed from this device', async () => {
   await userEvent.click(await screen.findByRole('button', { name: 'Remove this device' }))
 
   await waitFor(() => expect(h.unsubscribe).toHaveBeenCalledWith('account-1'))
+})
+
+// ——— the device list ———
+
+const laptop = {
+  id: 'laptop',
+  label: 'Chrome on Linux',
+  createdAt: '2026-09-01T10:00:00Z',
+  current: false,
+}
+const phone = {
+  id: 'phone',
+  label: 'Safari on iPhone',
+  createdAt: '2026-10-01T10:00:00Z',
+  current: true,
+}
+
+test('lists every device with Reminders, and offers Remove for the others', async () => {
+  h.devices.mockResolvedValue([phone, laptop])
+  render(<NotificationsSection />)
+
+  const list = await screen.findByRole('list', { name: 'Devices with reminders' })
+  const items = within(list).getAllByRole('listitem')
+  expect(items).toHaveLength(2)
+  expect(items[0]).toHaveTextContent('Safari on iPhone')
+  expect(items[0]).toHaveTextContent('This device')
+  // This device is changed by the button above, which also retires the browser's subscription.
+  expect(within(items[0]).queryByRole('button')).not.toBeInTheDocument()
+  expect(items[1]).toHaveTextContent('Chrome on Linux')
+  expect(within(items[1]).getByRole('button', { name: 'Remove Chrome on Linux' })).toBeEnabled()
+  expect(h.devices).toHaveBeenCalledWith('account-1')
+})
+
+test('removing another device deletes it and rereads the list', async () => {
+  h.devices.mockResolvedValueOnce([phone, laptop]).mockResolvedValue([phone])
+  render(<NotificationsSection />)
+
+  await userEvent.click(await screen.findByRole('button', { name: 'Remove Chrome on Linux' }))
+
+  expect(h.removeDevice).toHaveBeenCalledWith('account-1', 'laptop')
+  await waitFor(() => expect(screen.queryByText('Chrome on Linux')).not.toBeInTheDocument())
+  expect(screen.getByText('Safari on iPhone')).toBeInTheDocument()
+})
+
+test('a removal that fails is reported and the device stays listed', async () => {
+  h.devices.mockResolvedValue([laptop])
+  h.removeDevice.mockRejectedValue(new Error('offline'))
+  render(<NotificationsSection />)
+
+  await userEvent.click(await screen.findByRole('button', { name: 'Remove Chrome on Linux' }))
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('Could not remove Chrome on Linux.')
+  expect(screen.getByText('Chrome on Linux')).toBeInTheDocument()
+})
+
+test('a list that cannot be read says so instead of showing no devices', async () => {
+  h.devices.mockRejectedValue(new Error('offline'))
+  render(<NotificationsSection />)
+
+  expect(await screen.findByText('Could not load your devices.')).toBeInTheDocument()
+  expect(screen.queryByText('No devices receive reminders.')).not.toBeInTheDocument()
+})
+
+test('an Account with no devices is told so', async () => {
+  render(<NotificationsSection />)
+  expect(await screen.findByText('No devices receive reminders.')).toBeInTheDocument()
+})
+
+test('a device that cannot subscribe itself can still remove the others', async () => {
+  h.state.mockResolvedValue({
+    availability: 'ios-install-required',
+    permission: 'default',
+    subscribed: false,
+  })
+  h.devices.mockResolvedValue([laptop])
+  render(<NotificationsSection />)
+
+  expect(await screen.findByRole('button', { name: 'Remove Chrome on Linux' })).toBeEnabled()
+})
+
+test('enabling this device rereads the list', async () => {
+  h.devices.mockResolvedValueOnce([]).mockResolvedValue([phone])
+  render(<NotificationsSection />)
+  await userEvent.click(await screen.findByRole('button', { name: 'Enable on this device' }))
+
+  expect(await screen.findByText('Safari on iPhone')).toBeInTheDocument()
+})
+
+test('a slow first read never replaces the list read after enabling this device', async () => {
+  let finishFirst: (devices: unknown[]) => void = () => {}
+  h.devices
+    .mockReturnValueOnce(new Promise((resolve) => (finishFirst = resolve)))
+    .mockResolvedValue([phone])
+  render(<NotificationsSection />)
+  await userEvent.click(await screen.findByRole('button', { name: 'Enable on this device' }))
+  expect(await screen.findByText('Safari on iPhone')).toBeInTheDocument()
+
+  finishFirst([])
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  expect(screen.getByText('Safari on iPhone')).toBeInTheDocument()
+  expect(screen.queryByText('No devices receive reminders.')).not.toBeInTheDocument()
 })
