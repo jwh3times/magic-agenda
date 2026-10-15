@@ -85,7 +85,10 @@ export interface PushGateway {
   removeDevice: (accountId: string, deviceId: string) => Promise<void>
 }
 
-/** How long `release` may hold up a sign-out. `navigator.serviceWorker.ready` can stay pending. */
+/**
+ * How long `release` may hold up a sign-out, and `devices` may wait to learn which row is this
+ * device. `navigator.serviceWorker.ready` can stay pending.
+ */
 const RELEASE_TIMEOUT_MS = 2000
 
 function decodePublicKey(value: string): Uint8Array<ArrayBuffer> {
@@ -213,13 +216,19 @@ export function createPushGateway(deps: PushDependencies): PushGateway {
 
   const devices = async (accountId: string): Promise<PushDevice[]> => {
     const rows = await deps.list(accountId)
-    // Not knowing which one is this device still lists them all.
+    // Not knowing which one is this device still lists them all, and `ready` can stay pending
+    // where no worker registers, so it gets as long as a sign-out would give it and no longer.
     const here =
       availability(deps) === 'supported'
-        ? await deps
-            .serviceWorkerReady!.then((registration) => registration.pushManager.getSubscription())
-            .then((subscription) => subscription?.endpoint ?? null)
-            .catch(() => null)
+        ? await Promise.race([
+            deps
+              .serviceWorkerReady!.then((registration) =>
+                registration.pushManager.getSubscription(),
+              )
+              .then((subscription) => subscription?.endpoint ?? null)
+              .catch(() => null),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), RELEASE_TIMEOUT_MS)),
+          ])
         : null
     return rows
       .map((row) => ({

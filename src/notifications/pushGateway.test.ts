@@ -307,3 +307,28 @@ test('a removal that fails is reported', async () => {
   const base = fixture({ removeById: () => Promise.reject(new Error('offline')) })
   await expect(base.gateway.removeDevice('account-1', 'laptop')).rejects.toThrow('offline')
 })
+
+test('lists devices even when the service worker never becomes ready', async () => {
+  // `navigator.serviceWorker.ready` never settles where no worker registers (dev, a blocked
+  // registration). The list does not depend on it; only "which one is this device" does.
+  vi.useFakeTimers()
+  try {
+    const base = fixture({ serviceWorkerReady: new Promise(() => {}) })
+    base.list.mockResolvedValue([
+      row(
+        'laptop',
+        'https://fcm.googleapis.com/fcm/send/x',
+        '2026-09-01T10:00:00Z',
+        'Chrome on Linux',
+      ),
+    ])
+    let listed: unknown = null
+    void base.gateway.devices('account-1').then((devices) => (listed = devices))
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(listed).toEqual([
+      { id: 'laptop', label: 'Chrome on Linux', createdAt: '2026-09-01T10:00:00Z', current: false },
+    ])
+  } finally {
+    vi.useRealTimers()
+  }
+})

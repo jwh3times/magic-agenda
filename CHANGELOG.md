@@ -21,7 +21,7 @@ No unreleased changes.
   each one except the device you are on has a Remove button. Before, a device could only be removed
   from itself, so a lost laptop or a browser you could no longer open kept receiving Task titles.
   The list works on a device that cannot receive reminders itself, such as an iPhone outside the
-  Home Screen app.
+  Home Screen app. Removing a device stops its reminders; it does not sign that device out.
 
 ### Changed
 

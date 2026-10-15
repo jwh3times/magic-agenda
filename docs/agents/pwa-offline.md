@@ -37,8 +37,11 @@ credential. Each row shows `device_label`, a short "Browser on System" the subsc
 derives from its user agent (`src/notifications/deviceLabel.ts`); it is a display hint nothing
 authorizes on, and an older unlabelled row falls back to its push service. Removing another device
 deletes only its row, by id, under the owner-only policies: that browser keeps its half, which
-nothing reaches once the row is gone and which `reconcile` retires the next time that Account
-signs in there. This device has no Remove in the list; the button above removes it with
+nothing reaches once the row is gone and which `reconcile` retires the next time the app starts a
+session there. Removing a device is not a sign-out: its session survives, and whoever holds it can
+enable reminders again. The list waits at most `RELEASE_TIMEOUT_MS` to learn which row is this
+device, because `ready` can stay pending, and Settings applies only its newest read, kept with the
+Account it was read for. This device has no Remove in the list; the button above removes it with
 `unsubscribe`, which retires both halves.
 
 iOS and iPadOS expose standards-based Web Push only to a Home Screen web app. The Settings section

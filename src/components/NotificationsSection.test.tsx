@@ -198,3 +198,18 @@ test('enabling this device rereads the list', async () => {
 
   expect(await screen.findByText('Safari on iPhone')).toBeInTheDocument()
 })
+
+test('a slow first read never replaces the list read after enabling this device', async () => {
+  let finishFirst: (devices: unknown[]) => void = () => {}
+  h.devices
+    .mockReturnValueOnce(new Promise((resolve) => (finishFirst = resolve)))
+    .mockResolvedValue([phone])
+  render(<NotificationsSection />)
+  await userEvent.click(await screen.findByRole('button', { name: 'Enable on this device' }))
+  expect(await screen.findByText('Safari on iPhone')).toBeInTheDocument()
+
+  finishFirst([])
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  expect(screen.getByText('Safari on iPhone')).toBeInTheDocument()
+  expect(screen.queryByText('No devices receive reminders.')).not.toBeInTheDocument()
+})

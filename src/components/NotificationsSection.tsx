@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import { useSettingsContext } from '../data/SettingsProvider'
 import { browserPushGateway, type PushDevice, type PushState } from '../notifications/pushGateway'
@@ -24,8 +24,14 @@ export function NotificationsSection() {
   const [push, setPush] = useState<PushState | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  // null while loading, 'failed' when the read failed: neither is "no devices".
-  const [devices, setDevices] = useState<PushDevice[] | 'failed' | null>(null)
+  // null while loading, 'failed' when the read failed: neither is "no devices". Kept with the
+  // Account it was read for, so another Account signing in on this tab never sees it.
+  const [read, setRead] = useState<{
+    accountId: string
+    devices: PushDevice[] | 'failed'
+  } | null>(null)
+  // Only the newest read may land: one sent before a change can answer after the one sent after.
+  const latestRead = useRef(0)
 
   // Keyed by the Account: "subscribed" means this Account's subscription, not the browser's.
   const accountId = user?.id ?? null
@@ -37,16 +43,16 @@ export function NotificationsSection() {
       )
   }, [accountId])
 
-  const readDevices = useCallback(
-    () =>
-      accountId
-        ? browserPushGateway.devices(accountId).catch(() => 'failed' as const)
-        : Promise.resolve(null),
-    [accountId],
-  )
+  const readDevices = useCallback(async () => {
+    if (!accountId) return
+    const sequence = ++latestRead.current
+    const devices = await browserPushGateway.devices(accountId).catch(() => 'failed' as const)
+    if (sequence === latestRead.current) setRead({ accountId, devices })
+  }, [accountId])
   useEffect(() => {
-    void readDevices().then(setDevices)
+    void readDevices()
   }, [readDevices])
+  const devices = read && read.accountId === accountId ? read.devices : null
 
   if (!settings) return null
   const hasConcreteTimezone = settings.timezone !== null
@@ -59,7 +65,7 @@ export function NotificationsSection() {
       if (push?.subscribed) await browserPushGateway.unsubscribe(user.id)
       else await browserPushGateway.subscribe(user.id)
       setPush(await browserPushGateway.state(user.id))
-      setDevices(await readDevices())
+      await readDevices()
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Could not update this device.'
       setError(
@@ -78,7 +84,7 @@ export function NotificationsSection() {
     setError('')
     try {
       await browserPushGateway.removeDevice(user.id, device.id)
-      setDevices(await readDevices())
+      await readDevices()
     } catch {
       setError(`Could not remove ${device.label}.`)
     } finally {
@@ -185,7 +191,8 @@ export function NotificationsSection() {
           </ul>
         )}
         <p style={hint}>
-          Remove a device you no longer use. Signing out on a device also removes it.
+          Remove a device you no longer use to stop its reminders. This does not sign it out.
+          Signing out with the Sign out button also removes the device you are on.
         </p>
       </div>
 
