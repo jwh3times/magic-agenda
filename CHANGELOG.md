@@ -12,6 +12,18 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.36] - 2026-10-15
+
+### Fixed
+
+- Switching Boards while a change was still saving could put the previous Board's Tasks back on
+  screen under the Board you selected, and leave them there (#538). It happened when the save then
+  asked for a reload: it came back short because another member had deleted a Task, a Series edit
+  conflicted, or a move or Undo failed. That reload loaded the Board the save was for, and nothing
+  loaded the selected Board again. Writes are stamped with the selected Board, so editing one of
+  those cards could have written it there. Such a reload now does nothing once you have moved to another Board, and its
+  message is not shown there either.
+
 ## [1.17.35] - 2026-10-15
 
 ### Fixed
