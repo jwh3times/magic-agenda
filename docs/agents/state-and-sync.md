@@ -51,7 +51,11 @@ and switching Boards hides and refuses it, because undo writes with the current 
 re-inserted row is new to the attribution trigger, so an undone delete is re-authored by whoever
 clicked Undo. Undo writes definitions before Occurrences, reconciles returned rows, writes
 attachments last, needs the same complete authenticated load as a Series plan, and reloads on
-failure. It is last-write-wins
+failure. A re-insert the server skipped counts as a failure: `apply_task_writes` inserts with
+`on conflict do nothing`, so an id that is already taken — including by another Account, on its
+own Board, after seeing the id in a realtime DELETE event — comes back only as a row missing from
+the result. Undo then reloads, says it could not restore everything, and writes no attachments.
+It is last-write-wins
 against other devices, and the post-undo notice (`UNDONE_NOTICE`) says so. Series-level
 operations (edit or delete this-and-future, promotion, ending a Series) are excluded, as is any
 editor save. Its raw React setter is private; drag-over uses

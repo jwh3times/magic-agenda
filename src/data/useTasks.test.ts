@@ -1468,6 +1468,31 @@ test('undoing a plain delete re-inserts the row with its original id', async () 
   expect(rows.map((r) => [r.id, r.title])).toEqual([['t1', 'keep me']])
 })
 
+test('an undo whose re-insert the server skipped reports failure, not "Undone"', async () => {
+  // `apply_task_writes` inserts with `on conflict do nothing`. A row whose id is already taken —
+  // by another Account that saw the id in a realtime DELETE event and inserted it on its own Board
+  // — is skipped without an error, so the only sign is a row missing from the result.
+  h.capture.rows = [serverRow({ id: 't1', title: 'keep me' }), serverRow({ id: 't2' })]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  await act(async () => {
+    await result.current.deleteTask('t1')
+  })
+  h.capture.writeRows = []
+  h.restoreAttachments.mockClear()
+
+  let ok = true
+  await act(async () => {
+    ok = await result.current.undo()
+  })
+
+  expect(ok).toBe(false)
+  expect(result.current.error).toBe(
+    'Undo could not restore everything. The Board has been reloaded to show what is there.',
+  )
+  expect(h.restoreAttachments).not.toHaveBeenCalled()
+})
+
 test('undoing a drag restores the pre-drag placement, not the last preview', async () => {
   h.capture.rows = [
     serverRow({ id: 't1', title: 'dragged', day: '2026-07-01', order_index: 0 }),

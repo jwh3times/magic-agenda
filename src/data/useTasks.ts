@@ -127,6 +127,10 @@ export interface UseTasks extends TaskBoard {
  * a `reload()` in that state succeeds against RLS with `[]` and no error — a "successful" load
  * that authenticated nothing. See `hasLoadedFromServer` below.
  */
+/** Undo re-inserted fewer rows than it sent; the reload that follows shows what is there. */
+const UNDO_INCOMPLETE =
+  'Undo could not restore everything. The Board has been reloaded to show what is there.'
+
 export function useTasks(userId: string, boardId: string, hasSession: boolean): UseTasks {
   const [tasks, _setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
@@ -1224,10 +1228,9 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       const existing = new Set([...before.tasks, ...before.templates].map((task) => task.id))
       const restored = [...plan.upsertTemplates, ...plan.upsertTasks]
       if (restored.length > 0) {
+        const reinserted = restored.filter((task) => !existing.has(task.id))
         const { data, error: err } = await applyWrites(boardId, {
-          inserts: restored
-            .filter((task) => !existing.has(task.id))
-            .map((task) => taskToRow(task, boardId)),
+          inserts: reinserted.map((task) => taskToRow(task, boardId)),
           updates: restored
             .filter((task) => existing.has(task.id))
             .map((task) => taskToRow(task, boardId)),
@@ -1236,6 +1239,18 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         reconcileReturnedRows(data)
         settleWrites(data)
         recordRevisions(revisions.current, data)
+        // The command skips an insert whose id is already taken rather than failing, and the id of
+        // a deleted Task is public: every realtime subscriber receives it in the DELETE event, so
+        // another Account can claim it on a Board of its own first. A skipped row is missing from
+        // the result and nowhere else, and "Undone" over a Task that never came back is the bug.
+        // The reload comes first because it clears the error as it starts; the message is set
+        // after it so it survives to be read.
+        const returned = new Set((data ?? []).map((row) => row.id))
+        if (reinserted.some((task) => !returned.has(task.id))) {
+          await reload()
+          setError(UNDO_INCOMPLETE)
+          return false
+        }
       }
       // Last, and only now: `task_attachments` has a composite foreign key to `tasks
       // (board_id, id)`, so these rows have nowhere to point until the upserts above have landed.
