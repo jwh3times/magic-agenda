@@ -48,6 +48,15 @@ Deno.test("the calendar wrapper is well formed and CRLF terminated", () => {
   assertEquals(lines.at(-2), "END:VCALENDAR");
 });
 
+Deno.test("the calendar asks subscribers to refresh hourly, in both spellings", () => {
+  const lines = logicalLines(ics([]));
+  const header = lines.slice(0, lines.indexOf("END:VCALENDAR"));
+  // RFC 7986's property, and the older de facto one that Outlook and Apple Calendar read. Each is
+  // a request: a client that ignores both (Google Calendar) still polls on its own schedule.
+  assertEquals(header.includes("REFRESH-INTERVAL;VALUE=DURATION:PT1H"), true);
+  assertEquals(header.includes("X-PUBLISHED-TTL:PT1H"), true);
+});
+
 Deno.test("an untimed Task is an all-day event whose DTEND is the NEXT day", () => {
   // The exclusive end is the classic off-by-one here: DTEND equal to DTSTART renders as a
   // zero-length all-day event, and DTEND one day short hides the last day of a range.
