@@ -844,8 +844,12 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         }
       } catch (e) {
         abandonWrites(rows.map((r) => r.id))
+        // This closure's reload loads this closure's Board: after a switch it would take the hook
+        // back to the old Board while the new one is selected, and the message would land there.
+        if (heldBoard.current !== boardId) return
+        // Reload first, then say why: a reload clears the error as it starts.
+        await reload()
         setError(errorMessage(e))
-        void reload()
       }
     },
     [
@@ -1257,9 +1261,12 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       await restoreAttachments(plan.insertAttachments)
       return true
     } catch (e) {
+      // Not after a Board switch, as for a failed reorder.
+      if (heldBoard.current !== boardId) return false
+      // Part of the restore may have landed; only the server knows which. Reload first, then say
+      // why: a reload clears the error as it starts.
+      await reload()
       setError(errorMessage(e))
-      // Part of the restore may have landed; only the server knows which.
-      void reload()
       return false
     }
   }, [

@@ -12,6 +12,29 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.35] - 2026-10-15
+
+### Fixed
+
+- A drag-and-drop move or an Undo that fails now says why. Both reload the Board after a failure,
+  and the reload cleared the error message as it started, so the Board changed back with no
+  explanation (#536). The reload now runs first and the message is set after it. If you switched
+  Boards while the write was failing, neither runs, so the old Board no longer reloads over the one
+  you selected. The other reloads that follow a write still can (#538).
+- Settings → Notifications no longer shows an out-of-date push state. A read that answered late
+  could turn "Remove this device" back into "Enable on this device" after you enabled it, and after
+  signing in as another Account the previous Account's state stayed on screen until the new one
+  loaded (#537). Only the newest read is shown, and only for the Account it was read for, as the
+  device list already does.
+
+## [1.17.34] - 2026-10-15
+
+### Internal
+
+- Dependabot: bumped the `npm-minor-and-patch` group — `prettier` 3.9.9 → 3.9.10 and
+  `oxlint-tsgolint` 7.0.2003 → 7.0.2004 (#529). Backfilled by this release, per the changelog
+  guard's Dependabot exemption.
+
 ## [1.17.33] - 2026-10-15
 
 ### Docs

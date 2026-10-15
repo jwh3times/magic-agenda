@@ -21,7 +21,10 @@ function leadLabel(minutes: number): string {
 export function NotificationsSection() {
   const { user } = useAuth()
   const { settings, saveReminderLeadMinutes } = useSettingsContext()
-  const [push, setPush] = useState<PushState | null>(null)
+  // Kept with the Account it was read for, like the device list below.
+  const [pushRead, setPushRead] = useState<{ accountId: string | null; state: PushState } | null>(
+    null,
+  )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   // null while loading, 'failed' when the read failed: neither is "no devices". Kept with the
@@ -31,17 +34,30 @@ export function NotificationsSection() {
     devices: PushDevice[] | 'failed'
   } | null>(null)
   // Only the newest read may land: one sent before a change can answer after the one sent after.
+  // The same holds for this device's push state, which has a counter of its own.
   const latestRead = useRef(0)
+  const latestPush = useRef(0)
 
   // Keyed by the Account: "subscribed" means this Account's subscription, not the browser's.
   const accountId = user?.id ?? null
+  const readPush = useCallback(
+    async (read: () => Promise<PushState>) => {
+      const sequence = ++latestPush.current
+      const state = await read()
+      if (sequence === latestPush.current) setPushRead({ accountId, state })
+    },
+    [accountId],
+  )
   useEffect(() => {
-    void browserPushGateway
-      .state(accountId)
-      .then(setPush, () =>
-        setPush({ availability: 'unsupported', permission: 'default', subscribed: false }),
-      )
-  }, [accountId])
+    void readPush(() =>
+      browserPushGateway.state(accountId).catch((): PushState => ({
+        availability: 'unsupported',
+        permission: 'default',
+        subscribed: false,
+      })),
+    )
+  }, [accountId, readPush])
+  const push = pushRead && pushRead.accountId === accountId ? pushRead.state : null
 
   const readDevices = useCallback(async () => {
     if (!accountId) return
@@ -64,7 +80,7 @@ export function NotificationsSection() {
     try {
       if (push?.subscribed) await browserPushGateway.unsubscribe(user.id)
       else await browserPushGateway.subscribe(user.id)
-      setPush(await browserPushGateway.state(user.id))
+      await readPush(() => browserPushGateway.state(user.id))
       await readDevices()
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Could not update this device.'

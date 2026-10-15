@@ -1962,6 +1962,97 @@ test('a reorder that comes back short reloads instead of re-creating the missing
   await waitFor(() => expect(result.current.tasks.map((t) => t.id)).toEqual(['t1']))
 })
 
+// ——— a failed write that reloads still says why ———
+
+test('a reorder that fails reloads the Board and still says why', async () => {
+  h.capture.rows = [serverRow({ id: 't1' }), serverRow({ id: 't2', order_index: 1 })]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  h.rpc.mockRejectedValueOnce(new Error('network down'))
+  h.capture.rows = [serverRow({ id: 't1', title: 'reloaded' }), serverRow({ id: 't2' })]
+
+  const [t1, t2] = result.current.tasks
+  await act(async () => {
+    await result.current.persistReorder(
+      [
+        { ...t2, order: 0 },
+        { ...t1, order: 1 },
+      ],
+      [t1.day],
+      'day',
+    )
+  })
+
+  await waitFor(() => expect(result.current.tasks[0]?.title).toBe('reloaded'))
+  // The reload clears the error as it starts, so the failure has to be reported after it.
+  expect(result.current.error).toBe('network down')
+})
+
+test('a reorder that fails after switching Boards leaves the new Board alone', async () => {
+  h.capture.rows = [serverRow({ id: 't1' }), serverRow({ id: 't2', order_index: 1 })]
+  h.capture.loadFor = (board) =>
+    board === 'b2'
+      ? Promise.resolve({
+          data: [serverRow({ id: 'b2-task', board_id: 'b2' })],
+          count: 1,
+          error: null,
+          status: 200,
+        })
+      : undefined
+  const { result, rerender } = renderHook(({ board }) => useTasks('u1', board, true), {
+    initialProps: { board: 'b1' },
+  })
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  let fail!: (e: Error) => void
+  h.rpc.mockReturnValueOnce(new Promise((_, reject) => (fail = reject)))
+
+  const [t1, t2] = result.current.tasks
+  const reorder = result.current.persistReorder
+  let pending!: Promise<void>
+  act(() => {
+    pending = Promise.resolve(
+      reorder(
+        [
+          { ...t2, order: 0 },
+          { ...t1, order: 1 },
+        ],
+        [t1.day],
+        'day',
+      ),
+    )
+  })
+  rerender({ board: 'b2' })
+  await waitFor(() => expect(result.current.tasks.map((t) => t.id)).toEqual(['b2-task']))
+
+  await act(async () => {
+    fail(new Error('network down'))
+    await pending
+  })
+  // Board 1's reload would take the hook back to Board 1 while Board 2 is selected.
+  expect(result.current.tasks.map((t) => t.id)).toEqual(['b2-task'])
+  expect(result.current.error).toBeNull()
+})
+
+test('an undo that fails reloads the Board and still says why', async () => {
+  h.capture.rows = [serverRow({ id: 't1', title: 'keep me' }), serverRow({ id: 't2' })]
+  const { result } = renderHook(() => useTasks('u1', 'b1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  await act(async () => {
+    await result.current.deleteTask('t1')
+  })
+  h.rpc.mockRejectedValueOnce(new Error('network down'))
+  h.capture.rows = [serverRow({ id: 't2', title: 'reloaded' })]
+
+  let ok = true
+  await act(async () => {
+    ok = await result.current.undo()
+  })
+
+  expect(ok).toBe(false)
+  await waitFor(() => expect(result.current.tasks.map((t) => t.title)).toEqual(['reloaded']))
+  expect(result.current.error).toBe('network down')
+})
+
 // ——— a Board's Tasks belong to that Board ———
 
 const boardLoad = (rows: unknown[]) =>
