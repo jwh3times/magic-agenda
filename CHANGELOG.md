@@ -33,6 +33,11 @@ No unreleased changes.
   `board_memberships_revoke_invitations` and the owner-only function
   `revoke_invitations_of_ended_owner()`, added to `supabase/reviewed-functions.json`. New RLS tests
   cover removal, demotion, leaving, account deletion, and changes that must revoke nothing.
+- `accept_invitation` now locks the Board before the invitation, the same order as every command
+  that ends a membership. The old order could deadlock an acceptance against a removal or an
+  account deletion, and Postgres would abort one of them. A new RLS test reproduces the deadlock
+  against the old order.
+- If the member list fails to load, the pending invitations still load, without issuer names.
 
 ## [1.17.29] - 2026-10-14
 

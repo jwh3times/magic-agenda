@@ -14,6 +14,7 @@ const h = vi.hoisted(() => ({
   setLabel: vi.fn(),
   remind: false,
   writeRemind: vi.fn((_id: string, _value: boolean) => Promise.resolve(null as string | null)),
+  pending: vi.fn(() => Promise.resolve({ ok: true, value: [] })),
 }))
 
 vi.mock('../board/boardMembers', () => ({ listBoardMembers: h.list }))
@@ -22,7 +23,7 @@ vi.mock('../board/reminderOptIn', () => ({
   writeRemindUnassigned: h.writeRemind,
 }))
 vi.mock('../invite/invitations', () => ({
-  listPendingInvitations: () => Promise.resolve({ ok: true, value: [] }),
+  listPendingInvitations: h.pending,
   createInvitation: vi.fn(),
   revokeInvitation: vi.fn(),
 }))
@@ -255,4 +256,12 @@ test('a refused name shows the server’s reason', async () => {
   await userEvent.type(screen.getByRole('textbox', { name: 'Name on this board for Bo' }), 'Bo')
   await userEvent.click(screen.getByRole('button', { name: 'Save' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('no longer a member')
+})
+
+test('pending invitations still load when the member list cannot', async () => {
+  // The invitation list waits for members so it can name who sent each one. A member list that
+  // failed is not one still loading, and must not hide the invitations an Owner may need to revoke.
+  h.list.mockResolvedValue(boardFailed('membership-ended'))
+  renderPanel('owner')
+  await waitFor(() => expect(h.pending).toHaveBeenCalled())
 })

@@ -16,6 +16,12 @@
 -- the same lock `accept_invitation` takes, so an acceptance cannot slip between the Ownership
 -- ending and the revocation.
 --
+-- **Lock order.** Those four lock the Board and then, through this trigger, the Invitation rows.
+-- `accept_invitation` locked the Invitation first and the Board second, so an acceptance meeting
+-- an Ownership change deadlocked, and Postgres aborted one of them. On account deletion that abort
+-- would leave an account whose private Boards' files the Edge Function had already swept. It is
+-- redefined below to take the Board first, like everything else that writes an Invitation.
+--
 -- Revoked, not deleted: the row stays as the activity record, like any other revocation, and the
 -- retention job removes its email 30 days later. An already expired row is left for the daily job
 -- to mark `expired`, which is what it is.
@@ -49,7 +55,9 @@ create trigger board_memberships_revoke_invitations
   )
   execute function public.revoke_invitations_of_ended_owner();
 
--- Owner only: it runs as a trigger, never as an RPC.
+-- Owner only: it runs as a trigger, never as an RPC. Security definer because nobody holds UPDATE
+-- on `board_invitations`: a Membership update made with the caller's own rights would otherwise
+-- fail here instead of revoking (the same reason as `clear_ended_member_assignments`).
 revoke all on function public.revoke_invitations_of_ended_owner()
   from public, anon, authenticated, service_role;
 
@@ -68,3 +76,51 @@ update public.board_invitations invitation
         and membership.role = 'owner'
         and membership.ended_at is null
    );
+
+-- ---------------------------------------------------------------------------
+-- accept_invitation: Board lock first
+-- ---------------------------------------------------------------------------
+-- Unchanged except for its opening: find the Invitation's Board without locking anything, lock
+-- the Board, and only then lock and check the Invitation. `invitation_for_caller` re-reads the row
+-- under its own lock, so a revocation that committed while this waited is seen as one. An
+-- Invitation never changes Board, so the Board locked is the Board it belongs to.
+create or replace function public.accept_invitation(p_token text)
+returns uuid
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  target public.board_invitations%rowtype;
+  target_board uuid;
+begin
+  select invitation.board_id into target_board
+    from public.board_invitations invitation
+   where invitation.token_hash = public.invitation_token_hash(coalesce(p_token, ''));
+  if target_board is not null then
+    perform 1 from public.boards board where board.id = target_board for update;
+  end if;
+  target := public.invitation_for_caller(p_token, true);
+
+  -- Joining a Board you are already on (a second Owner invited you, say) just settles the
+  -- Invitation; the unique current-Membership index would refuse a second row anyway.
+  if not exists (
+    select 1 from public.board_memberships membership
+     where membership.board_id = target.board_id
+       and membership.account_id = (select auth.uid())
+       and membership.ended_at is null
+  ) then
+    insert into public.board_memberships (board_id, account_id, role)
+    values (target.board_id, (select auth.uid()), target.role);
+  end if;
+
+  update public.board_invitations invitation
+     set status = 'accepted',
+         responded_at = pg_catalog.now(),
+         accepted_by = (select auth.uid())
+   where invitation.id = target.id;
+
+  return target.board_id;
+end;
+$$;

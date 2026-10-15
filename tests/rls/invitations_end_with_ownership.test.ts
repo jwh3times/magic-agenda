@@ -79,6 +79,23 @@ async function expectRevoked(token: string, invitee: TestUser) {
   expect((await accept(invitee, token)).error?.message).toBe('invitation-unavailable')
 }
 
+/** Resolves once a backend running `fragment` is waiting on a lock. */
+async function waitForLockWait(fragment: string) {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const waiting = await withPg(async (pg) => {
+      const { rows } = await pg.query<{ n: number }>(
+        `select count(*)::int as n from pg_stat_activity
+          where wait_event_type = 'Lock' and query ilike $1`,
+        [`%${fragment}%`],
+      )
+      return rows[0].n
+    })
+    if (waiting > 0) return
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  }
+  throw new Error(`no backend running ${fragment} ever waited on a lock`)
+}
+
 test("removing an Owner revokes that Owner's pending invitations, and only theirs", async () => {
   const removed = await coOwner()
   const theirs = await invite(removed.account)
@@ -139,19 +156,53 @@ test('a role change that keeps Ownership, or ends a non-Owner, revokes nothing',
     )
     return rows[0].id
   })
+  const changeRole = (membershipId: string, role: string) =>
+    owner.client.rpc('change_member_role', { p_membership_id: membershipId, p_role: role })
 
-  // Promoting an Editor and removing them are both Membership changes on this Board.
-  expect(
-    (
-      await owner.client.rpc('change_member_role', {
-        p_membership_id: editorMembership,
-        p_role: 'viewer',
-      })
-    ).error,
-  ).toBeNull()
+  // An Owner whose row is rewritten as Owner, an Editor promoted and demoted, and a non-Owner
+  // removed: none of these ends an Ownership that issued anything.
+  await withPg((pg) =>
+    pg.query(`update public.board_memberships set role = 'owner' where id = $1`, [
+      staying.membershipId,
+    ]),
+  )
+  expect((await changeRole(editorMembership, 'owner')).error).toBeNull()
+  expect((await changeRole(editorMembership, 'viewer')).error).toBeNull()
   expect(
     (await owner.client.rpc('remove_member', { p_membership_id: editorMembership })).error,
   ).toBeNull()
 
   expect((await statusOf(theirs.token)).status).toBe('pending')
+})
+
+test('an acceptance waiting on the Board lock does not deadlock the Ownership ending', async () => {
+  // Every path that ends an Ownership locks the Board and then, through the trigger, the
+  // Invitation rows. Acceptance must take them in the same order: holding the Invitation while
+  // it waits for the Board is a deadlock, and on account deletion an aborted transaction leaves
+  // an account whose files were already swept.
+  const ending = await coOwner()
+  const theirs = await invite(ending.account)
+  const { id } = await withPg(async (pg) => {
+    const { rows } = await pg.query<{ id: string }>(
+      `select id from public.board_invitations where token_hash = sha256(convert_to($1, 'UTF8'))`,
+      [theirs.token],
+    )
+    return rows[0]
+  })
+
+  await withPg(async (pg) => {
+    await pg.query('begin')
+    await pg.query('select 1 from public.boards where id = $1 for update', [boardId])
+    // The query builder sends nothing until it is awaited; `.then` starts it now.
+    const accepting = accept(theirs.invitee, theirs.token).then((result) => result)
+    // Wait until the acceptance is blocked on a lock: before the fix it holds the Invitation and
+    // waits for the Board; after it, it waits for the Board holding nothing.
+    await waitForLockWait('accept_invitation')
+    await pg.query(
+      `update public.board_invitations set status = 'revoked', responded_at = now() where id = $1`,
+      [id],
+    )
+    await pg.query('commit')
+    expect((await accepting).error?.message).toBe('invitation-unavailable')
+  })
 })

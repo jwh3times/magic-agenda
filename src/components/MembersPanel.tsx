@@ -47,6 +47,8 @@ export function MembersPanel({
   const can = capabilitiesFor(board.role)
   const { conf } = useThemeOrDefault()
   const [members, setMembers] = useState<BoardMember[] | null>(null)
+  // The last member read failed: `members` is then stale or null, which is not "still loading".
+  const [membersFailed, setMembersFailed] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [removing, setRemoving] = useState<string | null>(null)
@@ -78,6 +80,7 @@ export function MembersPanel({
 
   const load = useCallback(async () => {
     const outcome = await listBoardMembers(board.id)
+    setMembersFailed(!outcome.ok)
     if (outcome.ok) setMembers(outcome.value)
     else setError(outcome.failure.message)
     return outcome
@@ -87,6 +90,7 @@ export function MembersPanel({
     let current = true
     void listBoardMembers(board.id).then((outcome) => {
       if (!current) return
+      setMembersFailed(!outcome.ok)
       if (outcome.ok) setMembers(outcome.value)
       else setError(outcome.failure.message)
     })
@@ -299,7 +303,9 @@ export function MembersPanel({
         <InvitationsSection
           boardId={board.id}
           boardName={board.name}
-          members={members}
+          // A failed read is passed as "not tracking", so the list loads with issuers unnamed
+          // rather than waiting for members that are not coming.
+          members={membersFailed ? undefined : members}
           selfAccountId={
             members?.find((member) => member.membershipId === board.membershipId)?.accountId ?? null
           }

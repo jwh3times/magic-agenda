@@ -428,6 +428,10 @@ email (#444 is deferred), and the row is the same whichever way it is delivered.
   the Board row lock that acceptance takes. The pending list in Members names each issuer and is
   reread whenever the member list changes. `tests/rls/invitations_end_with_ownership.test.ts`
   covers all four paths.
+- **Lock order: the Board, then the Invitation.** Everything that writes an Invitation takes the
+  Board row lock first; `accept_invitation` finds the Board without a lock, locks it, then locks
+  and checks the Invitation. The reverse order deadlocked against the trigger above, which on
+  account deletion would abort a deletion whose attachment files were already swept.
 
 Only the Board's current Owners can SELECT its Invitations, which is exactly the domain model's
 "pending invitation emails are visible only to Owners". Nobody holds a write grant. Refusals are
