@@ -421,6 +421,17 @@ email (#444 is deferred), and the row is the same whichever way it is delivered.
   state; the row stays as the record. The private decision called for a CHECK constraint here, but
   Postgres evaluates a CHECK only when a row is written, so it cannot enforce a time-based rule. The
   job is the mechanism, and `tests/rls/board_invitations.test.ts` runs it and asserts the outcome.
+- **An Invitation is only as good as its issuer's Ownership.** `accept_invitation` never reads
+  `invited_by`, so the `board_memberships_revoke_invitations` trigger revokes an Owner's pending,
+  unexpired Invitations on a Board the moment that Ownership ends: removal, demotion, leaving, or
+  account deletion, and any later path that updates the Membership. Each of those already holds
+  the Board row lock that acceptance takes. The pending list in Members names each issuer and is
+  reread whenever the member list changes. `tests/rls/invitations_end_with_ownership.test.ts`
+  covers all four paths.
+- **Lock order: the Board, then the Invitation.** Everything that writes an Invitation takes the
+  Board row lock first; `accept_invitation` finds the Board without a lock, locks it, then locks
+  and checks the Invitation. The reverse order deadlocked against the trigger above, which on
+  account deletion would abort a deletion whose attachment files were already swept.
 
 Only the Board's current Owners can SELECT its Invitations, which is exactly the domain model's
 "pending invitation emails are visible only to Owners". Nobody holds a write grant. Refusals are
