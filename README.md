@@ -72,8 +72,8 @@ of three hand‑built themes.
 - **A public front door** — signed out, `magicagenda.app` is a landing page with a live, themed
   preview of the real board (rendered, not screenshotted); signed in, the same URL is your board.
 - **Accounts & sync** — email/password and Google sign‑in, with optional two‑factor authentication
-  (TOTP authenticator apps) from Settings → Two‑factor authentication; every task is private to you
-  via Postgres Row‑Level Security; optimistic updates with rollback.
+  (TOTP authenticator apps) from Settings → Two‑factor authentication; every task is visible only to
+  the members of its Board, enforced by Postgres Row‑Level Security; optimistic updates with rollback.
 - **Multiple Boards** — every account starts with one private Board; create more and switch between
   them from the Board switcher in the Toolbar. Each Board has its own Tasks, Series, and Labels.
   Rename a Board you own from Settings → Boards, or delete it there behind a
@@ -213,19 +213,27 @@ npm run dev      # start the dev server at http://localhost:5173
 ```
 src/
 ├─ access/       session-scoped account role and feature-flag hooks
+├─ admin/        AdminPage API client and aggregate charts
 ├─ auth/         AuthProvider + ProtectedRoute + the auth gateway (only module calling supabase.auth)
 ├─ board/        Board directory/selection/creation/rename/deletion, role capabilities,
 │                BoardDirectoryProvider
 ├─ components/   Board, views (Calendar/Week/Agenda/Kanban), TaskEditor, Toolbar, …
 ├─ data/         useTasks / useSettings hooks, mappers, selectors, filters, recurrence
 ├─ dnd/          pure drag logic (unit‑tested) + dnd‑kit wiring
+├─ invite/       Board Invitation commands and the pending-invitation store
 ├─ labels/       selected-Board Label directory, presentation, offline read path, and Owner-only
 │                management (create/rename/recolor/reorder/delete)
 ├─ lib/          supabase client, date + id helpers
-├─ pages/        Login, AuthCallback, AuthConfirm, ResetPassword, SettingsPage, BoardPage, AdminPage
+├─ notifications/ Web Push gateway and push-endpoint validation
+├─ pages/        Landing, Login, AuthCallback, AuthConfirm, ResetPassword, SettingsPage, BoardPage,
+│                AdminPage, InvitePage, Privacy, Terms
+├─ sw/           service-worker policy and notification helpers (sw.ts is the worker entry)
+├─ test/         shared test setup and helpers
 ├─ theme/        constants, per‑theme tokens, card styles, ThemeProvider
 └─ types/        domain + generated database types
 supabase/migrations/   SQL schema (CLI‑managed)
+supabase/functions/    Edge Functions (delete-account, delete-board, ical, materialize-series,
+                       send-reminders, sweep-attachments, upload-attachment) and _shared/
 design/                the original prototype (reference only — not built)
 ```
 

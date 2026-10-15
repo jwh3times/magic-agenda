@@ -24,7 +24,7 @@ materializes any missing instances over a rolling window that runs from today to
 **from today, not from the Rule's anchor** (#210); deleted occurrences are remembered
 in a per-template `excludedDates` array so they are never regenerated. `reload()` has an in-flight guard
 because React StrictMode double-invokes the load effect, which otherwise double-inserts instances and
-trips the `(recur_parent_id, day)` unique index (Postgres 23505).
+trips the `tasks_recur_instance_uniq` unique index (Postgres 23505).
 
 **Since #424, a daily server job materializes too, so an idle Board still gets its horizon.**
 `supabase/functions/materialize-series` runs the same `pendingInstances` from this module, plus
@@ -36,8 +36,8 @@ than `readonly Task[]` precisely so the job's narrow state, read via the SQL fun
 `today` is UTC tomorrow, so the one-day grace floor (`MATERIALIZE_GRACE_DAYS` in `recurrence.ts`,
 see [UI](ui.md) for why the client keeps a cheap browser-local clock at its own call site) lands on
 UTC today, and no zone's local date runs more than a day ahead of UTC — so the job never creates an
-Occurrence older than a client would. Both writers rely on the same `(recur_parent_id,
-recur_origin_day)` partial unique index to stay safe running concurrently: the client's plain insert
+Occurrence older than a client would. Both writers rely on the same `tasks_recur_instance_uniq` partial unique index, on
+`(board_id, recur_parent_id, recur_origin_day) where recur_parent_id is not null`, to stay safe running concurrently: the client's plain insert
 can 23505 on it (the StrictMode guard above exists for that same index), in which case `useTasks`
 repeats its complete Board read and replaces the failed optimistic batch rather than showing an
 error. The job's write function, `insert_materialized_occurrences`, does an untargeted
@@ -74,7 +74,7 @@ That split is what made this subsystem testable. Before it, the three scope oper
 207-line block inside `useTasks` that **no test reached** — `deleteSeriesFuture`, the branchiest
 function in the data layer, had zero — while the cheap date maths in `recurrence.ts` had 22 tests.
 
-Eight details worth keeping:
+Details worth keeping:
 
 - **Promotion keeps the row and creates the template, not the other way round.** Adding a
   Recurrence Rule to a standalone Task routes through `resolveSave` -> `planPromoteToSeries`: a
@@ -197,7 +197,7 @@ cut)`, which counts by Occurrence Date and requires `state.tasks` to be the whol
   test, against the state the bulk delete produces. Its definition deletion cascades, so its
   Occurrences are left out of the batched `{ by: 'ids' }` row deletion. Failure handling and the
   whole-board precondition match the single delete. `useTasks.bulkDelete` sends a selection of
-  plain Tasks straight to one `.delete().in('id', …)` and routes anything touching a Series through
+  plain Tasks through `applyWrites` (`apply_task_writes` deletions, one transaction) and routes anything touching a Series through
   `runPlan`, so the complete-load gate still applies. Bulk move, status, and color
   (`src/data/bulk.ts`) change Occurrences as This Occurrence, exactly as a drag does.
 - **Undo (#271) covers single-Occurrence and bulk deletes, never Series-level operations.** The

@@ -12,6 +12,23 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.33] - 2026-10-15
+
+### Docs
+
+- The restore runbook now recreates and checks the third `auth.users` trigger,
+  `on_auth_user_first_confirmed`. A `schema.sql` restore omitted it silently, which reopened the
+  password takeover before email confirmation. The same runbook also names the two remaining
+  attachment storage policies, replays migrations through the current attachment policy, and checks
+  row-level security on every `public` table rather than six.
+- The area guides no longer describe finished work as pending or counts that have grown: bulk delete
+  goes through `apply_task_writes`, the client enforces revision compare-and-swap, Board Invitations
+  are live, `app_private` exists, there are four `useSyncedTable` adapters and four offline
+  snapshot envelopes, and the recurrence unique index is `tasks_recur_instance_uniq`.
+- The calendar feed section documents the hourly refresh hint and the 200 response's cache header.
+  `README.md` now says tasks are visible to the members of their Board and lists the current
+  project structure. `AGENTS.md` points at Web Push in the PWA guide.
+
 ## [1.17.32] - 2026-10-15
 
 ### Security
