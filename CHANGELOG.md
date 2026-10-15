@@ -12,6 +12,28 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.30] - 2026-10-14
+
+### Security
+
+- **A pending Board invitation stops working when the Owner who sent it stops being an Owner.**
+  Before, an Owner who was removed, demoted, left, or deleted their account kept every invitation
+  they had sent, usable for up to 14 days. That included one addressed to a second account of
+  their own. Ending the Ownership now revokes those invitations at once, and the release revokes
+  any pending invitation whose sender is already no longer an Owner.
+
+### Changed
+
+- **Members shows who sent each pending invitation** ("invited by Ada", or "invited by you"),
+  and the list refreshes when a member is removed or changes role.
+
+### Internal
+
+- New migration `20261014120000_invitations_end_with_ownership.sql`: the trigger
+  `board_memberships_revoke_invitations` and the owner-only function
+  `revoke_invitations_of_ended_owner()`, added to `supabase/reviewed-functions.json`. New RLS tests
+  cover removal, demotion, leaving, account deletion, and changes that must revoke nothing.
+
 ## [1.17.29] - 2026-10-14
 
 ### Fixed
@@ -5130,7 +5152,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.29...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.30...HEAD
+[1.17.30]: https://github.com/jwh3times/magic-agenda/compare/v1.17.29...v1.17.30
 [1.17.29]: https://github.com/jwh3times/magic-agenda/compare/v1.17.28...v1.17.29
 [1.17.28]: https://github.com/jwh3times/magic-agenda/compare/v1.17.27...v1.17.28
 [1.17.27]: https://github.com/jwh3times/magic-agenda/compare/v1.17.26...v1.17.27
