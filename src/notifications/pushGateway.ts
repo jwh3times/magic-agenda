@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import type { Database } from '../types/database.types'
+import { isPushServiceEndpoint } from './pushEndpoint'
 
 type SubscriptionInsert = Database['public']['Tables']['push_subscriptions']['Insert']
 
@@ -118,6 +119,14 @@ export function createPushGateway(deps: PushDependencies): PushGateway {
         userVisibleOnly: true,
         applicationServerKey: decodePublicKey(deps.publicKey),
       }))
+    // The reminder sender posts only to known push services (`pushEndpoint.ts`). Saving any other
+    // endpoint would show this device as subscribed when nothing can reach it.
+    if (!isPushServiceEndpoint(subscription.endpoint)) {
+      await subscription.unsubscribe()
+      throw new Error(
+        "This browser's push service is not supported. Try Chrome, Edge, Firefox, or Safari.",
+      )
+    }
     const json = subscription.toJSON()
     const p256dh = json.keys?.p256dh
     const auth = json.keys?.auth
