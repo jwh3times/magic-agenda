@@ -110,6 +110,28 @@ test('an insert never overwrites a row that already exists', async () => {
   expect(row).toEqual([{ title: 'original' }])
 })
 
+test('a re-insert whose id another Account took on its own Board is skipped without an error', async () => {
+  // Undo of a delete re-inserts under the original id, and that id was in the DELETE event every
+  // subscriber received. Nothing here is disclosed — the taken row stays on the other Board — but
+  // the command's answer is only a missing row, which is the whole signal the client has.
+  const stranger = await createTestUser()
+  try {
+    const task = await newTask({ title: 'deleted, then undone' })
+    await owner.client.from('tasks').delete().eq('id', task.id)
+    const strangerBoard = await currentBoardId(stranger.id)
+    await newTask({ id: task.id, title: 'claimed' }, strangerBoard, stranger)
+
+    const { data, error } = await apply(owner, { inserts: [task] })
+
+    expect(error).toBeNull()
+    expect(data).toEqual([])
+    const { data: visible } = await owner.client.from('tasks').select('id').eq('id', task.id)
+    expect(visible).toEqual([])
+  } finally {
+    await deleteTestUser(stranger)
+  }
+})
+
 test('a plan is all or nothing: a failing step writes none of the others', async () => {
   const task = await newTask({ title: 'before' })
   const { error } = await apply(owner, {

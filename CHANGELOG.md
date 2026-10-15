@@ -12,6 +12,22 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.29] - 2026-10-14
+
+### Fixed
+
+- **Undo no longer says "Undone" when a deleted Task did not come back.** If the server skipped
+  re-inserting the Task, the app showed the notice anyway and the Task was gone on the next load.
+  Undo now checks every Task it put back; when one is missing it reloads the Board and says it
+  could not restore everything, and restores no attachments.
+
+### Security
+
+- One way to cause that skip was another account taking the deleted Task's id on a Board of its
+  own before Undo. Nothing was disclosed, because the taken row stays on the other Board. The
+  undo just failed silently, and now it fails visibly. A new RLS test reproduces the server's
+  behaviour.
+
 ## [1.17.28] - 2026-10-14
 
 ### Changed
@@ -5114,7 +5130,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.28...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.29...HEAD
+[1.17.29]: https://github.com/jwh3times/magic-agenda/compare/v1.17.28...v1.17.29
 [1.17.28]: https://github.com/jwh3times/magic-agenda/compare/v1.17.27...v1.17.28
 [1.17.27]: https://github.com/jwh3times/magic-agenda/compare/v1.17.26...v1.17.27
 [1.17.26]: https://github.com/jwh3times/magic-agenda/compare/v1.17.25...v1.17.26
