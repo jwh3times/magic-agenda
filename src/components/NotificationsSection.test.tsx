@@ -1,5 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { StrictMode } from 'react'
 import { beforeEach, expect, test, vi } from 'vitest'
 
 const h = vi.hoisted(() => ({
@@ -10,6 +11,7 @@ const h = vi.hoisted(() => ({
   removeDevice: vi.fn(),
   saveLead: vi.fn(),
   timezone: 'America/New_York' as string | null,
+  accountId: 'account-1',
   lead: null as number | null,
 }))
 
@@ -23,7 +25,7 @@ vi.mock('../notifications/pushGateway', () => ({
   },
 }))
 
-vi.mock('../auth/AuthProvider', () => ({ useAuth: () => ({ user: { id: 'account-1' } }) }))
+vi.mock('../auth/AuthProvider', () => ({ useAuth: () => ({ user: { id: h.accountId } }) }))
 vi.mock('../data/SettingsProvider', () => ({
   useSettingsContext: () => ({
     settings: {
@@ -41,6 +43,7 @@ import { NotificationsSection } from './NotificationsSection'
 
 beforeEach(() => {
   h.timezone = 'America/New_York'
+  h.accountId = 'account-1'
   h.lead = null
   h.state.mockReset().mockResolvedValue({
     availability: 'supported',
@@ -111,6 +114,56 @@ test('an existing subscription can be removed from this device', async () => {
   await userEvent.click(await screen.findByRole('button', { name: 'Remove this device' }))
 
   await waitFor(() => expect(h.unsubscribe).toHaveBeenCalledWith('account-1'))
+})
+
+test("another Account's slow read never shows its subscription as this one's", async () => {
+  let finishFirst: (state: unknown) => void = () => {}
+  h.state
+    .mockReturnValueOnce(new Promise((resolve) => (finishFirst = resolve)))
+    .mockResolvedValue({ availability: 'supported', permission: 'granted', subscribed: false })
+  const { rerender } = render(<NotificationsSection />)
+  h.accountId = 'account-2'
+  rerender(<NotificationsSection />)
+  expect(await screen.findByRole('button', { name: 'Enable on this device' })).toBeInTheDocument()
+
+  finishFirst({ availability: 'supported', permission: 'granted', subscribed: true })
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  expect(screen.getByRole('button', { name: 'Enable on this device' })).toBeInTheDocument()
+  expect(screen.queryByText('This device is subscribed.')).not.toBeInTheDocument()
+})
+
+test("an Account's subscription is not shown while the next Account's state is read", async () => {
+  h.state
+    .mockResolvedValueOnce({ availability: 'supported', permission: 'granted', subscribed: true })
+    .mockReturnValue(new Promise(() => {}))
+  const { rerender } = render(<NotificationsSection />)
+  expect(await screen.findByText('This device is subscribed.')).toBeInTheDocument()
+
+  h.accountId = 'account-2'
+  rerender(<NotificationsSection />)
+  expect(screen.queryByText('This device is subscribed.')).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Remove this device' })).not.toBeInTheDocument()
+})
+
+test('a slow first read never replaces the state read after enabling this device', async () => {
+  // Two reads for one Account: what React's development double-run of an effect does.
+  let finishFirst: (state: unknown) => void = () => {}
+  const unsubscribed = { availability: 'supported', permission: 'default', subscribed: false }
+  h.state
+    .mockReturnValueOnce(new Promise((resolve) => (finishFirst = resolve)))
+    .mockResolvedValueOnce(unsubscribed)
+    .mockResolvedValue({ availability: 'supported', permission: 'granted', subscribed: true })
+  render(
+    <StrictMode>
+      <NotificationsSection />
+    </StrictMode>,
+  )
+  await userEvent.click(await screen.findByRole('button', { name: 'Enable on this device' }))
+  expect(await screen.findByText('This device is subscribed.')).toBeInTheDocument()
+
+  finishFirst(unsubscribed)
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  expect(screen.getByText('This device is subscribed.')).toBeInTheDocument()
 })
 
 // ——— the device list ———
