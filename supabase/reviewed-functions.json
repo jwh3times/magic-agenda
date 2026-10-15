@@ -237,6 +237,12 @@
       "explicitAcl": true,
       "executeGrantees": "authenticated"
     },
+    "revoke_invitations_of_ended_owner()": {
+      "secdef": true,
+      "config": "search_path=\"\"",
+      "explicitAcl": true,
+      "executeGrantees": "(owner only)"
+    },
     "rotate_ical_token(uuid)": {
       "secdef": true,
       "config": "search_path=\"\"",

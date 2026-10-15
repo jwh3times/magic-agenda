@@ -15,12 +15,31 @@ vi.mock('../invite/invitations', () => ({
 }))
 
 import { InvitationsSection } from './InvitationsSection'
+import type { BoardMember } from '../board/boardMembers'
+
+const owner = (accountId: string, displayName: string): BoardMember => ({
+  membershipId: `m-${accountId}`,
+  accountId,
+  role: 'owner',
+  displayName,
+  joinedAt: '2026-09-01',
+  email: null,
+  nickname: null,
+})
 
 beforeEach(() => {
   vi.clearAllMocks()
   h.list.mockResolvedValue({
     ok: true,
-    value: [{ id: 'i1', email: 'bo@example.test', role: 'viewer', expiresAt: '2026-10-10' }],
+    value: [
+      {
+        id: 'i1',
+        email: 'bo@example.test',
+        role: 'viewer',
+        expiresAt: '2026-10-10',
+        invitedBy: 'a2',
+      },
+    ],
   })
   h.create.mockResolvedValue({ ok: true, value: 'tok123' })
   h.revoke.mockResolvedValue({ ok: true, value: undefined })
@@ -68,4 +87,47 @@ test('lists pending invitations and revokes one', async () => {
     await screen.findByRole('button', { name: 'Revoke invitation for bo@example.test' }),
   )
   expect(h.revoke).toHaveBeenCalledWith('i1')
+})
+
+test('says which Owner issued each pending invitation', async () => {
+  h.list.mockResolvedValue({
+    ok: true,
+    value: [
+      {
+        id: 'i1',
+        email: 'bo@example.test',
+        role: 'viewer',
+        expiresAt: '2026-10-10',
+        invitedBy: 'a2',
+      },
+      {
+        id: 'i2',
+        email: 'cy@example.test',
+        role: 'editor',
+        expiresAt: '2026-10-10',
+        invitedBy: 'a1',
+      },
+    ],
+  })
+  render(
+    <InvitationsSection
+      boardId="b1"
+      boardName="Team"
+      members={[owner('a1', 'Me'), owner('a2', 'Ada')]}
+      selfAccountId="a1"
+    />,
+  )
+  expect(await screen.findByText(/invited by Ada/)).toBeInTheDocument()
+  expect(screen.getByText(/invited by you/)).toBeInTheDocument()
+})
+
+test('rereads the pending list when the members change', async () => {
+  // Removing or demoting an Owner revokes their pending invitations on the server; the list must
+  // not keep offering them.
+  const { rerender } = render(
+    <InvitationsSection boardId="b1" boardName="Team" members={[owner('a1', 'Me')]} />,
+  )
+  await waitFor(() => expect(h.list).toHaveBeenCalledTimes(1))
+  rerender(<InvitationsSection boardId="b1" boardName="Team" members={[owner('a1', 'Me')]} />)
+  await waitFor(() => expect(h.list).toHaveBeenCalledTimes(2))
 })

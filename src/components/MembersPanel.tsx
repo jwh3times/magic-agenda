@@ -295,7 +295,16 @@ export function MembersPanel({
         </label>
       )}
 
-      {can.manageMembers && <InvitationsSection boardId={board.id} boardName={board.name} />}
+      {can.manageMembers && (
+        <InvitationsSection
+          boardId={board.id}
+          boardName={board.name}
+          members={members}
+          selfAccountId={
+            members?.find((member) => member.membershipId === board.membershipId)?.accountId ?? null
+          }
+        />
+      )}
 
       <div style={row}>
         {!leaving && (

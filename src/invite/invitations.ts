@@ -112,6 +112,8 @@ export interface PendingInvitation {
   email: string
   role: InvitationRole
   expiresAt: string
+  /** The Owner who issued it. NULL only once their account is deleted, which also revokes it. */
+  invitedBy: string | null
 }
 
 /**
@@ -126,7 +128,7 @@ export function listPendingInvitations(
     () =>
       supabase
         .from('board_invitations')
-        .select('id, target_email, role, expires_at')
+        .select('id, target_email, role, expires_at, invited_by')
         .eq('board_id', boardId)
         .eq('status', 'pending')
         .gt('expires_at', now.toISOString())
@@ -138,6 +140,7 @@ export function listPendingInvitations(
           target_email: string | null
           role: string
           expires_at: string
+          invited_by: string | null
         }[]
       )
         .filter(
@@ -148,6 +151,7 @@ export function listPendingInvitations(
           email: row.target_email as string,
           role: row.role as InvitationRole,
           expiresAt: row.expires_at,
+          invitedBy: row.invited_by,
         })),
   )
 }
