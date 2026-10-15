@@ -12,6 +12,16 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.28] - 2026-10-14
+
+### Changed
+
+- **Calendar apps are asked to refresh a Board's feed every hour.** The feed now carries both the
+  standard refresh hint and the older one that Outlook and Apple Calendar read. Before, a Task
+  added after subscribing could take a long time to appear, because each app chose its own
+  interval. It is a request, not a guarantee: Google Calendar keeps its own schedule, which can
+  be several hours.
+
 ## [1.17.27] - 2026-10-13
 
 ### Docs
@@ -5104,7 +5114,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.27...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.28...HEAD
+[1.17.28]: https://github.com/jwh3times/magic-agenda/compare/v1.17.27...v1.17.28
 [1.17.27]: https://github.com/jwh3times/magic-agenda/compare/v1.17.26...v1.17.27
 [1.17.26]: https://github.com/jwh3times/magic-agenda/compare/v1.17.25...v1.17.26
 [1.17.25]: https://github.com/jwh3times/magic-agenda/compare/v1.17.24...v1.17.25

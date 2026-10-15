@@ -54,6 +54,15 @@ export interface IcsOptions {
 }
 
 const DEFAULT_PRODUCT_ID = "-//Magic Agenda//Board feed//EN";
+
+/**
+ * How often a subscriber is asked to fetch the feed again. With no hint, a Task added after
+ * subscribing had not reached GNOME Calendar after several minutes (2026-10-14). Sent as
+ * RFC 7986's `REFRESH-INTERVAL` and as the older `X-PUBLISHED-TTL` that Outlook and Apple Calendar
+ * read. Both are requests: Google Calendar polls on its own schedule regardless. An hour stays well
+ * above the handler's five-minute `max-age`, so the hint never outruns the cache.
+ */
+const REFRESH_INTERVAL = "PT1H";
 const UID_DOMAIN = "magicagenda.app";
 const DAY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const MAX_OCTETS = 75;
@@ -228,6 +237,8 @@ export function tasksToIcs(
     `PRODID:${options.productId ?? DEFAULT_PRODUCT_ID}`,
     "CALSCALE:GREGORIAN",
     `X-WR-CALNAME:${escapeText(options.calendarName)}`,
+    `REFRESH-INTERVAL;VALUE=DURATION:${REFRESH_INTERVAL}`,
+    `X-PUBLISHED-TTL:${REFRESH_INTERVAL}`,
     ...tasks.flatMap((task) => eventLines(task, options.timezone, stamp)),
     "END:VCALENDAR",
   ];
