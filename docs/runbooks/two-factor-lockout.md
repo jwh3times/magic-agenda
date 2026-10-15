@@ -143,7 +143,7 @@ psql "$DB_URL" -c "delete from auth.mfa_factors where id = '$FACTOR_ID';"
 
 **This step is not optional, and it is the one that surprises.** `getAssuranceLevel()` is a _local_
 read — it decodes the stored JWT and the session's own factor list, with no network round trip
-(`src/auth/AuthProvider.tsx:126`). So a user sitting on the step-up screen when you remove their
+(the assurance-level effect in `src/auth/AuthProvider.tsx`). So a user sitting on the step-up screen when you remove their
 factor **stays on it**: their token still lists the factor, so the gate (`stepUpRequired`,
 `src/auth/mfa.ts:60`) still reads `next: 'aal2'`.
 

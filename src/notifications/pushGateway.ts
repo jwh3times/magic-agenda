@@ -1,7 +1,14 @@
 import { supabase } from '../lib/supabase'
 import type { Database } from '../types/database.types'
+import { deviceLabel, serviceLabel } from './deviceLabel'
+import { isPushServiceEndpoint } from './pushEndpoint'
 
-type SubscriptionInsert = Database['public']['Tables']['push_subscriptions']['Insert']
+type SubscriptionTable = Database['public']['Tables']['push_subscriptions']
+type SubscriptionInsert = SubscriptionTable['Insert']
+export type SubscriptionRow = Pick<
+  SubscriptionTable['Row'],
+  'id' | 'endpoint' | 'device_label' | 'created_at'
+>
 
 export type PushAvailability = 'supported' | 'unsupported' | 'ios-install-required' | 'unconfigured'
 
@@ -9,6 +16,15 @@ export interface PushState {
   availability: PushAvailability
   permission: NotificationPermission
   subscribed: boolean
+}
+
+/** One row of the device list. The endpoint stays behind: it is a credential. */
+export interface PushDevice {
+  id: string
+  label: string
+  createdAt: string
+  /** The subscription this browser holds. */
+  current: boolean
 }
 
 interface NotificationAdapter {
@@ -26,6 +42,12 @@ interface PushDependencies {
   remove: (accountId: string, endpoint: string) => Promise<void>
   /** Whether this Account has a row for this endpoint. Rejects when it cannot tell. */
   owns: (accountId: string, endpoint: string) => Promise<boolean>
+  /** Every row this Account has. */
+  list: (accountId: string) => Promise<SubscriptionRow[]>
+  /** Delete one row of this Account's by id. Resolves whether there was one. */
+  removeById: (accountId: string, id: string) => Promise<boolean>
+  /** What this browser calls itself in the device list (`deviceLabel.ts`). */
+  deviceLabel: string | null
 }
 
 /**
@@ -49,9 +71,24 @@ export interface PushGateway {
   release: (accountId: string | null) => Promise<void>
   /** Retire a subscription this browser holds that the signed-in Account does not own. */
   reconcile: (accountId: string) => Promise<void>
+  /**
+   * Every device this Account has subscribed, this one first, then newest first. Works where
+   * this browser cannot subscribe itself, so a lost laptop can be removed from a phone.
+   */
+  devices: (accountId: string) => Promise<PushDevice[]>
+  /**
+   * Remove another device's subscription. Only its row can go: the browser on that device still
+   * holds its half, which nothing reaches once the row is gone, and which `reconcile` retires the
+   * next time that Account signs in there. This device is removed with `unsubscribe`, which
+   * retires both.
+   */
+  removeDevice: (accountId: string, deviceId: string) => Promise<void>
 }
 
-/** How long `release` may hold up a sign-out. `navigator.serviceWorker.ready` can stay pending. */
+/**
+ * How long `release` may hold up a sign-out, and `devices` may wait to learn which row is this
+ * device. `navigator.serviceWorker.ready` can stay pending.
+ */
 const RELEASE_TIMEOUT_MS = 2000
 
 function decodePublicKey(value: string): Uint8Array<ArrayBuffer> {
@@ -118,6 +155,14 @@ export function createPushGateway(deps: PushDependencies): PushGateway {
         userVisibleOnly: true,
         applicationServerKey: decodePublicKey(deps.publicKey),
       }))
+    // The reminder sender posts only to known push services (`pushEndpoint.ts`). Saving any other
+    // endpoint would show this device as subscribed when nothing can reach it.
+    if (!isPushServiceEndpoint(subscription.endpoint)) {
+      await subscription.unsubscribe()
+      throw new Error(
+        "This browser's push service is not supported. Try Chrome, Edge, Firefox, or Safari.",
+      )
+    }
     const json = subscription.toJSON()
     const p256dh = json.keys?.p256dh
     const auth = json.keys?.auth
@@ -132,6 +177,7 @@ export function createPushGateway(deps: PushDependencies): PushGateway {
         subscription.expirationTime === null
           ? null
           : new Date(subscription.expirationTime).toISOString(),
+      device_label: deps.deviceLabel,
     })
   }
 
@@ -168,7 +214,41 @@ export function createPushGateway(deps: PushDependencies): PushGateway {
     if (!owned) await subscription.unsubscribe()
   }
 
-  return { state, subscribe, unsubscribe, release, reconcile }
+  const devices = async (accountId: string): Promise<PushDevice[]> => {
+    const rows = await deps.list(accountId)
+    // Not knowing which one is this device still lists them all, and `ready` can stay pending
+    // where no worker registers, so it gets as long as a sign-out would give it and no longer.
+    const here =
+      availability(deps) === 'supported'
+        ? await Promise.race([
+            deps
+              .serviceWorkerReady!.then((registration) =>
+                registration.pushManager.getSubscription(),
+              )
+              .then((subscription) => subscription?.endpoint ?? null)
+              .catch(() => null),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), RELEASE_TIMEOUT_MS)),
+          ])
+        : null
+    return rows
+      .map((row) => ({
+        id: row.id,
+        label: row.device_label ?? serviceLabel(row.endpoint),
+        createdAt: row.created_at,
+        current: row.endpoint === here,
+      }))
+      .sort(
+        (a, b) => Number(b.current) - Number(a.current) || b.createdAt.localeCompare(a.createdAt),
+      )
+  }
+
+  const removeDevice = async (accountId: string, deviceId: string): Promise<void> => {
+    // A row that is already gone (removed from another device, or retired by the sender) is the
+    // outcome asked for.
+    await deps.removeById(accountId, deviceId)
+  }
+
+  return { state, subscribe, unsubscribe, release, reconcile, devices, removeDevice }
 }
 
 function isIosDevice(): boolean {
@@ -185,6 +265,11 @@ const notification: NotificationAdapter | null =
         },
         requestPermission: () => Notification.requestPermission(),
       }
+
+const label =
+  typeof navigator === 'undefined'
+    ? null
+    : deviceLabel(navigator.userAgent, navigator.maxTouchPoints)
 
 const serviceWorkerReady =
   typeof navigator !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window
@@ -224,4 +309,23 @@ export const browserPushGateway = createPushGateway({
     if (error) throw error
     return data !== null
   },
+  list: async (accountId) => {
+    const { data, error } = await supabase
+      .from('push_subscriptions')
+      .select('id, endpoint, device_label, created_at')
+      .eq('account_id', accountId)
+    if (error) throw error
+    return data
+  },
+  removeById: async (accountId, id) => {
+    const { data, error } = await supabase
+      .from('push_subscriptions')
+      .delete()
+      .eq('account_id', accountId)
+      .eq('id', id)
+      .select('id')
+    if (error) throw error
+    return data.length > 0
+  },
+  deviceLabel: label,
 })

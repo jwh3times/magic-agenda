@@ -19,12 +19,12 @@ outage.
 
 ## What is in the bundle
 
-| File           | Contents                                                                                                                   | Why it matters                                                                                                                                          |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schema.sql`   | DDL for the `public` schema **only**                                                                                       | Nearly a substitute for `supabase/migrations/` — but it omits `on_auth_user_created` and `on_auth_user_deleted`, both triggers on `auth.users`. See 3.1 |
-| `data.sql`     | Board data in `public` (including Labels) plus durable `auth` data (`auth.users`, `auth.identities`, enrolled MFA factors) | Restores accounts and their Boards; sessions and temporary auth state are excluded                                                                      |
-| `storage.sql`  | The `attachments` bucket's configuration and the four `storage.objects` policies                                           | Rebuilds the object-side authorization boundary. **Not the files.** Load it after the data — see 3.4                                                    |
-| `attachments/` | Every attached file at `objects/<storage_path>`, plus `manifest.json` (size and SHA-256 per file). Since v1.15.23 (#411)   | Puts the files back behind the restored rows. Upload it last, after `storage.sql` — see 3.5                                                             |
+| File           | Contents                                                                                                                   | Why it matters                                                                                                                                                                          |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema.sql`   | DDL for the `public` schema **only**                                                                                       | Nearly a substitute for `supabase/migrations/` — but it omits `on_auth_user_created`, `on_auth_user_deleted`, and `on_auth_user_first_confirmed`, all triggers on `auth.users`. See 3.1 |
+| `data.sql`     | Board data in `public` (including Labels) plus durable `auth` data (`auth.users`, `auth.identities`, enrolled MFA factors) | Restores accounts and their Boards; sessions and temporary auth state are excluded                                                                                                      |
+| `storage.sql`  | The `attachments` bucket's configuration and the two `storage.objects` policies                                            | Rebuilds the object-side authorization boundary. **Not the files.** Load it after the data — see 3.4                                                                                    |
+| `attachments/` | Every attached file at `objects/<storage_path>`, plus `manifest.json` (size and SHA-256 per file). Since v1.15.23 (#411)   | Puts the files back behind the restored rows. Upload it last, after `storage.sql` — see 3.5                                                                                             |
 
 `data.sql` holds the `auth` rows as well as the `public` ones — `supabase db dump --data-only`
 includes Supabase-managed schemas even though the schema dump excludes them. There is one data file
@@ -191,24 +191,24 @@ resolve certificate errors before continuing. See [Supabase SSL enforcement](htt
 `session_replication_role` is a session-level setting and the load runs as a single transaction; the
 transaction pooler multiplexes statements across backends and breaks both.
 
-### 3.1 Schema — and the two triggers the bundle cannot carry
+### 3.1 Schema — and the three triggers the bundle cannot carry
 
 **Preferred: apply the migrations.** `supabase db push` builds the schema from
-`supabase/migrations/`, which includes both `on_auth_user_created` and `on_auth_user_deleted`, so
+`supabase/migrations/`, which includes `on_auth_user_created`, `on_auth_user_deleted`, and `on_auth_user_first_confirmed`, so
 the result is correct by construction. It is also the right choice whenever the backup predates the
 newest migration.
 
-**Alternative: load `schema.sql`.** Self-contained, but it is a **`public`-schema dump**, and both
-triggers live on `auth.users` — so **neither is in the bundle at all**:
+**Alternative: load `schema.sql`.** Self-contained, but it is a **`public`-schema dump**, and all
+three triggers live on `auth.users` — so **none is in the bundle at all**:
 
 ```bash
 psql "$PGURI" -v ON_ERROR_STOP=1 -f schema.sql
 ```
 
-On this path you **must** recreate both, or the restore looks perfect and two different things break
-quietly. `schema.sql` does carry the functions behind them (`handle_new_user()`,
+On this path you **must** recreate all three, or the restore looks perfect and three different things
+break quietly. `schema.sql` does carry the functions behind them (`handle_new_user()`,
 `handle_account_deletion()`, `create_board()` — all `public`-schema objects, so only the
-`auth.users` triggers are missing), so it is just the two `create trigger` statements:
+`auth.users` triggers are missing), so it is just the three `create trigger` statements:
 
 ```bash
 psql "$PGURI" -v ON_ERROR_STOP=1 -c '
@@ -218,8 +218,25 @@ create or replace trigger on_auth_user_created
 
 create or replace trigger on_auth_user_deleted
   before delete on auth.users
-  for each row execute function public.handle_account_deletion();'
+  for each row execute function public.handle_account_deletion();
+
+drop trigger if exists on_auth_user_first_confirmed on auth.users;
+create trigger on_auth_user_first_confirmed
+  before update on auth.users
+  for each row
+  when (
+    old.email_confirmed_at is null
+    and new.email_confirmed_at is not null
+    and old.confirmation_sent_at is not null
+  )
+  execute function public.discard_unverified_password();'
 ```
+
+Without `on_auth_user_first_confirmed`, the pre-confirmation password takeover that
+`discard_unverified_password()` closes is open again: someone who registered an address they do not
+own could keep the password they set before the real owner confirmed it. Nothing fails visibly, which
+is exactly why this one matters most. Copy the `when` clause from
+`supabase/migrations/20261008160000_password_chosen_after_confirmation.sql` if it has since changed.
 
 Without `on_auth_user_created`, everyone who signs up afterwards gets no `user_settings` row (and,
 since v1.2.76, no `account_profiles`/`boards`/`board_memberships` rows either — a broken account with
@@ -235,7 +252,7 @@ Copy from there if either has since changed. Note the split for the first one: t
 statement is still the `init.sql` line above, but its **function** has since been replaced and now
 lives in `20260819100000_retire_compatibility_layer.sql:43`. On this path `schema.sql` supplies the
 function, so only the trigger statements are yours to write — but if you ever recreate the function
-by hand, take it from the newer migration. Step 4 asserts both triggers exist, because nothing else
+by hand, take it from the newer migration. Step 4 asserts all three triggers exist, because nothing else
 surfaces this: the 2026-07-27 rehearsal found the first one missing only by inserting a probe user
 and checking whether settings appeared. Order does not matter — `data.sql` runs in replica mode, so
 both triggers are inert during the load whether they exist yet or not.
@@ -287,12 +304,13 @@ command. `data.sql` restores the `task_attachments` rows; until 3.5 puts the fil
 attachment renders as a placeholder and will not open.
 
 Bundles made before v1.15.4 contain the retired attachment INSERT/UPDATE policies. After applying
-one, replay migrations through `20260924181615_enforce_attachment_quotas.sql` **after**
+one, replay migrations through `20261008120000_attachment_objects_require_row.sql` **after**
 `storage.sql`; otherwise the restore reopens direct uploads and bypasses the Board quota command.
 
 **If `storage.sql` is missing from your bundle**, it predates v1.14.15. Recreate the bucket and its
 current policies by replaying migrations through
-`20260924181615_enforce_attachment_quotas.sql`; applying only the original attachment foundation
+`20261008120000_attachment_objects_require_row.sql` (it redefines `attachments_select_member` and
+creates `app_private.attachment_object_matches`); applying only the original attachment foundation
 would restore obsolete direct-write policies and bypass the Board quota command. Do not leave the
 bucket absent and do not create it from the dashboard without the policies: a bucket with no policy
 is default-deny (the feature breaks silently), and a bucket created `public` makes every policy
@@ -342,9 +360,9 @@ select count(*) from public.labels;
 -- wrong. If that happens, load `schema.sql` from the *same* bundle instead (3.1's alternative path),
 -- which still has the column, and skip this section's newer checks that assume the Board tables.
 
--- Nor a board that did not come back — the v1.2.76 companion to the check above. board_id is still
--- nullable pre-cutover, so a legitimately-unrouted task is not itself a defect; a task pointing at a
--- board that is simply absent from the restore is:
+-- Nor a board that did not come back — the v1.2.76 companion to the check above. board_id is NOT
+-- NULL (20260814020000), so a task with no board is already refused; a task pointing at a
+-- board that is simply absent from the restore is the defect:
 select count(*) from public.tasks t
   left join public.boards b on b.id = t.board_id
  where t.board_id is not null and b.id is null;   -- must be 0
@@ -386,10 +404,10 @@ select count(*) from public.tasks t
 -- silently lost it is a security incident that every count above would still report as clean.
 -- `labels` matters twice over: it is in the supabase_realtime publication, where losing RLS also
 -- escalates DELETE fan-out from primary keys to FULL deleted rows sent to every subscriber.
-select bool_and(relrowsecurity) from pg_class
- where relname in ('tasks', 'user_settings', 'boards', 'board_memberships', 'account_profiles',
-                   'labels');
-                                                                 -- must be true
+select c.relname, c.relrowsecurity from pg_class c
+  join pg_namespace n on n.oid = c.relnamespace
+ where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity;
+-- must return no rows: every table in public has RLS enabled
 -- Policies came back, per table. This deliberately does NOT assert a single total: that number was
 -- hard-coded three times (12, 17, 18) and went stale on the next schema change every time, and CI
 -- cannot catch it because backup.yml only asserts a floor. What matters during a restore is not the
@@ -402,15 +420,17 @@ select c.relname,
  where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity
  group by c.relname
  order by 1;
--- Every row must show a non-zero count, and the table list must match the RLS check above. As of
--- 2026-08-19: account_profiles 2, board_memberships 2, boards 3, labels 4, tasks 4,
--- user_settings 3 -- 18 in total, but read the shape, not the sum.
+-- Every row must show a non-zero count, and the table list should be every table in public. As of
+-- 2026-08-19 the six core tables read: account_profiles 2, board_memberships 2, boards 3, labels 4,
+-- tasks 4, user_settings 3 -- but later tables have since joined them, so read the shape, not the sum.
 
--- The two auth-schema triggers exist. schema.sql cannot carry either (see 3.1), and their absence
--- is invisible until, respectively, a new user signs up and silently gets no settings/board row, or
--- an existing user tries to delete their account and gets "Database error deleting user":
+-- The three auth-schema triggers exist. schema.sql cannot carry any of them (see 3.1), and their
+-- absence is invisible until, respectively, a new user signs up and silently gets no settings/board
+-- row, an existing user tries to delete their account and gets "Database error deleting user", or
+-- someone exploits a password set before the address was confirmed (no error at all):
 select count(*) from pg_trigger where tgname = 'on_auth_user_created';  -- must be 1
 select count(*) from pg_trigger where tgname = 'on_auth_user_deleted';  -- must be 1
+select count(*) from pg_trigger where tgname = 'on_auth_user_first_confirmed';  -- must be 1
 ```
 
 If any count is wrong, do not put the project back in front of users — the restore is incomplete, and

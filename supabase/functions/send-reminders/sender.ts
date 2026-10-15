@@ -1,3 +1,4 @@
+import { isPushServiceEndpoint } from "../../../src/notifications/pushEndpoint.ts";
 import {
   candidateKey,
   notificationTitle,
@@ -61,10 +62,12 @@ export interface ReminderStore {
     message: string,
     nowMs: number,
   ): Promise<void>;
+  /** `status` is null when the sender refused the endpoint without posting to it. */
   targetDead(
     target: TargetClaim,
     token: string,
-    status: number,
+    status: number | null,
+    reason: string,
     nowMs: number,
   ): Promise<void>;
   deleteSubscription(subscriptionId: string): Promise<void>;
@@ -79,6 +82,9 @@ export interface PushTransport {
     topic: string,
   ): Promise<void>;
 }
+
+const ENDPOINT_GONE = "Push endpoint is no longer registered.";
+const ENDPOINT_REFUSED = "Push endpoint is not a browser push service.";
 
 export class PushFailure extends Error {
   constructor(
@@ -130,6 +136,14 @@ export async function runReminderSender(
       tag: `reminder-${claim.id}`,
     });
     for (const target of targets) {
+      // The endpoint is whatever the subscribing client saved. One that is not a browser push
+      // service is never posted to, and is retired like a dead one, since it cannot ring.
+      if (!isPushServiceEndpoint(target.subscription.endpoint)) {
+        await store.targetDead(target, token, null, ENDPOINT_REFUSED, nowMs);
+        await store.deleteSubscription(target.subscription.id);
+        dead++;
+        continue;
+      }
       try {
         await push.send(target.subscription, payload, topic(candidate));
         await store.targetSucceeded(target, token, nowMs);
@@ -139,7 +153,13 @@ export async function runReminderSender(
           ? error
           : new PushFailure(String(error), null);
         if (failure.status === 404 || failure.status === 410) {
-          await store.targetDead(target, token, failure.status, nowMs);
+          await store.targetDead(
+            target,
+            token,
+            failure.status,
+            ENDPOINT_GONE,
+            nowMs,
+          );
           await store.deleteSubscription(target.subscription.id);
           dead++;
         } else {

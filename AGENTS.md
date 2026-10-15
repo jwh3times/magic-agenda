@@ -132,7 +132,7 @@ the area it covers; do not rely on this page's summaries for it.
   vocabulary, Owner-only management, the retired Category bridge, and `src/data/exportImport.ts`
   import planning.
 - [**Client state and realtime sync**](docs/agents/state-and-sync.md) — which provider mounts where,
-  `BoardPage` / `TaskBoardContext` ownership, `useSyncedTable` and its three adapters, offline
+  `BoardPage` / `TaskBoardContext` ownership, `useSyncedTable` and its four adapters, offline
   snapshots and the `hasSession` write-gate.
 - [**Recurrence**](docs/agents/recurrence.md) — hidden Series definitions, materialized Occurrences,
   the pure planners in `src/data/series.ts`, the `Task` union, and the Rule fields (weekdays, count,
@@ -146,8 +146,9 @@ the area it covers; do not rely on this page's summaries for it.
   instead of media queries, the timezone context, the inline-style-object theme model, and the
   reference prototype.
 - [**Installable PWA and offline read**](docs/agents/pwa-offline.md) — the hand-authored service
-  worker, network-first navigation, what is never cached, the CSP in `public/_headers`, and the
-  `localStorage` snapshot envelopes.
+  worker, network-first navigation, what is never cached, the CSP in `public/_headers`, the
+  `localStorage` snapshot envelopes, and Web Push: the `send-reminders` reminder sender and its
+  browser-push-service endpoint allow-list.
 - [**Testing layers and lint policy**](docs/agents/testing.md) — the hermetic unit suite, the RLS
   integration project, isolated-stack Playwright E2E plus deployed-preview probes, explicit Data
   API grants, and `.oxlintrc.json`.

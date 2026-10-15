@@ -22,7 +22,7 @@ const candidate: ReminderCandidate = {
 };
 const subscription: PushSubscriptionRow = {
   id: "s1",
-  endpoint: "https://push.example.test/device",
+  endpoint: "https://fcm.googleapis.com/fcm/send/device",
   p256dh: "key",
   authSecret: "secret",
 };
@@ -35,6 +35,7 @@ class MemoryStore implements ReminderStore {
   targetStatus: "none" | "pending" | "succeeded" | "dead" = "none";
   attemptCount = 0;
   nextAttemptMs = 0;
+  endpoint = subscription.endpoint;
 
   candidates(nowMs: number): Promise<ReminderCandidate[]> {
     const retry = this.targetStatus === "pending" && this.attemptCount > 0 &&
@@ -59,7 +60,9 @@ class MemoryStore implements ReminderStore {
     return Promise.resolve();
   }
   subscriptions(): Promise<PushSubscriptionRow[]> {
-    return Promise.resolve(this.deleted ? [] : [subscription]);
+    return Promise.resolve(
+      this.deleted ? [] : [{ ...subscription, endpoint: this.endpoint }],
+    );
   }
   ensureTargets(): Promise<boolean> {
     if (this.targetStatus === "none") {
@@ -82,7 +85,7 @@ class MemoryStore implements ReminderStore {
     }
     return Promise.resolve([{
       id: "target-1",
-      subscription,
+      subscription: { ...subscription, endpoint: this.endpoint },
       attemptCount: this.attemptCount,
     }]);
   }
@@ -196,6 +199,26 @@ Deno.test("404 and 410 permanently retire a dead endpoint", async () => {
     assertEquals(store.deleted, true);
     assertEquals(sends, 1);
   }
+});
+
+Deno.test("an endpoint that is not a browser push service is never posted to", async () => {
+  // The endpoint is whatever the subscribing client saved, so without this the function would
+  // make a request to any host an Account chose.
+  const store = new MemoryStore();
+  store.endpoint = "https://internal.example.test:8443/hook";
+  let sends = 0;
+  const push = {
+    send: () => {
+      sends++;
+      return Promise.resolve();
+    },
+  };
+
+  const result = await runReminderSender(store, push, candidate.windowOpensMs);
+
+  assertEquals(sends, 0);
+  assertEquals(result.dead, 1);
+  assertEquals(store.deleted, true);
 });
 
 Deno.test("a removed subscription cannot hold a retry delivery open", async () => {

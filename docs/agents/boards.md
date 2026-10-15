@@ -6,8 +6,8 @@ writes `board_id`.
 
 ## Board ownership: containment IS the authorization boundary
 
-`account_profiles`, `boards`, and `board_memberships` exist in production, every Account has exactly
-one Board, and every task carries a `board_id` — which is now **NOT NULL and authoritative**. The
+`account_profiles`, `boards`, and `board_memberships` exist in production, every Account starts with
+one Board (and can create or join more), and every task carries a `board_id` — which is now **NOT NULL and authoritative**. The
 four `tasks` policies compare `board_id` against the caller's current Memberships; `user_id` was no
 longer an authorization input anywhere even before it was dropped from the table entirely (#197).
 
@@ -23,7 +23,7 @@ one containment model and pay the migration.
 The policy shape is `board_id in (select ...)` rather than a helper function of `board_id`, and that
 is deliberate on two counts. A function taking the row's Board id cannot be hoisted to an InitPlan,
 so it would run once per row on the hottest query in the app; the uncorrelated subquery is evaluated
-once per statement. And it needs no `security definer` helper, so there is still no private schema —
+once per statement. And it needs no `security definer` helper, so this policy needs no private schema —
 a policy that subqueries a **different** relation does not recurse.
 
 Read/write split: SELECT is any current member (Viewers included — that is what Viewer means),
@@ -36,7 +36,7 @@ Boards — that last one enforced by the composite foreign key
 `(board_id, recur_parent_id) -> (board_id, id)`, not by a policy, so it holds even for a caller who
 can legitimately edit both Boards.
 
-Four things here are load-bearing and none is obvious from the schema alone:
+These are load-bearing and none is obvious from the schema alone:
 
 - **`handle_new_user` now seeds the Account foundation** — settings, profile, Board, Owner
   Membership, and the Board's five ordinary seeded Labels — in the signup transaction. A failure in
@@ -81,8 +81,9 @@ authenticated`. It carries an abuse ceiling of 100 current Memberships per accou
   identical vocabularies.
 - **`app_private` holds policy helpers.** Account-level administration introduced
   `app_private.is_admin()` for feature-flag writes. Board policies remain Membership-scoped;
-  administration grants no additional access to Board content. A future _co-member_ clause on
-  `board_memberships` will also need a helper because it subqueries its own table and recurses.
+  administration grants no additional access to Board content. A _co-member_ clause on
+  `board_memberships` would need a helper because it subqueries its own table and recurses; #435
+  chose a command instead (`board_members()`), so no such helper exists.
   Measured, not assumed: a policy calling a function in a private schema requires the **calling**
   role to hold `USAGE` and `EXECUTE` or the query dies with `permission denied for function`, so
   such a helper can never be hidden from `authenticated` — only from `anon`. What actually keeps a
@@ -203,7 +204,8 @@ unchanged and still removes everything under a Board's prefix at once.
 on INSERT; every UPDATE increments the stored revision, and both paths stamp `last_editor_id`.
 Administrative writes without an authenticated user stamp a null editor. Existing attribution is
 not backfilled: Board containment cannot establish historical authorship. Revision records writes;
-the client does not yet enforce compare-and-swap checks to reject stale edits.
+the client enforces compare-and-swap on editor saves (#433), rejecting a save made against a
+stale revision; see [Client state and realtime sync](state-and-sync.md).
 
 Authenticated INSERT/UPDATE grants match the `taskToRow` payload exactly, including `id` for
 PostgREST upserts and excluding attribution and database timestamps. `recur_weekdays` and
@@ -243,7 +245,12 @@ one both resolve to NULL from `ical_feed`, so the `ical` Edge Function
 both with the same 404 and `Cache-Control: no-store`, and never logs the token. The feed carries
 the Board's scheduled, unarchived Tasks — completed included, archived and Inbox Tasks excluded,
 hidden Series definitions excluded since their Occurrences already carry the schedule — alongside
-the Board name and Account Timezone.
+the Board name and Account Timezone. `supabase/functions/_shared/ics.ts` also asks subscribers to
+re-fetch hourly, as `REFRESH-INTERVAL;VALUE=DURATION:PT1H` (RFC 7986) and the older
+`X-PUBLISHED-TTL:PT1H` that Outlook and Apple Calendar read. Both are requests: Google Calendar polls
+on its own schedule and may ignore them. A successful response carries
+`Cache-Control: private, max-age=300` (`private` because it is one capability's view of one Board),
+which the hour hint deliberately stays above.
 
 **`ical_token` rides on the table's existing `board_memberships_select_own` policy, with no
 column-level withholding of its own.** #279's planned co-member clause, letting a Viewer see who
@@ -392,8 +399,8 @@ nothing new. Covered by `tests/rls/task_assignee.test.ts` and `src/components/as
 
 ## Board Invitations: a link, a verified email, and limits enforced under the lock (#436)
 
-`public.board_invitations` and its commands ship dark: no UI calls them until #437, and they hold
-with the `board-sharing` flag off. Delivery in v1 is an **Owner-delivered link** — the app sends no
+`public.board_invitations` and its commands shipped dark; the UI landed with #437 and the
+`board-sharing` flag has been on since 2026-09-29. The commands still hold with the flag off. Delivery in v1 is an **Owner-delivered link** — the app sends no
 email (#444 is deferred), and the row is the same whichever way it is delivered.
 
 - **`create_invitation(board, email, role)`** (current Owner only) returns a token **once**: 32
@@ -421,6 +428,17 @@ email (#444 is deferred), and the row is the same whichever way it is delivered.
   state; the row stays as the record. The private decision called for a CHECK constraint here, but
   Postgres evaluates a CHECK only when a row is written, so it cannot enforce a time-based rule. The
   job is the mechanism, and `tests/rls/board_invitations.test.ts` runs it and asserts the outcome.
+- **An Invitation is only as good as its issuer's Ownership.** `accept_invitation` never reads
+  `invited_by`, so the `board_memberships_revoke_invitations` trigger revokes an Owner's pending,
+  unexpired Invitations on a Board the moment that Ownership ends: removal, demotion, leaving, or
+  account deletion, and any later path that updates the Membership. Each of those already holds
+  the Board row lock that acceptance takes. The pending list in Members names each issuer and is
+  reread whenever the member list changes. `tests/rls/invitations_end_with_ownership.test.ts`
+  covers all four paths.
+- **Lock order: the Board, then the Invitation.** Everything that writes an Invitation takes the
+  Board row lock first; `accept_invitation` finds the Board without a lock, locks it, then locks
+  and checks the Invitation. The reverse order deadlocked against the trigger above, which on
+  account deletion would abort a deletion whose attachment files were already swept.
 
 Only the Board's current Owners can SELECT its Invitations, which is exactly the domain model's
 "pending invitation emails are visible only to Owners". Nobody holds a write grant. Refusals are

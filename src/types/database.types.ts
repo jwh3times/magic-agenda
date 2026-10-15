@@ -301,6 +301,7 @@ export type Database = {
           account_id: string
           auth_secret: string
           created_at: string
+          device_label: string | null
           endpoint: string
           expiration_time: string | null
           id: string
@@ -311,6 +312,7 @@ export type Database = {
           account_id: string
           auth_secret: string
           created_at?: string
+          device_label?: string | null
           endpoint: string
           expiration_time?: string | null
           id?: string
@@ -321,6 +323,7 @@ export type Database = {
           account_id?: string
           auth_secret?: string
           created_at?: string
+          device_label?: string | null
           endpoint?: string
           expiration_time?: string | null
           id?: string

@@ -70,7 +70,7 @@ Sat/Sun and never rotates.
 
 ## Theming is an inline-style-object model, not CSS
 
-Ported verbatim from the prototype. `theme/constants.ts` (CAT/COLORS/STATUS/PAPER), `theme/themeConf.ts`
+Ported verbatim from the prototype. `theme/constants.ts` (COLORS/STATUS/PAPER), `theme/themeConf.ts`
 (~28 tokens per theme), `theme/cardStyles.ts` (the style half of the prototype's `noteView`, incl.
 `rotOf`, pin, DONE stamp), and `theme/chrome.ts` (board/cell/inbox/column/toolbar styles) all return
 plain style objects with per-theme branching (rotation, pins, hard vs. soft shadows, blur). Three

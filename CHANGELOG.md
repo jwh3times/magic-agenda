@@ -12,6 +12,81 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.33] - 2026-10-15
+
+### Docs
+
+- The restore runbook now recreates and checks the third `auth.users` trigger,
+  `on_auth_user_first_confirmed`. A `schema.sql` restore omitted it silently, which reopened the
+  password takeover before email confirmation. The same runbook also names the two remaining
+  attachment storage policies, replays migrations through the current attachment policy, and checks
+  row-level security on every `public` table rather than six.
+- The area guides no longer describe finished work as pending or counts that have grown: bulk delete
+  goes through `apply_task_writes`, the client enforces revision compare-and-swap, Board Invitations
+  are live, `app_private` exists, there are four `useSyncedTable` adapters and four offline
+  snapshot envelopes, and the recurrence unique index is `tasks_recur_instance_uniq`.
+- The calendar feed section documents the hourly refresh hint and the 200 response's cache header.
+  `README.md` now says tasks are visible to the members of their Board and lists the current
+  project structure. `AGENTS.md` points at Web Push in the PWA guide.
+
+## [1.17.32] - 2026-10-15
+
+### Security
+
+- **A device you no longer have can be removed from reminders.** Settings → Notifications now
+  lists every browser and installed app that receives your reminders, with when it was added, and
+  each one except the device you are on has a Remove button. Before, a device could only be removed
+  from itself, so a lost laptop or a browser you could no longer open kept receiving Task titles.
+  The list works on a device that cannot receive reminders itself, such as an iPhone outside the
+  Home Screen app. Removing a device stops its reminders; it does not sign that device out.
+
+### Changed
+
+- **Devices are named by browser and system**, such as "Firefox on Linux". A device enabled before
+  this release is named by its browser's push service until it is enabled again.
+
+## [1.17.31] - 2026-10-14
+
+### Security
+
+- **Reminders are sent only to browser push services.** The reminder sender posted to whatever
+  address a device registered, so an account could make it send a request to a host of its own
+  choosing. It now posts only over HTTPS to the push services of Chrome and other Chromium
+  browsers, Edge, Firefox, and Safari. A registration anywhere else is never contacted and is
+  removed.
+
+### Changed
+
+- **Enabling reminders in a browser with an unsupported push service now says so.** The device is
+  not saved, rather than appearing subscribed and never receiving anything.
+
+## [1.17.30] - 2026-10-14
+
+### Security
+
+- **A pending Board invitation stops working when the Owner who sent it stops being an Owner.**
+  Before, an Owner who was removed, demoted, left, or deleted their account kept every invitation
+  they had sent, usable for up to 14 days. That included one addressed to a second account of
+  their own. Ending the Ownership now revokes those invitations at once, and the release revokes
+  any pending invitation whose sender is already no longer an Owner.
+
+### Changed
+
+- **Members shows who sent each pending invitation** ("invited by Ada", or "invited by you"),
+  and the list refreshes when a member is removed or changes role.
+
+### Internal
+
+- New migration `20261014120000_invitations_end_with_ownership.sql`: the trigger
+  `board_memberships_revoke_invitations` and the owner-only function
+  `revoke_invitations_of_ended_owner()`, added to `supabase/reviewed-functions.json`. New RLS tests
+  cover removal, demotion, leaving, account deletion, and changes that must revoke nothing.
+- `accept_invitation` now locks the Board before the invitation, the same order as every command
+  that ends a membership. The old order could deadlock an acceptance against a removal or an
+  account deletion, and Postgres would abort one of them. A new RLS test reproduces the deadlock
+  against the old order.
+- If the member list fails to load, the pending invitations still load, without issuer names.
+
 ## [1.17.29] - 2026-10-14
 
 ### Fixed
@@ -5130,7 +5205,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.29...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.31...HEAD
+[1.17.31]: https://github.com/jwh3times/magic-agenda/compare/v1.17.30...v1.17.31
+[1.17.30]: https://github.com/jwh3times/magic-agenda/compare/v1.17.29...v1.17.30
 [1.17.29]: https://github.com/jwh3times/magic-agenda/compare/v1.17.28...v1.17.29
 [1.17.28]: https://github.com/jwh3times/magic-agenda/compare/v1.17.27...v1.17.28
 [1.17.27]: https://github.com/jwh3times/magic-agenda/compare/v1.17.26...v1.17.27

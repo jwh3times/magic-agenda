@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import { ROLE_LABELS } from '../board/role'
+import type { BoardMember } from '../board/boardMembers'
+import { memberName } from '../board/boardMembersContext'
 import {
   createInvitation,
   listPendingInvitations,
@@ -26,7 +28,22 @@ const ROLES: readonly InvitationRole[] = ['editor', 'viewer']
  * means, but it grants the whole Board, attached files included, which is the consent the invitee
  * sees too.
  */
-export function InvitationsSection({ boardId, boardName }: { boardId: string; boardName: string }) {
+export function InvitationsSection({
+  boardId,
+  boardName,
+  members,
+  selfAccountId = null,
+}: {
+  boardId: string
+  boardName: string
+  /**
+   * The Board's current members, for naming who issued each Invitation; `null` while they load.
+   * A new list also rereads the pending Invitations: ending an Owner's Ownership revokes theirs
+   * on the server. Omitted, the list is read once and issuers go unnamed.
+   */
+  members?: readonly BoardMember[] | null
+  selfAccountId?: string | null
+}) {
   const { conf } = useThemeOrDefault()
   const [pending, setPending] = useState<PendingInvitation[]>([])
   const [email, setEmail] = useState('')
@@ -43,6 +60,8 @@ export function InvitationsSection({ boardId, boardName }: { boardId: string; bo
   }, [boardId])
 
   useEffect(() => {
+    // `null` is a member list still loading: wait for it, so the first read can name issuers.
+    if (members === null) return
     let current = true
     void listPendingInvitations(boardId).then((outcome) => {
       if (!current) return
@@ -52,7 +71,7 @@ export function InvitationsSection({ boardId, boardName }: { boardId: string; bo
     return () => {
       current = false
     }
-  }, [boardId])
+  }, [boardId, members])
 
   const create = async () => {
     setBusy(true)
@@ -76,6 +95,15 @@ export function InvitationsSection({ boardId, boardName }: { boardId: string; bo
     setBusy(false)
     if (!outcome.ok) setError(outcome.message)
     await load()
+  }
+
+  // Every pending Invitation's issuer is a current Owner — ending the Ownership revokes it — so a
+  // miss means the member list has not caught up yet, and the line simply leaves the name out.
+  const issuer = (accountId: string | null): string | null => {
+    if (accountId === null) return null
+    if (accountId === selfAccountId) return 'you'
+    const member = members?.find((candidate) => candidate.accountId === accountId)
+    return member ? memberName(member) : null
   }
 
   const copy = async () => {
@@ -169,8 +197,13 @@ export function InvitationsSection({ boardId, boardName }: { boardId: string; bo
             <li key={invitation.id} style={row}>
               <span>{invitation.email}</span>
               <span style={hint}>
-                {ROLE_LABELS[invitation.role]} · pending until{' '}
-                {new Date(invitation.expiresAt).toLocaleDateString()}
+                {[
+                  ROLE_LABELS[invitation.role],
+                  issuer(invitation.invitedBy) && `invited by ${issuer(invitation.invitedBy)}`,
+                  `pending until ${new Date(invitation.expiresAt).toLocaleDateString()}`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
               </span>
               <div style={{ flex: 1 }} />
               <Button

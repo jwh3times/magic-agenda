@@ -1,6 +1,6 @@
 # Client state and realtime sync
 
-Who owns board state, which provider mounts where, and the one `postgres_changes` module its three
+Who owns board state, which provider mounts where, and the one `postgres_changes` module its four
 adapters share. Read before adding a hook that loads or subscribes to a table, or before moving a
 provider.
 
@@ -31,7 +31,7 @@ while Label Directory consumers start from `fakeLabelDirectory()`
 (`src/labels/fakeLabelDirectory.ts`). These follow the same typed-fake precedent as `fakeUseTasks`
 and `fakeAuthGateway`, so interface additions cannot leave partial, untyped return objects behind.
 `useTasks` remains the single source of truth for board tasks: optimistic CRUD with rollback, plus
-`persistReorder` (upserts only the changed lanes) and, since #270, `bulkUpdate` / `bulkDelete`.
+`persistReorder` (one update-only `apply_task_writes` call covering the changed lanes) and, since #270, `bulkUpdate` / `bulkDelete`.
 These are one batched write per selection, planned by `src/data/bulk.ts` and `planBulkDelete`; see
 [Recurrence](recurrence.md) for how bulk delete treats Occurrences.
 

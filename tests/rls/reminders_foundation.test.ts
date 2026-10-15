@@ -151,6 +151,71 @@ test('push subscriptions are owner-scoped and support several devices', async ()
   expect(removed.status).toBe(204)
 })
 
+test('a device can be removed from another of the owner’s devices, and only by the owner', async () => {
+  // Settings lists every device so a lost one can be removed from elsewhere: the owner deletes a
+  // row by id, and another Account's delete by the same id reaches nothing.
+  const aliceHeaders = await authHeaders(alice)
+  const bobHeaders = await authHeaders(bob)
+  const created = await rest<{ id: string; device_label: string | null }[]>('push_subscriptions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+      ...aliceHeaders,
+    },
+    body: JSON.stringify({
+      account_id: alice.id,
+      endpoint: 'https://push.example.test/alice-lost-laptop',
+      p256dh: 'lost-key',
+      auth_secret: 'lost-secret',
+      device_label: 'Chrome on Linux',
+    }),
+  })
+  expect(created.status).toBe(201)
+  expect(created.body[0].device_label).toBe('Chrome on Linux')
+  const id = created.body[0].id
+
+  const stranger = await rest<unknown[]>(`push_subscriptions?id=eq.${id}`, {
+    method: 'DELETE',
+    headers: { Prefer: 'return=representation', ...bobHeaders },
+  })
+  expect(stranger).toEqual({ status: 200, body: [] })
+
+  const listed = await rest<{ id: string; device_label: string | null }[]>(
+    `push_subscriptions?account_id=eq.${alice.id}&select=id,device_label`,
+    {},
+    aliceHeaders,
+  )
+  expect(listed.body).toContainEqual({ id, device_label: 'Chrome on Linux' })
+
+  const owner = await rest<{ id: string }[]>(`push_subscriptions?id=eq.${id}&select=id`, {
+    method: 'DELETE',
+    headers: { Prefer: 'return=representation', ...aliceHeaders },
+  })
+  expect(owner).toEqual({ status: 200, body: [{ id }] })
+})
+
+test('a device label is short and never empty', async () => {
+  const headers = await authHeaders(bob)
+  const save = (device_label: string | null, endpoint: string) =>
+    rest<unknown>('push_subscriptions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal', ...headers },
+      body: JSON.stringify({
+        account_id: bob.id,
+        endpoint: `https://push.example.test/${endpoint}`,
+        p256dh: 'key',
+        auth_secret: 'secret',
+        device_label,
+      }),
+    })
+
+  expect((await save('', 'empty')).status).toBe(400)
+  expect((await save('x'.repeat(65), 'long')).status).toBe(400)
+  expect((await save('x'.repeat(64), 'longest')).status).toBe(201)
+  expect((await save(null, 'unlabelled')).status).toBe(201)
+})
+
 test('anonymous subscription reads filter to zero rows', async () => {
   const result = await rest<unknown[]>('push_subscriptions?select=id')
   expect(result).toEqual({ status: 200, body: [] })
