@@ -466,6 +466,21 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     void reload()
   }, [reload])
 
+  /**
+   * The reload a write asks for once it settles: a short result, a materialize race, a conflict,
+   * or a failure. It is this closure's `reload`, which loads the write's Board, so after a switch
+   * to another Board it would take the hook back to the old one while the new one is selected,
+   * and nothing would load the new one again (#538). It refuses then. It returns whether the hook
+   * still holds this Board, checked again after the reload because a switch can also land while
+   * it runs: a caller that explains its reload with a message must not put that message on the
+   * other Board either.
+   */
+  const reloadAfterWrite = useCallback(async (): Promise<boolean> => {
+    if (heldBoard.current !== boardId) return false
+    await reload()
+    return heldBoard.current === boardId
+  }, [reload, boardId])
+
   // Persist the board for offline reads. Debounced because optimistic CRUD churns `tasks`;
   // a rolled-back write re-renders the restored state and the next tick writes that, so this
   // is self-correcting and needs no "confirmed" bookkeeping. Every clause of the gate — and why
@@ -556,7 +571,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
           return
         }
         // The board is unchanged by adding a template (templates are never in it).
-        if (await materialize([task], tasksRef.current)) void reload()
+        if (await materialize([task], tasksRef.current)) void reloadAfterWrite()
         return
       }
       const prev = tasksRef.current
@@ -592,7 +607,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       abandonWrites,
       reconcileReturnedRows,
       forgetUndo,
-      reload,
+      reloadAfterWrite,
     ],
   )
 
@@ -826,7 +841,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         if (mode === 'status') reconcileReturnedRows(data)
         settleWrites(data)
         recordRevisions(revisions.current, data)
-        if (cameBackShort(rows, data)) void reload()
+        if (cameBackShort(rows, data)) void reloadAfterWrite()
         // Undo needs the pre-drag board; a drop without one (another write intervened) has none.
         if (origin) {
           const before = new Map(origin.map((t) => [t.id, t]))
@@ -844,18 +859,14 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         }
       } catch (e) {
         abandonWrites(rows.map((r) => r.id))
-        // This closure's reload loads this closure's Board: after a switch it would take the hook
-        // back to the old Board while the new one is selected, and the message would land there.
-        if (heldBoard.current !== boardId) return
         // Reload first, then say why: a reload clears the error as it starts.
-        await reload()
-        setError(errorMessage(e))
+        if (await reloadAfterWrite()) setError(errorMessage(e))
       }
     },
     [
       setTasks,
       boardId,
-      reload,
+      reloadAfterWrite,
       markWrites,
       settleWrites,
       abandonWrites,
@@ -882,7 +893,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         if (err) throw new Error(err.message)
         settleWrites(data)
         recordRevisions(revisions.current, data)
-        if (cameBackShort(rows, data)) void reload()
+        if (cameBackShort(rows, data)) void reloadAfterWrite()
         offerUndo(
           generation,
           `Rolled ${countTasks(changed.length)} forward to today`,
@@ -896,7 +907,16 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         setError(errorMessage(e))
       }
     },
-    [setTasks, markWrites, settleWrites, abandonWrites, boardId, forgetUndo, offerUndo, reload],
+    [
+      setTasks,
+      markWrites,
+      settleWrites,
+      abandonWrites,
+      boardId,
+      forgetUndo,
+      offerUndo,
+      reloadAfterWrite,
+    ],
   )
 
   /**
@@ -922,7 +942,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         if (change.kind === 'status') reconcileReturnedRows(data)
         settleWrites(data)
         recordRevisions(revisions.current, data)
-        if (cameBackShort(rows, data)) void reload()
+        if (cameBackShort(rows, data)) void reloadAfterWrite()
         offerUndo(
           generation,
           describeBulkChange(change, changed.length),
@@ -947,7 +967,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       reconcileReturnedRows,
       forgetUndo,
       offerUndo,
-      reload,
+      reloadAfterWrite,
     ],
   )
 
@@ -1032,8 +1052,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
             // Reload first, then say why: a reload clears the error, so the other order would
             // swallow the one message explaining why the edit disappeared.
             abandonWrites(plan.markIds)
-            await reload()
-            setError(boardFailure('stale-revision').message)
+            if (await reloadAfterWrite()) setError(boardFailure('stale-revision').message)
             return false
           }
           throw new Error(err.message)
@@ -1041,7 +1060,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         if (changesStatus) reconcileReturnedRows(data)
         settleWrites(data)
         recordRevisions(revisions.current, data)
-        if (cameBackShort(updates, data)) void reload()
+        if (cameBackShort(updates, data)) void reloadAfterWrite()
       } catch (e) {
         failed = true
         setError(errorMessage(e))
@@ -1055,7 +1074,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       // Pass the plan's own board rather than the ref: `setTasks` writes the ref inside a
       // deferred React updater, so the ref may still hold the pre-plan value here.
       if (!failed && plan.materialize.length > 0) {
-        if (await materialize(plan.materialize, [...plan.state.tasks])) void reload()
+        if (await materialize(plan.materialize, [...plan.state.tasks])) void reloadAfterWrite()
       }
       return !failed
     },
@@ -1065,7 +1084,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       settleWrites,
       abandonWrites,
       boardId,
-      reload,
+      reloadAfterWrite,
       materialize,
       reconcileReturnedRows,
       hasSession,
@@ -1251,8 +1270,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         // after it so it survives to be read.
         const returned = new Set((data ?? []).map((row) => row.id))
         if (reinserted.some((task) => !returned.has(task.id))) {
-          await reload()
-          setError(UNDO_INCOMPLETE)
+          if (await reloadAfterWrite()) setError(UNDO_INCOMPLETE)
           return false
         }
       }
@@ -1261,12 +1279,9 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       await restoreAttachments(plan.insertAttachments)
       return true
     } catch (e) {
-      // Not after a Board switch, as for a failed reorder.
-      if (heldBoard.current !== boardId) return false
       // Part of the restore may have landed; only the server knows which. Reload first, then say
       // why: a reload clears the error as it starts.
-      await reload()
-      setError(errorMessage(e))
+      if (await reloadAfterWrite()) setError(errorMessage(e))
       return false
     }
   }, [
@@ -1279,7 +1294,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     settleWrites,
     boardId,
     reconcileReturnedRows,
-    reload,
+    reloadAfterWrite,
   ])
 
   return {

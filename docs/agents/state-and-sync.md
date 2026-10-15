@@ -187,6 +187,16 @@ superseded load re-checks after each await so its rows never land, and `material
 drops its outcome after a switch. Every Task write that targets one row (`updateTask`, the
 compare-and-swap save, `toggleCompletion`, `removeTask`) also filters `.eq('board_id', boardId)`.
 
+A write that asks for a reload once it settles (a short result, a materialize race, a Series
+conflict, a failed reorder or undo) calls `reloadAfterWrite()`, never `reload()` directly (#538).
+The `reload` in that write's closure loads the write's Board, so after a switch it would take the
+hook back to the old Board while the new one is selected, and nothing would load the new one
+again. `reloadAfterWrite()` refuses once `heldBoard` has moved on, and returns whether the hook
+still holds the write's Board, checked again after the reload because a switch can also land
+while it runs. A caller that explains its reload with an error sets the error only when it
+returns true. Reload first, then
+set the error: `reload()` clears the error as it starts.
+
 **Editor saves of one Task or Occurrence are compare-and-swap (#433).** `useTasks` keeps the last
 server revision it saw per Task, from loads, realtime events, and every write that returns rows
 (`revisionOf`). `Board` records it when the editor opens, and `saveTask` passes it down, so the

@@ -235,7 +235,7 @@ vi.mock('./attachments', () => ({
   restoreAttachments: h.restoreAttachments,
 }))
 
-import { useTasks } from './useTasks'
+import { useTasks, type UseTasks } from './useTasks'
 import { readBoardSnapshot } from './snapshot'
 
 const serverRow = (over: Record<string, unknown> = {}) => ({
@@ -1988,51 +1988,6 @@ test('a reorder that fails reloads the Board and still says why', async () => {
   expect(result.current.error).toBe('network down')
 })
 
-test('a reorder that fails after switching Boards leaves the new Board alone', async () => {
-  h.capture.rows = [serverRow({ id: 't1' }), serverRow({ id: 't2', order_index: 1 })]
-  h.capture.loadFor = (board) =>
-    board === 'b2'
-      ? Promise.resolve({
-          data: [serverRow({ id: 'b2-task', board_id: 'b2' })],
-          count: 1,
-          error: null,
-          status: 200,
-        })
-      : undefined
-  const { result, rerender } = renderHook(({ board }) => useTasks('u1', board, true), {
-    initialProps: { board: 'b1' },
-  })
-  await waitFor(() => expect(result.current.loading).toBe(false))
-  let fail!: (e: Error) => void
-  h.rpc.mockReturnValueOnce(new Promise((_, reject) => (fail = reject)))
-
-  const [t1, t2] = result.current.tasks
-  const reorder = result.current.persistReorder
-  let pending!: Promise<void>
-  act(() => {
-    pending = Promise.resolve(
-      reorder(
-        [
-          { ...t2, order: 0 },
-          { ...t1, order: 1 },
-        ],
-        [t1.day],
-        'day',
-      ),
-    )
-  })
-  rerender({ board: 'b2' })
-  await waitFor(() => expect(result.current.tasks.map((t) => t.id)).toEqual(['b2-task']))
-
-  await act(async () => {
-    fail(new Error('network down'))
-    await pending
-  })
-  // Board 1's reload would take the hook back to Board 1 while Board 2 is selected.
-  expect(result.current.tasks.map((t) => t.id)).toEqual(['b2-task'])
-  expect(result.current.error).toBeNull()
-})
-
 test('an undo that fails reloads the Board and still says why', async () => {
   h.capture.rows = [serverRow({ id: 't1', title: 'keep me' }), serverRow({ id: 't2' })]
   const { result } = renderHook(() => useTasks('u1', 'b1', true))
@@ -2127,4 +2082,203 @@ test('every single-row write names the Board it was loaded from', async () => {
     await result.current.removeTask('t1')
   })
   expect(h.deleteBoardEq).toHaveBeenCalledWith('board_id', 'b1')
+})
+
+// ——— a write that settles after a Board switch leaves the new Board alone (#538) ———
+
+/**
+ * Starts a write on Board 1, switches to Board 2 while the write's `apply_task_writes` request is
+ * held, then lets the request answer. Each of these writes asks for a reload, and Board 1's reload
+ * would take the hook back to Board 1 while Board 2 is selected, with nothing to load Board 2
+ * again. So Board 2 must still be showing afterwards, without a message about Board 1's write.
+ */
+async function switchBoardsDuring({
+  rows,
+  prepare,
+  write,
+  answer,
+}: {
+  rows: unknown[]
+  prepare?: (board: UseTasks) => unknown
+  write: (board: UseTasks) => unknown
+  answer: { data: unknown[] } | { error: { message: string } } | Error
+}) {
+  h.capture.rows = rows
+  h.capture.loadFor = (board) =>
+    board === 'b2' ? boardLoad([serverRow({ id: 'b2-task', board_id: 'b2' })]) : undefined
+  const { result, rerender } = renderHook(({ board }) => useTasks('u1', board, true), {
+    initialProps: { board: 'b1' },
+  })
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  if (prepare) {
+    await act(async () => {
+      await prepare(result.current)
+    })
+  }
+  let settle!: () => void
+  h.rpc.mockImplementationOnce(
+    () =>
+      new Promise((resolve, reject) => {
+        settle = () =>
+          answer instanceof Error
+            ? reject(answer)
+            : resolve(
+                'data' in answer ? { data: answer.data, error: null } : { data: null, ...answer },
+              )
+      }),
+  )
+
+  let pending!: Promise<unknown>
+  act(() => {
+    pending = Promise.resolve(write(result.current))
+  })
+  rerender({ board: 'b2' })
+  await waitFor(() => expect(result.current.tasks.map((t) => t.id)).toEqual(['b2-task']))
+
+  await act(async () => {
+    settle()
+    await pending
+  })
+  // A reload the write started without awaiting, given the chance to land.
+  await act(() => new Promise((resolve) => setTimeout(resolve, 0)))
+  expect(result.current.tasks.map((t) => t.id)).toEqual(['b2-task'])
+  expect(result.current.error).toBeNull()
+}
+
+const twoTasks = () => [serverRow({ id: 't1' }), serverRow({ id: 't2', order_index: 1 })]
+const reorderBoth = (board: UseTasks) => {
+  const [t1, t2] = board.tasks
+  return board.persistReorder(
+    [
+      { ...t2, order: 0 },
+      { ...t1, order: 1 },
+    ],
+    [t1.day],
+    'day',
+  )
+}
+const deleteFirst = (board: UseTasks) => board.deleteTask('t1')
+const undo = (board: UseTasks) => board.undo()
+
+test('a reorder that fails after switching Boards leaves the new Board alone', async () => {
+  await switchBoardsDuring({
+    rows: twoTasks(),
+    write: reorderBoth,
+    answer: new Error('network down'),
+  })
+})
+
+test('a reorder that comes back short after switching Boards leaves the new Board alone', async () => {
+  await switchBoardsDuring({
+    rows: twoTasks(),
+    write: reorderBoth,
+    answer: { data: [serverRow({ id: 't1' })] },
+  })
+})
+
+test('a roll-forward that comes back short after switching Boards leaves the new Board alone', async () => {
+  await switchBoardsDuring({
+    rows: [serverRow({ id: 't1', day: '2026-07-01' }), serverRow({ id: 't2', day: '2026-07-02' })],
+    write: (board) => board.rollForward('2026-07-10'),
+    answer: { data: [] },
+  })
+})
+
+test('a bulk change that comes back short after switching Boards leaves the new Board alone', async () => {
+  await switchBoardsDuring({
+    rows: twoTasks(),
+    write: (board) => board.bulkUpdate(new Set(['t1', 't2']), { kind: 'color', color: 'mint' }),
+    answer: { data: [] },
+  })
+})
+
+test('a stale Series edit answered after switching Boards leaves the new Board alone', async () => {
+  const today = ymd(new Date())
+  await switchBoardsDuring({
+    rows: [
+      serverRow({ id: 'tpl1', recur_freq: 'daily', day: today, title: 'old', revision: 6 }),
+      serverRow({ id: 'i1', recur_parent_id: 'tpl1', recur_origin_day: today, day: today }),
+    ],
+    write: (board) => {
+      const instance = board.tasks.find((t) => t.id === 'i1')!
+      return board.saveTask(
+        instance,
+        { ...instance, title: 'mine', recurFreq: 'daily', recurInterval: 1, recurUntil: null },
+        false,
+        'future',
+      )
+    },
+    answer: { error: { message: 'stale-revision' } },
+  })
+})
+
+test('a Series edit that comes back short after switching Boards leaves the new Board alone', async () => {
+  const today = ymd(new Date())
+  await switchBoardsDuring({
+    rows: [
+      serverRow({ id: 'tpl1', recur_freq: 'daily', day: today, title: 'old', revision: 6 }),
+      serverRow({ id: 'i1', recur_parent_id: 'tpl1', recur_origin_day: today, day: today }),
+    ],
+    write: (board) => {
+      const instance = board.tasks.find((t) => t.id === 'i1')!
+      return board.saveTask(
+        instance,
+        { ...instance, title: 'mine', recurFreq: 'daily', recurInterval: 1, recurUntil: null },
+        false,
+        'future',
+      )
+    },
+    answer: { data: [] },
+  })
+})
+
+test('an undo that fails after switching Boards leaves the new Board alone', async () => {
+  await switchBoardsDuring({
+    rows: twoTasks(),
+    prepare: deleteFirst,
+    write: undo,
+    answer: new Error('network down'),
+  })
+})
+
+test('an undo the server skipped, answered after switching Boards, leaves the new Board alone', async () => {
+  await switchBoardsDuring({
+    rows: twoTasks(),
+    prepare: deleteFirst,
+    write: undo,
+    answer: { data: [] },
+  })
+})
+
+test("a failed reorder's reload overtaken by a Board switch does not say why on the new Board", async () => {
+  h.capture.rows = twoTasks()
+  let releaseReload: () => void = () => {}
+  let holdReload = false
+  h.capture.loadFor = (board) => {
+    if (board === 'b2') return boardLoad([serverRow({ id: 'b2-task', board_id: 'b2' })])
+    if (!holdReload) return undefined
+    return new Promise((resolve) => (releaseReload = () => resolve(boardLoad(twoTasks()))))
+  }
+  const { result, rerender } = renderHook(({ board }) => useTasks('u1', board, true), {
+    initialProps: { board: 'b1' },
+  })
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  holdReload = true
+  h.rpc.mockRejectedValueOnce(new Error('network down'))
+
+  let pending!: Promise<unknown>
+  await act(async () => {
+    pending = Promise.resolve(reorderBoth(result.current))
+    // Still on Board 1 when the write fails, so its reload starts.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+  rerender({ board: 'b2' })
+  await waitFor(() => expect(result.current.tasks.map((t) => t.id)).toEqual(['b2-task']))
+
+  await act(async () => {
+    releaseReload()
+    await pending
+  })
+  expect(result.current.tasks.map((t) => t.id)).toEqual(['b2-task'])
+  expect(result.current.error).toBeNull()
 })
