@@ -1,12 +1,14 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import { useSettingsContext } from '../data/SettingsProvider'
-import { browserPushGateway, type PushState } from '../notifications/pushGateway'
+import { browserPushGateway, type PushDevice, type PushState } from '../notifications/pushGateway'
+import { rowListStyle } from '../theme/controls'
 import { Button, Select } from './controls'
 
 const LEADS = [0, 5, 10, 15, 30, 60, 120, 1440]
 const select: CSSProperties = { maxWidth: 320 }
 const hint: CSSProperties = { margin: 0, fontSize: 13, opacity: 0.7, lineHeight: 1.45 }
+const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }
 
 function leadLabel(minutes: number): string {
   if (minutes === 0) return 'At the Due Moment'
@@ -22,6 +24,8 @@ export function NotificationsSection() {
   const [push, setPush] = useState<PushState | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  // null while loading, 'failed' when the read failed: neither is "no devices".
+  const [devices, setDevices] = useState<PushDevice[] | 'failed' | null>(null)
 
   // Keyed by the Account: "subscribed" means this Account's subscription, not the browser's.
   const accountId = user?.id ?? null
@@ -32,6 +36,17 @@ export function NotificationsSection() {
         setPush({ availability: 'unsupported', permission: 'default', subscribed: false }),
       )
   }, [accountId])
+
+  const readDevices = useCallback(
+    () =>
+      accountId
+        ? browserPushGateway.devices(accountId).catch(() => 'failed' as const)
+        : Promise.resolve(null),
+    [accountId],
+  )
+  useEffect(() => {
+    void readDevices().then(setDevices)
+  }, [readDevices])
 
   if (!settings) return null
   const hasConcreteTimezone = settings.timezone !== null
@@ -44,6 +59,7 @@ export function NotificationsSection() {
       if (push?.subscribed) await browserPushGateway.unsubscribe(user.id)
       else await browserPushGateway.subscribe(user.id)
       setPush(await browserPushGateway.state(user.id))
+      setDevices(await readDevices())
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Could not update this device.'
       setError(
@@ -51,6 +67,20 @@ export function NotificationsSection() {
           ? 'Notifications are blocked. Allow them for Magic Agenda in your browser or system settings, then try again.'
           : message,
       )
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const removeDevice = async (device: PushDevice) => {
+    if (!user) return
+    setBusy(true)
+    setError('')
+    try {
+      await browserPushGateway.removeDevice(user.id, device.id)
+      setDevices(await readDevices())
+    } catch {
+      setError(`Could not remove ${device.label}.`)
     } finally {
       setBusy(false)
     }
@@ -119,6 +149,46 @@ export function NotificationsSection() {
           </p>
         </div>
       )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <span style={{ fontSize: 13, opacity: 0.7 }}>Your devices</span>
+        {devices === 'failed' && <p style={hint}>Could not load your devices.</p>}
+        {Array.isArray(devices) && devices.length === 0 && (
+          <p style={hint}>No devices receive reminders.</p>
+        )}
+        {Array.isArray(devices) && devices.length > 0 && (
+          <ul aria-label="Devices with reminders" style={rowListStyle(6)}>
+            {devices.map((device) => (
+              <li key={device.id} style={row}>
+                <span>{device.label}</span>
+                <span style={hint}>
+                  {[
+                    device.current && 'This device',
+                    `added ${new Date(device.createdAt).toLocaleDateString()}`,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </span>
+                <div style={{ flex: 1 }} />
+                {!device.current && (
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    disabled={busy}
+                    onClick={() => void removeDevice(device)}
+                    aria-label={`Remove ${device.label}`}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        <p style={hint}>
+          Remove a device you no longer use. Signing out on a device also removes it.
+        </p>
+      </div>
+
       {error && (
         <p role="alert" style={{ ...hint, opacity: 1 }}>
           {error}

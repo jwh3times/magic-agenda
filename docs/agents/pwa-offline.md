@@ -27,8 +27,19 @@ through the gateway:
   session runs `reconcile(accountId)` once to retire one it does not own. Saving a second row for
   a shared endpoint would deliver both Accounts' reminders to the device.
 
-Not covered: rows have no link to a session, so a password change or "sign out everywhere" does
-not revoke another device's subscription, and there is no per-Account device list.
+**Settings lists every device, so one can be removed from another** (`devices` / `removeDevice`).
+Rows have no link to a session, so a password change or a sign-out elsewhere does not revoke a
+subscription on a device the owner no longer has; the list is how they do it instead. Revoking on
+password change was considered and not done: it silences the owner's own devices too, and a
+password change is not the only way a session ends. The list works where this browser cannot
+subscribe itself (iOS outside the Home Screen app), and never carries the endpoint, which is a
+credential. Each row shows `device_label`, a short "Browser on System" the subscribing browser
+derives from its user agent (`src/notifications/deviceLabel.ts`); it is a display hint nothing
+authorizes on, and an older unlabelled row falls back to its push service. Removing another device
+deletes only its row, by id, under the owner-only policies: that browser keeps its half, which
+nothing reaches once the row is gone and which `reconcile` retires the next time that Account
+signs in there. This device has no Remove in the list; the button above removes it with
+`unsubscribe`, which retires both halves.
 
 iOS and iPadOS expose standards-based Web Push only to a Home Screen web app. The Settings section
 therefore gives install guidance before generic feature-detection messaging when it recognizes an

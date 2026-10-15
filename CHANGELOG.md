@@ -12,6 +12,22 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.32] - 2026-10-15
+
+### Security
+
+- **A device you no longer have can be removed from reminders.** Settings → Notifications now
+  lists every browser and installed app that receives your reminders, with when it was added, and
+  each one except the device you are on has a Remove button. Before, a device could only be removed
+  from itself, so a lost laptop or a browser you could no longer open kept receiving Task titles.
+  The list works on a device that cannot receive reminders itself, such as an iPhone outside the
+  Home Screen app.
+
+### Changed
+
+- **Devices are named by browser and system**, such as "Firefox on Linux". A device enabled before
+  this release is named by its browser's push service until it is enabled again.
+
 ## [1.17.31] - 2026-10-14
 
 ### Security
