@@ -470,13 +470,15 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
    * The reload a write asks for once it settles: a short result, a materialize race, a conflict,
    * or a failure. It is this closure's `reload`, which loads the write's Board, so after a switch
    * to another Board it would take the hook back to the old one while the new one is selected,
-   * and nothing would load the new one again (#538). It refuses then, and says so: a caller that
-   * explains its reload with a message must not put that message on the other Board either.
+   * and nothing would load the new one again (#538). It refuses then. It returns whether the hook
+   * still holds this Board, checked again after the reload because a switch can also land while
+   * it runs: a caller that explains its reload with a message must not put that message on the
+   * other Board either.
    */
   const reloadAfterWrite = useCallback(async (): Promise<boolean> => {
     if (heldBoard.current !== boardId) return false
     await reload()
-    return true
+    return heldBoard.current === boardId
   }, [reload, boardId])
 
   // Persist the board for offline reads. Debounced because optimistic CRUD churns `tasks`;

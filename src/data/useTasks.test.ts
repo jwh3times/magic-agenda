@@ -2249,3 +2249,36 @@ test('an undo the server skipped, answered after switching Boards, leaves the ne
     answer: { data: [] },
   })
 })
+
+test("a failed reorder's reload overtaken by a Board switch does not say why on the new Board", async () => {
+  h.capture.rows = twoTasks()
+  let releaseReload: () => void = () => {}
+  let holdReload = false
+  h.capture.loadFor = (board) => {
+    if (board === 'b2') return boardLoad([serverRow({ id: 'b2-task', board_id: 'b2' })])
+    if (!holdReload) return undefined
+    return new Promise((resolve) => (releaseReload = () => resolve(boardLoad(twoTasks()))))
+  }
+  const { result, rerender } = renderHook(({ board }) => useTasks('u1', board, true), {
+    initialProps: { board: 'b1' },
+  })
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  holdReload = true
+  h.rpc.mockRejectedValueOnce(new Error('network down'))
+
+  let pending!: Promise<unknown>
+  await act(async () => {
+    pending = Promise.resolve(reorderBoth(result.current))
+    // Still on Board 1 when the write fails, so its reload starts.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+  rerender({ board: 'b2' })
+  await waitFor(() => expect(result.current.tasks.map((t) => t.id)).toEqual(['b2-task']))
+
+  await act(async () => {
+    releaseReload()
+    await pending
+  })
+  expect(result.current.tasks.map((t) => t.id)).toEqual(['b2-task'])
+  expect(result.current.error).toBeNull()
+})

@@ -191,8 +191,10 @@ A write that asks for a reload once it settles (a short result, a materialize ra
 conflict, a failed reorder or undo) calls `reloadAfterWrite()`, never `reload()` directly (#538).
 The `reload` in that write's closure loads the write's Board, so after a switch it would take the
 hook back to the old Board while the new one is selected, and nothing would load the new one
-again. `reloadAfterWrite()` refuses once `heldBoard` has moved on and returns false, and a caller
-that explains its reload with an error sets the error only when it returns true. Reload first, then
+again. `reloadAfterWrite()` refuses once `heldBoard` has moved on, and returns whether the hook
+still holds the write's Board, checked again after the reload because a switch can also land
+while it runs. A caller that explains its reload with an error sets the error only when it
+returns true. Reload first, then
 set the error: `reload()` clears the error as it starts.
 
 **Editor saves of one Task or Occurrence are compare-and-swap (#433).** `useTasks` keeps the last
