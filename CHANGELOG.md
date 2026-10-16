@@ -30,7 +30,7 @@ No unreleased changes.
   since Boards and the first of the attachment files, and every check passed once the bucket was
   out of the way. For bundles made before this release, the runbook now says to delete the empty
   bucket before loading the data, and that its attachment check cannot fail for them. The backups
-  guide no longer says the data dump leaves `storage` out.
+  guide now records that the data dump did include `storage` until this release.
 
 ## [1.17.36] - 2026-10-15
 

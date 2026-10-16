@@ -44,8 +44,9 @@ through the Storage API instead, which recreates those rows itself (below).
 
 **The data half was widened anyway, without a flag, until v1.17.37 (#463).** `--data-only` takes
 the platform's `storage` schema just as it takes `auth`, so every bundle from the attachments
-feature onward carried `storage.buckets` and `storage.objects` rows. This paragraph said otherwise
-and nothing checked it. The first restore of a production bundle found both costs: a target built
+feature onward carried `storage.buckets` and `storage.objects` rows. The paragraph above assumed
+otherwise, and nothing checked it. The first restore of a production bundle since attachments
+shipped found both costs: a target built
 from the migrations already has the bucket, so the load died on `buckets_pkey`; and the restored
 object rows made the runbook's "every attachment has its object" query pass with no file uploaded.
 The dump now passes `-x storage.buckets -x storage.objects`, and the verify step refuses **any**

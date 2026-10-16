@@ -280,12 +280,19 @@ exclude until then. On the preferred path in 3.1 the migrations have already cre
 `attachments` bucket, so the load stops at `storage.buckets` with
 `duplicate key value violates unique constraint "buckets_pkey"` and rolls back. Before loading such
 a bundle, delete that bucket through the Storage API. It is empty on a fresh target, and 3.4 puts
-its configuration back:
+its configuration back. Use the restored project's URL and its **legacy `service_role` key**
+(Project Settings → API): this call sends the key as a bearer token too, which a new-style
+`sb_secret_` key is not. As in 3.5, keep the key out of shell history:
 
 ```bash
-curl -X DELETE "$RESTORE_SUPABASE_URL/storage/v1/bucket/attachments" \
-  -H "apikey: $RESTORE_SERVICE_KEY" -H "Authorization: Bearer $RESTORE_SERVICE_KEY"
+RESTORE_SUPABASE_URL=https://<new-ref>.supabase.co RESTORE_SERVICE_KEY=<service_role key> \
+  sh -c 'curl -fsS -X DELETE "$RESTORE_SUPABASE_URL/storage/v1/bucket/attachments" \
+    -H "apikey: $RESTORE_SERVICE_KEY" -H "Authorization: Bearer $RESTORE_SERVICE_KEY"'
 ```
+
+Expect HTTP 200 and a short JSON confirmation. `-f` makes any other answer fail visibly here rather
+than at the load. The Storage API refuses to delete a bucket that still holds objects, so on a
+target that is not fresh this fails rather than discarding files.
 
 The `storage.objects` rows such a bundle restores point at files the new project does not have yet.
 3.5 uploads over them, which works because uploads upsert, but it also changes what step 4 can tell
@@ -584,6 +591,9 @@ needs a project that provisions `auth` itself, which is exactly why step 1 says 
     factor, 64 Tasks, 7 Boards, 8 Memberships, 7 profiles, 7 settings rows, 35 Labels and 1
     attachment row.
   - **3.4:** `storage.sql` loaded and left the bucket private at 10 MiB, with both object policies.
+  - **Before 3.2:** the bucket the migrations created was deleted through the Storage API with the
+    legacy `service_role` key, sent as both `apikey` and bearer token. That is the workaround now
+    in 3.2.
   - **3.5:** `--verify-only` passed 1 object (210 bytes) against the manifest. The restore wrote and
     read it back with a new-style `sb_secret_` key sent in `apikey` only, and a rerun with the
     legacy `service_role` key upserted cleanly. Storage accepted `x-upsert: true` and the
