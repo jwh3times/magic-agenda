@@ -177,17 +177,15 @@ test('the installed app opens with the network down', async ({ page, context }) 
   await expect(page.getByRole('heading', { name: LANDING })).toBeVisible()
 })
 
-test('a redirected shell left by an earlier worker still opens offline', async ({
-  page,
-  context,
-}) => {
+test('a redirected shell in the cache still opens offline', async ({ page, context }) => {
   await installed(page)
-  // What every device that installed a worker before the fix holds: `fetch` follows the 308, so
-  // this response is redirected, and the cache name has not changed since.
+  // The serve-time safety net. Install already stores a clean shell, so plant the redirected one
+  // the fix exists for: `fetch` follows the 308, so this response is redirected. Read it back too,
+  // because a cache that dropped the flag would let this pass without testing anything.
   const redirected = await page.evaluate(async () => {
     const response = await fetch('/index.html')
-    await (await caches.open('ma-precache-v1')).put('/index.html', response.clone())
-    return response.redirected
+    await (await caches.open('ma-precache-v1')).put('/index.html', response)
+    return (await caches.match('/index.html'))?.redirected
   })
   expect(redirected).toBe(true)
   await context.setOffline(true)

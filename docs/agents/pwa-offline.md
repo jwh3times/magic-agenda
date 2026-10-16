@@ -148,14 +148,18 @@ that followed a redirect. A navigation's redirect mode is `manual`, and answerin
 redirected response is a network error. So until v1.17.38 an installed app could not open offline:
 every navigation failed with `net::ERR_FAILED` until an online navigation had replaced the shell.
 `servableShell()` (`src/sw/shell.ts`, unit-tested) copies such a response into one a navigation can
-use. The worker applies it when it stores the shell, at install and on every online navigation,
-and again when it serves it, because devices that installed an earlier worker still hold the
-redirected copy under the same cache name. A local build never shows this, since only Pages
+use, and the worker stores that copy at install. That install is also what repairs a device
+upgrading from an earlier worker: the cache name has not changed, so it overwrites the redirected
+entry before the new worker serves anything, which repairs tabs still on the old worker too. An
+online navigation's own fetch cannot come back redirected, because its redirect mode is `manual`,
+so the cache write in `networkFirst` needs no copy. The worker also copies when serving the shell
+offline, as a safety net for any other way a redirected shell could reach the cache. A local build
+never shows this, since only Pages
 redirects, so the browser-level tests live in `tests/e2e/preview.spec.ts` against the deployed
 preview:
 
 - the installed app opens with the network down;
-- a redirected shell planted the way an earlier worker left it still opens;
+- a redirected shell planted in the cache still opens (the serve-time safety net);
 - an online navigation gets a newer shell from the network rather than the cached one, which pins
   network-first.
 

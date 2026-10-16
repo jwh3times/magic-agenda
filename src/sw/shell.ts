@@ -5,9 +5,11 @@
  * `/index.html` is a response that followed a redirect (`redirected: true`). A navigation's
  * redirect mode is `manual`, and answering it with a redirected response is a network error: with
  * the network down, every navigation failed with `net::ERR_FAILED` instead of opening the app
- * (#284). Copying the body, status and headers into a new `Response` drops the flag. The copy is
- * made on the way out as well as on the way in, because a device that installed an earlier worker
- * already holds the redirected copy, and the cache name does not change between workers.
+ * (#284). Copying the body, status and headers into a new `Response` drops the flag. The worker
+ * stores this copy at install, which is what repairs a device upgrading from an earlier worker:
+ * the cache name is unchanged, so the new install overwrites the old entry before the new worker
+ * serves anything. It applies the copy again when serving, as a safety net for any other way a
+ * redirected shell could reach the cache.
  */
 export function servableShell(response: Response): Response {
   if (!response.redirected) return response

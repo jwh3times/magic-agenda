@@ -50,7 +50,8 @@ sw.addEventListener('install', (event) => {
       const cache = await caches.open(PRECACHE)
       await cache.addAll(toPrecache)
       // On Cloudflare Pages `/index.html` redirects to `/`, so addAll stored a redirected shell,
-      // which a navigation cannot use (#284). Store the copy it can.
+      // which a navigation cannot use (#284). Store the copy it can. The cache name is unchanged
+      // between workers, so this is also what repairs a device that installed an earlier one.
       const shell = await cache.match(SHELL)
       if (shell?.redirected) await cache.put(SHELL, servableShell(shell))
     })(),
@@ -108,12 +109,13 @@ async function networkFirst(request: Request): Promise<Response> {
     const res = await fetch(request)
     if (res.ok) {
       const cache = await caches.open(PRECACHE)
-      await cache.put(SHELL, servableShell(res.clone()))
+      await cache.put(SHELL, res.clone())
     }
     return res
   } catch {
-    // Copied on the way out too: an earlier worker stored the redirected shell under the same
-    // cache name, and it stays there until an online navigation replaces it.
+    // A navigation's own fetch cannot come back redirected (its redirect mode is `manual`), and
+    // install stores a clean shell, so this copy is a safety net rather than the fix: whatever
+    // else might put a redirected shell in the cache, a navigation must never be answered with it.
     const cached = (await caches.match(SHELL)) ?? (await caches.match(request))
     if (cached) return servableShell(cached)
     throw new Error('offline and no cached shell')

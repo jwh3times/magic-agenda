@@ -20,14 +20,15 @@ No unreleased changes.
   redirect to `/`, so the service worker precached the app shell as a redirected response, and a
   browser refuses that as the answer to a page load. With the network down, opening the app failed
   with `net::ERR_FAILED` until an online visit had refreshed the shell. Right after installing, that
-  meant it never opened offline at all. The worker now stores and serves a copy without the redirect
-  flag, which also repairs the copy a device already holds from an earlier worker.
+  meant it never opened offline at all. The worker now stores a copy without the redirect flag when
+  it installs, which also replaces the copy on devices that installed an earlier worker, and copies
+  again when serving offline as a safety net.
 
 ### Tests
 
 - Three browser tests against the deployed preview:
   - the installed app opens with the network down;
-  - a shell left by an earlier worker still opens;
+  - a redirected shell planted in the cache still opens;
   - an online page load gets a newer shell from the network rather than the cached one, which pins
     the network-first policy.
 
