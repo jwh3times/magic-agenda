@@ -26,6 +26,9 @@ outage.
 | `storage.sql`  | The `attachments` bucket's configuration and the two `storage.objects` policies                                            | Rebuilds the object-side authorization boundary. **Not the files.** Load it after the data — see 3.4                                                                                    |
 | `attachments/` | Every attached file at `objects/<storage_path>`, plus `manifest.json` (size and SHA-256 per file). Since v1.15.23 (#411)   | Puts the files back behind the restored rows. Upload it last, after `storage.sql` — see 3.5                                                                                             |
 
+Bundles made before v1.17.37 also hold `storage.buckets` and `storage.objects` rows in `data.sql`,
+which a restore built from the migrations must make room for: see 3.2.
+
 `data.sql` holds the `auth` rows as well as the `public` ones — `supabase db dump --data-only`
 includes Supabase-managed schemas even though the schema dump excludes them. There is one data file
 and you load it once.
@@ -271,6 +274,31 @@ psql "$PGURI" -v ON_ERROR_STOP=1 --single-transaction \
 a partial restore that looks like it worked. `--single-transaction` means a mid-file failure rolls
 back cleanly instead of leaving half the board loaded.
 
+**Bundles made before v1.17.37 also carry `storage.buckets` and `storage.objects` rows** (#463).
+`--data-only` takes the platform's `storage` schema as well as `auth`, which the workflow did not
+exclude until then. On the preferred path in 3.1 the migrations have already created the
+`attachments` bucket, so the load stops at `storage.buckets` with
+`duplicate key value violates unique constraint "buckets_pkey"` and rolls back. Before loading such
+a bundle, delete that bucket through the Storage API. It is empty on a fresh target, and 3.4 puts
+its configuration back. Use the restored project's URL and its **legacy `service_role` key**
+(Project Settings → API): this call sends the key as a bearer token too, which a new-style
+`sb_secret_` key is not. As in 3.5, keep the key out of shell history:
+
+```bash
+RESTORE_SUPABASE_URL=https://<new-ref>.supabase.co RESTORE_SERVICE_KEY=<service_role key> \
+  sh -c 'curl -fsS -X DELETE "$RESTORE_SUPABASE_URL/storage/v1/bucket/attachments" \
+    -H "apikey: $RESTORE_SERVICE_KEY" -H "Authorization: Bearer $RESTORE_SERVICE_KEY"'
+```
+
+Expect HTTP 200 and a short JSON confirmation. `-f` makes any other answer fail visibly here rather
+than at the load. The Storage API refuses to delete a bucket that still holds objects, so on a
+target that is not fresh this fails rather than discarding files.
+
+The `storage.objects` rows such a bundle restores point at files the new project does not have yet.
+3.5 uploads over them, which works because uploads upsert, but it also changes what step 4 can tell
+you: see the attachment check there. On the `schema.sql` path the bucket does not exist yet, and the
+load creates it.
+
 For scale: the 2026-07-27 rehearsal restored 5 accounts and 3 tasks in about 4 seconds end to end. A
 slow restore means something is wrong, not that it is working hard.
 
@@ -455,7 +483,11 @@ select count(*) from auth.flow_state;
 ```
 
 For backups from v1.15.23 onward, every attachment row should have its file back after 3.5. Expect
-zero here, apart from any rows the nightly job warned had no object at dump time:
+zero here, apart from any rows the nightly job warned had no object at dump time. **For a bundle
+made before v1.17.37 this query cannot fail:** its `data.sql` restored the `storage.objects` rows
+themselves, so it returns zero before a single file is uploaded. The 2026-10-15 rehearsal measured
+exactly that, while downloading the attachment returned an error. For those bundles the evidence is
+3.5's `Restored and read back N attachment objects` line, with N equal to the manifest's count.
 
 ```sql
 select count(*) from public.task_attachments a
@@ -518,14 +550,67 @@ verified what the bundle contains (see the log), which upgraded one claim in thi
 to measured: `schema.sql` really does carry **zero** `auth.users` triggers, so the recreate commands
 in 3.1 are load-bearing rather than precautionary.
 
-What is still unverified is the **load** side: no restore of a Board-era bundle into a fresh project
-has been run. Replica-mode FK suppression and the CLI's `INSERT`-per-table shape are still reasoned
-from the 2026-07-27 pass. Treat the new counts in Step 4 as unconfirmed until a quarterly rehearsal
-exercises them — the dump-side pass cannot, because the `public`-only `schema.sql` carries six
+The **load** side of a Board-era bundle was first run on 2026-10-15 (#463): a production bundle,
+restored locally through 3.1's preferred path, then 3.2–3.5 and every step 4 check. What is still
+unverified is the hosted half of that pass: the Session pooler and `session_replication_role` as a
+non-superuser have not been exercised against a Board-era bundle. The local pass did exercise
+replica-mode FK suppression and the CLI's `INSERT`-per-table shape on real Board data, and every
+step 4 count. A dump-side pass alone cannot, because the `public`-only `schema.sql` carries six
 foreign keys into `auth.users` and therefore cannot be restored into a bare database at all. It
 needs a project that provisions `auth` itself, which is exactly why step 1 says to create one.
 
 ### Rehearsal log
+
+- **2026-10-15** — **first full restore of a production bundle since the Board tables, local, with
+  the attachment files** (#463). Bundle `supabase-backup-2026-10-15` from Backup run `38746969431`.
+  Decrypted on the maintainer's machine with the passphrase held in the password manager, which
+  confirms it still matches the workflow's secret. Run from an agent session's shell, the first try
+  printed `cancelled by user` before any prompt, and the second `Bad session key`, also without a
+  prompt. After `gpgconf --reload gpg-agent` the same command succeeded. If `gpg` fails without
+  having asked for the passphrase, reload the agent before doubting the passphrase.
+  Restored into a local stack built from `supabase/migrations/` (3.1's preferred path), then 3.2,
+  3.4 and 3.5, then every step 4 check.
+
+  **Found one defect, in the backup workflow rather than the runbook.** `data.sql` carried
+  `storage.buckets` and `storage.objects` rows, contrary to `docs/agents/backups.md`, which said the
+  dumps had deliberately not been widened to `storage`. `--data-only` takes the platform's `storage`
+  schema anyway, as it takes `auth`. That broke the restore twice over:
+  - the migrations had already created the `attachments` bucket, so 3.2 died on `buckets_pkey` and
+    rolled back;
+  - the restored `storage.objects` rows made step 4's "every attachment has its object" query
+    return 0 before any file was uploaded, while downloading the attachment returned HTTP 500.
+
+  Fixed in the same change: the workflow excludes both tables, and its verify step refuses any
+  `storage` table in `data.sql`, checked against this bundle and against real local dumps with and
+  without the flags. Bundles made before v1.17.37 still carry the rows, so 3.2 now says to delete
+  the empty bucket through the Storage API first, and step 4 says the attachment query cannot fail
+  for them. That is the workaround this pass used.
+
+  Measured after the workaround:
+  - **3.2:** the load ran in replica mode with exit 0. That is 7 accounts, 7 identities, 1 MFA
+    factor, 64 Tasks, 7 Boards, 8 Memberships, 7 profiles, 7 settings rows, 35 Labels and 1
+    attachment row.
+  - **3.4:** `storage.sql` loaded and left the bucket private at 10 MiB, with both object policies.
+  - **Before 3.2:** the bucket the migrations created was deleted through the Storage API with the
+    legacy `service_role` key, sent as both `apikey` and bearer token. That is the workaround now
+    in 3.2.
+  - **3.5:** `--verify-only` passed 1 object (210 bytes) against the manifest. The restore wrote and
+    read it back with a new-style `sb_secret_` key sent in `apikey` only, and a rerun with the
+    legacy `service_role` key upserted cleanly. Storage accepted `x-upsert: true` and the
+    `Content-Type` exactly as the script sends them: the object's recorded MIME type matches the
+    row's.
+  - **Step 4:** every check passed. All six orphan and ownership checks read 0; all 15 `public`
+    tables have RLS and at least one policy; all three `auth.users` triggers exist; all six
+    excluded auth tables are empty.
+  - **The recurrence check:** it still proves nothing on this data, because production holds no
+    recurring Occurrences.
+  - **In the app:** a new account, added to the attachment's Board as a viewer, opened the Task
+    against the restored stack. The thumbnail decoded and the signed URL returned 200, with bytes
+    matching the manifest's SHA-256. Opening it as a member exercises the restored
+    `attachments_select_member` policy rather than the service key.
+
+  Not exercised: the hosted half (3.0's Session pooler, 3.2's privilege question), OAuth sign-in
+  and MFA on the restored accounts, and realtime. Plaintext deleted per section 6 afterwards.
 
 - **2026-09-09** — citation correction only, no procedure exercised (#306, from the 2026-09-04
   security review).
