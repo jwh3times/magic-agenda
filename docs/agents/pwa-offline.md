@@ -142,6 +142,27 @@ under `/assets/` and the two Google Fonts hosts are cache-first (`isCacheFirst()
 including `/index.html` itself, goes to the network first and falls back to cache only when the
 fetch throws.
 
+**The shell a navigation falls back to must not be a redirected response (#284).** Cloudflare Pages
+answers `/index.html` with `308 -> /`, so `cache.addAll` stored the precached shell as a response
+that followed a redirect. A navigation's redirect mode is `manual`, and answering it with a
+redirected response is a network error. So until v1.17.38 an installed app could not open offline:
+every navigation failed with `net::ERR_FAILED` until an online navigation had replaced the shell.
+`servableShell()` (`src/sw/shell.ts`, unit-tested) copies such a response into one a navigation can
+use, and the worker stores that copy at install. That install is also what repairs a device
+upgrading from an earlier worker: the cache name has not changed, so it overwrites the redirected
+entry before the new worker serves anything, which repairs tabs still on the old worker too. An
+online navigation's own fetch cannot come back redirected, because its redirect mode is `manual`,
+so the cache write in `networkFirst` needs no copy. The worker also copies when serving the shell
+offline, as a safety net for any other way a redirected shell could reach the cache. A local build
+never shows this, since only Pages
+redirects, so the browser-level tests live in `tests/e2e/preview.spec.ts` against the deployed
+preview:
+
+- the installed app opens with the network down;
+- a redirected shell planted in the cache still opens (the serve-time safety net);
+- an online navigation gets a newer shell from the network rather than the cached one, which pins
+  network-first.
+
 **`*.supabase.co` is never written to any cache, over any scheme** (`isNeverCached()` — matches
 both `https://` REST calls and the `wss://` realtime socket). A cache is a single, unscoped bucket
 shared by every profile that has ever used the browser profile; caching an authenticated Supabase
@@ -234,8 +255,9 @@ succeeding with `[]` must not be read as "this Account has no Boards" (the same 
 `canPersistSnapshot` exists to prevent elsewhere).
 
 `tsconfig.worker.json` is one of the four project references in `tsconfig.json` (alongside the app,
-node, and test configs): it gives `src/sw.ts`, `src/sw/policy.ts`, and `src/sw/notifications.ts` the WebWorker lib with no DOM, so the worker
-can't accidentally reference `window` or `document`. Its `include` is an explicit three-file list,
+node, and test configs): it gives `src/sw.ts`, `src/sw/policy.ts`, `src/sw/notifications.ts`, and
+`src/sw/shell.ts` the WebWorker lib with no DOM, so the worker can't accidentally reference `window`
+or `document`. Its `include` is an explicit file list,
 not a glob, specifically to keep `src/sw/policy.test.ts` out of this project — that test typechecks
 today only by accident, and the first ambient-globals or DOM-typed assertion added to it would
 break `tsc -b` from a project it has no business being part of.

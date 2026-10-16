@@ -10,6 +10,7 @@
  */
 import { isCacheFirst, isNavigation, isNeverCached } from './sw/policy'
 import { notificationFromPush } from './sw/notifications'
+import { servableShell } from './sw/shell'
 
 // Typechecked under tsconfig.worker.json (WebWorker lib, no DOM). Still an `unknown` hop, not a
 // direct cast: lib.webworker.d.ts types the ambient `self` generically as `WorkerGlobalScope`
@@ -44,7 +45,17 @@ sw.addEventListener('install', (event) => {
   const base = sw.location.href
   const urls = self.__WB_MANIFEST.map((e) => new URL(e.url, base).href)
   const toPrecache = [...new Set([...urls, new URL(SHELL, base).href])]
-  event.waitUntil(caches.open(PRECACHE).then((cache) => cache.addAll(toPrecache)))
+  event.waitUntil(
+    (async () => {
+      const cache = await caches.open(PRECACHE)
+      await cache.addAll(toPrecache)
+      // On Cloudflare Pages `/index.html` redirects to `/`, so addAll stored a redirected shell,
+      // which a navigation cannot use (#284). Store the copy it can. The cache name is unchanged
+      // between workers, so this is also what repairs a device that installed an earlier one.
+      const shell = await cache.match(SHELL)
+      if (shell?.redirected) await cache.put(SHELL, servableShell(shell))
+    })(),
+  )
 })
 
 sw.addEventListener('activate', (event) => {
@@ -102,8 +113,11 @@ async function networkFirst(request: Request): Promise<Response> {
     }
     return res
   } catch {
+    // A navigation's own fetch cannot come back redirected (its redirect mode is `manual`), and
+    // install stores a clean shell, so this copy is a safety net rather than the fix: whatever
+    // else might put a redirected shell in the cache, a navigation must never be answered with it.
     const cached = (await caches.match(SHELL)) ?? (await caches.match(request))
-    if (cached) return cached
+    if (cached) return servableShell(cached)
     throw new Error('offline and no cached shell')
   }
 }

@@ -47,19 +47,11 @@ test.describe('signed in', () => {
     // line 190, reached from the two load-failure paths at 205 and 221 -- and is NOT derived from
     // navigator.onLine. So the banner is positive proof that the snapshot branch ran.
     //
-    // Only Supabase is cut, not the whole network, and this is deliberate. The original design was
-    // context.setOffline(true) + page.reload(), which CANNOT work here: measured against the
-    // deployed build, CDP offline emulation fails the top-level navigation with net::ERR_FAILED
-    // before the service worker is consulted, so the reload never returns a document. The worker
-    // itself is demonstrably alive under the same conditions -- a content-hashed /assets/*.js was
-    // served 200 from ma-precache-v1 with the network down -- and /index.html is genuinely
-    // precached (17 entries, caches.match('/index.html') hits). The shell is cached and the worker
-    // works; Playwright just will not let a navigation reach it.
-    //
-    // Aborting Supabase reproduces exactly the condition useTasks guards -- a failed server load
-    // with a snapshot present -- with no dependence on that emulation gap. What this test does NOT
-    // cover is the worker serving the shell offline; src/sw/policy.test.ts covers that policy, and
-    // no browser-level test in this suite exercises it.
+    // Only Supabase is cut, not the whole network, and this is deliberate: it is exactly the
+    // condition useTasks guards, a failed server load with a snapshot present. The service worker
+    // serving the shell offline is a different claim, tested in preview.spec.ts against the
+    // deployed preview: only Cloudflare Pages redirects /index.html, which is what broke it
+    // (#284), so a local build cannot test it honestly.
     await seedBoard()
     await page.goto('/')
     await expect(page.getByRole('button', { name: '+ New task' })).toBeVisible()
