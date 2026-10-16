@@ -146,3 +146,78 @@ test('the service worker survives a reload without breaking CSP or fonts', async
   expect(errors).toEqual([])
   expect(failed).toEqual([])
 })
+
+// ——— the worker serves the shell (#284) ———
+// These were believed impossible to test: CDP offline emulation "failed the top-level navigation
+// before the worker was consulted". It never did. The worker answered, with a response the browser
+// had to refuse: Pages redirects `/index.html` to `/`, so the precached shell was a redirected
+// response, and a navigation may not be answered with one. Only the deployed preview has that
+// redirect, which is why a local build passed and these live here.
+
+const LANDING = 'Your week, on sticky notes.'
+
+/** Loads the app and waits until the worker controls the page with its precache in place. */
+async function installed(page: Page) {
+  await page.goto('/')
+  await page.waitForFunction(() => !!navigator.serviceWorker?.controller, null, {
+    timeout: 30_000,
+  })
+  await page.waitForFunction(async () => !!(await caches.match('/index.html')), null, {
+    timeout: 30_000,
+  })
+}
+
+test('the installed app opens with the network down', async ({ page, context }) => {
+  await installed(page)
+  await context.setOffline(true)
+
+  const response = await page.reload()
+
+  expect(response?.fromServiceWorker()).toBe(true)
+  await expect(page.getByRole('heading', { name: LANDING })).toBeVisible()
+})
+
+test('a redirected shell left by an earlier worker still opens offline', async ({
+  page,
+  context,
+}) => {
+  await installed(page)
+  // What every device that installed a worker before the fix holds: `fetch` follows the 308, so
+  // this response is redirected, and the cache name has not changed since.
+  const redirected = await page.evaluate(async () => {
+    const response = await fetch('/index.html')
+    await (await caches.open('ma-precache-v1')).put('/index.html', response.clone())
+    return response.redirected
+  })
+  expect(redirected).toBe(true)
+  await context.setOffline(true)
+
+  const response = await page.reload()
+
+  expect(response?.fromServiceWorker()).toBe(true)
+  await expect(page.getByRole('heading', { name: LANDING })).toBeVisible()
+})
+
+test('an online navigation gets the newest shell, not the cached one', async ({
+  page,
+  context,
+}) => {
+  // The worker is the one deployed artifact a merge cannot reach, so navigations must be
+  // network-first: cache-first would make a bad deploy permanent for everyone who installed it.
+  // The worker's own fetch of the page is routed here, so the network can answer with a shell the
+  // cache has never seen.
+  await installed(page)
+  await context.route(
+    (url) => url.pathname === '/',
+    async (route) => {
+      const response = await route.fetch()
+      const body = (await response.text()).replace('<body>', '<body><p id="newer-shell"></p>')
+      await route.fulfill({ response, body })
+    },
+  )
+
+  const response = await page.reload()
+
+  expect(response?.fromServiceWorker()).toBe(true)
+  await expect(page.locator('#newer-shell')).toHaveCount(1)
+})

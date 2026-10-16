@@ -237,12 +237,15 @@ is a deliberate tradeoff worth understanding before it costs one:
 - **`document.fonts.check()` cannot detect the CSP regression.** It returns true for a family with no
   `FontFace` registered at all, which is exactly the broken state. The font assertion iterates
   `document.fonts` instead. (There is also no font named `Inter` in this app.)
-- **`context.setOffline(true)` + `page.reload()` does not work here, and is not a bug in the app.**
-  CDP offline emulation fails the top-level navigation with `net::ERR_FAILED` before the service
-  worker is consulted, even though the worker is alive and `/index.html` is precached — measured
-  both ways. The offline test therefore aborts only Supabase, which is the actual condition
-  `useTasks` guards. No browser-level test here covers the worker serving the shell offline;
-  `src/sw/policy.test.ts` covers that policy.
+- **`context.setOffline(true)` + `page.reload()` works, and its `net::ERR_FAILED` was a bug in the
+  app (#284).** This bullet used to say CDP offline emulation failed the navigation before the
+  worker was consulted. It never did. The worker answered with a precached shell that Pages had
+  redirected (`/index.html` -> `/`), and a navigation may not be answered with a redirected
+  response. A local build passed because only Pages redirects. The worker serving the shell offline
+  is now covered in `tests/e2e/preview.spec.ts`, against the deployed preview. The smoke suite's
+  snapshot test still aborts only Supabase, because that is the condition `useTasks` guards. The
+  lesson: a failure attributed to the test tool deserves the same reproduction on a second
+  environment as one attributed to the app.
 - **A scan that races a loading state scores clean, it does not merely miss content.** `<Spinner/>`
   is `position: fixed; inset: 0`, and axe's `isModalOpen()` heuristic treats any absolute/fixed
   element covering ≥75% of the viewport as an open modal. `landmark-one-main` and

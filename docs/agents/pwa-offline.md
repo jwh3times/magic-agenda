@@ -142,6 +142,23 @@ under `/assets/` and the two Google Fonts hosts are cache-first (`isCacheFirst()
 including `/index.html` itself, goes to the network first and falls back to cache only when the
 fetch throws.
 
+**The shell a navigation falls back to must not be a redirected response (#284).** Cloudflare Pages
+answers `/index.html` with `308 -> /`, so `cache.addAll` stored the precached shell as a response
+that followed a redirect. A navigation's redirect mode is `manual`, and answering it with a
+redirected response is a network error. So until v1.17.38 an installed app could not open offline:
+every navigation failed with `net::ERR_FAILED` until an online navigation had replaced the shell.
+`servableShell()` (`src/sw/shell.ts`, unit-tested) copies such a response into one a navigation can
+use. The worker applies it when it stores the shell, at install and on every online navigation,
+and again when it serves it, because devices that installed an earlier worker still hold the
+redirected copy under the same cache name. A local build never shows this, since only Pages
+redirects, so the browser-level tests live in `tests/e2e/preview.spec.ts` against the deployed
+preview:
+
+- the installed app opens with the network down;
+- a redirected shell planted the way an earlier worker left it still opens;
+- an online navigation gets a newer shell from the network rather than the cached one, which pins
+  network-first.
+
 **`*.supabase.co` is never written to any cache, over any scheme** (`isNeverCached()` — matches
 both `https://` REST calls and the `wss://` realtime socket). A cache is a single, unscoped bucket
 shared by every profile that has ever used the browser profile; caching an authenticated Supabase
@@ -234,8 +251,9 @@ succeeding with `[]` must not be read as "this Account has no Boards" (the same 
 `canPersistSnapshot` exists to prevent elsewhere).
 
 `tsconfig.worker.json` is one of the four project references in `tsconfig.json` (alongside the app,
-node, and test configs): it gives `src/sw.ts`, `src/sw/policy.ts`, and `src/sw/notifications.ts` the WebWorker lib with no DOM, so the worker
-can't accidentally reference `window` or `document`. Its `include` is an explicit three-file list,
+node, and test configs): it gives `src/sw.ts`, `src/sw/policy.ts`, `src/sw/notifications.ts`, and
+`src/sw/shell.ts` the WebWorker lib with no DOM, so the worker can't accidentally reference `window`
+or `document`. Its `include` is an explicit file list,
 not a glob, specifically to keep `src/sw/policy.test.ts` out of this project — that test typechecks
 today only by accident, and the first ambient-globals or DOM-typed assertion added to it would
 break `tsc -b` from a project it has no business being part of.

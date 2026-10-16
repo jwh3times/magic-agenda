@@ -10,6 +10,7 @@
  */
 import { isCacheFirst, isNavigation, isNeverCached } from './sw/policy'
 import { notificationFromPush } from './sw/notifications'
+import { servableShell } from './sw/shell'
 
 // Typechecked under tsconfig.worker.json (WebWorker lib, no DOM). Still an `unknown` hop, not a
 // direct cast: lib.webworker.d.ts types the ambient `self` generically as `WorkerGlobalScope`
@@ -44,7 +45,16 @@ sw.addEventListener('install', (event) => {
   const base = sw.location.href
   const urls = self.__WB_MANIFEST.map((e) => new URL(e.url, base).href)
   const toPrecache = [...new Set([...urls, new URL(SHELL, base).href])]
-  event.waitUntil(caches.open(PRECACHE).then((cache) => cache.addAll(toPrecache)))
+  event.waitUntil(
+    (async () => {
+      const cache = await caches.open(PRECACHE)
+      await cache.addAll(toPrecache)
+      // On Cloudflare Pages `/index.html` redirects to `/`, so addAll stored a redirected shell,
+      // which a navigation cannot use (#284). Store the copy it can.
+      const shell = await cache.match(SHELL)
+      if (shell?.redirected) await cache.put(SHELL, servableShell(shell))
+    })(),
+  )
 })
 
 sw.addEventListener('activate', (event) => {
@@ -98,12 +108,14 @@ async function networkFirst(request: Request): Promise<Response> {
     const res = await fetch(request)
     if (res.ok) {
       const cache = await caches.open(PRECACHE)
-      await cache.put(SHELL, res.clone())
+      await cache.put(SHELL, servableShell(res.clone()))
     }
     return res
   } catch {
+    // Copied on the way out too: an earlier worker stored the redirected shell under the same
+    // cache name, and it stays there until an online navigation replaces it.
     const cached = (await caches.match(SHELL)) ?? (await caches.match(request))
-    if (cached) return cached
+    if (cached) return servableShell(cached)
     throw new Error('offline and no cached shell')
   }
 }
