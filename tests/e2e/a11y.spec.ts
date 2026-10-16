@@ -36,6 +36,13 @@ import {
 //                       every card in three prototype-faithful themes). Working keyboard drag
 //                       exists today (KeyboardSensor in useBoardDnd) and must survive whichever
 //                       remedy is eventually taken.
+//                       Measured 2026-10-16 (#337): the rule is conservative here. Over AT-SPI,
+//                       the layer Linux screen readers read, Chromium and Firefox both expose each
+//                       card's Pin/Unpin and Complete as focusable buttons inside it, and Tab
+//                       reaches them (card, Pin, Complete, next card). Kept as accepted. The one
+//                       real defect was the card's name, computed from its content, which read
+//                       those buttons' labels into it: the card is now named by its title and
+//                       described by its details (cardA11y.ts). Safari/VoiceOver is unmeasured.
 //
 // color-contrast reached zero in two passes (2026-07-31): near-miss token nudges, then per-theme
 // judgment calls recorded in src/theme/themeConf.ts. New theme colours must clear 4.5:1 against

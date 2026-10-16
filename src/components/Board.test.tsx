@@ -187,6 +187,21 @@ test('online keeps the per-card Completion and Pin controls interactive', () => 
   expect(within(card).getByRole('button', { name: 'Complete' })).toBeEnabled()
 })
 
+// #337: Pin and Complete are separate controls that screen readers reach on their own (measured
+// in Chromium and Firefox over AT-SPI). Named from its content, the card also read their labels
+// as part of its own name ("Renew passport Expires in 4 months. Errands Pin Complete"), where
+// "Complete" sounds like the Task's status. The title names it; the details describe it.
+test('a card is named by its title and described by its details, never by its buttons', () => {
+  renderBoard()
+  const card = screen.getByText('Renew passport').closest('[role="button"]') as HTMLElement
+  expect(card).toHaveAccessibleName('Renew passport')
+  expect(card).toHaveAccessibleDescription(/Expires in 4 months\./)
+  expect(card).toHaveAccessibleDescription(/Errands/)
+  // dnd-kit's own instructions stay part of the description.
+  expect(card).toHaveAccessibleDescription(/To open a task, press Enter\./)
+  expect(card).not.toHaveAccessibleDescription(/\b(Pin|Unpin|Complete|Reopen)\b/)
+})
+
 test('online leaves the board fully interactive', () => {
   renderBoard()
   expect(visibleStatus()).toBeUndefined()

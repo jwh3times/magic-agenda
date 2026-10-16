@@ -83,8 +83,22 @@ This intentionally leaves the pre-existing `nested-interactive` a11y-baseline en
 unchanged: the wrapper still carries `role="button"` and still contains the pin/completion buttons,
 but that role is now _more_ accurate than before, since the wrapper genuinely does something on
 Enter rather than only dragging. Switching it to `role="group"` would clear the rule at the cost of
-a less truthful role — see the 2026-07-31 acceptance this leaves standing. Assistive tech may still
-not reach the nested pin/completion buttons; that is unchanged by this fix.
+a less truthful role — see the 2026-07-31 acceptance this leaves standing.
+
+**Assistive tech does reach the nested buttons, as measured on 2026-10-16 (#337).** Over AT-SPI,
+the layer Linux screen readers read, Chromium and Firefox both expose each card's Pin/Unpin and
+Complete as focusable buttons inside the card, and Tab visits card, Pin, Complete, then the next
+card. So the axe rule is being conservative, and the acceptance stands. Safari with VoiceOver is
+unmeasured, because WebKit could not run on the measuring machine.
+
+What the measurement did find was the card's **name**. Computed from the content of a
+`role="button"`, it took in those buttons' labels: "Water the plants UNLABELED Unpin Complete",
+where "Complete" sounds like the Task's status. `SortableCard` now names the card with
+`aria-labelledby` pointing at the title, and describes it with `aria-describedby` pointing at the
+details TaskCard shows: COMPLETED stamp, description, Label, time or day, assignee, checklist
+progress. The ids come from `src/components/cardA11y.ts`. The describedby keeps dnd-kit's drag
+instructions by appending its own id, and it is set after the attribute spread so dnd-kit's value
+cannot replace it.
 
 The pinned `@dnd-kit/*` 0.5 packages in `devDependencies` belong only to the successor-API prototype
 under `src/dnd/dndKitNext.*`; production still uses `@dnd-kit/core` / `sortable`. The prototype
