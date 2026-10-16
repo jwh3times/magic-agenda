@@ -12,6 +12,26 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.37] - 2026-10-15
+
+### Fixed
+
+- **Backups no longer carry the storage tables that broke a restore** (#463). The first restore of
+  a production backup since attachments shipped found that `data.sql` held `storage.buckets` and
+  `storage.objects` rows, because `supabase db dump --data-only` includes the platform's `storage`
+  schema. Restoring onto a database built from the migrations failed on the duplicate bucket, and
+  the restored object rows made the runbook's check for attachments with no file pass before any
+  file was uploaded. The nightly dump now excludes both tables, and the backup's verify step
+  refuses any `storage` table in `data.sql`.
+
+### Docs
+
+- The restore runbook records that rehearsal. It is the first full restore of a production bundle
+  since Boards and the first of the attachment files, and every check passed once the bucket was
+  out of the way. For bundles made before this release, the runbook now says to delete the empty
+  bucket before loading the data, and that its attachment check cannot fail for them. The backups
+  guide no longer says the data dump leaves `storage` out.
+
 ## [1.17.36] - 2026-10-15
 
 ### Fixed

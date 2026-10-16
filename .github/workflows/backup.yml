@@ -90,6 +90,13 @@ jobs:
       # The verify step below asserts data.sql holds BOTH public.tasks and auth.users, so if that
       # CLI behaviour ever changes, this fails loudly instead of silently backing up half a system.
       #
+      # The data dump takes the platform's `storage` schema too, as it takes `auth`. Both storage
+      # tables are excluded: the bucket comes back from storage.sql below, and the objects through
+      # the Storage API, which writes their rows itself. Captured here they broke the restore twice
+      # over (#463): a schema built from the migrations already has the `attachments` bucket, so the
+      # load died on `buckets_pkey`; and the restored `storage.objects` rows made the runbook's
+      # "every attachment has its object" check pass with no file uploaded at all.
+      #
       # pg_dump warns here about a circular foreign key on `tasks` — that is `recur_parent_id`
       # referencing `tasks(id)` (the recurrence template link, init.sql:42), and it is expected.
       # It matters on RESTORE, not on dump; see the runbook.
@@ -103,7 +110,9 @@ jobs:
             -x auth.mfa_amr_claims \
             -x auth.mfa_challenges \
             -x auth.one_time_tokens \
-            -x auth.flow_state
+            -x auth.flow_state \
+            -x storage.buckets \
+            -x storage.objects
 
       # Third file: the attachments bucket's configuration and the storage.objects policies (#401).
       # Neither is in the two dumps above -- `db dump` takes DDL for `public`, and `storage` is a
@@ -223,6 +232,12 @@ jobs:
             if has_table backup/data.sql "$t"; then
               fail "data.sql contains excluded table $t — refusing to back up sessions or temporary auth state"
             fi
+          done
+
+          # No `storage` table, whichever one a future platform version adds: see the dump step.
+          # The bucket belongs to storage.sql and the objects to the Storage API.
+          for t in $(tables backup/data.sql | grep '^storage\.' || true); do
+            fail "data.sql contains storage table $t — the bucket comes from storage.sql and objects through the Storage API (#463)"
           done
 
           # Board containment. Restoring tasks without these is worse than restoring nothing: every

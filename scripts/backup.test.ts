@@ -105,6 +105,29 @@ test.each(
   expect(result.stdout).toContain(`data.sql contains excluded table ${table}`)
 })
 
+// `--data-only` takes the platform's `storage` schema too, and a restore built from migrations
+// already has the bucket, so the load died on `buckets_pkey` (#463). Any `storage` table, not
+// only the two seen so far: the bucket comes from storage.sql and objects through the Storage API.
+test.each(
+  ['storage.buckets', 'storage.objects', 'storage.prefixes'].flatMap((table) =>
+    (['COPY', 'INSERT INTO'] as const).map((syntax) => ({ table, syntax })),
+  ),
+)('refuses $table in $syntax form before encryption/upload', ({ table, syntax }) => {
+  const result = check([...required, table], syntax)
+  expect(result.status).not.toBe(0)
+  expect(result.stdout).toContain(`data.sql contains storage table ${table}`)
+})
+
+test.each(['COPY', 'INSERT INTO'] as const)(
+  'a Task description shaped like a storage table does not fail the backup (%s)',
+  (syntax) => {
+    const data = dataWith(syntax, required, headerLines('storage.objects'))
+    const result = check(required, syntax, healthyStorage, data)
+    expect(result.stdout).not.toContain('storage table')
+    expect(result.status).toBe(0)
+  },
+)
+
 test.each(['auth.users', 'auth.identities'])('refuses a backup without %s', (table) => {
   expect(check(required.filter((name) => name !== table)).status).not.toBe(0)
 })
