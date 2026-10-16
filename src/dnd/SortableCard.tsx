@@ -1,6 +1,7 @@
-import { useContext, useState, type KeyboardEvent } from 'react'
+import { useContext, useId, useState, type KeyboardEvent } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { TaskCard } from '../components/TaskCard'
+import { cardDetailIds, cardNameIds } from '../components/cardA11y'
 import { useBoardActions } from '../components/boardActionContext'
 import { useTheme } from '../theme/ThemeProvider'
 import { DragDisabledContext } from './dragContext'
@@ -31,6 +32,7 @@ export function SortableCard({ task, variant }: SortableCardProps) {
   const selectedIds = actions?.selectedIds
   const { conf } = useTheme()
   const [focused, setFocused] = useState(false)
+  const a11yId = useId()
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     // dnd-kit first: it owns Space, and while a drag is live it owns the arrows, Escape and the
@@ -74,12 +76,19 @@ export function SortableCard({ task, variant }: SortableCardProps) {
         'aria-pressed': selectedIds.has(task.id),
         'aria-disabled': undefined,
       })}
+      // After the spread, so they replace dnd-kit's describedby rather than lose to it; its drag
+      // instructions are kept by appending them (#337).
+      aria-labelledby={cardNameIds(a11yId)}
+      aria-describedby={[cardDetailIds(a11yId), attributes['aria-describedby']]
+        .filter(Boolean)
+        .join(' ')}
       onKeyDown={onKeyDown}
     >
       <TaskCard
         task={task}
         variant={variant}
         dragging={isDragging}
+        a11yId={a11yId}
         // The focus ring is drawn on the CARD, not on this wrapper (#361), and inside its edge.
         //
         // - On the card, because that element carries the card's rotation, radius, and border: an

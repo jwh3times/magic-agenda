@@ -38,6 +38,11 @@ export interface TaskCardProps {
   dragging?: boolean
   /** Extra style merged onto the card wrapper (e.g. dnd-kit transform in Phase 4). */
   wrapStyle?: CSSProperties
+  /**
+   * Prefix for the ids `cardNameIds` / `cardDetailIds` (`cardA11y.ts`) name. Set by the interactive wrapper that
+   * labels the card (`SortableCard`); a decorative card renders no ids.
+   */
+  a11yId?: string
 }
 
 /**
@@ -45,7 +50,8 @@ export interface TaskCardProps {
  * entirely from cardStyles(). Reused by calendar cells, the inbox, kanban columns and
  * (Phase 4) the drag overlay.
  */
-export function TaskCard({ task, variant, dragging, wrapStyle }: TaskCardProps) {
+export function TaskCard({ task, variant, dragging, wrapStyle, a11yId }: TaskCardProps) {
+  const id = (part: string) => (a11yId ? `${a11yId}-${part}` : undefined)
   const actions = useBoardActions()
   const onOpen = actions?.onOpen
   const onToggleCompletion = actions?.onToggleCompletion
@@ -90,19 +96,40 @@ export function TaskCard({ task, variant, dragging, wrapStyle }: TaskCardProps) 
         </span>
       )}
       {s.showPin && <div style={s.pinStyle} />}
-      {s.showStamp && <div style={s.stampStyle}>COMPLETED</div>}
+      {s.showStamp && (
+        <div id={id('stamp')} style={s.stampStyle}>
+          COMPLETED
+        </div>
+      )}
 
-      <div style={s.titleStyle}>{task.title || 'Untitled'}</div>
-      {hasDesc && <div style={s.descStyle}>{task.description}</div>}
+      <div id={id('title')} style={s.titleStyle}>
+        {task.title || 'Untitled'}
+      </div>
+      {hasDesc && (
+        <div id={id('desc')} style={s.descStyle}>
+          {task.description}
+        </div>
+      )}
 
       <div style={s.meta}>
         <span style={s.dot} />
-        <span style={s.labelStyle}>{label.name}</span>
-        {task.atTime && <span style={s.chipStyle}>{formatTime(task.atTime)}</span>}
-        {isKanban && !task.atTime && <span style={s.chipStyle}>{chipLabel(task.day)}</span>}
+        <span id={id('label')} style={s.labelStyle}>
+          {label.name}
+        </span>
+        {task.atTime && (
+          <span id={id('time')} style={s.chipStyle}>
+            {formatTime(task.atTime)}
+          </span>
+        )}
+        {isKanban && !task.atTime && (
+          <span id={id('day')} style={s.chipStyle}>
+            {chipLabel(task.day)}
+          </span>
+        )}
         {assignee && (
           // Initials only on a shared Board (#440, #506): see `assignee` above.
           <span
+            id={id('assignee')}
             style={s.chipStyle}
             title={`Assigned to ${memberName(assignee)}`}
             aria-label={`Assigned to ${memberName(assignee)}`}
@@ -111,7 +138,7 @@ export function TaskCard({ task, variant, dragging, wrapStyle }: TaskCardProps) 
           </span>
         )}
         {hasList && (
-          <span style={s.progStyle}>
+          <span id={id('progress')} style={s.progStyle}>
             {ck}/{total}
           </span>
         )}

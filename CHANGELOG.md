@@ -12,6 +12,23 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.39] - 2026-10-16
+
+### Fixed
+
+- **Screen readers announce a card by its title** (#337). A card's name was computed from
+  everything inside it, so it was read as "Water the plants UNLABELED Unpin Complete", where
+  "Complete" sounds like the task's status. The card is now named by its title. Its details become
+  its description: the Label, time or day, assignee, checklist progress, and the description
+  where the card shows one. dnd-kit's drag instructions follow them as before.
+
+### Docs
+
+- #337's question is answered, for two of the three browser engines. Measured through AT-SPI, the
+  layer Linux screen readers read, Chromium and Firefox both expose each card's Pin and Complete
+  buttons as separate focusable controls, so the baselined axe `nested-interactive` finding stays
+  accepted. Safari with VoiceOver remains unmeasured.
+
 ## [1.17.38] - 2026-10-15
 
 ### Fixed
