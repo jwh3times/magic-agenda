@@ -12,6 +12,43 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.42] - 2026-10-21
+
+### Docs
+
+- The testing guide and `.github/dependabot.yml` no longer say the `E2E` job cannot run on a
+  Dependabot PR (#548). It has run there since #368 moved it onto an isolated local stack that
+  needs no secrets, and #546 failed it. `@playwright/test` stays pinned and ignored by Dependabot.
+  The reason given now is that a bot cannot refresh the baselines a Chromium change invalidates,
+  not that the bump would merge unchecked. A Dependabot run uploads no failure traces, because
+  GitHub withholds the trace passphrase from that actor.
+- The changelog's compare links, which stopped at v1.17.31, now run through v1.17.42.
+
+## [1.17.41] - 2026-10-21
+
+### Internal
+
+- Dependabot: bumped the `e2e-toolchain` group — `@axe-core/playwright` 4.13.0 → 4.14.0 (#546).
+  axe-core 4.14 runs `label-content-name-mismatch` (WCAG 2.5.3, Label in Name) by default. It
+  flags a card whose visible text goes beyond its title, which is every card since v1.17.39 named
+  cards by title alone. The finding is accepted in the a11y baseline, with the reasoning in
+  `tests/e2e/a11y.spec.ts`: the title is the card's label and leads its name. The editor scan now
+  resets the calendar-cell scroll its click causes. Otherwise a pixel of theme geometry decided
+  whether the clicked card counted. Backfilled by this release, per the changelog guard's
+  Dependabot exemption.
+
+## [1.17.40] - 2026-10-20
+
+### Internal
+
+- Dependabot: bumped the `npm-minor-and-patch` group (#547) — `@supabase/supabase-js` 2.117.3 →
+  2.118.0, `react` and `react-dom` 19.3.0 → 19.3.1, the `@dnd-kit/*` 0.5 prototype packages 0.5.0
+  → 0.5.1, `@testing-library/user-event` 14.6.7 → 14.6.8, `jsdom` 30.1.2 → 30.1.3, `oxlint`
+  1.87.0 → 1.88.0, `supabase` 2.120.0 → 2.121.0, and `vitest` 5.0.3 → 5.0.5. jsdom now
+  serializes a computed `background` as the full shorthand, so two card tests assert
+  `backgroundColor` instead. Backfilled by this release, per the changelog guard's Dependabot
+  exemption.
+
 ## [1.17.39] - 2026-10-16
 
 ### Fixed
@@ -5301,7 +5338,18 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.31...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.42...HEAD
+[1.17.42]: https://github.com/jwh3times/magic-agenda/compare/v1.17.41...v1.17.42
+[1.17.41]: https://github.com/jwh3times/magic-agenda/compare/v1.17.40...v1.17.41
+[1.17.40]: https://github.com/jwh3times/magic-agenda/compare/v1.17.39...v1.17.40
+[1.17.39]: https://github.com/jwh3times/magic-agenda/compare/v1.17.38...v1.17.39
+[1.17.38]: https://github.com/jwh3times/magic-agenda/compare/v1.17.37...v1.17.38
+[1.17.37]: https://github.com/jwh3times/magic-agenda/compare/v1.17.36...v1.17.37
+[1.17.36]: https://github.com/jwh3times/magic-agenda/compare/v1.17.35...v1.17.36
+[1.17.35]: https://github.com/jwh3times/magic-agenda/compare/v1.17.34...v1.17.35
+[1.17.34]: https://github.com/jwh3times/magic-agenda/compare/v1.17.33...v1.17.34
+[1.17.33]: https://github.com/jwh3times/magic-agenda/compare/v1.17.32...v1.17.33
+[1.17.32]: https://github.com/jwh3times/magic-agenda/compare/v1.17.31...v1.17.32
 [1.17.31]: https://github.com/jwh3times/magic-agenda/compare/v1.17.30...v1.17.31
 [1.17.30]: https://github.com/jwh3times/magic-agenda/compare/v1.17.29...v1.17.30
 [1.17.29]: https://github.com/jwh3times/magic-agenda/compare/v1.17.28...v1.17.29
