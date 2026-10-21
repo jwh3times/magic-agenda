@@ -100,6 +100,11 @@ progress. The ids come from `src/components/cardA11y.ts`. The describedby keeps 
 instructions by appending its own id, and it is set after the attribute spread so dnd-kit's value
 cannot replace it.
 
+That naming is why axe's `label-content-name-mismatch` is baselined too, since axe-core 4.14 ran it
+by default (2026-10-20). The rule wants all of a card's visible text inside its name; the title
+leads the name, and the details stay in the description. The reasoning is in
+`tests/e2e/a11y.spec.ts`'s acceptance note — do not "fix" it by widening `aria-labelledby`.
+
 The pinned `@dnd-kit/*` 0.5 packages in `devDependencies` belong only to the successor-API prototype
 under `src/dnd/dndKitNext.*`; production still uses `@dnd-kit/core` / `sortable`. The prototype
 proved that the successor can feed the existing pure drop seam on desktop, but its single

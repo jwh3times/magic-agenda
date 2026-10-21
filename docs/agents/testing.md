@@ -258,7 +258,8 @@ is a deliberate tradeoff worth understanding before it costs one:
   failure there is per-theme. **The open task editor is scanned per theme too (#486)**:
   `editor-cork`, `editor-brutal`, `editor-glass`. It had never been scanned, which is how two of its
   controls and the dialog itself shipped with no accessible name, and its secondary text at 3.37:1.
-  Its baseline holds the board's three `nested-interactive` cards, which sit behind the modal.
+  Its baseline holds the board's three `nested-interactive` cards and its one
+  `label-content-name-mismatch` card, which sit behind the modal.
   **So is the open Members panel (#494)**: `members-cork`, `members-brutal`, `members-glass`, with
   the invitee joined for the scan so an Owner's per-member controls (role, Name…, Remove…) and the
   unassigned-reminder opt-in are on screen.

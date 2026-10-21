@@ -1,8 +1,18 @@
 [
   {
     "label": "board-brutal",
+    "ruleId": "label-content-name-mismatch",
+    "count": 1
+  },
+  {
+    "label": "board-brutal",
     "ruleId": "nested-interactive",
     "count": 3
+  },
+  {
+    "label": "board-cork",
+    "ruleId": "label-content-name-mismatch",
+    "count": 1
   },
   {
     "label": "board-cork",
@@ -11,8 +21,18 @@
   },
   {
     "label": "board-glass",
+    "ruleId": "label-content-name-mismatch",
+    "count": 1
+  },
+  {
+    "label": "board-glass",
     "ruleId": "nested-interactive",
     "count": 3
+  },
+  {
+    "label": "editor-brutal",
+    "ruleId": "label-content-name-mismatch",
+    "count": 1
   },
   {
     "label": "editor-brutal",
@@ -21,8 +41,18 @@
   },
   {
     "label": "editor-cork",
+    "ruleId": "label-content-name-mismatch",
+    "count": 1
+  },
+  {
+    "label": "editor-cork",
     "ruleId": "nested-interactive",
     "count": 3
+  },
+  {
+    "label": "editor-glass",
+    "ruleId": "label-content-name-mismatch",
+    "count": 1
   },
   {
     "label": "editor-glass",

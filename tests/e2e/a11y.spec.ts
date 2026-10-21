@@ -25,7 +25,9 @@ import {
   type Finding,
 } from '../../scripts/a11y-baseline'
 
-// One family is still baselined — an ACCEPTED violation, not a pending fix (decided 2026-07-31):
+// Two families are baselined — both ACCEPTED violations, not pending fixes:
+//
+// nested-interactive (decided 2026-07-31):
 //
 //   nested-interactive  src/dnd/SortableCard.tsx spreads dnd-kit's attributes (including
 //                       role="button") onto the wrapper around TaskCard's pin and done buttons.
@@ -43,6 +45,21 @@ import {
 //                       real defect was the card's name, computed from its content, which read
 //                       those buttons' labels into it: the card is now named by its title and
 //                       described by its details (cardA11y.ts). Safari/VoiceOver is unmeasured.
+//
+// label-content-name-mismatch (decided 2026-10-20, when axe-core 4.14 took the rule out of
+// `experimental` and so into the default run):
+//
+//   label-content-name-mismatch  The same cards. The rule wants ALL of a widget's visible text,
+//                       in order, inside its accessible name. #543 named the card by its title
+//                       alone and moved the rest (Label, time, description, progress, stamp) into
+//                       aria-describedby. Satisfying the rule would put those back into the name,
+//                       which is most of what #543 removed; the assignee chip's initials would
+//                       still not match its "Assigned to …" label. Accepted because the title IS
+//                       the card's label and leads its name, so a voice-control user who says what
+//                       they see still reaches it; the rest describes the card, it does not label
+//                       it. Observed once per board scan, on the seeded Inbox card; the two
+//                       calendar-cell cards are not flagged. The count follows which cards show
+//                       text beyond their title, so it moves with the seed data and card layout.
 //
 // color-contrast reached zero in two passes (2026-07-31): near-miss token nudges, then per-theme
 // judgment calls recorded in src/theme/themeConf.ts. New theme colours must clear 4.5:1 against
