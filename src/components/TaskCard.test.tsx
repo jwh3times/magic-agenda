@@ -50,7 +50,7 @@ function renderCard(
 test('shows the selected Label name and its dot color', () => {
   renderCard(mkTask({ labelId: 'l1' }))
   const name = screen.getByText('Work')
-  expect(name.previousElementSibling).toHaveStyle({ background: '#2563eb' })
+  expect(name.previousElementSibling).toHaveStyle({ backgroundColor: '#2563eb' })
 })
 
 test('shows a neutral Unlabeled presentation for a null or missing Label', () => {
