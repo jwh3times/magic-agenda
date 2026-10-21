@@ -57,9 +57,12 @@ import {
 //                       still not match its "Assigned to …" label. Accepted because the title IS
 //                       the card's label and leads its name, so a voice-control user who says what
 //                       they see still reaches it; the rest describes the card, it does not label
-//                       it. Observed once per board scan, on the seeded Inbox card; the two
-//                       calendar-cell cards are not flagged. The count follows which cards show
-//                       text beyond their title, so it moves with the seed data and card layout.
+//                       it. Counted once per board scan, on the seeded Inbox card. The two
+//                       calendar cards pass only because their cell's scrollport, about one title
+//                       tall, clips their Label row and axe does not count clipped text as
+//                       visible; scroll a cell and its card counts too (the editor scan resets
+//                       the scroll its click causes). So the count moves with seed data and with
+//                       card or cell geometry, and a change there that moves it is expected.
 //
 // color-contrast reached zero in two passes (2026-07-31): near-miss token nudges, then per-theme
 // judgment calls recorded in src/theme/themeConf.ts. New theme colours must clear 4.5:1 against
@@ -232,9 +235,18 @@ test.describe('signed in', () => {
       await seedBoard({ theme, anchor: PINNED_DAY })
       await page.goto('/')
       for (const title of SEEDED_TITLES) await page.getByText(title).waitFor()
-      await page.getByText(SEEDED_TITLES[0]).first().click()
+      const card = page.getByText(SEEDED_TITLES[0]).first()
+      await card.click()
       // An existing task's editor: Delete appears only there, and it is the last control to paint.
       await page.getByRole('button', { name: 'Delete' }).waitFor()
+      // The click scrolled the title into view inside its calendar cell, whose scrollport is about
+      // one title tall, and that can bring the card's Label row out from under the cell's clip.
+      // Whether it does is a pixel or two of theme geometry, and it decides whether this card counts
+      // for label-content-name-mismatch (see the note at the top). Unscrolled, the board behind the
+      // modal is the one the board scans see.
+      await card.evaluate((el) => {
+        for (let node = el.parentElement; node; node = node.parentElement) node.scrollTop = 0
+      })
       await settle(page)
       await scanAndAssert(page, `editor-${theme}`)
     })
