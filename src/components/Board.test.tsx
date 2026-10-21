@@ -459,11 +459,11 @@ test('week view highlights the cell for the configured today, not the browser cl
     // today (Jul 28, a different week entirely) never appears on screen at all, so the only way
     // this assertion can pass is if the pinned context date drove the highlight.
     const pinnedCell = screen.getByText('15')
-    expect(pinnedCell).toHaveStyle({ background: 'rgba(184,71,46,.14)' })
+    expect(pinnedCell).toHaveStyle({ backgroundColor: 'rgba(184,71,46,.14)' })
 
     // None of the other six day-number cells in the week carry that highlight.
     for (const dayNum of ['16', '17', '18', '19', '20', '21']) {
-      expect(screen.getByText(dayNum)).not.toHaveStyle({ background: 'rgba(184,71,46,.14)' })
+      expect(screen.getByText(dayNum)).not.toHaveStyle({ backgroundColor: 'rgba(184,71,46,.14)' })
     }
   } finally {
     vi.useRealTimers()
