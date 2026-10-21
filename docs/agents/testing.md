@@ -344,9 +344,13 @@ load-bearing:
   colour noise. **One matching run proves nothing about stability**; a new or reseeded canary needs
   two consecutive matching runs before it is trusted.
 - **`@playwright/test` is pinned to an exact version and ignored by Dependabot.** A Playwright bump
-  changes the bundled Chromium, which invalidates every baseline — and the `E2E` job cannot run on a
-  Dependabot PR, so such a bump would merge green and break the next human PR. Upgrade it by hand,
-  and refresh the baselines in the same PR.
+  changes the bundled Chromium, which invalidates every baseline, and a bot cannot refresh
+  baselines: a Dependabot bump would sit red until someone did it by hand anyway. Upgrade it by
+  hand, and refresh the baselines in the same PR. The `E2E` job **does** run on Dependabot PRs —
+  they come from a branch in this repository, and since #368 the job needs no secrets — so an
+  `@axe-core/playwright` bump that changes the counts fails there, as #546 did. The one thing a
+  Dependabot run lacks is `E2E_TRACE_GPG_PASSPHRASE`, which GitHub withholds from the `dependabot`
+  actor, so its failure traces are not uploaded; reproduce locally instead.
 
 #### Refreshing the visual baselines
 

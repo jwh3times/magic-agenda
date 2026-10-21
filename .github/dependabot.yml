@@ -16,9 +16,9 @@ updates:
     open-pull-requests-limit: 10
     # @playwright/test is pinned out of Dependabot's reach (#280). A Playwright bump changes the
     # bundled Chromium and its font rasterization, which invalidates EVERY visual baseline under
-    # tests/e2e/__screenshots__/ — and the E2E job cannot run on a Dependabot PR (no secrets), so
-    # such a bump would merge green and break the next human PR. Upgrade it by hand, and refresh the
-    # baselines in the same PR (docs/agents/testing.md).
+    # tests/e2e/__screenshots__/ — and a bot cannot refresh baselines, so such a PR would sit red on
+    # E2E until someone did it by hand. Upgrade it by hand, and refresh the baselines in the same PR
+    # (docs/agents/testing.md).
     ignore:
       - dependency-name: "@playwright/test"
     labels:
@@ -83,17 +83,16 @@ updates:
 
       # The E2E toolchain, isolated from the daily catch-all — all update types, not just majors.
       #
-      # The `E2E` job CANNOT RUN on a Dependabot PR: GitHub withholds regular repository secrets
-      # from the `dependabot` actor, so HAS_SECRETS is "false", the gate step takes its
-      # `!= "true"` branch, and the job reports success having scanned nothing. An axe rule change
-      # or a bundled-Chromium change therefore merges green and lands red on the NEXT HUMAN PR —
-      # the same shape as the Changelog-backfill trap in AGENTS.md.
+      # The `E2E` job runs on these PRs. They come from a branch in this repository, and since #368
+      # the job uses an isolated local Supabase stack rather than repository secrets, so its gate
+      # skips only forks and non-PR events. An axe rule change therefore fails HERE, on the bump
+      # that caused it, as axe-core 4.14's label-content-name-mismatch did on #546. Expect such a
+      # PR to need a human commit (a fix, or an accepted baseline entry) before it can merge. Its
+      # failure traces are not uploaded, because GitHub withholds E2E_TRACE_GPG_PASSPHRASE from
+      # the `dependabot` actor; reproduce locally.
       #
-      # The counts-keyed baseline does not defuse this. Selector-path churn stops mattering, but
-      # the old ratchet failed only on INCREASES and tolerated a bump that reduced a count; strict
-      # equality does not. A @playwright/test bump changes the bundled Chromium, which moves
-      # color-contrast counts in BOTH directions. Grouping makes such a change attributable to one
-      # obvious PR; it does not make it survivable.
+      # The baseline asserts strict equality, so a count that FALLS fails too, not only one that
+      # rises. Grouping keeps such a change attributable to one obvious PR.
       #
       # axe-core is transitive under @axe-core/playwright and Dependabot does not open
       # indirect-only npm PRs, so naming the two direct packages captures the family.
