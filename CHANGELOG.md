@@ -12,6 +12,17 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.43] - 2026-10-21
+
+### Security
+
+- Moved the build-time `fast-uri` from 3.1.7 to 3.1.9, past
+  [GHSA-hrr3-gc8f-f4qj](https://github.com/advisories/GHSA-hrr3-gc8f-f4qj) (host case normalization
+  in percent-encoded octets; moderate). It is a development dependency reached only through
+  `vite-plugin-pwa` → `workbox-build` → `ajv`, so it never shipped to the browser; production-only
+  `npm audit --omit=dev` was already clean, and the built `dist/` (service worker included) is
+  byte-identical before and after. `npm audit` now reports no vulnerabilities (#544).
+
 ## [1.17.42] - 2026-10-21
 
 ### Docs
@@ -5338,7 +5349,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.42...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.43...HEAD
+[1.17.43]: https://github.com/jwh3times/magic-agenda/compare/v1.17.42...v1.17.43
 [1.17.42]: https://github.com/jwh3times/magic-agenda/compare/v1.17.41...v1.17.42
 [1.17.41]: https://github.com/jwh3times/magic-agenda/compare/v1.17.40...v1.17.41
 [1.17.40]: https://github.com/jwh3times/magic-agenda/compare/v1.17.39...v1.17.40
