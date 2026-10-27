@@ -12,6 +12,44 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.47] - 2026-10-26
+
+### Docs
+
+- The Matt Pocock skill flow is now the binding development process for agents. Every code change
+  starts from a ready issue: a `ready-for-agent` spec, ticket, or `/triage` brief, or a `bug` issue
+  worked through `/diagnosing-bugs`. With none, the agent stops before its first edit and names the
+  command that gets there. The phase skills stay user-invoked, so the human starts every phase.
+  Dependency bumps, docs- and agent-config-only changes, release prep, and an explicit user waiver
+  are exempt. `AGENTS.md` states the rule; the new `docs/agents/dev-flow.md` defines what counts as
+  code, the readiness check, the routing, and the exemptions.
+- Branches are named `<type>/<issue#>-<slug>`, and a PR body opens with `Closes #N` or
+  `Part of #N`. The PR template now leads with that line, and `CONTRIBUTING.md` gives the new branch
+  shape.
+
+## [1.17.46] - 2026-10-26
+
+### Internal
+
+- Dependabot: bumped the `npm-minor-and-patch` group (#553) — `oxlint-tsgolint` 7.0.2004 →
+  7.0.2005 and `vite` 8.3.4 → 8.3.5, both development dependencies. Backfilled by v1.17.47, per the
+  changelog guard's Dependabot exemption.
+
+## [1.17.45] - 2026-10-25
+
+### Internal
+
+- Dependabot: bumped the build-time `serialize-javascript` 7.0.7 → 7.1.4 (#552), a transitive
+  development dependency changed only in `package-lock.json`. Backfilled by v1.17.47, per the
+  changelog guard's Dependabot exemption.
+
+## [1.17.44] - 2026-10-25
+
+### Internal
+
+- Dependabot: bumped the `npm-minor-and-patch` group (#551) — `react-router` 8.4.0 → 8.5.0 and
+  `oxlint` 1.88.0 → 1.89.0. Backfilled by v1.17.47, per the changelog guard's Dependabot exemption.
+
 ## [1.17.43] - 2026-10-21
 
 ### Security
@@ -5349,7 +5387,11 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.43...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.47...HEAD
+[1.17.47]: https://github.com/jwh3times/magic-agenda/compare/v1.17.46...v1.17.47
+[1.17.46]: https://github.com/jwh3times/magic-agenda/compare/v1.17.45...v1.17.46
+[1.17.45]: https://github.com/jwh3times/magic-agenda/compare/v1.17.44...v1.17.45
+[1.17.44]: https://github.com/jwh3times/magic-agenda/compare/v1.17.43...v1.17.44
 [1.17.43]: https://github.com/jwh3times/magic-agenda/compare/v1.17.42...v1.17.43
 [1.17.42]: https://github.com/jwh3times/magic-agenda/compare/v1.17.41...v1.17.42
 [1.17.41]: https://github.com/jwh3times/magic-agenda/compare/v1.17.40...v1.17.41
