@@ -18,7 +18,7 @@ was built. Do not update them to match current code.
 **Living — keep current.**
 
 - `agents/` — the area guides `AGENTS.md` points at, plus the process docs the engineering skills
-  read (issue tracker, triage labels, domain docs, human follow-up). Each guide is the **canonical**
+  read (issue tracker, triage labels, domain docs, human follow-up, development flow). Each guide is the **canonical**
   account of its area, not a summary of one: `AGENTS.md` holds what applies to every change and
   delegates the rest here. Change an area, change its guide in the same PR.
 - `runbooks/` — operational procedures you follow when something has gone wrong, or is about to.

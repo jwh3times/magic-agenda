@@ -1,8 +1,12 @@
-<!-- Thanks for contributing! Keep PRs focused and small where possible. -->
+Closes #
+
+<!-- Thanks for contributing! Keep PRs focused and small where possible.
+     Keep the issue link above as the first line: `Closes #123` when this finishes the issue,
+     `Part of #123` when it is one slice of a spec that stays open. -->
 
 ## Summary
 
-<!-- What does this change and why? Link any related issue: Closes #123 -->
+<!-- What does this change and why? -->
 
 ## Type of change
 
