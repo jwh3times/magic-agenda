@@ -19,9 +19,10 @@ npm run dev
 `main` is protected: **no direct pushes** — every change lands through a Pull Request whose checks pass.
 
 1. **Open an issue first** for non‑trivial changes so we can agree on the approach.
-2. Create a branch from `main` (e.g. `feat/week-view-keyboard-nav`). Don't start the name with
-   `release/` — that namespace is protected by a repository ruleset and the push will be rejected;
-   use a prefix like `chore/release-vX.Y.Z` instead.
+2. Create a branch from `main` named `<type>/<issue#>-<slug>` (e.g.
+   `feat/123-week-view-keyboard-nav`). Don't start the name with `release/` — that namespace is
+   protected by a repository ruleset and the push will be rejected; use a prefix like
+   `chore/release-vX.Y.Z` instead.
 3. Make your change with tests (see below).
 4. Ensure everything is green locally — these mirror the required CI checks:
 

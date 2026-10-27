@@ -65,6 +65,27 @@ Version computation, the `Changelog` backfill rule, the two-PRs-one-version clas
 `release/` branch namespace, and what each merge deploys:
 [Required checks and releases](docs/agents/releases.md).
 
+## Development flow
+
+**Every code change starts from a ready issue.** That means a `ready-for-agent` issue carrying a
+`/to-spec` spec, a `/to-tickets` ticket, or a `/triage` brief, or a `bug` issue you are working
+through `/diagnosing-bugs` (the issue number is required there; a spec is not). With no ready
+issue, stop before the first edit, name the command that routes the user there, and wait. Reading
+code, running tests, and answering questions need no issue.
+
+**The human starts every phase.** `/wayfinder`, `/grill-with-docs`, `/to-spec`, `/to-tickets`,
+`/implement`, and `/triage` stay user-invoked (`disable-model-invocation: true`). At a phase
+boundary, name the next command, give one line of why, and wait. Inside a phase, use `/tdd`,
+`/code-review`, `/diagnosing-bugs`, `/domain-modeling`, `/codebase-design`, `/prototype`, and
+`/research` whenever they fit.
+
+**Exempt:** dependency bumps, changes touching only docs and agent config, release prep, and an
+explicit user waiver recorded in the PR body as `Flow waived by the user: <reason>`. Branches are
+`<type>/<issue#>-<slug>`, and the PR body opens with `Closes #N` or `Part of #N`.
+
+What counts as code, the readiness check, the routing table, and the exemptions in full:
+[Development flow](docs/agents/dev-flow.md).
+
 ## Architecture (the parts that span multiple files)
 
 **When changing production host redirects or checking preview routing**, read the
@@ -157,6 +178,8 @@ the area it covers; do not rely on this page's summaries for it.
   retiring an Edge Function.
 - [**Agents, skills, and docs automation**](docs/agents/tooling.md) — the two authored trees and
   their generated mirrors, `npm run sync:agents`, and which documents a change must keep aligned.
+- [**Development flow**](docs/agents/dev-flow.md) — the ready-issue gate, what counts as code,
+  routing when no issue is ready, the exemptions, and branch / PR issue linking.
 - [**Backups**](docs/agents/backups.md) — the nightly encrypted dump, what the bundle must contain,
   and what a restore actually requires.
 
