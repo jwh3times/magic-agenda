@@ -77,8 +77,8 @@ Four kinds of change need no ready issue:
   the manifest, the lockfile, and pinned action versions. Code edits a bump forces (an API that
   moved, a test that broke) are code and need an issue or a waiver.
 - **Docs and agent config only**, per the list above.
-- **Release prep** — the `ship` skill's `docs: update docs and changelog for vX.Y.Z` commit, a `CHANGELOG.md`
-  backfill, and a `package.json` major/minor line bump, including a standalone
+- **Release prep** — the `ship` skill's `docs: update docs and changelog for vX.Y.Z` commit, a
+  `CHANGELOG.md` backfill, and a `package.json` major/minor line bump, including a standalone
   `chore/release-vX.Y.Z` branch. Inside a gated PR these ride on that PR's issue.
 - **A user waiver** — the user's explicit words that this change skips the flow. Record it in the
   PR body as `Flow waived by the user: <reason>`, with their reason.
