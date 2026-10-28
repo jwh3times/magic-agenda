@@ -12,6 +12,13 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.51] - 2026-10-28
+
+### Internal
+
+- **The shared skills are refreshed.** Code spans that broke across a line in the five shared
+  skills and their settings now stay on one line. No behavior changes.
+
 ## [1.17.50] - 2026-10-28
 
 ### Internal
@@ -5435,7 +5442,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.50...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.51...HEAD
+[1.17.51]: https://github.com/jwh3times/magic-agenda/compare/v1.17.50...v1.17.51
 [1.17.50]: https://github.com/jwh3times/magic-agenda/compare/v1.17.49...v1.17.50
 [1.17.49]: https://github.com/jwh3times/magic-agenda/compare/v1.17.48...v1.17.49
 [1.17.48]: https://github.com/jwh3times/magic-agenda/compare/v1.17.47...v1.17.48
