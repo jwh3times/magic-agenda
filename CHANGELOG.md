@@ -12,6 +12,13 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.51] - 2026-10-28
+
+### Internal
+
+- **The shared skills are refreshed.** Code spans that broke across a line in the five shared
+  skills and their settings now stay on one line. No behavior changes.
+
 ## [1.17.50] - 2026-10-28
 
 ### Internal
