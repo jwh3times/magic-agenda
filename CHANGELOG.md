@@ -12,6 +12,22 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.50] - 2026-10-28
+
+### Internal
+
+- **The shared skills take their new defaults.** `ship`, `end-session`, `handoff`, `lets-go` and
+  `docs-updater` are reinstalled from `jwh3times/skills`, whose settings now carry default values.
+  `docs/agents/releases.md` drops its `Release commit message` and `Unreleased placeholder`
+  settings: `ship`'s release commit is now the shared default,
+  `docs: update docs and changelog for v<version>`, which `docs/agents/dev-flow.md` exempts as
+  release prep, and `Unreleased` keeps the placeholder it had, which is now the default.
+- `ship`'s fast checks run `npm test` (the required `Test` check) when `src/`, `tests/`, `scripts/`,
+  `vite.config.ts` or `package.json` changed. `Build`, `Functions`, `RLS`, `E2E`, `Config` and
+  CodeQL stay in CI.
+- `scripts/lint-agent-neutrality.mjs` takes the shared copy, which sorts with an explicit
+  comparator.
+
 ## [1.17.49] - 2026-10-28
 
 ### Internal
@@ -5419,7 +5435,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.49...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.50...HEAD
+[1.17.50]: https://github.com/jwh3times/magic-agenda/compare/v1.17.49...v1.17.50
 [1.17.49]: https://github.com/jwh3times/magic-agenda/compare/v1.17.48...v1.17.49
 [1.17.48]: https://github.com/jwh3times/magic-agenda/compare/v1.17.47...v1.17.48
 [1.17.47]: https://github.com/jwh3times/magic-agenda/compare/v1.17.46...v1.17.47

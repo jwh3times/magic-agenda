@@ -96,15 +96,7 @@ always
 
 `node scripts/next-version.mjs`
 
-## Unreleased placeholder
-
-`No unreleased changes.`
-
 ## Changelog check
 
 `node scripts/check-changelog.mjs` — the script the required `Changelog` job runs: this PR names
 its version, and every released 3-part tag has a section.
-
-## Release commit message
-
-`docs: changelog and docs for v<version>` — the release prep `docs/agents/dev-flow.md` exempts.
