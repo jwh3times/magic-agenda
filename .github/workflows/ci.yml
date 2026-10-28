@@ -78,8 +78,9 @@ jobs:
 
   # Two generated trees, opposite directions: .codex/agents is generated from
   # .claude/agents/, and .claude/skills is generated from .agents/skills/ (see AGENTS.md).
-  # This fails a PR that edits an authored tree without regenerating the other side, and
-  # asserts CLAUDE.md still imports AGENTS.md. No `npm ci` — the scripts have no deps.
+  # This fails a PR that edits an authored tree without regenerating the other side, asserts
+  # CLAUDE.md still imports AGENTS.md, and checks agent and skill sources are tool-neutral. No
+  # `npm ci` — the scripts have no deps.
   Agents:
     runs-on: ubuntu-latest
     steps:
@@ -87,9 +88,10 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .nvmrc
-      - run: node --test scripts/sync-agents.test.mjs
+      - run: node --test scripts/sync-agents.test.mjs scripts/lint-agent-neutrality.test.mjs
       - run: npm run sync:agents:check
       - run: npm run check:claude-md
+      - run: npm run lint:agents
 
   # Every merge to main auto-releases (see version.yml), so each PR must document
   # the version its merge will mint, and every already-released build must have an

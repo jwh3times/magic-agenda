@@ -83,3 +83,47 @@ Work whose **issue body itself** would disclose something the public code does n
 surface, an unclosable production weakness, provider or credential metadata — goes in the private
 companion's tracker instead. Note that GitHub cannot transfer a private-repository issue to a public
 one, so misfiling in that direction is the harder mistake to undo.
+
+**Use the glossary's words.** `CONTEXT.md` is authoritative for domain vocabulary — Recurring
+Series, Recurrence Rule, Occurrence, Occurrence Date, Scheduled Day, Excluded Date. `template` and
+`instance` are implementation words; an issue title using them is drift.
+
+## Public repository
+
+jwh3times/magic-agenda
+
+## Private issue repository
+
+`discover: git -C private remote get-url origin` — issues whose body would disclose what the public
+code does not (an undefended surface, provider or credential metadata).
+
+## Board
+
+jwh3times 5 — private, and holds both repositories' issues. A public issue is added by the board's
+`Auto-add to project` workflow; a private-repository issue never is: add it with
+`gh project item-add`.
+
+## Board fields
+
+- `Status`: `Todo` / `In Progress` / `Done`. The board's workflows set `Todo` when an item is added;
+  set the rest from the work's state.
+- `Phase`: `Phase 3 — PWA & notifications` / `Phase 4 — Productivity` /
+  `Phase 5 — Public face & admin` / `Phase 6 — Bigger bets` / `Quality & tooling`.
+- `Priority`: `P1` / `P2` / `P3`.
+- `Size`: `S` / `M` / `L` / `XL`.
+- `Gate`: `Nothing — ready to work` / `Owner decision` / `Operator action` / `Upstream capability` /
+  `Depends on another item` / `Evidence needed` / `Prerequisite of scheduled work`.
+
+No workflow sets `Phase`, `Priority`, `Size` or `Gate`: set them on every new item. Ordering and
+blocking are GitHub's native `blocked_by` dependencies (see Wayfinding operations), with `Gate`
+`Depends on another item`.
+
+## New work
+
+issue
+
+## Security findings
+
+An issue in the `Private issue repository`, never a public issue before the fix ships; an accepted
+risk also goes in the current security and operational register in `private/README.md`, with its
+revisit trigger. External reporters use private vulnerability reporting (`SECURITY.md`).

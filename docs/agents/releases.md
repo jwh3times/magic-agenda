@@ -66,3 +66,45 @@ Vitest gets a fixed `v0.0.0 · 0000000`, and the settings visual canary rewrites
 `Build 0000000` before its screenshot, because a PR build shows a commit that changes on every run.
 No test reaches a real Pages build: after changing `scripts/build-info.ts`, read the footer on the
 live site, or the `{version,commit}` object in the deployed bundle.
+
+## Scheme
+
+per-merge — `.github/workflows/version.yml` tags every merge to `main` `v<major>.<minor>.<build>`,
+and each merge's dated changelog section names the version it mints.
+
+## Skipped tags
+
+backfill — a merged Dependabot PR (exempt from naming its own version) gets its section on the next
+ship.
+
+- **Ignore:** the legacy 4-part `v1.1.1.x` tags, which predate the scheme;
+  `scripts/check-changelog.mjs` already excludes them.
+
+## Version file
+
+`package.json` (with `package-lock.json`: its top-level `version` and `packages[""].version`)
+
+## Bump command
+
+`npm version <version> --no-git-tag-version`
+
+## Ask before bumping
+
+always
+
+## Next-version command
+
+`node scripts/next-version.mjs`
+
+## Unreleased placeholder
+
+`No unreleased changes.`
+
+## Changelog check
+
+`node scripts/check-changelog.mjs` — the script the required `Changelog` job runs: this PR names
+its version, and every released 3-part tag has a section.
+
+## Release commit message
+
+`docs: changelog and docs for v<version>` — the release prep `docs/agents/dev-flow.md` exempts.

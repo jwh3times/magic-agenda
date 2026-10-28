@@ -7,6 +7,10 @@ and PR link to their issue. The flow itself — which skill follows which, and w
 binds it to this repository. `ask-matt` is user-invoked like the phase skills, so suggest `/ask-matt`
 to the user when they are unsure which route fits.
 
+`/handoff` here is the machine handoff (`docs/agents/tooling.md`), not the portable-file handoff
+`ask-matt` routes through: for a prototype or a side task in another directory, write the brief by
+hand.
+
 ## The gate
 
 Before the first edit to a code path (defined below), name the issue the change starts from and
@@ -73,7 +77,7 @@ Four kinds of change need no ready issue:
   the manifest, the lockfile, and pinned action versions. Code edits a bump forces (an API that
   moved, a test that broke) are code and need an issue or a waiver.
 - **Docs and agent config only**, per the list above.
-- **Release prep** — the `ship` skill's `docs: changelog for vX.Y.Z` commit, a `CHANGELOG.md`
+- **Release prep** — the `ship` skill's `docs: changelog and docs for vX.Y.Z` commit, a `CHANGELOG.md`
   backfill, and a `package.json` major/minor line bump, including a standalone
   `chore/release-vX.Y.Z` branch. Inside a gated PR these ride on that PR's issue.
 - **A user waiver** — the user's explicit words that this change skips the flow. Record it in the
@@ -93,5 +97,5 @@ Exempt work with no issue drops the number (`docs/dev-flow`). The `release/` pre
 - `Part of #N` — the PR is one slice of a spec that stays open.
 
 GitHub links and closes issues from keywords in the PR body or commit messages, never the title,
-so a number in the title alone links nothing. The existing `Mints **vX.Y.Z**.` line follows the
-link. An exempt PR opens with its waiver line when it has one.
+so a number in the title alone links nothing. `ship` follows the link with the `Release level:`
+line and the version the merge will mint. An exempt PR opens with its waiver line when it has one.
