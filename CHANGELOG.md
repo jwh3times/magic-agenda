@@ -12,6 +12,38 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.49] - 2026-10-28
+
+### Internal
+
+- **The agent workflow skills install from a shared repository.** `ship`, `end-session`,
+  `handoff` and `lets-go` are now the shared versions from `jwh3times/skills`, and the
+  `docs-updater` subagent became a `docs-updater` skill from the same place. Their bodies are
+  identical in every repository that installs them; what is particular to this one moved into
+  settings files under `docs/agents/`: the new `workspace.md`, `docs.md`, `ship.md` and
+  `handoffs.md`, plus settings sections in `releases.md`, `issue-tracker.md` and
+  `human-follow-up.md`. The release rules, the companion's commit gates, the never-delete list and
+  the follow-up records work as before. `docs/agents/tooling.md` gives the reinstall command;
+  `npx skills update` is not used.
+- The required `Agents` check also runs `npm run lint:agents`, which fails on agent or skill
+  wording one tool cannot follow and on links that break once a skill is mirrored, and tests it.
+  `scripts/sync-agents.mjs` takes the shared copy, which replaces a mirrored skill directory that an
+  installer left as a link.
+
+### Docs
+
+- `docs/agents/dev-flow.md` says `/handoff` is the machine handoff, not the portable-file handoff
+  `ask-matt` routes through, and that `ship` follows a PR's link line with its release level and
+  the version the merge will mint.
+
+## [1.17.48] - 2026-10-27
+
+### Internal
+
+- Dependabot: bumped the `npm-minor-and-patch` group (#555) — the `supabase` CLI 2.121.0 →
+  2.122.0, a development dependency. Backfilled by v1.17.49, per the changelog guard's Dependabot
+  exemption.
+
 ## [1.17.47] - 2026-10-26
 
 ### Docs
@@ -5387,7 +5419,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.47...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.49...HEAD
+[1.17.49]: https://github.com/jwh3times/magic-agenda/compare/v1.17.48...v1.17.49
+[1.17.48]: https://github.com/jwh3times/magic-agenda/compare/v1.17.47...v1.17.48
 [1.17.47]: https://github.com/jwh3times/magic-agenda/compare/v1.17.46...v1.17.47
 [1.17.46]: https://github.com/jwh3times/magic-agenda/compare/v1.17.45...v1.17.46
 [1.17.45]: https://github.com/jwh3times/magic-agenda/compare/v1.17.44...v1.17.45

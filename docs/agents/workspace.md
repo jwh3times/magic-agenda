@@ -1,0 +1,83 @@
+# Workspace
+
+Settings the shared `end-session`, `handoff`, `lets-go`, `ship` and `docs-updater` skills read
+(installed from `jwh3times/skills`; each skill's `settings/` folder defines them). Each `##` heading
+is one setting.
+
+## Private companion
+
+`private/` — an independent Git repository (not a submodule), git-ignored here and cloned by
+`npm run bootstrap:private`. `private/.git` existing is the test for "installed", not the directory.
+Repository: `discover: git -C private remote get-url origin`. `private/README.md` indexes it and
+`private/OPERATING-POLICY.md` binds it. Nothing in it — its contents — may enter this repository, an
+issue, a PR, a log or a chat transcript; a bare commit SHA may.
+
+## Workspace status command
+
+`git status --short --branch`, then, when `private/.git` exists, `git -C private fetch -q origin`,
+`git -C private status --short --branch` and
+`git -C private rev-list --left-right --count origin/main...main`. Behind only: pull `--ff-only`.
+Ahead only: carry on. **Diverged: stop** and report it; never merge, rebase, reset or force-push the
+companion.
+
+## Companion commit policy
+
+ask — commit and push inside `private/`, as its own repository, to its own `main` only after the
+user approves.
+
+- **Before committing:**
+  - stage only the intended files and inspect `git -C private diff --cached` yourself — never print
+    it. Describe what changed, file by file, and give the user the command to read it;
+  - scan the staged content for values: private-key headers, `ghp_` / `sbp_` / `eyJ…` token shapes,
+    passwords, connection strings, `KEY=value` assignments. An `op://` reference is fine; a
+    resolved value is an incident — stop and say so;
+  - `gh repo view` on the companion's `origin` must report `visibility` exactly `PRIVATE`, or stop;
+  - push with a plain `git -C private push origin main`, report the commit SHA, and re-run the
+    ahead/behind count: anything but `0 0` is not synchronized.
+
+## Sync with main
+
+`npm run sync:main` — moves the public checkout and `private/` to `main` and fast-forwards both.
+
+## Safe-to-remove paths
+
+- `test-results/`, `test-results-visual/`, `playwright-report/` — Playwright output. Traces in
+  `test-results/` hold a bearer token for the E2E account: delete them, never attach them anywhere.
+- `dist/` — build output (`npm run build`).
+- `supabase/.temp/pgdelta/` — a regenerable schema-diff cache, and the only cache under
+  `supabase/.temp/`.
+- Untracked one-off scratch at the repository root (`*.sql`, `*.mjs`, `*.json`, `*.md` written to
+  poke at something).
+
+## Never-remove paths
+
+- `.env.local` — local Supabase credentials; `.env.example` is a template, not a backup.
+- `private/` — the companion checkout; its uncommitted work exists nowhere else.
+- `tests/e2e/.auth/` — Playwright storage state for the E2E account.
+- `supabase/.temp/` (all but `pgdelta/`) and `supabase/.branches/` — Supabase CLI link state.
+  Deleting it unlinks the project, and relinking needs the database password.
+- `node_modules/`, `supabase/functions/node_modules/` — reinstallable, but not cleanup.
+- `*.tsbuildinfo` — the incremental typecheck cache; deleting it only makes the next `tsc -b` slow.
+- `.superpowers/` — workflow scratch that may still be mid-flight: ask first.
+
+## Dev stack
+
+`npx supabase status` shows the local stack; `npm run test:rls:down` stops it — only when this
+session started it (`npm run test:rls:up`). Left running, the hermetic unit suite has something live
+to reach by accident.
+
+- **Never run:**
+  - `npx supabase config push` — it deploys straight to production; the `Config` CI job previews it
+    and the `Deploy Auth Config` workflow applies it on merge.
+  - `npx supabase db reset --linked`, or any `--linked` write outside a documented runbook.
+  - Any Supabase CLI command fed an empty stdin to "accept" prompts: they default to **yes** on EOF.
+
+## Generated-config check
+
+`npm run sync:agents:check`; regenerate with `npm run format`, then `npm run sync:agents` — in that
+order, since `.claude/agents/*.md` is formatted and is the source for `.codex/agents/*.toml`. Run
+it always: it is quick, and the required `Agents` check runs it.
+
+## Final portability check
+
+none

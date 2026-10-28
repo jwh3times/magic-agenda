@@ -6,50 +6,49 @@ generated. Read before editing anything under `.claude/`, `.agents/`, or `.codex
 `AGENTS.md` is the **canonical agent guide**; `CLAUDE.md` is only an `@AGENTS.md` import so Claude Code
 loads the same content. Edit `AGENTS.md` — never duplicate content into `CLAUDE.md`.
 
-Project subagents live in `.claude/agents/`: `docs-updater` (keeps `AGENTS.md`,
-`README.md`, `CHANGELOG.md` in sync with the code) and `code-reviewer` (reviews diffs
-against the app/DB boundary, RLS, recurrence, and DnD correctness rules before merging). The `ship`
-skill (`.claude/skills/ship/`) takes a finished branch to an open PR — it refreshes the docs (via
-`docs-updater`), evaluates the release level from shipped compatibility and user impact, gets
-confirmation before starting a major/minor line, records the resulting version in `CHANGELOG.md`,
-runs the fast checks (`format:check`, `lint`, `tsc -b`), pushes, and opens or updates the PR; run it
-with "ship it" when a branch is ready. Whether or not you use it, keep `AGENTS.md`, `README.md`,
-and `CHANGELOG.md` aligned when a change affects project behavior, commands, architecture, or
-release notes. `ROADMAP.md` is a pointer to GitHub Issues and holds no item list to update.
+The project subagent `code-reviewer` lives in `.claude/agents/`: it reviews diffs against the
+app/DB boundary, RLS, recurrence, and DnD correctness rules before merging. Whatever runs the change,
+keep `AGENTS.md`, `README.md`, and `CHANGELOG.md` aligned when it affects project behavior, commands,
+architecture, or release notes. `ROADMAP.md` is a pointer to GitHub Issues and holds no item list to
+update.
 
-The `end-session` skill (authored at `.agents/skills/end-session/`) is the other bookend: it closes
-a work session by moving knowledge out of the conversation and junk out of the checkout — GitHub
-issues brought up to date per `docs/agents/`, `private/` reconciled, memory updated, and the local
-workspace audited. It is deliberately **not** a shipping skill: it never pushes, merges, or edits
-`AGENTS.md` / `README.md` / `ROADMAP.md` / `CHANGELOG.md`, because those belong to the PR that
-changed the code. Run `/ship` first if a branch is still in flight, then `end-session`. It carries
-**one narrowly named exception** to "never push": the private companion at `private/` may be
-committed and pushed to its own `main`, and only after its staged diff is reviewed, a secret scan
-passes, GitHub re-reports the remote as `PRIVATE`, and the maintainer explicitly approves — that
-push is what makes a session's private conclusions reach the next machine. The public
-application repository is never pushed by it. Two of its
-rules are load-bearing rather than stylistic: a dated document under `private/` is **amended, never
-rewritten** (it is evidence from the state it reviewed), and the workspace pass carries an explicit
-never-delete list. `.env.local` and `tests/e2e/.auth/` are git-ignored and the only
-copy of what they hold, and `private/` is the only _local_ copy of its uncommitted work, so a
-blanket sweep of ignored paths destroys them; `supabase/.temp/` (all
-but its regenerable `pgdelta/` cache) and `supabase/.branches/` are on the same list for a
-different reason — that's Supabase CLI link state, so deleting it doesn't destroy data but does
-unlink the project, and relinking needs the database password.
+**Five workflow skills install from the shared `jwh3times/skills` repository:** `ship`,
+`end-session`, `docs-updater`, `handoff`, and `lets-go`. Their bodies are identical in every
+repository that installs them; what is particular to this one is in the settings files under
+`docs/agents/` — `workspace.md`, `issue-tracker.md`, `human-follow-up.md`, `docs.md`, `releases.md`,
+`ship.md`, and `handoffs.md` — which each skill's first step reads and, when one is missing,
+proposes. Change behavior here by editing a setting; fix a skill body upstream, then reinstall:
 
-The `handoff` and `lets-go` skills (authored at `.agents/skills/`, both user-invoked) carry a
-session between the maintainer's Windows and Fedora machines through Proton Drive. `/handoff`
-audits for work not merged to `origin/main` and alerts on it. It then writes a handoff document to
-the `Handoffs` folder, marks it active in that folder's `handoff_map.json`, and runs `end-session`.
-`/lets-go` reads the map, resumes this repository's active handoff after checking its claims
-against the checkout, and sets the entry to `null` so the handoff is consumed once.
-`.agents/skills/handoff/scripts/handoff-map.mjs` is the only writer of the map. It resolves the
-folder (`HANDOFFS_DIR`, else `~/Proton Drive/jwh3times/My Files/Documents/Handoffs` on either OS),
-matches the map key case- and punctuation-insensitively, and refuses to run beside Proton Drive
-sync-conflict copies. On a machine with no Proton Drive desktop client (Fedora), `HANDOFFS_DIR` is
-a local mirror and both skills pull and push it through the `proton-drive` CLI against
-`/my-files/Documents/Handoffs`; the skills' **Transport** section names the two cases. `handoff` began as a vendored `mattpocock/skills` skill. It is now ours and
-has left `skills-lock.json`, so a skills sync will not overwrite it.
+```bash
+npx skills add jwh3times/skills -s end-session -s handoff -s lets-go -s ship -s docs-updater -a codex --copy -y
+npm run sync:agents
+```
+
+Never run `npx skills update`: it re-runs the install for every agent it detects, which links
+`.claude/skills/<name>` back to its authored source instead of copying it.
+
+- **`ship`** takes a finished branch to an open PR: it evaluates the release level, writes the
+  changelog section for the version the merge will mint (backfilling builds that shipped without
+  one), runs `docs-updater` on the branch's diff, runs the `Fast checks`, pushes, and opens or
+  updates the PR. It stops at "PR open"; the maintainer merges.
+- **`end-session`** closes a work session: issues and the board brought up to date, human
+  follow-ups recorded, `docs-updater` run, `private/` reconciled, memory updated, and the local
+  workspace audited against `workspace.md`'s never-remove and safe-to-remove lists. It never pushes
+  the public repository; the companion is committed and pushed only through the gates of
+  `Companion commit policy` and with the maintainer's approval. A dated document under `private/`
+  is **amended, never rewritten**.
+- **`docs-updater`** finds where the docs and the code disagree and fixes the docs, following the
+  `Doc map` in `docs/agents/docs.md` — what each document owns, when it changes, and which are
+  frozen. It replaced the `docs-updater` subagent.
+- **`handoff`** and **`lets-go`** (both user-invoked) carry a session between machines through a
+  shared Handoffs folder. `/handoff` audits for work not merged to `origin/main`, writes a handoff
+  document, marks it active in the folder's `handoff_map.json`, and runs `end-session`; `/lets-go`
+  resumes this repository's active handoff after checking its claims against the checkout, and
+  clears the entry so it is consumed once. `.agents/skills/handoff/handoff-map.mjs` is the only
+  writer of the map. How the folder reaches a machine — a synced folder, or a local mirror pushed
+  through the `proton-drive` CLI — is that machine's config (`~/.config/handoffs/config`; see
+  `.agents/skills/handoff/machine-config.md`), not this repository's. This `/handoff` is the machine
+  handoff, not `mattpocock/skills`' portable-file one that `ask-matt` describes.
 
 ## Two authored trees, two generated trees — opposite directions on purpose
 
@@ -115,18 +114,20 @@ Rules for this pipeline:
   markdown glob updated exactly one generated file for this reason.
 - **`.agents/skills/` is `.prettierignore`'d even though it is authored**, which looks inconsistent
   with the table above until you check `skills-lock.json`: those files are vendored from
-  `mattpocock/skills` with a `computedHash` per skill. Formatting them would rewrite third-party
+  `mattpocock/skills` and `jwh3times/skills` with a `computedHash` per skill. Formatting them would rewrite third-party
   content the installer expects byte-for-byte, so every skill update would churn and fight the
   formatter. Authored-vs-generated and ours-vs-vendored are separate axes; this directory is
   authored _and_ vendored, and the vendoring wins. `private/` is ignored for a different reason —
   git-ignored and local-only, so CI never sees it and formatting only rewrites security-review
   evidence in the maintainer's checkout.
-- The required **`Agents` CI job** runs `node --test scripts/sync-agents.test.mjs` (the shared
-  script's own `node:test` suite, excluded from Vitest), then `npm run sync:agents:check`, which
-  fails on any missing, hand-edited, or orphaned generated file, then `npm run check:claude-md`
+- The required **`Agents` CI job** runs `node --test` over the shared scripts' own `node:test`
+  suites (excluded from Vitest); `npm run sync:agents:check`, which fails on any missing,
+  hand-edited, or orphaned generated file; `npm run check:claude-md`
   (`scripts/check-claude-md.mjs`), which asserts `CLAUDE.md` still contains its `@AGENTS.md`
-  import line. That check is repository-specific, so it lives outside the shared script; its
-  Vitest test is `scripts/check-claude-md.test.mjs`.
+  import line; and `npm run lint:agents` (`scripts/lint-agent-neutrality.mjs`, shared verbatim like
+  `sync-agents.mjs`), which fails on wording one tool cannot follow and on links that break once a
+  file is mirrored. The `CLAUDE.md` check is repository-specific, so it lives outside the shared
+  scripts; its Vitest test is `scripts/check-claude-md.test.mjs`.
 - `skills-lock.json` at the repo root is the skills-sync tool's own lockfile (source repo + commit
   hash per installed skill) — committed as installer metadata, untouched by `sync-agents.mjs`.
 

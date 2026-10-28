@@ -30,6 +30,7 @@ npm run format         # prettier --write (src, tests, scripts, and all .md; see
 npm run format:check   # prettier --check (the CI "Format" job runs this + lint)
 npm run sync:agents        # regenerate .codex/agents and .claude/skills from their authored trees
 npm run sync:agents:check  # verify they are in sync (the CI "Agents" job runs this)
+npm run lint:agents        # agent and skill sources stay tool-neutral (the "Agents" job runs this too)
 npm run sync:main      # move public + private repos to main and fast-forward origin/main
 
 # Run one test file or one test by name:
@@ -328,9 +329,10 @@ area detail in `docs/agents/` rather than growing this page. Keep `AGENTS.md`, `
 `CHANGELOG.md` aligned when a change affects project behavior, commands, architecture, or release
 notes.
 
-The project subagents, the `ship` and `end-session` skills, the Proton Drive `handoff` / `lets-go`
-pair, and the two authored trees whose
-generated mirrors (`.codex/`, `.claude/skills/`) must never be hand-edited:
+The `code-reviewer` subagent; the `ship`, `end-session`, `docs-updater`, `handoff` and `lets-go`
+skills, installed from `jwh3times/skills` and configured by the settings files in `docs/agents/`
+(never `npx skills update`); and the two authored trees whose generated mirrors (`.codex/`,
+`.claude/skills/`) must never be hand-edited:
 [Agents, skills, and docs automation](docs/agents/tooling.md).
 
 ## Backups
