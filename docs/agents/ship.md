@@ -5,8 +5,8 @@ setting.
 
 ## Fast checks
 
-All from the repository root, in order; together they cover the required `Format` and `Agents`
-checks, and `tsc -b` is the typecheck half of `Build`.
+All from the repository root, in order; together they cover the required `Format`, `Agents` and
+`Test` checks, and `tsc -b` is the typecheck half of `Build`.
 
 - `npm run format:check`, fixed by `npm run format`
 - `npm run lint`
@@ -17,9 +17,10 @@ checks, and `tsc -b` is the typecheck half of `Build`.
 - `npm run lint:agents`
 - only when `scripts/` changed:
   `node --test scripts/sync-agents.test.mjs scripts/lint-agent-neutrality.test.mjs`
+- only when `src/`, `tests/`, `scripts/`, `vite.config.ts` or `package.json` changed: `npm test`
+  (the required `Test` check; about 16 seconds locally)
 
-`Test`, `Build`, `Functions`, `RLS`, `E2E`, `Config` and CodeQL run in CI, not here: this
-repository leaves the full suites to CI.
+`Build` (vite), `Functions` (Deno), `RLS`, `E2E`, `Config` and CodeQL run in CI only.
 
 ## Issue link
 
