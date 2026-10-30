@@ -34,9 +34,9 @@ Never run `npx skills update`: it re-runs the install for every agent it detects
 - **`end-session`** closes a work session: issues and the board brought up to date, human
   follow-ups recorded, `docs-updater` run, `private/` reconciled, memory updated, and the local
   workspace audited against `workspace.md`'s never-remove and safe-to-remove lists. It never pushes
-  the public repository; the companion is committed and pushed only through the gates of
-  `Companion commit policy` and with the maintainer's approval. A dated document under `private/`
-  is **amended, never rewritten**.
+  the public repository; the companion is committed and pushed only through the shared companion
+  commit procedure, with the maintainer's approval. A dated document under `private/` is
+  **amended, never rewritten**.
 - **`docs-updater`** finds where the docs and the code disagree and fixes the docs, following the
   `Doc map` in `docs/agents/docs.md` — what each document owns, when it changes, and which are
   frozen. It replaced the `docs-updater` subagent.
