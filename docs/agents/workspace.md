@@ -12,14 +12,6 @@ Repository: `discover: git -C private remote get-url origin`. `private/README.md
 `private/OPERATING-POLICY.md` binds it. Nothing in it — its contents — may enter this repository, an
 issue, a PR, a log or a chat transcript; a bare commit SHA may.
 
-## Workspace status command
-
-`git status --short --branch`, then, when `private/.git` exists, `git -C private fetch -q origin`,
-`git -C private status --short --branch` and
-`git -C private rev-list --left-right --count origin/main...main`. Behind only: pull `--ff-only`.
-Ahead only: carry on. **Diverged: stop** and report it; never merge, rebase, reset or force-push the
-companion.
-
 ## Sync with main
 
 `npm run sync:main` — moves the public checkout and `private/` to `main` and fast-forwards both.
@@ -62,7 +54,3 @@ to reach by accident.
 `npm run sync:agents:check`; regenerate with `npm run format`, then `npm run sync:agents` — in that
 order, since `.claude/agents/*.md` is formatted and is the source for `.codex/agents/*.toml`. Run
 it always: it is quick, and the required `Agents` check runs it.
-
-## Final portability check
-
-none
