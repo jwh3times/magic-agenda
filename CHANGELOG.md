@@ -12,6 +12,16 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.52] - 2026-10-30
+
+### Internal
+
+- **The shared skills are refreshed.** Agents commit in `private/` only after asking, by one
+  procedure every repository shares; its checks (a value scan, `PRIVATE` visibility, a plain push
+  and a `0 0` ahead/behind count) were this repository's own, so `Companion commit policy` leaves
+  `docs/agents/workspace.md`. `/ship` reports an open PR that claims the same version again, and
+  `/lets-go` installs from a changed lockfile.
+
 ## [1.17.51] - 2026-10-28
 
 ### Internal
@@ -5442,7 +5452,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.51...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.52...HEAD
+[1.17.52]: https://github.com/jwh3times/magic-agenda/compare/v1.17.51...v1.17.52
 [1.17.51]: https://github.com/jwh3times/magic-agenda/compare/v1.17.50...v1.17.51
 [1.17.50]: https://github.com/jwh3times/magic-agenda/compare/v1.17.49...v1.17.50
 [1.17.49]: https://github.com/jwh3times/magic-agenda/compare/v1.17.48...v1.17.49

@@ -20,21 +20,6 @@ issue, a PR, a log or a chat transcript; a bare commit SHA may.
 Ahead only: carry on. **Diverged: stop** and report it; never merge, rebase, reset or force-push the
 companion.
 
-## Companion commit policy
-
-ask — commit and push inside `private/`, as its own repository, to its own `main` only after the
-user approves.
-
-- **Before committing:**
-  - stage only the intended files and inspect `git -C private diff --cached` yourself — never print
-    it. Describe what changed, file by file, and give the user the command to read it;
-  - scan the staged content for values: private-key headers, `ghp_` / `sbp_` / `eyJ…` token shapes,
-    passwords, connection strings, `KEY=value` assignments. An `op://` reference is fine; a
-    resolved value is an incident — stop and say so;
-  - `gh repo view` on the companion's `origin` must report `visibility` exactly `PRIVATE`, or stop;
-  - push with a plain `git -C private push origin main`, report the commit SHA, and re-run the
-    ahead/behind count: anything but `0 0` is not synchronized.
-
 ## Sync with main
 
 `npm run sync:main` — moves the public checkout and `private/` to `main` and fast-forwards both.
