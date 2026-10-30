@@ -82,7 +82,8 @@ copy of something GitHub already answers authoritatively, and each drifted befor
 Work whose **issue body itself** would disclose something the public code does not — an undefended
 surface, an unclosable production weakness, provider or credential metadata — goes in the private
 companion's tracker instead. Note that GitHub cannot transfer a private-repository issue to a public
-one, so misfiling in that direction is the harder mistake to undo.
+one, so misfiling in that direction is the harder mistake to undo. A security finding awaiting its
+fix goes in neither tracker: it is a draft repository advisory (`Security findings` below).
 
 **Use the glossary's words.** `CONTEXT.md` is authoritative for domain vocabulary — Recurring
 Series, Recurrence Rule, Occurrence, Occurrence Date, Scheduled Day, Excluded Date. `template` and
@@ -91,11 +92,6 @@ Series, Recurrence Rule, Occurrence, Occurrence Date, Scheduled Day, Excluded Da
 ## Public repository
 
 jwh3times/magic-agenda
-
-## Private issue repository
-
-`discover: git -C private remote get-url origin` — issues whose body would disclose what the public
-code does not (an undefended surface, provider or credential metadata).
 
 ## Board
 
@@ -118,12 +114,7 @@ No workflow sets `Phase`, `Priority`, `Size` or `Gate`: set them on every new it
 blocking are GitHub's native `blocked_by` dependencies (see Wayfinding operations), with `Gate`
 `Depends on another item`.
 
-## New work
-
-issue
-
 ## Security findings
 
-An issue in the `Private issue repository`, never a public issue before the fix ships; an accepted
-risk also goes in the current security and operational register in `private/README.md`, with its
-revisit trigger. External reporters use private vulnerability reporting (`SECURITY.md`).
+The default. An accepted risk also goes in the current security and operational register in
+`private/README.md`, with its revisit trigger.

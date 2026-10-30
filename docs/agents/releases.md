@@ -72,22 +72,6 @@ live site, or the `{version,commit}` object in the deployed bundle.
 per-merge — `.github/workflows/version.yml` tags every merge to `main` `v<major>.<minor>.<build>`,
 and each merge's dated changelog section names the version it mints.
 
-## Skipped tags
-
-backfill — a merged Dependabot PR (exempt from naming its own version) gets its section on the next
-ship.
-
-- **Ignore:** the legacy 4-part `v1.1.1.x` tags, which predate the scheme;
-  `scripts/check-changelog.mjs` already excludes them.
-
-## Version file
-
-`package.json` (with `package-lock.json`: its top-level `version` and `packages[""].version`)
-
-## Bump command
-
-`npm version <version> --no-git-tag-version`
-
 ## Ask before bumping
 
 always
