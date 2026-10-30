@@ -12,6 +12,18 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.53] - 2026-10-30
+
+### Internal
+
+- **The shared skills are refreshed, and their defaults replace matching settings.** Most
+  `docs/agents/` settings that matched a new default in `jwh3times/skills` are gone. Two rules
+  change: a security finding awaiting its fix is now a draft repository advisory rather than a
+  private issue (an accepted risk still goes in the companion's register), and `/end-session` ends
+  by proving both repositories clean and pushed. `/ship` bumps with `--allow-same-version`, so a
+  re-run lands on the same version; `/handoff` names `npm run bootstrap:private` for a machine
+  without `private/`, and `/lets-go` offers it.
+
 ## [1.17.52] - 2026-10-30
 
 ### Internal
@@ -5452,7 +5464,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.52...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.53...HEAD
+[1.17.53]: https://github.com/jwh3times/magic-agenda/compare/v1.17.52...v1.17.53
 [1.17.52]: https://github.com/jwh3times/magic-agenda/compare/v1.17.51...v1.17.52
 [1.17.51]: https://github.com/jwh3times/magic-agenda/compare/v1.17.50...v1.17.51
 [1.17.50]: https://github.com/jwh3times/magic-agenda/compare/v1.17.49...v1.17.50
