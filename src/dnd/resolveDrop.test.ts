@@ -2,8 +2,11 @@ import { describe, it, expect } from 'vitest'
 import {
   beginDrag,
   containerOf,
+  dropTargetId,
   insertionIndex,
   isBelowOver,
+  isDropTarget,
+  laneOfDroppable,
   modeForView,
   resolveDrop,
   type DragSession,
@@ -267,5 +270,99 @@ describe('resolveDrop', () => {
     expect([...session.touched]).toEqual(before)
     expect(session.didMove).toBe(false)
     expect(tasks.find((x) => x.id === 'a')!.day).toBe('A')
+  })
+})
+
+describe('a droppable id', () => {
+  it('maps a phone grid cell or the Inbox tab back to its lane', () => {
+    expect(laneOfDroppable(dropTargetId('2026-11-10'))).toBe('2026-11-10')
+    expect(laneOfDroppable(dropTargetId('inbox'))).toBe('inbox')
+  })
+
+  it('passes a lane or a card through unchanged', () => {
+    expect(laneOfDroppable('2026-11-10')).toBe('2026-11-10')
+    expect(laneOfDroppable('inbox')).toBe('inbox')
+    expect(laneOfDroppable('7f3c9a10-card')).toBe('7f3c9a10-card')
+  })
+
+  it('never lets a cell or the tab share an id with its own lane', () => {
+    expect(dropTargetId('2026-11-10')).not.toBe('2026-11-10')
+    expect(dropTargetId('inbox')).not.toBe('inbox')
+  })
+
+  it('tells a drop target from a lane or a card', () => {
+    expect(isDropTarget(dropTargetId('2026-11-10'))).toBe(true)
+    expect(isDropTarget(dropTargetId('inbox'))).toBe(true)
+    expect(isDropTarget('2026-11-10')).toBe(false)
+    expect(isDropTarget('inbox')).toBe(false)
+    expect(isDropTarget('7f3c9a10-card')).toBe(false)
+  })
+})
+
+describe('resolveDrop over a drop-only target', () => {
+  const DAY = '2026-11-10'
+  const OTHER = '2026-11-12'
+  const board = () => [
+    t('a', { day: DAY, order: 0, atTime: '09:00' }),
+    t('b', { day: DAY, order: 1 }),
+    t('c', { day: OTHER, order: 0 }),
+    t('d', { day: OTHER, order: 1 }),
+  ]
+  const over = (lane: string, phase: 'hover' | 'drop') => input(lane, { phase, dropOnly: true })
+
+  it('does not relocate the Task on hover', () => {
+    const tasks = board()
+    expect(resolveDrop(beginDrag(tasks, 'a', 'day'), tasks, over(OTHER, 'hover'))).toBeNull()
+    expect(resolveDrop(beginDrag(tasks, 'a', 'day'), tasks, over('inbox', 'hover'))).toBeNull()
+  })
+
+  it('settles at the end of the day on drop, with both lanes touched', () => {
+    const tasks = board()
+    const step = resolveDrop(beginDrag(tasks, 'a', 'day'), tasks, over(OTHER, 'drop'))!
+    expect(dayIds(step.tasks, OTHER)).toEqual(['c', 'd', 'a'])
+    expect(dayIds(step.tasks, DAY)).toEqual(['b'])
+    expect(step.tasks.find((x) => x.id === 'b')!.order).toBe(0)
+    expect([...step.session.touched].sort()).toEqual([DAY, OTHER].sort())
+    expect(step.session.didMove).toBe(true)
+    expect(step.tasks.find((x) => x.id === 'a')!.atTime).toBe('09:00')
+  })
+
+  it('leaves the Task where it was when dropped back over its own lane', () => {
+    const tasks = board()
+    expect(resolveDrop(beginDrag(tasks, 'a', 'day'), tasks, over(DAY, 'drop'))).toBeNull()
+  })
+
+  it('clears Due Time when dropped on the Inbox', () => {
+    const tasks = board()
+    const step = resolveDrop(beginDrag(tasks, 'a', 'day'), tasks, over('inbox', 'drop'))!
+    const moved = step.tasks.find((x) => x.id === 'a')!
+    expect(moved.day).toBe('inbox')
+    expect(moved.atTime).toBeNull()
+    expect([...step.session.touched].sort()).toEqual([DAY, 'inbox'].sort())
+  })
+
+  it('schedules an Inbox Task dropped on a day', () => {
+    const tasks = [...board(), t('e', { day: 'inbox', order: 0 })]
+    const step = resolveDrop(beginDrag(tasks, 'e', 'day'), tasks, over(OTHER, 'drop'))!
+    expect(dayIds(step.tasks, OTHER)).toEqual(['c', 'd', 'e'])
+    expect(dayIds(step.tasks, 'inbox')).toEqual([])
+  })
+
+  it('moves an Occurrence as This Occurrence, keeping its Occurrence Date', () => {
+    const tasks = [
+      t('occ', { day: DAY, order: 0, recurParentId: 'series', occurrenceDate: DAY }),
+      ...board().slice(2),
+    ]
+    const step = resolveDrop(beginDrag(tasks, 'occ', 'day'), tasks, over(OTHER, 'drop'))!
+    const moved = step.tasks.find((x) => x.id === 'occ')!
+    expect(moved.day).toBe(OTHER)
+    expect(moved.recurParentId).toBe('series')
+    expect(moved.occurrenceDate).toBe(DAY)
+  })
+
+  it('still reorders within the lane when the drop is over a card', () => {
+    const tasks = board()
+    const step = resolveDrop(beginDrag(tasks, 'a', 'day'), tasks, input('b', { phase: 'drop' }))!
+    expect(dayIds(step.tasks, DAY)).toEqual(['b', 'a'])
   })
 })

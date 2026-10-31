@@ -44,3 +44,25 @@ test('the drag overlay renders Unlabeled for a null assignment', () => {
   renderOverlay(null)
   expect(screen.getByText('Unlabeled')).toBeInTheDocument()
 })
+
+const renderToward = (target?: string) =>
+  render(
+    <ThemeProvider>
+      <LabelDirectoryContext.Provider value={fakeLabelDirectory()}>
+        <CardOverlay task={task('l1')} compact target={target} />
+      </LabelDirectoryContext.Provider>
+    </ThemeProvider>,
+  )
+
+test('the compact overlay says where the Task will land while it is over a target', () => {
+  renderToward('Tue 10 Nov')
+  expect(screen.getByText('Move to Tue 10 Nov')).toBeInTheDocument()
+  expect(screen.getByText('Dragged task')).toBeInTheDocument()
+  expect(screen.queryByText('Work')).not.toBeInTheDocument()
+})
+
+test('the compact overlay keeps its Label over anything else', () => {
+  renderToward(undefined)
+  expect(screen.getByText('Work')).toBeInTheDocument()
+  expect(screen.queryByText(/Move to/)).not.toBeInTheDocument()
+})

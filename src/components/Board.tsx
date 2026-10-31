@@ -11,6 +11,7 @@ import {
   addDays,
   addMonths,
   formatAgendaDate,
+  formatDayShort,
   formatWeekRange,
   parseDay,
   startOfWeek,
@@ -21,6 +22,7 @@ import { useIsMobile } from '../lib/useMediaQuery'
 import { readBoardView, writeBoardView } from '../lib/viewStorage'
 import { useBoardDnd } from '../dnd/useBoardDnd'
 import { CardOverlay } from '../dnd/CardOverlay'
+import { aboveFinger } from '../dnd/phoneDrag'
 import { newId } from '../lib/id'
 import { Toolbar } from './Toolbar'
 import { CalendarView } from './CalendarView'
@@ -132,6 +134,14 @@ const THEME_OPTIONS: { key: ThemeName; label: string }[] = [
   { key: 'brutal', label: 'Neon' },
   { key: 'glass', label: 'Aurora' },
 ]
+
+const PHONE_OVERLAY_MODIFIERS = [aboveFinger]
+
+/** What the drag overlay names, which is nothing over the Task's own lane: no move would happen. */
+function dropTargetName(lane: string | null, task: Task): string | undefined {
+  if (lane === null || lane === task.day) return undefined
+  return lane === INBOX ? 'Inbox' : formatDayShort(lane)
+}
 
 function newTaskTemplate(day: string, status: WorkflowStatus): Task {
   const active = {
@@ -265,7 +275,14 @@ export function Board({
       return next
     })
 
-  const dnd = useBoardDnd(view, tasks, taskBoard.previewReorder, taskBoard.persistReorder)
+  const phoneCalendar = view === 'calendar' && isMobile
+  const dnd = useBoardDnd(
+    view,
+    tasks,
+    taskBoard.previewReorder,
+    taskBoard.persistReorder,
+    phoneCalendar,
+  )
 
   useEffect(() => () => window.clearTimeout(popTimer.current), [])
 
@@ -586,7 +603,7 @@ export function Board({
                 <KanbanView tasks={visibleTasks} />
               ) : view === 'agenda' ? (
                 <AgendaView tasks={visibleTasks} />
-              ) : view === 'calendar' && isMobile ? (
+              ) : phoneCalendar ? (
                 <PhoneCalendar
                   viewY={year}
                   viewM={month}
@@ -621,8 +638,15 @@ export function Board({
             </main>
           </DragDisabledContext.Provider>
 
-          <DragOverlay>
-            {dnd.activeTask ? <CardOverlay task={dnd.activeTask} width={dnd.activeWidth} /> : null}
+          <DragOverlay modifiers={phoneCalendar ? PHONE_OVERLAY_MODIFIERS : undefined}>
+            {dnd.activeTask ? (
+              <CardOverlay
+                task={dnd.activeTask}
+                width={dnd.activeWidth}
+                compact={phoneCalendar}
+                target={dropTargetName(dnd.overTargetLane, dnd.activeTask)}
+              />
+            ) : null}
           </DragOverlay>
         </DndContext>
 

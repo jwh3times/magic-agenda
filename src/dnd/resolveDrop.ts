@@ -37,6 +37,12 @@ export interface DropInput {
   overRect: RectLike | null
   /** Timestamp used only if this drop enters Completed. Injected by the dnd-kit adapter. */
   now: string
+  /**
+   * The target takes only a finished drop, as a phone grid cell or the Inbox tab does. Hovering it
+   * moves nothing, because a relocation would pull the card out of the panel mid-gesture and a cell
+   * has nowhere to show it. Dropping it back on its own lane moves nothing either.
+   */
+  dropOnly?: boolean
 }
 
 /**
@@ -88,6 +94,29 @@ export function containerOf(tasks: Task[], id: string, mode: Mode): string {
   const task = tasks.find((t) => t.id === id)
   if (task) return mode === 'day' ? task.day : task.status
   return id
+}
+
+const DROP_TARGET_PREFIX = 'target:'
+
+/**
+ * The droppable id of a phone grid cell or the Inbox tab, whose lane is `lane`.
+ *
+ * dnd-kit needs every droppable id to be unique, and the selected day is both a cell and the panel's
+ * lane, as the Inbox is both a tab and a lane. So these register their own ids, and the adapter maps
+ * them back with `laneOfDroppable` before this module sees them: `containerOf` takes any id matching
+ * no task to be a lane, so an unmapped one would read as a lane nobody has.
+ */
+export function dropTargetId(lane: string): string {
+  return `${DROP_TARGET_PREFIX}${lane}`
+}
+
+export function isDropTarget(id: string): boolean {
+  return id.startsWith(DROP_TARGET_PREFIX)
+}
+
+/** The lane a droppable id stands for. A lane or a card's id passes through unchanged. */
+export function laneOfDroppable(id: string): string {
+  return isDropTarget(id) ? id.slice(DROP_TARGET_PREFIX.length) : id
 }
 
 /**
@@ -165,6 +194,7 @@ export function resolveDrop(
   const from = containerOf(tasks, activeId, mode)
   const to = containerOf(tasks, overId, mode)
   if (input.phase === 'hover' && to === from) return null
+  if (input.dropOnly && (input.phase === 'hover' || to === from)) return null
 
   const below = isBelowOver(input.activeRect, input.overRect)
   const index = insertionIndex(tasks, mode, to, overId, below, activeId)

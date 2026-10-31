@@ -14,8 +14,11 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import type { Task, ViewName } from '../types/task'
 import type { Mode } from './reorder'
+import { phoneCalendarCollision } from './phoneDrag'
 import {
   beginDrag,
+  isDropTarget,
+  laneOfDroppable,
   modeForView,
   resolveDrop,
   type DragPhase,
@@ -48,6 +51,8 @@ export interface BoardDnd {
   collisionDetection: typeof closestCorners
   activeTask: Task | null
   activeWidth: number | undefined
+  /** The lane of the phone grid cell or Inbox tab under the finger, or null over anything else. */
+  overTargetLane: string | null
   onDragStart: (e: DragStartEvent) => void
   onDragOver: (e: DragOverEvent) => void
   onDragEnd: (e: DragEndEvent) => void
@@ -60,12 +65,15 @@ type PreviewReorder = (next: Task[]) => void
 
 /** Maps a dnd-kit event onto the pure module's input. The only place dnd-kit's shapes are read. */
 function dropInput(e: DragOverEvent | DragEndEvent, phase: DragPhase): DropInput {
+  const overId = e.over ? String(e.over.id) : null
   return {
     phase,
-    overId: e.over ? String(e.over.id) : null,
+    // The pure module sees only lanes and cards, never a grid cell's or the Inbox tab's own id.
+    overId: overId && laneOfDroppable(overId),
     activeRect: e.active.rect.current.translated,
     overRect: e.over?.rect ?? null,
     now: new Date().toISOString(),
+    dropOnly: overId !== null && isDropTarget(overId),
   }
 }
 
@@ -79,15 +87,20 @@ function dropInput(e: DragOverEvent | DragEndEvent, phase: DragPhase): DropInput
  * touched lane, and a filtered list would hand contiguous 0..n-1 indices to the visible tasks
  * while the hidden ones in that lane kept theirs — colliding orders in the same lane. Dragging
  * under an active filter is prevented one level up, by `DragDisabledContext`, not here.
+ *
+ * `phoneCalendar` says this is the phone Calendar's layout, where a card is dragged onto a small grid
+ * cell and collision follows the finger. See `phoneDrag.ts`.
  */
 export function useBoardDnd(
   view: ViewName,
   tasks: Task[],
   previewReorder: PreviewReorder,
   persistReorder: PersistReorder,
+  phoneCalendar = false,
 ): BoardDnd {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [activeWidth, setActiveWidth] = useState<number | undefined>(undefined)
+  const [overId, setOverId] = useState<string | null>(null)
   // A ref, not state: a drag mutates this many times per second and none of it should render.
   const session = useRef<DragSession | null>(null)
 
@@ -104,10 +117,12 @@ export function useBoardDnd(
 
   const mode = modeForView(view)
   const activeTask = tasks.find((t) => t.id === activeId) ?? null
+  const overOnTarget = overId !== null && isDropTarget(overId)
 
   const reset = () => {
     setActiveId(null)
     setActiveWidth(undefined)
+    setOverId(null)
     session.current = null
   }
 
@@ -121,6 +136,7 @@ export function useBoardDnd(
   // Cross-lane relocation happens live as you hover a different lane.
   const onDragOver = (e: DragOverEvent) => {
     if (!session.current) return
+    setOverId(e.over ? String(e.over.id) : null)
     const step = resolveDrop(session.current, tasks, dropInput(e, 'hover'))
     if (!step) return
     session.current = step.session
@@ -144,9 +160,10 @@ export function useBoardDnd(
 
   return {
     sensors,
-    collisionDetection: closestCorners,
+    collisionDetection: phoneCalendar ? phoneCalendarCollision : closestCorners,
     activeTask,
     activeWidth,
+    overTargetLane: overOnTarget ? laneOfDroppable(overId) : null,
     onDragStart,
     onDragOver,
     onDragEnd,

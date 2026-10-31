@@ -70,7 +70,6 @@ export function cardStyles(
   const wrap: WrapStyle = {
     position: 'relative',
     cursor: 'grab',
-    touchAction: 'none',
     userSelect: 'none',
     transition: 'box-shadow .15s, transform .12s',
     opacity: completed ? 0.82 : 1,

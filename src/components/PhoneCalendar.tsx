@@ -1,4 +1,6 @@
-import { useContext, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { useCallback, useContext, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { useDndMonitor, useDroppable } from '@dnd-kit/core'
+import { isKeyboardEvent } from '@dnd-kit/utilities'
 import { useTheme } from '../theme/ThemeProvider'
 import { dayMarkerStyle, phoneDayChrome, phoneMonthChrome, phonePanelChrome } from '../theme/chrome'
 import {
@@ -18,6 +20,7 @@ import { useLabel } from '../labels/LabelDirectoryProvider'
 import { labelPresentation } from '../labels/presentation'
 import { formatDayShort, MONTHS_LONG } from '../lib/dates'
 import { DropLane } from '../dnd/DropLane'
+import { dropTargetId } from '../dnd/resolveDrop'
 import { SortableCard } from '../dnd/SortableCard'
 import { INBOX, type Task } from '../types/task'
 import { useBoardActions } from './boardActionContext'
@@ -35,6 +38,12 @@ export interface PhoneCalendarProps {
 
 type PanelTab = 'day' | 'inbox'
 
+/** A drag in progress: the panel's day when it started, and whether a keyboard is carrying it. */
+interface LiveDrag {
+  day: string
+  keyboard: boolean
+}
+
 function Marker({ marker }: { marker: DayMarker }) {
   const { conf } = useTheme()
   const { dotColor } = labelPresentation(useLabel(marker.labelId))
@@ -51,19 +60,26 @@ function PhoneDay({
   meta,
   tasks,
   selected,
+  dropsDisabled,
   onSelect,
 }: {
   meta: CellMeta
   tasks: Task[]
   selected: boolean
+  dropsDisabled: boolean
   onSelect: (day: string) => void
 }) {
   const { theme, conf } = useTheme()
   const { nowMs, timezone } = useDueClock()
+  const { setNodeRef, isOver } = useDroppable({
+    id: dropTargetId(meta.dateStr),
+    disabled: dropsDisabled,
+  })
   const summary = dayMarkers(tasks, meta.dateStr, nowMs, timezone)
-  const c = phoneDayChrome(theme, conf, meta, selected)
+  const c = phoneDayChrome(theme, conf, meta, selected, isOver)
   return (
     <button
+      ref={setNodeRef}
       type="button"
       aria-label={dayCellName(meta.dateStr, summary)}
       aria-pressed={selected}
@@ -87,6 +103,9 @@ function PhoneDay({
  * The Calendar view at or below the phone breakpoint (#565): the whole month as markers, and below
  * it one panel that lists either the selected day or the Inbox. Selected day and tab are deliberately
  * only this component's state, so a reload starts fresh from today.
+ *
+ * A panel card can be dragged onto a day or the Inbox tab (#566), which highlight and take the move
+ * on drop. See docs/agents/drag-and-drop.md.
  */
 export function PhoneCalendar({
   viewY,
@@ -111,7 +130,20 @@ export function PhoneCalendar({
     if (seen.todayRequest !== todayRequest) setTab('day')
   }
 
-  const selected = picked ?? defaultSelectedDay(viewY, viewM, today)
+  const [liveDrag, setLiveDrag] = useState<LiveDrag | null>(null)
+  const settled = picked ?? defaultSelectedDay(viewY, viewM, today)
+  // Held for the whole gesture. With no day tapped the panel follows today, so midnight would swap
+  // its lane under a held card, and hovering that new lane would relocate the Task to it.
+  const selected = liveDrag?.day ?? settled
+  useDndMonitor({
+    onDragStart: ({ activatorEvent }) =>
+      setLiveDrag({ day: settled, keyboard: isKeyboardEvent(activatorEvent) }),
+    onDragEnd: () => setLiveDrag(null),
+    onDragCancel: () => setLiveDrag(null),
+  })
+  // A grid cell is no use to the arrow keys, which step between droppables: they would walk the card
+  // out of the panel and across the month. A keyboard drag reorders, and the editor moves a Task.
+  const dropsDisabled = liveDrag?.keyboard === true
   const { weekdays, cells } = buildMonthGrid(viewY, viewM, today, weekStart)
   const dayNotes = notesForDay(tasks, selected)
   const inboxNotes = notesForDay(tasks, INBOX)
@@ -138,6 +170,17 @@ export function PhoneCalendar({
   const tabId = (which: PanelTab) => `${baseId}-${which}`
   const dayTabRef = useRef<HTMLButtonElement>(null)
   const inboxTabRef = useRef<HTMLButtonElement>(null)
+  const { setNodeRef: setInboxTarget, isOver: overInboxTab } = useDroppable({
+    id: dropTargetId(INBOX),
+    disabled: dropsDisabled,
+  })
+  const setInboxTab = useCallback(
+    (node: HTMLButtonElement | null) => {
+      inboxTabRef.current = node
+      setInboxTarget(node)
+    },
+    [setInboxTarget],
+  )
 
   // Two tabs, so either arrow reaches the other one.
   const onTabKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
@@ -155,9 +198,21 @@ export function PhoneCalendar({
 
   const m = phoneMonthChrome(theme, conf)
   const p = phonePanelChrome(theme, conf)
-  const tabs: { key: PanelTab; label: string; count: number; ref: typeof dayTabRef }[] = [
+  const tabs: {
+    key: PanelTab
+    label: string
+    count: number
+    ref: typeof dayTabRef | typeof setInboxTab
+    dropOver?: boolean
+  }[] = [
     { key: 'day', label: dayLabel, count: dayNotes.length, ref: dayTabRef },
-    { key: 'inbox', label: 'Inbox', count: inboxNotes.length, ref: inboxTabRef },
+    {
+      key: 'inbox',
+      label: 'Inbox',
+      count: inboxNotes.length,
+      ref: setInboxTab,
+      dropOver: overInboxTab,
+    },
   ]
 
   return (
@@ -177,6 +232,7 @@ export function PhoneCalendar({
               meta={meta}
               tasks={tasks}
               selected={meta.dateStr === selected}
+              dropsDisabled={dropsDisabled}
               onSelect={selectDay}
             />
           ))}
@@ -186,7 +242,7 @@ export function PhoneCalendar({
       <div style={p.panel}>
         <div style={p.head}>
           <div role="tablist" aria-label="Day and Inbox" style={p.tabs}>
-            {tabs.map(({ key, label, count, ref }) => (
+            {tabs.map(({ key, label, count, ref, dropOver }) => (
               <button
                 key={key}
                 ref={ref}
@@ -197,7 +253,7 @@ export function PhoneCalendar({
                 aria-controls={panelId}
                 aria-label={`${label}, ${taskCount(count)}`}
                 tabIndex={tab === key ? 0 : -1}
-                style={tab === key ? p.tabActive : p.tab}
+                style={{ ...(tab === key ? p.tabActive : p.tab), ...(dropOver && p.tabDropOver) }}
                 onClick={() => setTab(key)}
                 onKeyDown={onTabKeyDown}
               >
