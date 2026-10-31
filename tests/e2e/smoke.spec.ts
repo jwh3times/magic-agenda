@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { seedBoard, SEEDED_TITLES } from './fixtures/seedBoard'
+import { testBoardId, testClient } from './fixtures/supabase'
 
 // No fake clock in this file, deliberately. `page.clock` can invalidate Supabase's JWT expiry
 // checks because the token was issued in real time.
@@ -208,6 +209,26 @@ test.describe('phone-width board', () => {
     })
   }
 
+  /** More Tasks on the seeded day, then a reload so the panel shows them. */
+  async function addTasksToday(page: Page, count: number) {
+    const client = await testClient()
+    const boardId = await testBoardId(client)
+    const today = new Date().toISOString().slice(0, 10)
+    const { error } = await client.from('tasks').insert(
+      Array.from({ length: count }, (_, i) => ({
+        board_id: boardId,
+        title: `Extra task ${i}`,
+        day: today,
+        order_index: i + 1,
+        status: 'todo',
+        color: 'yellow',
+      })),
+    )
+    if (error) throw new Error(`adding tasks failed: ${error.message}`)
+    await page.reload()
+    await page.getByRole('button', { name: '+ New task' }).waitFor()
+  }
+
   /**
    * Not the document's width, which the checks above use: `.app-root` is `overflow: hidden`, so the
    * Board clips anything too wide and the document can never report it. Each of the shell's layers
@@ -254,6 +275,94 @@ test.describe('phone-width board', () => {
         await expectNoOverflow(page, `The ${view} view with its controls open`)
       })
     }
+
+    test('the month fits the screen: seven weekdays and every week, with no sideways scrolling', async ({
+      page,
+    }) => {
+      await openBoard(page, { view: 'calendar' })
+      for (const weekday of ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']) {
+        await expect(page.getByRole('main').getByText(weekday, { exact: true })).toBeInViewport({
+          ratio: 1,
+        })
+      }
+      const days = page.getByRole('button', { name: /^\w+day \d+ \w+, / })
+      await expect(days).toHaveCount(42)
+      await expect(days.last()).toBeInViewport({ ratio: 1 })
+      const main = page.getByRole('main')
+      const sideways = await main.evaluate((el) =>
+        [el, ...el.querySelectorAll('*')].some(
+          (node) =>
+            node.scrollWidth > node.clientWidth &&
+            ['auto', 'scroll'].includes(getComputedStyle(node).overflowX),
+        ),
+      )
+      expect(sideways, 'something in the Calendar view scrolls sideways').toBe(false)
+    })
+
+    test('a long panel scrolls on its own, and the grid keeps its height', async ({ page }) => {
+      await openBoard(page, { view: 'calendar' })
+      const firstDay = page.getByRole('button', { name: /^\w+day \d+ \w+, / }).first()
+      const before = await firstDay.boundingBox()
+      if (!before) throw new Error('the grid did not render')
+
+      await addTasksToday(page, 12)
+
+      const panel = page.getByRole('tabpanel')
+      await expect(panel.getByText('Extra task 11')).toBeAttached()
+      const after = await firstDay.boundingBox()
+      expect(after?.height).toBe(before.height)
+      expect(after?.height).toBeGreaterThanOrEqual(44)
+      const scrolls = await panel.evaluate((el) => {
+        const list = el.firstElementChild as HTMLElement
+        return list.scrollHeight > list.clientHeight
+      })
+      expect(scrolls, 'the panel should scroll inside itself').toBe(true)
+      await expect(firstDay).toBeInViewport({ ratio: 1 })
+    })
+
+    test('dragging within the panel reorders, and the new order survives a reload', async ({
+      page,
+    }) => {
+      await openBoard(page, { view: 'calendar' })
+      await addTasksToday(page, 1)
+      const panel = page.getByRole('tabpanel')
+      const titles = () => panel.getByText(/^(Draft the launch note|Extra task 0)$/).allInnerTexts()
+      await expect.poll(titles).toEqual(['Draft the launch note', 'Extra task 0'])
+
+      const box = async (text: string) => {
+        const found = await panel.getByText(text).boundingBox()
+        if (!found) throw new Error(`${text} did not render`)
+        return found
+      }
+      const from = await box('Extra task 0')
+      const to = await box('Draft the launch note')
+      await page.mouse.move(from.x + 10, from.y + 5)
+      await page.mouse.down()
+      await page.mouse.move(from.x + 10, from.y - 10, { steps: 5 })
+      await page.mouse.move(to.x + 10, to.y + 2, { steps: 10 })
+      await page.mouse.up()
+      await expect.poll(titles).toEqual(['Extra task 0', 'Draft the launch note'])
+
+      // The screen moves first, so read the row order too: a reload before the write lands would
+      // show the old order and blame the app for a race in this test.
+      const client = await testClient()
+      const boardId = await testBoardId(client)
+      await expect
+        .poll(async () => {
+          const { data } = await client
+            .from('tasks')
+            .select('title')
+            .eq('board_id', boardId)
+            .eq('day', new Date().toISOString().slice(0, 10))
+            .order('order_index')
+          return data?.map((row) => String(row.title))
+        })
+        .toEqual(['Extra task 0', 'Draft the launch note'])
+
+      await page.reload()
+      await expect(panel.getByText('Extra task 0')).toBeVisible()
+      await expect.poll(titles).toEqual(['Extra task 0', 'Draft the launch note'])
+    })
 
     // A real keypress as well as the unit test's: focus now moves during the keydown, and a browser
     // that still ran the key's default action would put the "/" into the box it just opened.

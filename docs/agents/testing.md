@@ -263,11 +263,11 @@ is a deliberate tradeoff worth understanding before it costs one:
   **So is the open Members panel (#494)**: `members-cork`, `members-brutal`, `members-glass`, with
   the invitee joined for the scan so an Owner's per-member controls (role, Name…, Remove…) and the
   unassigned-reminder opt-in are on screen.
-  **The phone Calendar Board is scanned per theme at 390×844 (#570)**: `phone-board-<theme>` with
-  the controls shut and `phone-controls-<theme>` with them open. Every other scan runs at the desktop
-  viewport, so nothing that renders only at or below the 760px breakpoint reaches axe unless one of
-  these two can see it. That leaves the phone Week, Agenda and Kanban views, the editor, and Settings
-  unscanned (#576).
+  **The phone Calendar Board is scanned per theme at 390×844 (#570, #565)**: `phone-board-<theme>`
+  with the controls shut, `phone-controls-<theme>` with them open, and `phone-empty-<theme>` on an
+  empty day. Every other scan runs at the desktop viewport, so nothing that renders only at or below
+  the 760px breakpoint reaches axe unless one of these can see it. That leaves the phone Week, Agenda
+  and Kanban views, the editor, and Settings unscanned (#576).
   `FREEZE_ANIMATION` is injected before every scan because `page.clock` does not stop
   CSS animations and a drifting glass blob turns a `color-contrast` violation into an `incomplete`.
 - **The a11y baseline asserts counts by strict equality, in both directions.** A count that rose is
@@ -281,7 +281,7 @@ is a deliberate tradeoff worth understanding before it costs one:
 
 ### Visual regression canaries
 
-`tests/e2e/visual.spec.ts` (#280) screenshots thirteen surfaces: landing on desktop and mobile, the calendar in each of the three themes, week and kanban in `cork`, the task editor, settings, the mobile calendar, and (#359) a keyboard-focused card in each theme. The visual layer is an inline-style-object model with per-theme branching, so there
+`tests/e2e/visual.spec.ts` (#280) screenshots fifteen surfaces: landing on desktop and mobile, the calendar in each of the three themes, week and kanban in `cork`, the task editor, settings, the phone Calendar in each of the three themes (#565), and (#359) a keyboard-focused card in each theme. The visual layer is an inline-style-object model with per-theme branching, so there
 is no stylesheet to review and no CSS tooling that applies — these screenshots are the only
 mechanical check that a token change did not wreck a theme. These things about them are
 load-bearing:

@@ -48,7 +48,8 @@ on a card toggles its selection (`Board.openTask` decides; `SortableCard` report
 `visibleTasks`, so a filter change can never leave a hidden card inside the next bulk action. Sensors are split Mouse/Touch (not `PointerSensor`):
 touch drags require a **250ms long-press** and cards use `touchAction: 'manipulation'`; together
 that's what lets a plain swipe over a card scroll the board on phones. Do not collapse these back
-into a `PointerSensor` or set `touchAction: 'none'`.
+into a `PointerSensor` or set `touchAction: 'none'`. The phone Calendar's panel holds one lane at a
+time and no day button is a drop target, so a drag there only reorders (see [UI](ui.md)).
 
 **`SortableCard` is the card's only tab stop, and it now answers two keys, not one (#281).**
 dnd-kit's default `KeyboardSensor` `start` codes are `[Space, Enter]`, so Enter was consumed by the

@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Link } from 'react-router'
 import { useTheme } from '../theme/ThemeProvider'
 import { inboxChrome } from '../theme/chrome'
 import { useIsMobile } from '../lib/useMediaQuery'
@@ -8,6 +7,7 @@ import { DropLane } from '../dnd/DropLane'
 import { SortableCard } from '../dnd/SortableCard'
 import { INBOX, type Task } from '../types/task'
 import { useBoardActions } from './boardActionContext'
+import { BoardLegalLinks } from './BoardLegalLinks'
 
 export interface InboxProps {
   tasks: Task[]
@@ -21,8 +21,9 @@ export function Inbox({ tasks }: InboxProps) {
   const c = inboxChrome(theme, conf)
   const notes = notesForDay(tasks, INBOX)
 
-  // Phones: the inbox docks full-width under the calendar (Board stacks the two) and its
-  // header becomes a collapse toggle so the calendar can take the whole screen when wanted.
+  // Phones: the inbox docks full-width under the week (Board stacks the two) and its header becomes
+  // a collapse toggle so the week can take the whole screen when wanted. The phone Calendar has no
+  // docked Inbox: it is a tab of that view's panel.
   const showBody = !isMobile || !collapsed
 
   return (
@@ -63,30 +64,7 @@ export function Inbox({ tasks }: InboxProps) {
           <button type="button" style={c.inboxAdd} onClick={actions?.onAddInbox}>
             + Add to inbox
           </button>
-          {/* ROADMAP 5.3 — the legal pages reachable from the board itself, not only from /settings
-              and the login screen. The roadmap suggested "the mobile toolbar overflow", but no
-              overflow menu exists and the phone toolbar is already three stacked rows; the inbox
-              foot is the one always-rendered surface (it sits outside the view switch in Board)
-              that costs neither board nor toolbar space. */}
-          <div
-            style={{
-              margin: '0 16px 14px',
-              display: 'flex',
-              gap: 12,
-              fontSize: 11,
-              // 0.6, not 0.55: brutal's white inbox puts these at 4.17:1 at 0.55 — an AA near-miss
-              // flagged by the E2E a11y ratchet. Imperceptible; do not round back down.
-              opacity: 0.6,
-              color: conf.numFg,
-            }}
-          >
-            <Link to="/privacy" style={{ color: 'inherit' }}>
-              Privacy
-            </Link>
-            <Link to="/terms" style={{ color: 'inherit' }}>
-              Terms
-            </Link>
-          </div>
+          <BoardLegalLinks />
         </>
       )}
     </aside>

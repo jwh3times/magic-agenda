@@ -24,6 +24,7 @@ import { CardOverlay } from '../dnd/CardOverlay'
 import { newId } from '../lib/id'
 import { Toolbar } from './Toolbar'
 import { CalendarView } from './CalendarView'
+import { PhoneCalendar } from './PhoneCalendar'
 import { WeekView } from './WeekView'
 import { AgendaView } from './AgendaView'
 import { Inbox } from './Inbox'
@@ -178,6 +179,8 @@ export function Board({
   const today = useToday()
   const { nowMs, timezone: dueTimezone } = useDueClock()
   const [anchor, setAnchor] = useState(() => parseDay(today))
+  // Tells the phone Calendar that Today was pressed, even when the anchor's month does not change.
+  const [todayRequest, setTodayRequest] = useState(0)
   const [popId, setPopId] = useState<string | null>(null)
   const [editing, setEditing] = useState<Editing | null>(null)
   const [conflict, setConflict] = useState<PendingConflict | null>(null)
@@ -395,7 +398,10 @@ export function Board({
 
   const onPrev = () => setAnchor((a) => (view === 'week' ? addDays(a, -7) : addMonths(a, -1)))
   const onNext = () => setAnchor((a) => (view === 'week' ? addDays(a, 7) : addMonths(a, 1)))
-  const onToday = () => setAnchor(parseDay(today))
+  const onToday = () => {
+    setAnchor(parseDay(today))
+    setTodayRequest((count) => count + 1)
+  }
 
   const whenLabel = (day: string) => (day === INBOX ? 'Inbox' : formatAgendaDate(day))
 
@@ -580,6 +586,14 @@ export function Board({
                 <KanbanView tasks={visibleTasks} />
               ) : view === 'agenda' ? (
                 <AgendaView tasks={visibleTasks} />
+              ) : view === 'calendar' && isMobile ? (
+                <PhoneCalendar
+                  viewY={year}
+                  viewM={month}
+                  weekStart={weekStart}
+                  tasks={visibleTasks}
+                  todayRequest={todayRequest}
+                />
               ) : (
                 <div
                   style={{
