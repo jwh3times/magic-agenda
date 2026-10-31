@@ -22,7 +22,7 @@ const label: CSSProperties = { fontSize: 13, opacity: 0.7 }
  */
 export function ProfileSection() {
   const { conf } = useThemeOrDefault()
-  const { user } = useAuth()
+  const { user, signOut } = useAuth()
   const accountId = user?.id ?? null
   // `saved` is null until the stored name has loaded; the field stays disabled until then so a
   // fast typist cannot be overwritten by the load landing.
@@ -49,8 +49,22 @@ export function ProfileSection() {
     }
   }, [accountId])
 
+  // Beside the form rather than in it. A phone's header has no Sign out (#564), so this is the only
+  // one there, including on the offline-boot fallback below. `signOut` is the path that releases
+  // this device's push subscription first, which the Notifications section promises.
+  const signOutRow = (
+    <div>
+      <Button onClick={() => void signOut()}>Sign out</Button>
+    </div>
+  )
+
   if (!accountId) {
-    return <p style={hint}>Your name can be changed when you are back online.</p>
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <p style={hint}>Your name can be changed when you are back online.</p>
+        {signOutRow}
+      </div>
+    )
   }
 
   const next = normalizeDisplayName(draft)
@@ -73,58 +87,61 @@ export function ProfileSection() {
   }
 
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault()
-        if (!busy && !invalid && !unchanged) void save()
-      }}
-      style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
-    >
-      <label htmlFor="settings-display-name" style={label}>
-        Display name
-      </label>
-      <div style={{ display: 'flex', gap: 8, minWidth: 0 }}>
-        <TextInput
-          id="settings-display-name"
-          value={draft}
-          autoComplete="name"
-          placeholder="Unnamed member"
-          disabled={saved === null || busy}
-          aria-invalid={invalid ? true : undefined}
-          aria-describedby="settings-display-name-hint"
-          onChange={(e) => {
-            setDraft(e.target.value)
-            setStatus(null)
-          }}
-          style={{ flex: '1 1 auto', minWidth: 0, maxWidth: 360 }}
-        />
-        <Button
-          type="submit"
-          variant="primary"
-          disabled={saved === null || busy || !!invalid || unchanged}
-          style={{ flexShrink: 0 }}
-        >
-          Save
-        </Button>
-      </div>
-      <p id="settings-display-name-hint" style={hint}>
-        Members of boards shared with you see this name in the Members list and on Tasks assigned to
-        you, and board owners see it in board activity. Up to {DISPLAY_NAME_MAX} characters; leave
-        it empty to show as &ldquo;Unnamed member&rdquo;.
-      </p>
-      {invalid && (
-        <div role="alert" style={{ color: conf.dangerFg, fontSize: 13 }}>
-          {invalid}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (!busy && !invalid && !unchanged) void save()
+        }}
+        style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+      >
+        <label htmlFor="settings-display-name" style={label}>
+          Display name
+        </label>
+        <div style={{ display: 'flex', gap: 8, minWidth: 0 }}>
+          <TextInput
+            id="settings-display-name"
+            value={draft}
+            autoComplete="name"
+            placeholder="Unnamed member"
+            disabled={saved === null || busy}
+            aria-invalid={invalid ? true : undefined}
+            aria-describedby="settings-display-name-hint"
+            onChange={(e) => {
+              setDraft(e.target.value)
+              setStatus(null)
+            }}
+            style={{ flex: '1 1 auto', minWidth: 0, maxWidth: 360 }}
+          />
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={saved === null || busy || !!invalid || unchanged}
+            style={{ flexShrink: 0 }}
+          >
+            Save
+          </Button>
         </div>
-      )}
-      {error && (
-        <div role="alert" style={{ color: conf.dangerFg, fontSize: 13 }}>
-          {error}
+        <p id="settings-display-name-hint" style={hint}>
+          Members of boards shared with you see this name in the Members list and on Tasks assigned
+          to you, and board owners see it in board activity. Up to {DISPLAY_NAME_MAX} characters;
+          leave it empty to show as &ldquo;Unnamed member&rdquo;.
+        </p>
+        {invalid && (
+          <div role="alert" style={{ color: conf.dangerFg, fontSize: 13 }}>
+            {invalid}
+          </div>
+        )}
+        {error && (
+          <div role="alert" style={{ color: conf.dangerFg, fontSize: 13 }}>
+            {error}
+          </div>
+        )}
+        <div role="status" style={{ fontSize: 13 }}>
+          {status}
         </div>
-      )}
-      <div role="status" style={{ fontSize: 13 }}>
-        {status}
-      </div>
-    </form>
+      </form>
+      {signOutRow}
+    </div>
   )
 }

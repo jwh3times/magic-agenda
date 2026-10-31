@@ -390,6 +390,128 @@ describe('mobile layout', () => {
     await user.click(screen.getByRole('button', { name: 'Board' }))
     expect(screen.getByText('In Progress', { selector: 'span' })).toBeInTheDocument()
   })
+
+  // ——— phone controls (#564) ———
+
+  const controlsButton = () => screen.getByRole('button', { name: /^Search and filters/ })
+  const searchBox = () => screen.queryByRole('textbox', { name: 'Search tasks' })
+
+  const PHONE_VIEWS: ViewName[] = ['calendar', 'week', 'agenda', 'kanban']
+
+  test.each(PHONE_VIEWS)('%s view hides the controls until the button opens them', async (view) => {
+    sessionStorage.removeItem('ma-board-view')
+    stubMobile()
+    const user = userEvent.setup()
+    render(<Harness initialView={view} />)
+
+    expect(searchBox()).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Filter by label' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Filter by status' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Show pinned only' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '☑ Select' })).not.toBeInTheDocument()
+    expect(controlsButton()).toHaveAttribute('aria-expanded', 'false')
+
+    await user.click(controlsButton())
+
+    expect(controlsButton()).toHaveAttribute('aria-expanded', 'true')
+    expect(searchBox()).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Filter by label' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Filter by status' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show pinned only' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '☑ Select' })).toBeInTheDocument()
+
+    await user.click(controlsButton())
+    expect(searchBox()).not.toBeInTheDocument()
+    sessionStorage.removeItem('ma-board-view')
+  })
+
+  test('the controls button is marked while a filter is active, even with the controls shut', async () => {
+    stubMobile()
+    const user = userEvent.setup()
+    renderBoard()
+    const marker = () => within(controlsButton()).queryByTestId('filter-marker')
+    expect(controlsButton()).toHaveAccessibleName('Search and filters')
+    expect(marker()).not.toBeInTheDocument()
+
+    await user.click(controlsButton())
+    await user.click(screen.getByRole('button', { name: 'Show pinned only' }))
+    expect(controlsButton()).toHaveAccessibleName('Search and filters, filters active')
+    expect(marker()).toBeInTheDocument()
+
+    // Shutting the controls keeps the filter, which is exactly when the marker matters.
+    await user.click(controlsButton())
+    expect(controlsButton()).toHaveAccessibleName('Search and filters, filters active')
+    expect(marker()).toBeInTheDocument()
+
+    await user.click(controlsButton())
+    await user.click(screen.getByRole('button', { name: 'Clear' }))
+    expect(controlsButton()).toHaveAccessibleName('Search and filters')
+    expect(marker()).not.toBeInTheDocument()
+  })
+
+  test('/ opens the controls and focuses the search box', async () => {
+    stubMobile()
+    const user = userEvent.setup()
+    renderBoard()
+    expect(searchBox()).not.toBeInTheDocument()
+
+    await user.keyboard('/')
+
+    expect(searchBox()).toHaveFocus()
+    expect(searchBox()).toHaveValue('')
+  })
+
+  test('the palette’s search action opens the controls and focuses the search box', async () => {
+    stubMobile()
+    const user = userEvent.setup()
+    renderBoard()
+
+    await user.keyboard('{Control>}k{/Control}')
+    await user.click(screen.getByRole('option', { name: 'Search tasks' }))
+
+    expect(searchBox()).toHaveFocus()
+  })
+
+  test('selection started from the controls works, and its action bar still ends it', async () => {
+    stubMobile()
+    const user = userEvent.setup()
+    renderBoard()
+
+    await user.click(controlsButton())
+    await user.click(screen.getByRole('button', { name: '☑ Select' }))
+    await user.click(screen.getByText('Renew passport'))
+
+    const bar = screen.getByRole('toolbar', { name: 'Bulk actions' })
+    expect(within(bar).getByText('1 selected')).toBeInTheDocument()
+    expect(screen.queryByText('Edit task')).not.toBeInTheDocument()
+
+    // Shutting the controls is not leaving selection: the bar, not the panel, owns the mode.
+    await user.click(controlsButton())
+    expect(within(bar).getByText('1 selected')).toBeInTheDocument()
+
+    await user.click(within(bar).getByRole('button', { name: 'Done' }))
+    expect(screen.queryByRole('toolbar', { name: 'Bulk actions' })).not.toBeInTheDocument()
+  })
+
+  test('a filter set through the controls still narrows the board once they shut', async () => {
+    stubMobile()
+    const user = userEvent.setup()
+    renderBoard()
+
+    await user.click(controlsButton())
+    await user.type(screen.getByRole('textbox', { name: 'Search tasks' }), 'Finish')
+    await user.click(controlsButton())
+
+    expect(screen.getByText('Finish Q3 deck')).toBeInTheDocument()
+    expect(screen.queryByText('Renew passport')).not.toBeInTheDocument()
+  })
+})
+
+test('the desktop layout shows the controls with no button in front of them', () => {
+  renderBoard()
+  expect(screen.queryByRole('button', { name: /^Search and filters/ })).not.toBeInTheDocument()
+  expect(screen.getByRole('textbox', { name: 'Search tasks' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '☑ Select' })).toBeInTheDocument()
 })
 
 test('mounts on the view stored in sessionStorage', () => {

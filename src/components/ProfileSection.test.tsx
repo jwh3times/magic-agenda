@@ -6,9 +6,12 @@ const h = vi.hoisted(() => ({
   user: { id: 'acct-1' } as { id: string } | null,
   load: vi.fn(),
   save: vi.fn(),
+  signOut: vi.fn(),
 }))
 
-vi.mock('../auth/AuthProvider', () => ({ useAuth: () => ({ user: h.user }) }))
+vi.mock('../auth/AuthProvider', () => ({
+  useAuth: () => ({ user: h.user, signOut: h.signOut }),
+}))
 vi.mock('../data/accountProfile', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../data/accountProfile')>()),
   loadDisplayName: h.load,
@@ -92,4 +95,21 @@ test('without a live session there is no field to save from', () => {
   expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
   expect(screen.getByText(/back online/)).toBeInTheDocument()
   expect(h.load).not.toHaveBeenCalled()
+})
+
+test('Sign out takes the auth provider’s path, the one that releases this device', async () => {
+  render(<ProfileSection />)
+  await waitFor(() => expect(field()).toBeEnabled())
+  await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
+  expect(h.signOut).toHaveBeenCalledTimes(1)
+  // Beside the form, not part of it: signing out must never also submit a name.
+  expect(h.save).not.toHaveBeenCalled()
+})
+
+test('Sign out stays available without a live session', async () => {
+  // A phone's header no longer has one, so the offline-boot fallback would otherwise have none.
+  h.user = null
+  render(<ProfileSection />)
+  await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
+  expect(h.signOut).toHaveBeenCalledTimes(1)
 })

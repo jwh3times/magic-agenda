@@ -1,4 +1,5 @@
-import { useContext, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react'
+import { useContext, useEffect, useId, useMemo, useRef, useState, type ComponentProps } from 'react'
+import { flushSync } from 'react-dom'
 import { DndContext, DragOverlay, type ScreenReaderInstructions } from '@dnd-kit/core'
 import { useTheme } from '../theme/ThemeProvider'
 import { DragDisabledContext } from '../dnd/dragContext'
@@ -204,6 +205,10 @@ export function Board({
   const [helpOpen, setHelpOpen] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
+  // A phone keeps the search and filter bar behind one button (#564); desktop always shows it. The
+  // filter itself stays in `filter` above, so shutting the bar never clears anything.
+  const [controlsOpen, setControlsOpen] = useState(false)
+  const controlsPanelId = useId()
   // Selection mode (#270). Ids are kept as chosen; `selection` below narrows them to what is shown.
   const [selecting, setSelecting] = useState(false)
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set())
@@ -415,7 +420,12 @@ export function Board({
     setNotice(`Added “${parsed.title}” to ${whenLabel(parsed.day)}`)
   }
 
-  const focusSearch = () => searchRef.current?.focus()
+  // Synchronously, because the input does not exist on a phone until the bar opens, and iOS Safari
+  // raises the keyboard only for a focus() made during the tap that asked for it.
+  const focusSearch = () => {
+    flushSync(() => setControlsOpen(true))
+    searchRef.current?.focus()
+  }
   const paletteCommands: PaletteCommand[] = [
     ...(readOnly ? [] : [{ id: 'new-task', label: 'New task', run: actions.onAddInbox }]),
     { id: 'today', label: 'Go to today', run: onToday },
@@ -512,6 +522,10 @@ export function Board({
           onOpenSettings={onOpenSettings}
           overdueCount={overdueCount}
           addDisabled={readOnly}
+          onToggleControls={() => setControlsOpen((open) => !open)}
+          controlsOpen={controlsOpen}
+          controlsPanelId={controlsPanelId}
+          filterActive={filterActive}
         />
 
         {readOnly && (
@@ -522,15 +536,18 @@ export function Board({
           />
         )}
 
-        <SearchFilterBar
-          query={filter}
-          onChange={setFilter}
-          searchInputRef={searchRef}
-          selecting={selectionActive}
-          onToggleSelect={
-            readOnly ? undefined : () => (selecting ? exitSelection() : setSelecting(true))
-          }
-        />
+        {(!isMobile || controlsOpen) && (
+          <SearchFilterBar
+            id={controlsPanelId}
+            query={filter}
+            onChange={setFilter}
+            searchInputRef={searchRef}
+            selecting={selectionActive}
+            onToggleSelect={
+              readOnly ? undefined : () => (selecting ? exitSelection() : setSelecting(true))
+            }
+          />
+        )}
 
         <DndContext
           accessibility={{ screenReaderInstructions: DND_INSTRUCTIONS }}

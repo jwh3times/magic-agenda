@@ -9,6 +9,8 @@ import { chevronSelect } from '../theme/selectChevron'
 import { useLabelDirectoryContext } from '../labels/LabelDirectoryProvider'
 
 export interface SearchFilterBarProps {
+  /** Lets the phone's controls button point at this bar with `aria-controls` (#564). */
+  id?: string
   query: FilterQuery
   onChange: (q: FilterQuery) => void
   /** Lets the board focus the search field from the `/` keyboard shortcut (#269). */
@@ -19,6 +21,7 @@ export interface SearchFilterBarProps {
 }
 
 export function SearchFilterBar({
+  id,
   query,
   onChange,
   searchInputRef,
@@ -48,6 +51,7 @@ export function SearchFilterBar({
 
   return (
     <search
+      id={id}
       style={{
         display: 'flex',
         alignItems: 'center',

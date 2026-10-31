@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { seedBoard, SEEDED_TITLES } from './fixtures/seedBoard'
 
 // No fake clock in this file, deliberately. `page.clock` can invalidate Supabase's JWT expiry
@@ -187,6 +187,152 @@ test.describe('landing preview height', () => {
       }
     })
   }
+})
+
+/**
+ * The signed-in Board at phone width (#564). The public routes above say nothing about it, and it
+ * is where the phone controls live: jsdom has no layout engine, so only here can a header that takes
+ * three rows, or a row that pushes the page wider, fail.
+ */
+test.describe('phone-width board', () => {
+  /** The two toolbar rows and their padding, with a little room for a theme's border. */
+  const MAX_HEADER_HEIGHT = 96
+
+  async function openBoard(page: Page, seed: Parameters<typeof seedBoard>[0]) {
+    await seedBoard(seed)
+    await page.goto('/')
+    await page.getByRole('button', { name: '+ New task' }).waitFor()
+    await page.getByRole('combobox', { name: 'Board' }).waitFor()
+    await page.evaluate(async () => {
+      await document.fonts.ready
+    })
+  }
+
+  /**
+   * Not the document's width, which the checks above use: `.app-root` is `overflow: hidden`, so the
+   * Board clips anything too wide and the document can never report it. Each of the shell's layers
+   * is measured instead, skipping the absolutely placed glass blobs, which overhang on purpose. A
+   * scroller inside a layer (the month grid, the kanban columns) keeps its overflow to itself.
+   */
+  async function expectNoOverflow(page: Page, what: string) {
+    const { widest, available } = await page.evaluate(() => {
+      const root = document.querySelector('.app-root')
+      if (!root) throw new Error('the board shell did not render')
+      const layers = [...root.children].filter((el) =>
+        ['static', 'relative'].includes(getComputedStyle(el).position),
+      )
+      const edges = layers.map((el) => {
+        const { left, right } = el.getBoundingClientRect()
+        return Math.max(right, left + el.scrollWidth)
+      })
+      return { widest: Math.max(...edges), available: root.clientWidth }
+    })
+    expect(
+      widest,
+      `${what} is ${widest - available}px wider than the viewport.`,
+    ).toBeLessThanOrEqual(available)
+  }
+
+  test.describe('at 390×844', () => {
+    test.use({ viewport: { width: 390, height: 844 } })
+
+    for (const view of ['calendar', 'week', 'agenda', 'kanban'] as const) {
+      test(`${view} fits, with the controls shut and open`, async ({ page }) => {
+        await openBoard(page, { view })
+        await expectNoOverflow(page, `The ${view} view`)
+
+        // The freed height reaches the content: nothing sits between the header and the board.
+        const header = await page.getByRole('banner').boundingBox()
+        const main = await page.getByRole('main').boundingBox()
+        if (!header || !main) throw new Error('the board did not render')
+        expect(header.height).toBeLessThanOrEqual(MAX_HEADER_HEIGHT)
+        expect(main.y).toBeCloseTo(header.y + header.height, 0)
+        await expect(page.getByRole('textbox', { name: 'Search tasks' })).toHaveCount(0)
+
+        await page.getByRole('button', { name: 'Search and filters' }).click()
+        await expect(page.getByRole('textbox', { name: 'Search tasks' })).toBeVisible()
+        await expectNoOverflow(page, `The ${view} view with its controls open`)
+      })
+    }
+
+    // A real keypress as well as the unit test's: focus now moves during the keydown, and a browser
+    // that still ran the key's default action would put the "/" into the box it just opened.
+    test('the search shortcut opens the controls and focuses an empty search box', async ({
+      page,
+    }) => {
+      await openBoard(page, { view: 'calendar' })
+      await page.keyboard.press('/')
+      const search = page.getByRole('textbox', { name: 'Search tasks' })
+      await expect(search).toBeFocused()
+      await expect(search).toHaveValue('')
+    })
+
+    test('the controls button shows a visible marker while a filter is active', async ({
+      page,
+    }) => {
+      await openBoard(page, { view: 'calendar' })
+      const marker = page.getByRole('banner').getByTestId('filter-marker')
+      await expect(marker).toHaveCount(0)
+
+      await page.getByRole('button', { name: 'Search and filters' }).click()
+      await page.getByRole('button', { name: 'Show pinned only' }).click()
+      // Shut, because that is when the marker is the only sign that the board is filtered.
+      await page.getByRole('button', { name: 'Search and filters, filters active' }).click()
+      await expect(marker).toBeVisible()
+      await expect(marker).toBeInViewport({ ratio: 1 })
+    })
+  })
+
+  // The narrowest common phone, per theme: their fonts differ in width, and the first toolbar row
+  // has to hold all four view buttons without scrolling any of them out of sight.
+  test.describe('at 360×800', () => {
+    test.use({ viewport: { width: 360, height: 800 } })
+
+    for (const theme of ['cork', 'brutal', 'glass'] as const) {
+      test(`the ${theme} header keeps two rows and every control in view`, async ({ page }) => {
+        await openBoard(page, { theme, view: 'calendar' })
+        await expectNoOverflow(page, `The ${theme} board`)
+
+        const banner = page.getByRole('banner')
+        const header = await banner.boundingBox()
+        if (!header) throw new Error('the header did not render')
+        expect(header.height).toBeLessThanOrEqual(MAX_HEADER_HEIGHT)
+
+        for (const name of ['Calendar', 'Week', 'Agenda', 'Board', 'Today']) {
+          const box = await banner.getByRole('button', { name, exact: true }).boundingBox()
+          if (!box) throw new Error(`${name} did not render`)
+          expect(box.x + box.width, `${name} runs off the screen`).toBeLessThanOrEqual(360 - 10)
+        }
+        for (const name of ['Search and filters', 'Settings', '+ New task']) {
+          await expect(banner.getByRole('button', { name, exact: true })).toBeInViewport({
+            ratio: 1,
+          })
+        }
+
+        // The longest month name, wherever the real clock happens to be.
+        const label = banner.getByText(/^[A-Z][a-z]+ \d{4}$/)
+        for (let i = 0; i < 12 && !(await label.innerText()).startsWith('September'); i++) {
+          await banner.getByRole('button', { name: '‹' }).click()
+        }
+        await expect(label).toContainText('September')
+        expect(
+          await label.evaluate((el) => el.scrollWidth <= el.clientWidth),
+          '"September" does not fit the month label',
+        ).toBe(true)
+        expect((await banner.boundingBox())?.height).toBeLessThanOrEqual(MAX_HEADER_HEIGHT)
+
+        // The widest Today a real board plausibly shows. Text rather than twelve seeded Tasks,
+        // because only its width matters here.
+        await banner.getByRole('button', { name: /^Today/ }).evaluate((button) => {
+          button.textContent = 'Today (12)'
+        })
+        expect(
+          (await banner.boundingBox())?.height,
+          'a two-digit overdue count pushes the header onto a third row',
+        ).toBeLessThanOrEqual(MAX_HEADER_HEIGHT)
+      })
+    }
+  })
 })
 
 /**

@@ -6,16 +6,42 @@ view module, a theme token, or anything that asks what day it is.
 ## Responsive layout branches on `useIsMobile()`, not CSS media queries
 
 Because styles are inline objects (below), media queries cannot reach them. Components that adapt to
-phones (`Board`, `Toolbar`, `CalendarView`, `WeekView`, `KanbanView`, `Inbox`, `SearchFilterBar`,
-`TaskEditor`) call `useIsMobile()` from `src/lib/useMediaQuery.ts` (a reactive `matchMedia` hook;
+phones (`Board`, `Toolbar`, `BoardSwitcher`, `CalendarView`, `WeekView`, `KanbanView`, `Inbox`,
+`SearchFilterBar`, `TaskEditor`) call `useIsMobile()` from `src/lib/useMediaQuery.ts` (a reactive `matchMedia` hook;
 breakpoint `MOBILE_QUERY` = 760px) and branch in JSX, spreading overrides onto the chrome styles.
 The hook returns `false` where `matchMedia` is missing, so jsdom tests render the desktop layout
-unless they stub `matchMedia` (see the mobile block in `Board.test.tsx`). Mobile layouts: stacked
-toolbar rows, vertical Week list, side-panning month grid (min-width 640px), snap-scroll kanban
-columns, and a collapsible full-width Inbox docked under the board. The shell height is the
-`.app-root` CSS class (`100dvh` with a `100vh` fallback): inline styles cannot express the
-fallback, so do not move it back into `rootStyle`. Form fields use >=16px text on mobile (smaller
-triggers iOS Safari's focus zoom).
+unless they stub `matchMedia` (see the mobile block in `Board.test.tsx`). Mobile layouts: a two-row
+toolbar with the controls behind one button (below), vertical Week list, side-panning month grid
+(min-width 640px), snap-scroll kanban columns, and a collapsible full-width Inbox docked under the
+board. The shell height is the `.app-root` CSS class (`100dvh` with a `100vh` fallback): inline
+styles cannot express the fallback, so do not move it back into `rootStyle`. Form fields use >=16px
+text on mobile (smaller triggers iOS Safari's focus zoom).
+
+**The phone controls (#564) sit behind one toolbar button in all four views.** At or below the
+breakpoint `SearchFilterBar` (search, the Label and status filters, Pinned, Assigned to me, and
+Select) is not mounted until the "Search and filters" button in `Toolbar` opens it. It opens inline and pushes the
+board down, so it is not a modal. Five things are easy to break:
+
+- **A filter outlives the bar.** `filter` and the open state are separate in `Board`, so shutting the
+  bar keeps the filter, and the button then carries a visible dot so a filtered month does not read
+  as an empty one. The button's accessible name gains ", filters active", and the dot is
+  `aria-hidden` because the name already says so.
+- **The search shortcut and the palette's search action must open the bar first.** `focusSearch`
+  uses `flushSync`, because the input does not exist until the bar renders and iOS Safari raises the
+  keyboard only for a `focus()` made during the tap that asked for it. An effect would run too late.
+- **Selection belongs to the action bar, not to the controls.** Select toggles it while the bar is
+  open, but shutting the bar leaves selection running, and `BulkActionBar`'s Done ends it.
+- **The two rows are measured, not assumed.** Row one holds the logo's tile, `ViewSwitcher` with its
+  `compact` buttons, the controls button, and Settings. Row two holds `BoardSwitcher`, the date
+  controls (Calendar and Week only), and New task, which shows only `+` but keeps "+ New task" as its
+  accessible name. Row two wraps instead of overflowing: the Board creator takes a line of its own while it is open, and a
+  window under about 340px gets a third row. `smoke.spec.ts` (`phone-width board`) checks all four
+  views at 390×844 and every theme's fit at 360×800, since jsdom has no layout engine. It measures
+  the shell's layers rather than the document, because `.app-root` is `overflow: hidden` and clips
+  anything too wide before the document can report it.
+- **Sign out is not in the phone header.** It is in Settings → Profile at every width, including the
+  offline-boot fallback, and it calls `AuthProvider.signOut`, the path that releases this device's
+  push subscription first. Desktop's toolbar keeps its own button.
 
 `CalendarView`, `WeekView`, and `KanbanView` remain separate modules on purpose: each concentrates a
 responsive layout fork behind a narrow task/layout interface, so folding them into `Board` would
@@ -192,8 +218,9 @@ disclosure. Bars use the per-theme **`chartMark`** token, which is held to 3:1 a
 **The toolbar is not a card, so its controls come from `toolbarChrome` in `src/theme/chrome.ts` (#483),
 not from `controls.ts`.** Every toolbar is dark (glass's is translucent), and the card factories are
 tuned for paper. **Every toolbar control shares `TOOLBAR_CONTROL_HEIGHT` (34px, border-box):**
-Settings (`iconBtn`, a square), New task (`addBtn`), Sign out and Today (`todayBtn`), and the
-arrows (`navBtn`). Settings, New task, and Sign out sit side by side and used to be three heights.
+Settings and the phone's controls button (`iconBtn`, a square), New task (`addBtn`, also square on a
+phone), Sign out and Today (`todayBtn`), and the arrows (`navBtn`). On desktop, Settings, New task,
+and Sign out sit side by side and used to be three heights.
 Keep a border, margin, or glyph from setting one control's size; `controls.test.ts` pins the shared
 height. The Board switcher's `select` and `field` styles keep 16px text (iOS zoom) and set
 `colorScheme: 'dark'`, so the native option list is light on dark in every theme. Its options also
