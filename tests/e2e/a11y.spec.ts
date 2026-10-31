@@ -63,11 +63,15 @@ import {
 //                       visible; scroll a cell and its card counts too (the editor scan resets
 //                       the scroll its click causes). So the count moves with seed data and with
 //                       card or cell geometry, and a change there that moves it is expected. The
-//                       phone scans count the same Inbox card (measured 2026-10-31).
+//                       phone scans see only today's card in the panel, which counts for both
+//                       families once.
 //
 // color-contrast reached zero in two passes (2026-07-31): near-miss token nudges, then per-theme
 // judgment calls recorded in src/theme/themeConf.ts. New theme colours must clear 4.5:1 against
-// every background they sit on — this suite is what enforces it.
+// every background they sit on. This suite enforces that only where axe can reach a verdict: on the
+// phone Calendar it could judge 41 of 42 day numbers in brutal and none in cork or glass, whose
+// translucent cells over a gradient come back `bgGradient` and whose single digits come back
+// `shortTextContent`, both as incomplete rather than as violations (measured 2026-10-31, #565).
 //
 // The baseline is JSON and takes no comments, which is why this note lives here.
 const BASELINE = path.join('tests', 'e2e', 'a11y-baseline.json')
@@ -238,10 +242,16 @@ test.describe('signed in', () => {
       await page.clock.setFixedTime(new Date(PINNED_TIME))
       await seedBoard({ theme, anchor: PINNED_DAY })
       await page.goto('/')
-      // The one wait only the phone layout can satisfy. `+ New task` exists at every width, and these
-      // scans' counts equal the desktop Board's, so without it a lost viewport would still pass.
+      // Waits only the phone layout can satisfy: `+ New task` exists at every width. Only today's
+      // card renders here. The other two seeded Tasks are a marker and a card in the unopened Inbox
+      // tab, so the day's spoken name is what proves the second one has loaded.
       await page.getByRole('button', { name: 'Search and filters' }).waitFor()
-      for (const title of SEEDED_TITLES) await page.getByText(title).waitFor()
+      await page.getByText(SEEDED_TITLES[0]).waitFor()
+      await page
+        .getByRole('button', { name: /, 1 task$/ })
+        .nth(1)
+        .waitFor()
+      await page.getByRole('tab', { name: 'Inbox, 1 task' }).waitFor()
     }
 
     for (const theme of ['cork', 'brutal', 'glass'] as Theme[]) {
@@ -257,6 +267,19 @@ test.describe('signed in', () => {
         await page.getByRole('search').waitFor()
         await settle(page)
         await scanAndAssert(page, `phone-controls-${theme}`)
+      })
+
+      // An empty day's message and add button appear nowhere else, and they sit in the panel's
+      // secondary colours.
+      test(`phone empty day (${theme}) matches the a11y baseline`, async ({ page }) => {
+        await openBoard(page, theme)
+        await page
+          .getByRole('button', { name: /, no tasks$/ })
+          .first()
+          .click()
+        await page.getByRole('button', { name: '+ Add a task' }).waitFor()
+        await settle(page)
+        await scanAndAssert(page, `phone-empty-${theme}`)
       })
     }
   })

@@ -6,14 +6,14 @@ view module, a theme token, or anything that asks what day it is.
 ## Responsive layout branches on `useIsMobile()`, not CSS media queries
 
 Because styles are inline objects (below), media queries cannot reach them. Components that adapt to
-phones (`Board`, `Toolbar`, `BoardSwitcher`, `CalendarView`, `WeekView`, `KanbanView`, `Inbox`,
-`SearchFilterBar`, `TaskEditor`) call `useIsMobile()` from `src/lib/useMediaQuery.ts` (a reactive `matchMedia` hook;
+phones (`Board`, `Toolbar`, `BoardSwitcher`, `WeekView`, `KanbanView`, `Inbox`, `SearchFilterBar`,
+`TaskEditor`) call `useIsMobile()` from `src/lib/useMediaQuery.ts` (a reactive `matchMedia` hook;
 breakpoint `MOBILE_QUERY` = 760px) and branch in JSX, spreading overrides onto the chrome styles.
 The hook returns `false` where `matchMedia` is missing, so jsdom tests render the desktop layout
 unless they stub `matchMedia` (see the mobile block in `Board.test.tsx`). Mobile layouts: a two-row
-toolbar with the controls behind one button (below), vertical Week list, side-panning month grid
-(min-width 640px), snap-scroll kanban columns, and a collapsible full-width Inbox docked under the
-board. The shell height is the `.app-root` CSS class (`100dvh` with a `100vh` fallback): inline
+toolbar with the controls behind one button (below), a whole-month Calendar with a day and Inbox
+panel (below), vertical Week list, snap-scroll kanban columns, and, under the Week view, a collapsible
+full-width Inbox. The shell height is the `.app-root` CSS class (`100dvh` with a `100vh` fallback): inline
 styles cannot express the fallback, so do not move it back into `rootStyle`. Form fields use >=16px
 text on mobile (smaller triggers iOS Safari's focus zoom).
 
@@ -43,10 +43,37 @@ board down, so it is not a modal. Five things are easy to break:
   offline-boot fallback, and it calls `AuthProvider.signOut`, the path that releases this device's
   push subscription first. Desktop's toolbar keeps its own button.
 
+**The phone Calendar (#565) is its own component.** At or below the breakpoint `Board` renders
+`PhoneCalendar` in place of both `CalendarView` and the docked `Inbox`: all seven columns at full
+width, with 46px day buttons that never shrink, above a panel that lists the selected day or the
+Inbox. The rules worth keeping:
+
+- **What a day draws and says is pure.** `dayMarkers` and `dayCellName` in `src/data/selectors.ts`
+  decide it from the already-filtered Tasks, so markers, the panel, and the counts all follow a
+  filter. Up to three markers show, then `+N`. Overdue comes first so `+N` can never hide it, Completed
+  Tasks are left out, and a day holding only Completed Tasks gets one hollow marker.
+- **Marker colour is the Label Color**, or `UNLABELED_DOT_COLOR` when Unlabeled. Note Color is never
+  used. Shape carries the meaning as well (`dayMarkerStyle`): a red diamond for Overdue, a ring for
+  hollow, and a filled circle otherwise.
+- **The selected day and active tab are `PhoneCalendar`'s state, and are never saved.**
+  `defaultSelectedDay` picks today if the visible month contains it, otherwise the 1st. A tap
+  overrides that until the visible month changes, and coming back to a month starts from the rule
+  again. `Board` counts the Today action in `todayRequest` because Today in the visible month changes
+  no other prop; it always selects today and shows the day tab.
+- **The panel reuses the Inbox's surface and full-width `inbox` card**, so a card opens the editor,
+  pins, and completes as it does elsewhere. A long panel scrolls inside itself. The whole view
+  scrolls only in a window too short for both the month and the panel's 200px minimum.
+- **Dragging within the panel reorders.** The panel's one `DropLane` takes the plain lane id, and no
+  day button is a drop target yet, so a Task moves to another day through the editor's date field.
+- **Only the Calendar changed.** Week keeps its docked, collapsible Inbox, and the desktop grid's
+  `DayCell` is untouched. The Privacy and Terms links sit at the foot of the Inbox tab
+  (`BoardLegalLinks`).
+
 `CalendarView`, `WeekView`, and `KanbanView` remain separate modules on purpose: each concentrates a
-responsive layout fork behind a narrow task/layout interface, so folding them into `Board` would
-move complexity without removing it. Their direct tests stub `matchMedia` and pin the mobile
-scroll/stack/snap behavior; keep those assertions at the view seam.
+layout behind a narrow task/layout interface, so folding them into `Board` would move complexity
+without removing it. `WeekView` and `KanbanView` also carry a responsive fork, and their direct tests
+stub `matchMedia` and pin the mobile scroll/stack/snap behavior; keep those assertions at the view
+seam.
 
 ## Dates are timezone-aware through one context, week start through one prop
 

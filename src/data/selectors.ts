@@ -1,5 +1,5 @@
 import type { Task, WorkflowStatus } from '../types/task'
-import { addDays, isScheduled, ymd, weekdayLabels } from '../lib/dates'
+import { addDays, formatDaySpoken, isScheduled, ymd, weekdayLabels } from '../lib/dates'
 import { completionDecision } from './completion'
 import { isOverdue as isTaskOverdue } from './dueMoment'
 
@@ -58,6 +58,81 @@ export function buildMonthGrid(
     })
   }
   return { weekdays: weekdayLabels(weekStart), cells }
+}
+
+/** How many markers a phone Calendar day draws before the rest become `+N`. */
+const MAX_DAY_MARKERS = 3
+
+export interface DayMarker {
+  taskId: string
+  /** `completed` is the hollow marker of a day holding nothing else. */
+  kind: 'overdue' | 'open' | 'completed'
+  /** Which Label Color to draw. Null is Unlabeled; Note Color has no classification meaning. */
+  labelId: string | null
+}
+
+export interface DayMarkers {
+  markers: DayMarker[]
+  /** Open Tasks beyond the markers: the `+N`. */
+  more: number
+  /** Tasks not yet Completed, Overdue ones included. */
+  open: number
+  overdue: number
+  completed: number
+}
+
+/**
+ * What a phone Calendar day draws and says, from the already-filtered Tasks. Overdue comes first, so
+ * it can never be hidden behind `+N`, then the rest in calendar order. Completed Tasks are left out
+ * because the markers show what is still to do, unless they are all the day holds.
+ */
+export function dayMarkers(
+  tasks: Task[],
+  day: string,
+  nowMs: number,
+  timezone?: string | null,
+): DayMarkers {
+  const notes = notesForDay(tasks, day)
+  const remaining = notes.filter((t) => t.status !== 'completed')
+  const late = remaining.filter((t) => isOverdue(t, nowMs, timezone))
+  const onTime = remaining.filter((t) => !isOverdue(t, nowMs, timezone))
+  const toMarker = (t: Task, kind: DayMarker['kind']): DayMarker => ({
+    taskId: t.id,
+    kind,
+    labelId: t.labelId,
+  })
+  const ordered = [
+    ...late.map((t) => toMarker(t, 'overdue')),
+    ...onTime.map((t) => toMarker(t, 'open')),
+  ]
+  const completed = notes.length - remaining.length
+  return {
+    markers:
+      remaining.length === 0 && completed > 0
+        ? [toMarker(notes[0], 'completed')]
+        : ordered.slice(0, MAX_DAY_MARKERS),
+    more: Math.max(0, ordered.length - MAX_DAY_MARKERS),
+    open: remaining.length,
+    overdue: late.length,
+    completed,
+  }
+}
+
+const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`
+
+/** A phone Calendar day's spoken name, e.g. 'Tuesday 10 November, 2 tasks, 1 overdue'. */
+export function dayCellName(day: string, { open, overdue, completed }: DayMarkers): string {
+  const date = formatDaySpoken(day)
+  if (open === 0) {
+    return `${date}, ${completed > 0 ? plural(completed, 'completed task') : 'no tasks'}`
+  }
+  return `${date}, ${plural(open, 'task')}${overdue > 0 ? `, ${overdue} overdue` : ''}`
+}
+
+/** The day a phone Calendar opens on: today if the visible month contains it, otherwise the 1st. */
+export function defaultSelectedDay(viewY: number, viewM: number, todayStr: string): string {
+  const first = ymd(new Date(viewY, viewM, 1))
+  return todayStr.slice(0, 7) === first.slice(0, 7) ? todayStr : first
 }
 
 /** The 7 cells of the week starting at `weekStart` (a date — the caller already applied the offset). */

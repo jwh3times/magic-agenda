@@ -6,6 +6,9 @@ import { themeConf } from './themeConf'
 
 export type CardVariant = 'cell' | 'inbox' | 'kanban' | 'ghost'
 
+/** The Overdue signal, on a card's edge and a phone Calendar day's marker. Theme-independent. */
+export const OVERDUE_RED = '#e0524a'
+
 /** A style object that may also carry the --rot custom property used by the notePop keyframe. */
 type WrapStyle = CSSProperties & { '--rot'?: string }
 
@@ -219,7 +222,7 @@ export function cardStyles(
 
   if (overdue && !isGhost) {
     // Red inset accent — overdue signal, theme-independent.
-    wrap.boxShadow = `${wrap.boxShadow}, inset 3px 0 0 0 #e0524a`
+    wrap.boxShadow = `${wrap.boxShadow}, inset 3px 0 0 0 ${OVERDUE_RED}`
   }
 
   if (dragging && !isGhost) wrap.opacity = 0.18

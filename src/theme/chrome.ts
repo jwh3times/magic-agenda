@@ -1,8 +1,9 @@
 import type { CSSProperties } from 'react'
 import type { ThemeName } from '../types/task'
 import type { ThemeConf } from './themeConf'
-import type { CellMeta } from '../data/selectors'
+import type { CellMeta, DayMarker } from '../data/selectors'
 import type { WorkflowStatusDef } from './constants'
+import { OVERDUE_RED } from './cardStyles'
 import { chevron } from './selectChevron'
 
 /**
@@ -504,6 +505,168 @@ export function inboxChrome(theme: ThemeName, conf: ThemeConf) {
       background: 'transparent',
       color: brutal ? '#111' : conf.toolbarFg,
     },
+  } satisfies Record<string, CSSProperties>
+}
+
+/** Tall enough to tap, and six of them leave the panel most of a 390×844 screen. */
+const PHONE_DAY_HEIGHT = '46px'
+
+/** The phone Calendar's month (#565). Its columns share the width, and it never shrinks or pans. */
+export function phoneMonthChrome(theme: ThemeName, conf: ThemeConf) {
+  const b = boardChrome(theme, conf)
+  const brutal = theme === 'brutal'
+  const columns = 'repeat(7,minmax(0,1fr))'
+  const gap = brutal ? '0' : '2px'
+  return {
+    root: {
+      flex: 1,
+      minHeight: 0,
+      width: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '10px',
+      // A window too short for both the month and the panel scrolls rather than crushing either.
+      overflowY: 'auto',
+      ...scrollbars(conf),
+      // Out over `main`'s padding, so this scroller does not clip brutal's offset shadows.
+      margin: '-10px -10px -8px',
+      padding: '10px 10px 8px',
+    },
+    wrap: { ...b.boardWrap, flex: 'none', padding: theme === 'cork' ? '0' : '6px' },
+    weekRow: { ...b.weekRow, gridTemplateColumns: columns, gap, padding: brutal ? '0' : '0 0 3px' },
+    weekday: {
+      ...weekdayStyle(theme, conf),
+      minWidth: 0,
+      textAlign: 'center',
+      padding: brutal ? '4px 0' : '0',
+      letterSpacing: 0,
+    },
+    grid: {
+      display: 'grid',
+      gridTemplateColumns: columns,
+      gridAutoRows: PHONE_DAY_HEIGHT,
+      gap,
+    },
+  } satisfies Record<string, CSSProperties>
+}
+
+/** One phone Calendar day: `cellChrome`'s colours, as a button with a number and its markers. */
+export function phoneDayChrome(
+  theme: ThemeName,
+  conf: ThemeConf,
+  meta: CellMeta,
+  selected: boolean,
+) {
+  const c = cellChrome(theme, conf, meta)
+  return {
+    cell: {
+      ...c.cell,
+      minHeight: 0,
+      minWidth: 0,
+      width: '100%',
+      alignItems: 'center',
+      // Tight enough that `+N` wrapping under the markers in a 320px window still fits the cell.
+      gap: '2px',
+      padding: '3px 1px',
+      cursor: 'pointer',
+      font: 'inherit',
+    },
+    num: {
+      ...c.numStyle,
+      minWidth: '20px',
+      boxSizing: 'border-box',
+      padding: '1px 3px',
+      textAlign: 'center',
+      // A filled pill rather than a colour change alone, and today's ring stays visible around it.
+      ...(selected && {
+        background: conf.accent,
+        color: conf.accentFg,
+        borderRadius: '10px',
+      }),
+    },
+    markers: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '2px',
+      minWidth: 0,
+      maxWidth: '100%',
+    },
+    more: {
+      fontFamily: conf.ui,
+      fontSize: '10px',
+      fontWeight: 700,
+      lineHeight: 1,
+      // Never the number's dimmed or today colour: this is a count, in small type, at full strength.
+      color: conf.numFg,
+    },
+  } satisfies Record<string, CSSProperties>
+}
+
+/** A marker's shape carries its meaning as well as its colour, so it survives without colour. */
+export function dayMarkerStyle(
+  kind: DayMarker['kind'],
+  labelColor: string,
+  conf: ThemeConf,
+): CSSProperties {
+  const base: CSSProperties = { width: 7, height: 7, flex: 'none', boxSizing: 'border-box' }
+  if (kind === 'overdue') return { ...base, background: OVERDUE_RED, transform: 'rotate(45deg)' }
+  if (kind === 'completed') {
+    return { ...base, border: `1.5px solid ${conf.numFg}`, borderRadius: '50%' }
+  }
+  return { ...base, background: labelColor, borderRadius: '50%' }
+}
+
+/** The phone Calendar's panel, which is the Inbox's surface with tabs for a header. */
+export function phonePanelChrome(theme: ThemeName, conf: ThemeConf) {
+  const c = inboxChrome(theme, conf)
+  const brutal = theme === 'brutal'
+  const strong = brutal ? '#111' : conf.toolbarFg
+  const tab: CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    minHeight: '40px',
+    padding: '0 8px',
+    border: 'none',
+    borderBottom: '3px solid transparent',
+    background: 'transparent',
+    cursor: 'pointer',
+    fontFamily: conf.ui,
+    fontSize: '13px',
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+    color: c.inboxHint.color,
+  }
+  return {
+    panel: { ...c.inbox, width: '100%', flex: '1 1 200px', minHeight: '200px' },
+    head: { display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px 0 8px' },
+    tabs: { display: 'flex', flex: 1, minWidth: 0, gap: '4px' },
+    tab,
+    // The whole shorthand, not just its colour: React clears a longhand it no longer sees, which
+    // leaves the tab a black underline when it stops being the active one.
+    tabActive: {
+      ...tab,
+      color: strong,
+      fontWeight: 800,
+      borderBottom: `3px solid ${conf.accent}`,
+    },
+    count: { ...c.inboxCount, padding: '1px 7px', fontSize: '11px' },
+    add: {
+      ...c.inboxAdd,
+      flex: 'none',
+      width: '34px',
+      height: '34px',
+      margin: 0,
+      padding: 0,
+      fontSize: '18px',
+      lineHeight: 1,
+    },
+    body: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' },
+    list: c.inboxList,
+    empty: c.inboxEmpty,
+    emptyAdd: { ...c.inboxAdd, margin: '0 16px 16px', alignSelf: 'center' },
   } satisfies Record<string, CSSProperties>
 }
 

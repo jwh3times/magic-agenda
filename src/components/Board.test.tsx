@@ -12,8 +12,9 @@ import { makeMockTasks } from '../data/mockTasks'
 import { ymd } from '../lib/dates'
 import { OfflineContext } from '../data/offlineContext'
 import { TodayContext } from '../data/todayContext'
+import { DueClockContext } from '../data/dueClockContext'
 import { TaskBoardContext, type SaveConflict, type TaskBoard } from '../data/taskBoardContext'
-import { asTask, type Task, type ViewName } from '../types/task'
+import { asTask, NO_RECUR, type Task, type TaskDraft, type ViewName } from '../types/task'
 import { LabelDirectoryContext } from '../labels/labelDirectoryContext'
 import { MOCK_LABEL_DIRECTORY } from '../data/mockLabels'
 
@@ -371,24 +372,307 @@ describe('mobile layout', () => {
       })),
     )
 
-  test('renders all views and a collapsible inbox on a phone-width screen', async () => {
+  test('Week keeps its docked, collapsible Inbox on a phone-width screen', async () => {
     stubMobile()
     const user = userEvent.setup()
     renderBoard()
 
-    // Calendar view: board + inbox render stacked; inbox header toggles its body.
+    await user.click(screen.getByRole('button', { name: 'Week' }))
     expect(screen.getByText('Finish Q3 deck')).toBeInTheDocument()
+    expect(screen.getByRole('complementary', { name: 'Inbox' })).toBeInTheDocument()
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
     expect(screen.getByText('Renew passport')).toBeInTheDocument()
     await user.click(screen.getByText('Inbox'))
     expect(screen.queryByText('Renew passport')).not.toBeInTheDocument() // collapsed
     await user.click(screen.getByText('Inbox'))
     expect(screen.getByText('Renew passport')).toBeInTheDocument() // expanded again
 
-    await user.click(screen.getByRole('button', { name: 'Week' }))
-    expect(screen.getByText('Finish Q3 deck')).toBeInTheDocument()
-
     await user.click(screen.getByRole('button', { name: 'Board' }))
     expect(screen.getByText('In Progress', { selector: 'span' })).toBeInTheDocument()
+  })
+
+  // ——— the phone Calendar (#565) ———
+
+  describe('the phone Calendar', () => {
+    const TODAY = '2026-03-17' // A Tuesday.
+    const NOW = Date.parse('2026-03-17T12:00:00Z')
+
+    const task = (id: string, title: string, day: string, over: Partial<TaskDraft> = {}): Task =>
+      asTask({
+        ...makeMockTasks()[0],
+        id,
+        title,
+        day,
+        description: '',
+        checklist: [],
+        labelId: null,
+        atTime: null,
+        order: 0,
+        ...NO_RECUR,
+        ...over,
+      })
+
+    const completed = {
+      status: 'completed',
+      completedAt: '2026-03-01T12:00:00.000Z',
+      reopenStatus: 'todo',
+    } as const
+
+    const SEED = [
+      task('standup', 'Standup', TODAY, { order: 1, labelId: 'demo-work' }),
+      task('bank', 'Call the bank', TODAY, { order: 2, atTime: '09:00' }),
+      task('flowers', 'Buy flowers', '2026-03-20'),
+      task('taxes', 'File taxes', '2026-03-22', completed),
+      task('trip', 'Plan a trip', 'inbox'),
+      ...['one', 'two', 'three', 'four', 'five'].map((id, order) =>
+        task(id, `Errand ${id}`, '2026-03-24', { order }),
+      ),
+    ]
+
+    function renderPhone(seed: Task[] = SEED) {
+      sessionStorage.removeItem('ma-board-view')
+      stubMobile()
+      render(
+        <TodayContext.Provider value={TODAY}>
+          <DueClockContext.Provider value={{ nowMs: NOW, timezone: 'UTC' }}>
+            <Harness seed={seed} />
+          </DueClockContext.Provider>
+        </TodayContext.Provider>,
+      )
+      return userEvent.setup()
+    }
+
+    const day = (name: string | RegExp) => screen.getByRole('button', { name })
+    const SELECTED_TODAY = 'Tuesday 17 March, 2 tasks, 1 overdue'
+
+    test('shows every day of the grid as a button, with today selected and listed', () => {
+      renderPhone()
+      expect(screen.getAllByRole('button', { name: /^\w+day \d+ \w+, / })).toHaveLength(42)
+      expect(screen.getAllByText(/^(Sun|Mon|Tue|Wed|Thu|Fri|Sat)$/)).toHaveLength(7)
+      expect(day(SELECTED_TODAY)).toHaveAttribute('aria-pressed', 'true')
+      expect(day(SELECTED_TODAY)).toHaveAttribute('aria-current', 'date')
+      expect(screen.getByText('Standup')).toBeInTheDocument()
+      expect(screen.getByText('Call the bank')).toBeInTheDocument()
+      expect(screen.queryByText('Buy flowers')).not.toBeInTheDocument()
+    })
+
+    test('the desktop Calendar has none of this', () => {
+      sessionStorage.removeItem('ma-board-view')
+      render(
+        <TodayContext.Provider value={TODAY}>
+          <Harness seed={SEED} />
+        </TodayContext.Provider>,
+      )
+      expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^\w+day \d+ \w+, / })).not.toBeInTheDocument()
+      expect(screen.getByRole('complementary', { name: 'Inbox' })).toBeInTheDocument()
+      expect(screen.getByText('Buy flowers')).toBeInTheDocument()
+    })
+
+    test('a day’s name and markers say what it holds, with Completed Tasks left out', () => {
+      renderPhone()
+      expect(within(day(SELECTED_TODAY)).getAllByTestId('day-marker')).toHaveLength(2)
+      expect(
+        within(day(SELECTED_TODAY))
+          .getAllByTestId('day-marker')
+          .map((marker) => marker.dataset.kind),
+      ).toEqual(['overdue', 'open'])
+
+      const empty = day('Monday 16 March, no tasks')
+      expect(within(empty).queryByTestId('day-marker')).not.toBeInTheDocument()
+
+      const hollow = within(day('Sunday 22 March, 1 completed task')).getByTestId('day-marker')
+      expect(hollow.dataset.kind).toBe('completed')
+
+      const busy = day('Tuesday 24 March, 5 tasks')
+      expect(within(busy).getAllByTestId('day-marker')).toHaveLength(3)
+      expect(within(busy).getByText('+2')).toBeInTheDocument()
+    })
+
+    test('Overdue, hollow, and open markers differ by more than color', () => {
+      renderPhone()
+      const shape = (marker: HTMLElement) => ({
+        rotated: marker.style.transform !== '',
+        filled: marker.style.background !== '',
+      })
+      const [overdue, open] = within(day(SELECTED_TODAY)).getAllByTestId('day-marker')
+      const hollow = within(day('Sunday 22 March, 1 completed task')).getByTestId('day-marker')
+      expect(shape(overdue)).toEqual({ rotated: true, filled: true })
+      expect(shape(open)).toEqual({ rotated: false, filled: true })
+      expect(shape(hollow)).toEqual({ rotated: false, filled: false })
+    })
+
+    test('tapping a day selects it, marks it, and lists its Tasks', async () => {
+      const user = renderPhone()
+      await user.click(day('Friday 20 March, 1 task'))
+
+      expect(day('Friday 20 March, 1 task')).toHaveAttribute('aria-pressed', 'true')
+      expect(day(SELECTED_TODAY)).toHaveAttribute('aria-pressed', 'false')
+      expect(screen.getByRole('tab', { name: 'Fri 20 Mar, 1 task' })).toBeInTheDocument()
+      expect(screen.getByText('Buy flowers')).toBeInTheDocument()
+      expect(screen.queryByText('Standup')).not.toBeInTheDocument()
+    })
+
+    test('a dimmed day from the next month can be tapped without leaving the month', async () => {
+      const user = renderPhone()
+      await user.click(day('Thursday 2 April, no tasks'))
+      expect(day('Thursday 2 April, no tasks')).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByText('March 2026')).toBeInTheDocument()
+      expect(screen.getByText('Nothing on Thu 2 Apr')).toBeInTheDocument()
+    })
+
+    test('a card in the panel opens the Task editor', async () => {
+      const user = renderPhone()
+      await user.click(screen.getByText('Standup'))
+      expect(screen.getByText('Edit task')).toBeInTheDocument()
+    })
+
+    test('an empty day says so, and its add button creates a Task on that day', async () => {
+      const user = renderPhone()
+      await user.click(day('Wednesday 18 March, no tasks'))
+      expect(screen.getByText('Nothing on Wed 18 Mar')).toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: '+ Add a task' }))
+      await user.type(screen.getByPlaceholderText('Task title…'), 'Water the plants')
+      await user.click(screen.getByRole('button', { name: 'Add task' }))
+
+      expect(screen.getByText('Water the plants')).toBeInTheDocument()
+      expect(screen.queryByText('Nothing on Wed 18 Mar')).not.toBeInTheDocument()
+      expect(day('Wednesday 18 March, 1 task')).toBeInTheDocument()
+    })
+
+    test('the panel header’s add button creates a Task on the selected day', async () => {
+      const user = renderPhone()
+      await user.click(day('Friday 20 March, 1 task'))
+      await user.click(screen.getByRole('button', { name: 'Add a task on Fri 20 Mar' }))
+      await user.type(screen.getByPlaceholderText('Task title…'), 'Order the cake')
+      await user.click(screen.getByRole('button', { name: 'Add task' }))
+
+      expect(screen.getByText('Order the cake')).toBeInTheDocument()
+      expect(day('Friday 20 March, 2 tasks')).toBeInTheDocument()
+    })
+
+    test('the day and Inbox are tabs with counts, and the Inbox tab adds to the Inbox', async () => {
+      const user = renderPhone()
+      expect(screen.queryByRole('complementary', { name: 'Inbox' })).not.toBeInTheDocument()
+      const dayTab = screen.getByRole('tab', { name: 'Tue 17 Mar, 2 tasks' })
+      const inboxTab = screen.getByRole('tab', { name: 'Inbox, 1 task' })
+      expect(dayTab).toHaveAttribute('aria-selected', 'true')
+      expect(inboxTab).toHaveAttribute('aria-selected', 'false')
+      expect(screen.getByRole('tabpanel')).toHaveAccessibleName('Tue 17 Mar, 2 tasks')
+
+      await user.click(inboxTab)
+      expect(inboxTab).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByRole('tabpanel')).toHaveAccessibleName('Inbox, 1 task')
+      expect(screen.getByText('Plan a trip')).toBeInTheDocument()
+      expect(screen.queryByText('Standup')).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'Add to inbox' }))
+      await user.type(screen.getByPlaceholderText('Task title…'), 'Read a book')
+      await user.click(screen.getByRole('button', { name: 'Add task' }))
+      expect(screen.getByText('Read a book')).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: 'Inbox, 2 tasks' })).toBeInTheDocument()
+    })
+
+    test('the arrow keys move between the tabs', async () => {
+      const user = renderPhone()
+      const dayTab = screen.getByRole('tab', { name: /^Tue 17 Mar/ })
+      const inboxTab = screen.getByRole('tab', { name: /^Inbox/ })
+      expect(dayTab).toHaveAttribute('tabindex', '0')
+      expect(inboxTab).toHaveAttribute('tabindex', '-1')
+
+      dayTab.focus()
+      await user.keyboard('{ArrowRight}')
+      expect(inboxTab).toHaveFocus()
+      expect(inboxTab).toHaveAttribute('aria-selected', 'true')
+
+      await user.keyboard('{ArrowLeft}')
+      expect(dayTab).toHaveFocus()
+      expect(dayTab).toHaveAttribute('aria-selected', 'true')
+    })
+
+    test('tapping a day from the Inbox tab shows that day', async () => {
+      const user = renderPhone()
+      await user.click(screen.getByRole('tab', { name: /^Inbox/ }))
+      await user.click(day('Friday 20 March, 1 task'))
+      expect(screen.getByRole('tab', { name: /^Fri 20 Mar/ })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      )
+      expect(screen.getByText('Buy flowers')).toBeInTheDocument()
+    })
+
+    test('the selected day follows the month, and a tap lasts only until the month changes', async () => {
+      const user = renderPhone()
+      await user.click(day('Friday 20 March, 1 task'))
+
+      await user.click(screen.getByRole('button', { name: '›' }))
+      expect(screen.getByText('April 2026')).toBeInTheDocument()
+      expect(day('Wednesday 1 April, no tasks')).toHaveAttribute('aria-pressed', 'true')
+
+      await user.click(screen.getByRole('button', { name: '‹' }))
+      expect(day(SELECTED_TODAY)).toHaveAttribute('aria-pressed', 'true')
+      expect(day('Friday 20 March, 1 task')).toHaveAttribute('aria-pressed', 'false')
+    })
+
+    test('Today always selects today and shows it, even from the Inbox tab', async () => {
+      const user = renderPhone()
+      await user.click(day('Friday 20 March, 1 task'))
+      await user.click(screen.getByRole('tab', { name: /^Inbox/ }))
+
+      await user.click(screen.getByRole('button', { name: /^Today/ }))
+
+      expect(day(SELECTED_TODAY)).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('tab', { name: /^Tue 17 Mar/ })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      )
+      expect(screen.getByText('Standup')).toBeInTheDocument()
+    })
+
+    test('the week starts on the weekday chosen in Settings', () => {
+      sessionStorage.removeItem('ma-board-view')
+      stubMobile()
+      render(
+        <TodayContext.Provider value={TODAY}>
+          <Harness seed={SEED} weekStart={1} />
+        </TodayContext.Provider>,
+      )
+      const headers = screen.getAllByText(/^(Sun|Mon|Tue|Wed|Thu|Fri|Sat)$/)
+      expect(headers[0]).toHaveTextContent('Mon')
+      expect(screen.getAllByRole('button', { name: /^\w+day \d+ \w+, / })[0]).toHaveAccessibleName(
+        'Monday 23 February, no tasks',
+      )
+    })
+
+    test('markers, the panel, and the counts all follow an active filter', async () => {
+      const user = renderPhone()
+      await user.click(screen.getByRole('button', { name: /^Search and filters/ }))
+      await user.type(screen.getByRole('textbox', { name: 'Search tasks' }), 'Standup')
+
+      expect(day('Tuesday 17 March, 1 task')).toBeInTheDocument()
+      expect(within(day('Tuesday 17 March, 1 task')).getAllByTestId('day-marker')).toHaveLength(1)
+      expect(day('Friday 20 March, no tasks')).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: 'Tue 17 Mar, 1 task' })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: 'Inbox, 0 tasks' })).toBeInTheDocument()
+      expect(screen.queryByText('Call the bank')).not.toBeInTheDocument()
+    })
+
+    test('a selection survives switching days', async () => {
+      const user = renderPhone()
+      await user.click(screen.getByRole('button', { name: /^Search and filters/ }))
+      await user.click(screen.getByRole('button', { name: '☑ Select' }))
+      await user.click(screen.getByText('Standup'))
+      await user.click(day('Friday 20 March, 1 task'))
+      await user.click(screen.getByText('Buy flowers'))
+
+      const bar = screen.getByRole('toolbar', { name: 'Bulk actions' })
+      expect(within(bar).getByText('2 selected')).toBeInTheDocument()
+
+      await user.click(day(SELECTED_TODAY))
+      expect(within(bar).getByText('2 selected')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Standup/, pressed: true })).toBeInTheDocument()
+    })
   })
 
   // ——— phone controls (#564) ———
@@ -479,7 +763,7 @@ describe('mobile layout', () => {
 
     await user.click(controlsButton())
     await user.click(screen.getByRole('button', { name: '☑ Select' }))
-    await user.click(screen.getByText('Renew passport'))
+    await user.click(screen.getByText('Finish Q3 deck'))
 
     const bar = screen.getByRole('toolbar', { name: 'Bulk actions' })
     expect(within(bar).getByText('1 selected')).toBeInTheDocument()
@@ -499,11 +783,12 @@ describe('mobile layout', () => {
     renderBoard()
 
     await user.click(controlsButton())
-    await user.type(screen.getByRole('textbox', { name: 'Search tasks' }), 'Finish')
+    await user.type(screen.getByRole('textbox', { name: 'Search tasks' }), 'Passport')
     await user.click(controlsButton())
 
-    expect(screen.getByText('Finish Q3 deck')).toBeInTheDocument()
-    expect(screen.queryByText('Renew passport')).not.toBeInTheDocument()
+    expect(screen.queryByText('Finish Q3 deck')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'Inbox, 1 task' }))
+    expect(screen.getByText('Renew passport')).toBeInTheDocument()
   })
 })
 

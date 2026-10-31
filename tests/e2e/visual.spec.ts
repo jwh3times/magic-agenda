@@ -241,12 +241,20 @@ test.describe('signed in', () => {
   test.describe('mobile', () => {
     test.use({ viewport: MOBILE })
 
-    test('board calendar (cork, mobile)', async ({ page }) => {
-      await openBoard(page, 'cork', 'calendar')
-      // The mobile Inbox docks under the board expanded, so all three cards render here too
-      // (confirmed on #280's first CI run) and the wait covers every one, as on desktop.
-      await boardReady(page, SEEDED_TITLES)
-      await expect(page).toHaveScreenshot('board-calendar-cork-mobile.png')
-    })
+    // Per theme, because the phone Calendar's cells and markers branch on it (#565). Only today's
+    // card renders: the second seeded Task is a marker, whose day's spoken name proves it has loaded,
+    // and the third is in the Inbox tab, whose count does the same.
+    for (const theme of ['cork', 'brutal', 'glass'] as Theme[]) {
+      test(`board calendar (${theme}, mobile)`, async ({ page }) => {
+        await openBoard(page, theme, 'calendar')
+        await page
+          .getByRole('button', { name: /, 1 task$/ })
+          .nth(1)
+          .waitFor()
+        await page.getByRole('tab', { name: 'Inbox, 1 task' }).waitFor()
+        await boardReady(page, SEEDED_TITLES.slice(0, 1))
+        await expect(page).toHaveScreenshot(`board-calendar-${theme}-mobile.png`)
+      })
+    }
   })
 })

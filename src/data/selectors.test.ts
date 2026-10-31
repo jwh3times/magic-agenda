@@ -9,6 +9,10 @@ import {
   isOverdue,
   overdueTasks,
   applyRollForward,
+  dayCellName,
+  dayMarkers,
+  defaultSelectedDay,
+  type DayMarkers,
 } from './selectors'
 import { missingInstances, type RecurRule } from './recurrence'
 import { asTask, NO_RECUR, type Task, type TaskDraft } from '../types/task'
@@ -315,5 +319,169 @@ describe('applyRollForward + missingInstances (regression)', () => {
     const after = missingInstances(template, [moved], today, 30)
     expect(after).not.toContain('2026-07-03')
     expect(after).toEqual(before)
+  })
+})
+
+// The phone Calendar's rules (#565). `dayMarkers` gets the same already-filtered Tasks a cell would
+// show, so a filter narrows the markers by construction.
+describe('dayMarkers', () => {
+  const DAY = '2026-03-15'
+  const PAST = '2026-03-10'
+  const NOW = Date.parse('2026-03-15T12:00:00Z')
+
+  it('has nothing to draw for an empty day', () => {
+    expect(dayMarkers([], DAY, NOW, 'UTC')).toEqual({
+      markers: [],
+      more: 0,
+      open: 0,
+      overdue: 0,
+      completed: 0,
+    })
+  })
+
+  it('draws a Task as its Label, and an Unlabeled Task with no Label', () => {
+    const tasks = [
+      t('labeled', { day: DAY, labelId: 'work', order: 0 }),
+      t('unlabeled', { day: DAY, labelId: null, order: 1 }),
+    ]
+    expect(dayMarkers(tasks, DAY, NOW, 'UTC').markers).toEqual([
+      { taskId: 'labeled', kind: 'open', labelId: 'work' },
+      { taskId: 'unlabeled', kind: 'open', labelId: null },
+    ])
+  })
+
+  it('looks only at the day it was asked about, in calendar order', () => {
+    const tasks = [
+      t('second', { day: DAY, order: 1 }),
+      t('elsewhere', { day: '2026-03-16', order: 0 }),
+      t('parked', { day: 'inbox', order: 0 }),
+      t('first', { day: DAY, order: 0 }),
+    ]
+    const result = dayMarkers(tasks, DAY, NOW, 'UTC')
+    expect(result.markers.map((marker) => marker.taskId)).toEqual(['first', 'second'])
+    expect(result.open).toBe(2)
+  })
+
+  it('shows three markers, then counts the rest as more', () => {
+    const tasks = [0, 1, 2, 3, 4].map((order) => t(`t${order}`, { day: DAY, order }))
+    const result = dayMarkers(tasks, DAY, NOW, 'UTC')
+    expect(result.markers.map((marker) => marker.taskId)).toEqual(['t0', 't1', 't2'])
+    expect(result.more).toBe(2)
+    expect(result.open).toBe(5)
+  })
+
+  it('shows exactly three markers with nothing more', () => {
+    const tasks = [0, 1, 2].map((order) => t(`t${order}`, { day: DAY, order }))
+    const result = dayMarkers(tasks, DAY, NOW, 'UTC')
+    expect(result.markers).toHaveLength(3)
+    expect(result.more).toBe(0)
+  })
+
+  it('puts an Overdue Task first, whatever its calendar order', () => {
+    const tasks = [
+      t('later-today', { day: DAY, atTime: '18:00', order: 0 }),
+      t('due-this-morning', { day: DAY, atTime: '09:00', order: 1 }),
+    ]
+    expect(dayMarkers(tasks, DAY, NOW, 'UTC').markers).toEqual([
+      { taskId: 'due-this-morning', kind: 'overdue', labelId: null },
+      { taskId: 'later-today', kind: 'open', labelId: null },
+    ])
+  })
+
+  it('cannot hide an Overdue Task behind the count, with more than three Tasks', () => {
+    const tasks = [
+      t('a', { day: DAY, atTime: '18:00', order: 0 }),
+      t('b', { day: DAY, atTime: '18:00', order: 1 }),
+      t('c', { day: DAY, atTime: '18:00', order: 2 }),
+      t('d', { day: DAY, atTime: '18:00', order: 3 }),
+      t('late', { day: DAY, atTime: '09:00', order: 4 }),
+    ]
+    const result = dayMarkers(tasks, DAY, NOW, 'UTC')
+    expect(result.markers.map((marker) => [marker.taskId, marker.kind])).toEqual([
+      ['late', 'overdue'],
+      ['a', 'open'],
+      ['b', 'open'],
+    ])
+    expect(result.more).toBe(2)
+    expect(result.overdue).toBe(1)
+  })
+
+  it('keeps calendar order among several Overdue Tasks on an earlier day', () => {
+    const tasks = [t('b', { day: PAST, order: 1 }), t('a', { day: PAST, order: 0 })]
+    const result = dayMarkers(tasks, PAST, NOW, 'UTC')
+    expect(result.markers.map((marker) => [marker.taskId, marker.kind])).toEqual([
+      ['a', 'overdue'],
+      ['b', 'overdue'],
+    ])
+    expect(result.overdue).toBe(2)
+  })
+
+  it('does not count Completed Tasks when the day has anything still to do', () => {
+    const tasks = [
+      t('done', { day: DAY, status: 'completed', completedAt: 'x', order: 0 }),
+      t('open', { day: DAY, order: 1 }),
+    ]
+    const result = dayMarkers(tasks, DAY, NOW, 'UTC')
+    expect(result.markers.map((marker) => marker.taskId)).toEqual(['open'])
+    expect(result.open).toBe(1)
+    expect(result.completed).toBe(1)
+  })
+
+  it('never calls a Completed Task Overdue, even on an earlier day', () => {
+    const tasks = [t('done', { day: PAST, status: 'completed', completedAt: 'x' })]
+    expect(dayMarkers(tasks, PAST, NOW, 'UTC').overdue).toBe(0)
+  })
+
+  it('draws one hollow marker for a day holding only Completed Tasks', () => {
+    const tasks = [0, 1].map((order) =>
+      t(`t${order}`, { day: DAY, status: 'completed', completedAt: 'x', labelId: 'work', order }),
+    )
+    expect(dayMarkers(tasks, DAY, NOW, 'UTC')).toEqual({
+      markers: [{ taskId: 't0', kind: 'completed', labelId: 'work' }],
+      more: 0,
+      open: 0,
+      overdue: 0,
+      completed: 2,
+    })
+  })
+
+  it('draws from the Label alone and carries no Note Color', () => {
+    const [marker] = dayMarkers([t('a', { day: DAY, color: 'pink' })], DAY, NOW, 'UTC').markers
+    expect(marker).toEqual({ taskId: 'a', kind: 'open', labelId: null })
+  })
+})
+
+describe('dayCellName', () => {
+  const summary = (over: Partial<DayMarkers>): DayMarkers => ({
+    markers: [],
+    more: 0,
+    open: 0,
+    overdue: 0,
+    completed: 0,
+    ...over,
+  })
+
+  test.each([
+    ['an empty day', {}, 'Sunday 15 March, no tasks'],
+    ['one Task', { open: 1 }, 'Sunday 15 March, 1 task'],
+    ['two Tasks, one Overdue', { open: 2, overdue: 1 }, 'Sunday 15 March, 2 tasks, 1 overdue'],
+    ['Completed Tasks beside open ones', { open: 1, completed: 3 }, 'Sunday 15 March, 1 task'],
+    ['one Completed Task', { completed: 1 }, 'Sunday 15 March, 1 completed task'],
+    ['several Completed Tasks', { completed: 2 }, 'Sunday 15 March, 2 completed tasks'],
+  ])('%s', (_name, over, expected) => {
+    expect(dayCellName('2026-03-15', summary(over))).toBe(expected)
+  })
+})
+
+describe('defaultSelectedDay', () => {
+  test.each([
+    ['today, when the visible month contains it', 2026, 2, '2026-03-15', '2026-03-15'],
+    ['the 1st of a later month', 2026, 3, '2026-03-15', '2026-04-01'],
+    ['the 1st of an earlier month', 2026, 1, '2026-03-15', '2026-02-01'],
+    ['the 1st of the same month in another year', 2027, 2, '2026-03-15', '2027-03-01'],
+    ['today, on the last day of a month', 2026, 2, '2026-03-31', '2026-03-31'],
+    ['today, in a two-digit month', 2026, 10, '2026-11-05', '2026-11-05'],
+  ])('%s', (_name, year, month, today, expected) => {
+    expect(defaultSelectedDay(year, month, today)).toBe(expected)
   })
 })
