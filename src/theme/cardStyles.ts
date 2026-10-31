@@ -1,13 +1,10 @@
 import type { CSSProperties } from 'react'
 import type { Task, ThemeName } from '../types/task'
-import { PAPER } from './constants'
+import { OVERDUE_RED, PAPER } from './constants'
 import { UNLABELED_DOT_COLOR } from '../labels/presentation'
 import { themeConf } from './themeConf'
 
 export type CardVariant = 'cell' | 'inbox' | 'kanban' | 'ghost'
-
-/** The Overdue signal, on a card's edge and a phone Calendar day's marker. Theme-independent. */
-export const OVERDUE_RED = '#e0524a'
 
 /** A style object that may also carry the --rot custom property used by the notePop keyframe. */
 type WrapStyle = CSSProperties & { '--rot'?: string }

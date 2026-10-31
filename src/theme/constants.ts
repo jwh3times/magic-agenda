@@ -16,6 +16,9 @@ export const STATUS: WorkflowStatusDef[] = [
   { key: 'completed', label: 'Completed', accent: '#22c55e' },
 ]
 
+/** The Overdue signal, on a card's edge and a phone Calendar day's marker. Theme-independent. */
+export const OVERDUE_RED = '#e0524a'
+
 export interface PaperDef {
   bg: string
   /** Border colour — present on cork & glass, absent on brutal. */

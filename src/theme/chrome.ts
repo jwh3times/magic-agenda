@@ -2,8 +2,7 @@ import type { CSSProperties } from 'react'
 import type { ThemeName } from '../types/task'
 import type { ThemeConf } from './themeConf'
 import type { CellMeta, DayMarker } from '../data/selectors'
-import type { WorkflowStatusDef } from './constants'
-import { OVERDUE_RED } from './cardStyles'
+import { OVERDUE_RED, type WorkflowStatusDef } from './constants'
 import { chevron } from './selectChevron'
 
 /**
@@ -485,8 +484,8 @@ export function inboxChrome(theme: ThemeName, conf: ThemeConf) {
       fontFamily: conf.ui,
       fontSize: '12.5px',
       lineHeight: 1.5,
-      // #767676 like inboxHint: the a11y scan never sees this node (the seeded inbox is never
-      // empty), but a real user's empty inbox would put #999 on white at 2.85:1.
+      // #767676 like inboxHint, or an empty inbox would put #999 on white at 2.85:1. The desktop
+      // scans never see this node, because the seeded inbox is never empty; `phone-empty-brutal` does.
       color: brutal ? '#767676' : conf.toolbarSub,
       textAlign: 'center',
       padding: '24px 10px',
@@ -621,8 +620,6 @@ export function dayMarkerStyle(
 /** The phone Calendar's panel, which is the Inbox's surface with tabs for a header. */
 export function phonePanelChrome(theme: ThemeName, conf: ThemeConf) {
   const c = inboxChrome(theme, conf)
-  const brutal = theme === 'brutal'
-  const strong = brutal ? '#111' : conf.toolbarFg
   const tab: CSSProperties = {
     display: 'inline-flex',
     alignItems: 'center',
@@ -648,7 +645,7 @@ export function phonePanelChrome(theme: ThemeName, conf: ThemeConf) {
     // leaves the tab a black underline when it stops being the active one.
     tabActive: {
       ...tab,
-      color: strong,
+      color: c.inboxHead.color,
       fontWeight: 800,
       borderBottom: `3px solid ${conf.accent}`,
     },

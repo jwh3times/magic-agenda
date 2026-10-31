@@ -343,6 +343,22 @@ test.describe('phone-width board', () => {
       await page.mouse.up()
       await expect.poll(titles).toEqual(['Extra task 0', 'Draft the launch note'])
 
+      // The screen moves first, so read the row order too: a reload before the write lands would
+      // show the old order and blame the app for a race in this test.
+      const client = await testClient()
+      const boardId = await testBoardId(client)
+      await expect
+        .poll(async () => {
+          const { data } = await client
+            .from('tasks')
+            .select('title')
+            .eq('board_id', boardId)
+            .eq('day', new Date().toISOString().slice(0, 10))
+            .order('order_index')
+          return data?.map((row) => String(row.title))
+        })
+        .toEqual(['Extra task 0', 'Draft the launch note'])
+
       await page.reload()
       await expect(panel.getByText('Extra task 0')).toBeVisible()
       await expect.poll(titles).toEqual(['Extra task 0', 'Draft the launch note'])

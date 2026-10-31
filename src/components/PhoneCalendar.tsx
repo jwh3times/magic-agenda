@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type KeyboardEvent } from 'react'
+import { useContext, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { useTheme } from '../theme/ThemeProvider'
 import { dayMarkerStyle, phoneDayChrome, phoneMonthChrome, phonePanelChrome } from '../theme/chrome'
 import {
@@ -7,9 +7,11 @@ import {
   dayMarkers,
   defaultSelectedDay,
   notesForDay,
+  taskCount,
   type CellMeta,
   type DayMarker,
 } from '../data/selectors'
+import { OfflineContext } from '../data/offlineContext'
 import { useToday } from '../data/todayContext'
 import { useDueClock } from '../data/dueClockContext'
 import { useLabel } from '../labels/LabelDirectoryProvider'
@@ -81,8 +83,6 @@ function PhoneDay({
   )
 }
 
-const taskCount = (n: number) => `${n} task${n === 1 ? '' : 's'}`
-
 /**
  * The Calendar view at or below the phone breakpoint (#565): the whole month as markers, and below
  * it one panel that lists either the selected day or the Inbox. Selected day and tab are deliberately
@@ -97,6 +97,7 @@ export function PhoneCalendar({
 }: PhoneCalendarProps) {
   const actions = useBoardActions()
   const { theme, conf } = useTheme()
+  const { readOnly } = useContext(OfflineContext)
   const today = useToday()
   const [picked, setPicked] = useState<string | null>(null)
   const [tab, setTab] = useState<PanelTab>('day')
@@ -114,7 +115,23 @@ export function PhoneCalendar({
   const { weekdays, cells } = buildMonthGrid(viewY, viewM, today, weekStart)
   const dayNotes = notesForDay(tasks, selected)
   const inboxNotes = notesForDay(tasks, INBOX)
-  const notes = tab === 'day' ? dayNotes : inboxNotes
+  const dayLabel = formatDayShort(selected)
+  const panel =
+    tab === 'day'
+      ? {
+          lane: selected,
+          notes: dayNotes,
+          addLabel: `Add a task on ${dayLabel}`,
+          add: () => actions?.onAddDay(selected),
+          empty: `Nothing on ${dayLabel}`,
+        }
+      : {
+          lane: INBOX,
+          notes: inboxNotes,
+          addLabel: 'Add to inbox',
+          add: () => actions?.onAddInbox(),
+          empty: 'Nothing in the Inbox',
+        }
 
   const baseId = useId()
   const panelId = `${baseId}-panel`
@@ -138,13 +155,10 @@ export function PhoneCalendar({
 
   const m = phoneMonthChrome(theme, conf)
   const p = phonePanelChrome(theme, conf)
-  const dayLabel = formatDayShort(selected)
   const tabs: { key: PanelTab; label: string; count: number; ref: typeof dayTabRef }[] = [
     { key: 'day', label: dayLabel, count: dayNotes.length, ref: dayTabRef },
     { key: 'inbox', label: 'Inbox', count: inboxNotes.length, ref: inboxTabRef },
   ]
-  const addLabel = tab === 'day' ? `Add a task on ${dayLabel}` : 'Add to inbox'
-  const add = () => (tab === 'day' ? actions?.onAddDay(selected) : actions?.onAddInbox())
 
   return (
     <div style={m.root}>
@@ -193,29 +207,33 @@ export function PhoneCalendar({
               </button>
             ))}
           </div>
-          <button type="button" aria-label={addLabel} title={addLabel} style={p.add} onClick={add}>
-            +
-          </button>
+          {/* Absent while read-only, like the Toolbar's disabled New task: the editor it would open
+              could not save anything. */}
+          {!readOnly && (
+            <button
+              type="button"
+              aria-label={panel.addLabel}
+              title={panel.addLabel}
+              style={p.add}
+              onClick={panel.add}
+            >
+              +
+            </button>
+          )}
         </div>
         <div role="tabpanel" id={panelId} aria-labelledby={tabId(tab)} style={p.body}>
           <DropLane
-            key={tab === 'day' ? selected : INBOX}
-            id={tab === 'day' ? selected : INBOX}
-            itemIds={notes.map((note) => note.id)}
+            key={panel.lane}
+            id={panel.lane}
+            itemIds={panel.notes.map((note) => note.id)}
             style={p.list}
           >
-            {notes.map((task) => (
+            {panel.notes.map((task) => (
               <SortableCard key={task.id} task={task} variant="inbox" />
             ))}
-            {notes.length === 0 && (
-              <div style={p.empty}>
-                {tab === 'day'
-                  ? `Nothing on ${dayLabel}`
-                  : 'Nothing here. Drag a note in to park it, or hit “+ New task”.'}
-              </div>
-            )}
-            {notes.length === 0 && tab === 'day' && (
-              <button type="button" style={p.emptyAdd} onClick={add}>
+            {panel.notes.length === 0 && <div style={p.empty}>{panel.empty}</div>}
+            {panel.notes.length === 0 && tab === 'day' && !readOnly && (
+              <button type="button" style={p.emptyAdd} onClick={panel.add}>
                 + Add a task
               </button>
             )}

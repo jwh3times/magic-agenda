@@ -630,6 +630,57 @@ describe('mobile layout', () => {
       expect(screen.getByText('Standup')).toBeInTheDocument()
     })
 
+    test('Today comes back from another month and selects today', async () => {
+      const user = renderPhone()
+      await user.click(screen.getByRole('button', { name: '›' }))
+      await user.click(screen.getByRole('button', { name: '›' }))
+      expect(screen.getByText('May 2026')).toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: /^Today/ }))
+
+      expect(screen.getByText('March 2026')).toBeInTheDocument()
+      expect(day(SELECTED_TODAY)).toHaveAttribute('aria-pressed', 'true')
+    })
+
+    test('a day counts its Completed Tasks too, so it agrees with its tab', async () => {
+      const user = renderPhone([
+        task('open', 'Still to do', '2026-03-20'),
+        task('done', 'Already done', '2026-03-20', { ...completed, order: 1 }),
+      ])
+      await user.click(day('Friday 20 March, 1 task, 1 completed'))
+      expect(screen.getByRole('tab', { name: 'Fri 20 Mar, 2 tasks' })).toBeInTheDocument()
+      expect(screen.getByText('Still to do')).toBeInTheDocument()
+      expect(screen.getByText('Already done')).toBeInTheDocument()
+    })
+
+    test('an empty Inbox tab says so, and promises no drag it cannot do', async () => {
+      const user = renderPhone(SEED.filter((t) => t.day !== 'inbox'))
+      await user.click(screen.getByRole('tab', { name: 'Inbox, 0 tasks' }))
+      expect(screen.getByText('Nothing in the Inbox')).toBeInTheDocument()
+      expect(screen.queryByText(/Drag/)).not.toBeInTheDocument()
+    })
+
+    test('a read-only Board offers no add button in the panel', async () => {
+      sessionStorage.removeItem('ma-board-view')
+      stubMobile()
+      const user = userEvent.setup()
+      render(
+        <OfflineContext.Provider
+          value={{ readOnly: true, fallbackReason: 'network', savedAt: NOW, timezone: 'UTC' }}
+        >
+          <TodayContext.Provider value={TODAY}>
+            <Harness seed={SEED} />
+          </TodayContext.Provider>
+        </OfflineContext.Provider>,
+      )
+      expect(screen.queryByRole('button', { name: /^Add a task on/ })).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: /^Wednesday 18 March/ }))
+      expect(screen.getByText('Nothing on Wed 18 Mar')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: '+ Add a task' })).not.toBeInTheDocument()
+      await user.click(screen.getByRole('tab', { name: /^Inbox/ }))
+      expect(screen.queryByRole('button', { name: 'Add to inbox' })).not.toBeInTheDocument()
+    })
+
     test('the week starts on the weekday chosen in Settings', () => {
       sessionStorage.removeItem('ma-board-view')
       stubMobile()

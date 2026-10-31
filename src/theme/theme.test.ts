@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { COLORS, STATUS, PAPER } from './constants'
 import { themeConf } from './themeConf'
-import { boardChrome, cellChrome, inboxChrome, columnChrome, scrollbars } from './chrome'
+import {
+  boardChrome,
+  cellChrome,
+  inboxChrome,
+  columnChrome,
+  phoneMonthChrome,
+  scrollbars,
+} from './chrome'
 import { rotOf, cardStyles } from './cardStyles'
 import { asTask, NO_RECUR, type Task, type ThemeName, type TaskDraft } from '../types/task'
 
@@ -164,6 +171,11 @@ describe('scrollbars', () => {
         expect(c.scrollbarWidth).toBe('thin')
         expect(c.scrollbarColor).toBe(`${conf.scrollThumb} transparent`)
       }
+      // The phone Calendar's month scrolls only up and down, so it names the one axis.
+      const phoneRoot = phoneMonthChrome(t, conf).root
+      expect(phoneRoot.overflowY).toBe('auto')
+      expect(phoneRoot.scrollbarWidth).toBe('thin')
+      expect(phoneRoot.scrollbarColor).toBe(`${conf.scrollThumb} transparent`)
     }
   })
 })

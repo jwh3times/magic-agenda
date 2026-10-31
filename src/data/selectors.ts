@@ -94,7 +94,7 @@ export function dayMarkers(
 ): DayMarkers {
   const notes = notesForDay(tasks, day)
   const remaining = notes.filter((t) => t.status !== 'completed')
-  const late = remaining.filter((t) => isOverdue(t, nowMs, timezone))
+  const overdue = remaining.filter((t) => isOverdue(t, nowMs, timezone))
   const onTime = remaining.filter((t) => !isOverdue(t, nowMs, timezone))
   const toMarker = (t: Task, kind: DayMarker['kind']): DayMarker => ({
     taskId: t.id,
@@ -102,7 +102,7 @@ export function dayMarkers(
     labelId: t.labelId,
   })
   const ordered = [
-    ...late.map((t) => toMarker(t, 'overdue')),
+    ...overdue.map((t) => toMarker(t, 'overdue')),
     ...onTime.map((t) => toMarker(t, 'open')),
   ]
   const completed = notes.length - remaining.length
@@ -113,20 +113,30 @@ export function dayMarkers(
         : ordered.slice(0, MAX_DAY_MARKERS),
     more: Math.max(0, ordered.length - MAX_DAY_MARKERS),
     open: remaining.length,
-    overdue: late.length,
+    overdue: overdue.length,
     completed,
   }
 }
 
-const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`
+/** e.g. '1 task' or '2 tasks'. */
+export const taskCount = (n: number) => `${n} task${n === 1 ? '' : 's'}`
 
-/** A phone Calendar day's spoken name, e.g. 'Tuesday 10 November, 2 tasks, 1 overdue'. */
+/**
+ * A phone Calendar day's spoken name, e.g. 'Tuesday 10 November, 2 tasks, 1 overdue'. It names
+ * Completed Tasks as well, or a day would say "1 task" over a panel that lists three.
+ */
 export function dayCellName(day: string, { open, overdue, completed }: DayMarkers): string {
   const date = formatDaySpoken(day)
   if (open === 0) {
-    return `${date}, ${completed > 0 ? plural(completed, 'completed task') : 'no tasks'}`
+    if (completed === 0) return `${date}, no tasks`
+    return `${date}, ${completed} completed task${completed === 1 ? '' : 's'}`
   }
-  return `${date}, ${plural(open, 'task')}${overdue > 0 ? `, ${overdue} overdue` : ''}`
+  return [
+    date,
+    taskCount(open),
+    ...(overdue > 0 ? [`${overdue} overdue`] : []),
+    ...(completed > 0 ? [`${completed} completed`] : []),
+  ].join(', ')
 }
 
 /** The day a phone Calendar opens on: today if the visible month contains it, otherwise the 1st. */

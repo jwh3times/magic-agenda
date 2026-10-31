@@ -51,7 +51,8 @@ Inbox. The rules worth keeping:
 - **What a day draws and says is pure.** `dayMarkers` and `dayCellName` in `src/data/selectors.ts`
   decide it from the already-filtered Tasks, so markers, the panel, and the counts all follow a
   filter. Up to three markers show, then `+N`. Overdue comes first so `+N` can never hide it, Completed
-  Tasks are left out, and a day holding only Completed Tasks gets one hollow marker.
+  Tasks get no marker, and a day holding only Completed Tasks gets one hollow marker. The spoken name
+  still counts them ("1 task, 2 completed"), so a day agrees with its tab's count of the cards listed.
 - **Marker colour is the Label Color**, or `UNLABELED_DOT_COLOR` when Unlabeled. Note Color is never
   used. Shape carries the meaning as well (`dayMarkerStyle`): a red diamond for Overdue, a ring for
   hollow, and a filled circle otherwise.
@@ -65,6 +66,8 @@ Inbox. The rules worth keeping:
   scrolls only in a window too short for both the month and the panel's 200px minimum.
 - **Dragging within the panel reorders.** The panel's one `DropLane` takes the plain lane id, and no
   day button is a drop target yet, so a Task moves to another day through the editor's date field.
+- **A read-only Board shows no add button in the panel**, the same answer as the Toolbar's disabled
+  New task, because the editor it would open cannot save.
 - **Only the Calendar changed.** Week keeps its docked, collapsible Inbox, and the desktop grid's
   `DayCell` is untouched. The Privacy and Terms links sit at the foot of the Inbox tab
   (`BoardLegalLinks`).
@@ -137,8 +140,8 @@ observable interaction test.
 
 Scrollbars are themed the same way, via `scrollbars(conf)` in `chrome.ts` — spread into every
 container that can overflow (the shared month/desktop-week `grid`, a day cell's `notesWrap`,
-`inboxList`, a kanban column's `listStyle`, and the two mobile-only scrollers in `WeekView` /
-`CalendarView`). It works because `scrollbar-width` and `scrollbar-color` are **standard**
+`inboxList`, a kanban column's `listStyle`, and the mobile-only scrollers in `WeekView` and
+`phoneMonthChrome`). It works because `scrollbar-width` and `scrollbar-color` are **standard**
 properties and so are expressible
 in an inline style object; the per-theme thumb is the `scrollThumb` token. The
 `::-webkit-scrollbar` rules in `index.css` are only a fallback for engines without standard support

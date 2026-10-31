@@ -465,7 +465,16 @@ describe('dayCellName', () => {
     ['an empty day', {}, 'Sunday 15 March, no tasks'],
     ['one Task', { open: 1 }, 'Sunday 15 March, 1 task'],
     ['two Tasks, one Overdue', { open: 2, overdue: 1 }, 'Sunday 15 March, 2 tasks, 1 overdue'],
-    ['Completed Tasks beside open ones', { open: 1, completed: 3 }, 'Sunday 15 March, 1 task'],
+    [
+      'Completed Tasks beside open ones, so it agrees with the panel',
+      { open: 1, completed: 3 },
+      'Sunday 15 March, 1 task, 3 completed',
+    ],
+    [
+      'all three at once',
+      { open: 2, overdue: 1, completed: 1 },
+      'Sunday 15 March, 2 tasks, 1 overdue, 1 completed',
+    ],
     ['one Completed Task', { completed: 1 }, 'Sunday 15 March, 1 completed task'],
     ['several Completed Tasks', { completed: 2 }, 'Sunday 15 March, 2 completed tasks'],
   ])('%s', (_name, over, expected) => {
