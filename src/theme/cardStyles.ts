@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { Task, ThemeName } from '../types/task'
-import { PAPER } from './constants'
+import { OVERDUE_RED, PAPER } from './constants'
 import { UNLABELED_DOT_COLOR } from '../labels/presentation'
 import { themeConf } from './themeConf'
 
@@ -219,7 +219,7 @@ export function cardStyles(
 
   if (overdue && !isGhost) {
     // Red inset accent — overdue signal, theme-independent.
-    wrap.boxShadow = `${wrap.boxShadow}, inset 3px 0 0 0 #e0524a`
+    wrap.boxShadow = `${wrap.boxShadow}, inset 3px 0 0 0 ${OVERDUE_RED}`
   }
 
   if (dragging && !isGhost) wrap.opacity = 0.18

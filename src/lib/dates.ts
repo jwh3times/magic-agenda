@@ -86,6 +86,18 @@ export function formatAgendaDate(day: string): string {
   return `${WEEKDAYS_LONG[d.getDay()]}, ${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}`
 }
 
+/** e.g. 'Tue 10 Nov' for the phone Calendar's day tab. */
+export function formatDayShort(day: string): string {
+  const d = parseDay(day)
+  return `${WEEKDAYS_SHORT[d.getDay()]} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`
+}
+
+/** e.g. 'Tuesday 10 November', the start of a phone Calendar day's spoken name. */
+export function formatDaySpoken(day: string): string {
+  const d = parseDay(day)
+  return `${WEEKDAYS_LONG[d.getDay()]} ${d.getDate()} ${MONTHS_LONG[d.getMonth()]}`
+}
+
 /** True when a day value is a real scheduled date (not inbox / empty). */
 export function isScheduled(day: string): boolean {
   return !!day && day !== INBOX && day.indexOf('-') >= 0

@@ -8,7 +8,16 @@ import {
   weekdayLabels,
   browserTimezone,
   supportedTimezones,
+  formatDayShort,
+  formatDaySpoken,
 } from './dates'
+
+test('a day reads the way the phone Calendar says it', () => {
+  expect(formatDayShort('2026-11-10')).toBe('Tue 10 Nov')
+  expect(formatDaySpoken('2026-11-10')).toBe('Tuesday 10 November')
+  expect(formatDayShort('2026-03-01')).toBe('Sun 1 Mar')
+  expect(formatDaySpoken('2026-03-01')).toBe('Sunday 1 March')
+})
 
 test('formatTime renders compact 12-hour labels', () => {
   expect(formatTime('09:00')).toBe('9am')

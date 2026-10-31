@@ -13,6 +13,7 @@ import {
   TOOLBAR_CONTROL_FILL,
   TOOLBAR_CONTROL_FILL_ACTIVE,
   TOOLBAR_CONTROL_HEIGHT,
+  phoneDayChrome,
   toolbarChrome,
 } from './chrome'
 
@@ -56,6 +57,26 @@ function cardOf(theme: ThemeName): RGB {
   const conf = themeConf(theme)
   return over(conf.cellBg, parse(conf.pageBg)[0])
 }
+
+// axe cannot judge the selected day's number in any theme: it reports `elmPartiallyObscured`, so a
+// failing colour here still scans clean (measured by making it fail, #565). This is what holds it.
+describe('the phone Calendar’s selected day stays readable', () => {
+  const meta = {
+    dateStr: '2026-03-17',
+    dayNum: 17,
+    dow: 2,
+    inMonth: true,
+    isToday: false,
+    isWeekend: false,
+  }
+  for (const theme of THEMES) {
+    it(`${theme}: its number clears 4.5:1 on its pill`, () => {
+      const { num } = phoneDayChrome(theme, themeConf(theme), meta, true)
+      const pill = over(String(num.background), [255, 255, 255])
+      expect(contrast(over(String(num.color), pill), pill)).toBeGreaterThanOrEqual(4.5)
+    })
+  }
+})
 
 // The e2e a11y scan covers Settings in one theme, so these are what hold the other two to 4.5:1.
 describe('control colours clear WCAG AA on a Settings card, in every theme', () => {

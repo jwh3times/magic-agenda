@@ -12,6 +12,35 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.58] - 2026-10-31
+
+### Changed
+
+- **On a phone, the Calendar shows the whole month without panning sideways.** At 760px wide or less,
+  all seven weekdays fit the screen. Each day shows up to three markers, then `+N`: a dot in each
+  Label's color, a neutral dot for an unlabeled Task, a red diamond first when anything is Overdue,
+  and one hollow ring for a day holding only Completed Tasks. Markers follow an active filter.
+- **Tapping a day lists its Tasks in a panel below the grid.** Today is selected by default, or the
+  1st in another month. A tap holds until the visible month changes, Today always selects today, and
+  nothing is saved across reloads. An empty day says so and offers to add a Task, and the add buttons
+  are hidden while the app is read-only offline. A long panel scrolls on its own, so the grid keeps
+  its size.
+- **On the phone Calendar, the Inbox is the panel's second tab**, and both tabs show a count. Week
+  keeps its docked Inbox, and the desktop Calendar is unchanged.
+- **For now, dragging on the phone Calendar only reorders Tasks within the panel.** To move a Task to
+  another day on a phone, use the Task editor until #566 adds dragging between days.
+
+### Internal
+
+- **The phone Calendar has its own coverage.** Pure selectors decide its markers, spoken day names and
+  default day. `Board` tests cover its behavior at phone width, and `smoke.spec.ts` checks that the
+  month fits, that a long panel scrolls, and that a reorder persists. Visual canaries now cover it in
+  all three themes, and the accessibility suite gains a `phone-empty-<theme>` scan.
+- **The accessibility suite's `color-contrast` result proves less than it appeared to.** axe could not
+  judge any of the 42 phone day numbers in cork or glass, and it passes anything it can't judge. The
+  selected day's number now has a numeric contrast test, and #579 tracks the rest. The gap also
+  applies to the desktop grid.
+
 ## [1.17.57] - 2026-10-31
 
 ### Internal
@@ -5521,7 +5550,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.57...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.58...HEAD
+[1.17.58]: https://github.com/jwh3times/magic-agenda/compare/v1.17.57...v1.17.58
 [1.17.57]: https://github.com/jwh3times/magic-agenda/compare/v1.17.56...v1.17.57
 [1.17.56]: https://github.com/jwh3times/magic-agenda/compare/v1.17.55...v1.17.56
 [1.17.55]: https://github.com/jwh3times/magic-agenda/compare/v1.17.54...v1.17.55

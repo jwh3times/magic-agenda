@@ -93,8 +93,9 @@ of three hand‑built themes.
   read‑only iCalendar link from Settings → Boards → Calendar feed, available to every role including
   Viewer. The link is a capability — anyone holding it can read the board's scheduled tasks without
   signing in — so rotate it to cut off a copy you've shared.
-- **Works on your phone** — responsive layouts for every view (stacked week, swipeable kanban,
-  collapsible inbox, bottom‑sheet editor) and long‑press touch drag‑and‑drop.
+- **Works on your phone** — responsive layouts for every view (whole‑month calendar with a day and
+  Inbox panel, stacked week with a collapsible inbox, swipeable kanban, bottom‑sheet editor) and
+  long‑press touch drag‑and‑drop.
 - **Installable, and readable offline** — add it to your Home Screen for a standalone app; with no
   network, the last‑synced board renders read‑only from a local snapshot instead of a dead login
   screen.

@@ -67,7 +67,7 @@
   {
     "label": "phone-board-brutal",
     "ruleId": "nested-interactive",
-    "count": 3
+    "count": 1
   },
   {
     "label": "phone-board-cork",
@@ -77,7 +77,7 @@
   {
     "label": "phone-board-cork",
     "ruleId": "nested-interactive",
-    "count": 3
+    "count": 1
   },
   {
     "label": "phone-board-glass",
@@ -87,7 +87,7 @@
   {
     "label": "phone-board-glass",
     "ruleId": "nested-interactive",
-    "count": 3
+    "count": 1
   },
   {
     "label": "phone-controls-brutal",
@@ -97,7 +97,7 @@
   {
     "label": "phone-controls-brutal",
     "ruleId": "nested-interactive",
-    "count": 3
+    "count": 1
   },
   {
     "label": "phone-controls-cork",
@@ -107,7 +107,7 @@
   {
     "label": "phone-controls-cork",
     "ruleId": "nested-interactive",
-    "count": 3
+    "count": 1
   },
   {
     "label": "phone-controls-glass",
@@ -117,6 +117,6 @@
   {
     "label": "phone-controls-glass",
     "ruleId": "nested-interactive",
-    "count": 3
+    "count": 1
   }
 ]

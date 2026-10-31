@@ -1,8 +1,7 @@
 import { useTheme } from '../theme/ThemeProvider'
-import { boardChrome, scrollbars, weekdayStyle } from '../theme/chrome'
+import { boardChrome, weekdayStyle } from '../theme/chrome'
 import { buildMonthGrid, notesForDay } from '../data/selectors'
 import { useToday } from '../data/todayContext'
-import { useIsMobile } from '../lib/useMediaQuery'
 import { DayCell } from './DayCell'
 import type { Task } from '../types/task'
 
@@ -16,13 +15,12 @@ export interface CalendarViewProps {
 
 export function CalendarView({ viewY, viewM, weekStart = 0, tasks }: CalendarViewProps) {
   const { theme, conf } = useTheme()
-  const isMobile = useIsMobile()
   const b = boardChrome(theme, conf)
   const wd = weekdayStyle(theme, conf)
   const { weekdays, cells } = buildMonthGrid(viewY, viewM, useToday(), weekStart)
 
-  const monthGrid = (
-    <>
+  return (
+    <div style={b.boardWrap}>
       <div style={b.weekRow}>
         {weekdays.map((w) => (
           <div key={w} style={wd}>
@@ -35,39 +33,6 @@ export function CalendarView({ viewY, viewM, weekStart = 0, tasks }: CalendarVie
           <DayCell key={meta.dateStr} meta={meta} notes={notesForDay(tasks, meta.dateStr)} />
         ))}
       </div>
-    </>
-  )
-
-  // A month is inherently 7 columns; on phones the grid keeps a readable minimum width and
-  // pans sideways instead of crushing every cell to ~50px.
-  return (
-    <div style={b.boardWrap}>
-      {isMobile ? (
-        <div
-          style={{
-            flex: 1,
-            minHeight: 0,
-            overflowX: 'auto',
-            ...scrollbars(conf),
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          <div
-            style={{
-              minWidth: 640,
-              flex: 1,
-              minHeight: 0,
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            {monthGrid}
-          </div>
-        </div>
-      ) : (
-        monthGrid
-      )}
     </div>
   )
 }

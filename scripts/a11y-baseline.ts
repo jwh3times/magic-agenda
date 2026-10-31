@@ -38,6 +38,9 @@ export const EXPECTED_LABELS = [
   'phone-controls-cork',
   'phone-controls-brutal',
   'phone-controls-glass',
+  'phone-empty-cork',
+  'phone-empty-brutal',
+  'phone-empty-glass',
 ] as const
 
 export interface Finding {
@@ -237,7 +240,9 @@ export function parseScanCallSites(specSource: string): string[] {
     const literal = /^'([^']+)'$/.exec(arg)
     if (literal) return [literal[1]]
     const perTheme =
-      /^`(board|settings|editor|members|phone-board|phone-controls)-\$\{theme\}`$/.exec(arg)
+      /^`(board|settings|editor|members|phone-board|phone-controls|phone-empty)-\$\{theme\}`$/.exec(
+        arg,
+      )
     if (perTheme) {
       const surface = perTheme[1]
       if (!themes.length) {
