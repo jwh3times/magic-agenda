@@ -62,7 +62,8 @@ import {
 //                       tall, clips their Label row and axe does not count clipped text as
 //                       visible; scroll a cell and its card counts too (the editor scan resets
 //                       the scroll its click causes). So the count moves with seed data and with
-//                       card or cell geometry, and a change there that moves it is expected.
+//                       card or cell geometry, and a change there that moves it is expected. The
+//                       phone scans count the same Inbox card (measured 2026-10-31).
 //
 // color-contrast reached zero in two passes (2026-07-31): near-miss token nudges, then per-theme
 // judgment calls recorded in src/theme/themeConf.ts. New theme colours must clear 4.5:1 against
@@ -227,10 +228,9 @@ test.describe('signed in', () => {
     })
   }
 
-  // The phone layout (#570). At 760px or below the Board renders its own header, whose icon-only
-  // buttons are named by aria-label alone, and the scans above never see it: they run at the
-  // desktop viewport. The controls get a scan of their own because the search and filter bar does
-  // not exist until that button opens it.
+  // The phone layout (#570). At 760px or below the Board renders its own header, and the other scans
+  // never see it: they run at the desktop viewport. The controls get a scan of their own because the
+  // search and filter bar does not exist until that button opens it.
   test.describe('phone width', () => {
     test.use({ viewport: { width: 390, height: 844 } })
 
@@ -238,7 +238,9 @@ test.describe('signed in', () => {
       await page.clock.setFixedTime(new Date(PINNED_TIME))
       await seedBoard({ theme, anchor: PINNED_DAY })
       await page.goto('/')
-      await page.getByRole('button', { name: '+ New task' }).waitFor()
+      // The one wait only the phone layout can satisfy. `+ New task` exists at every width, and these
+      // scans' counts equal the desktop Board's, so without it a lost viewport would still pass.
+      await page.getByRole('button', { name: 'Search and filters' }).waitFor()
       for (const title of SEEDED_TITLES) await page.getByText(title).waitFor()
     }
 
