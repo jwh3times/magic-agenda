@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { seedBoard, SEEDED_TITLES } from './fixtures/seedBoard'
 
 // No fake clock in this file, deliberately. `page.clock` can invalidate Supabase's JWT expiry
@@ -187,6 +187,101 @@ test.describe('landing preview height', () => {
       }
     })
   }
+})
+
+/**
+ * The signed-in Board at phone width (#564). The public routes above say nothing about it, and it
+ * is where the phone controls live: jsdom has no layout engine, so only here can a header that takes
+ * three rows, or a row that pushes the page wider, fail.
+ */
+test.describe('phone-width board', () => {
+  /** The two toolbar rows and their padding, with a little room for a theme's border. */
+  const MAX_HEADER_HEIGHT = 96
+
+  async function openBoard(page: Page, seed: Parameters<typeof seedBoard>[0]) {
+    await seedBoard(seed)
+    await page.goto('/')
+    await page.getByRole('button', { name: '+ New task' }).waitFor()
+    await page.getByRole('combobox', { name: 'Board' }).waitFor()
+    await page.evaluate(async () => {
+      await document.fonts.ready
+    })
+  }
+
+  async function expectNoOverflow(page: Page, what: string) {
+    const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }))
+    expect(
+      scrollWidth,
+      `${what} is ${scrollWidth - clientWidth}px wider than the viewport.`,
+    ).toBeLessThanOrEqual(clientWidth)
+  }
+
+  test.describe('at 390×844', () => {
+    test.use({ viewport: { width: 390, height: 844 } })
+
+    for (const view of ['calendar', 'week', 'agenda', 'kanban'] as const) {
+      test(`${view} fits, with the controls shut and open`, async ({ page }) => {
+        await openBoard(page, { view })
+        await expectNoOverflow(page, `The ${view} view`)
+
+        // The freed height reaches the content: nothing sits between the header and the board.
+        const header = await page.getByRole('banner').boundingBox()
+        const main = await page.getByRole('main').boundingBox()
+        if (!header || !main) throw new Error('the board did not render')
+        expect(header.height).toBeLessThanOrEqual(MAX_HEADER_HEIGHT)
+        expect(main.y).toBeCloseTo(header.y + header.height, 0)
+        await expect(page.getByRole('textbox', { name: 'Search tasks' })).toHaveCount(0)
+
+        await page.getByRole('button', { name: 'Search and filters' }).click()
+        await expect(page.getByRole('textbox', { name: 'Search tasks' })).toBeVisible()
+        await expectNoOverflow(page, `The ${view} view with its controls open`)
+      })
+    }
+
+    // A real keypress as well as the unit test's: focus now moves during the keydown, and a browser
+    // that still ran the key's default action would put the "/" into the box it just opened.
+    test('the search shortcut opens the controls and focuses an empty search box', async ({
+      page,
+    }) => {
+      await openBoard(page, { view: 'calendar' })
+      await page.keyboard.press('/')
+      const search = page.getByRole('textbox', { name: 'Search tasks' })
+      await expect(search).toBeFocused()
+      await expect(search).toHaveValue('')
+    })
+  })
+
+  // The narrowest common phone, per theme: their fonts differ in width, and the first toolbar row
+  // has to hold all four view buttons without scrolling any of them out of sight.
+  test.describe('at 360×800', () => {
+    test.use({ viewport: { width: 360, height: 800 } })
+
+    for (const theme of ['cork', 'brutal', 'glass'] as const) {
+      test(`the ${theme} header keeps two rows and every control in view`, async ({ page }) => {
+        await openBoard(page, { theme, view: 'calendar' })
+        await expectNoOverflow(page, `The ${theme} board`)
+
+        const banner = page.getByRole('banner')
+        const header = await banner.boundingBox()
+        if (!header) throw new Error('the header did not render')
+        expect(header.height).toBeLessThanOrEqual(MAX_HEADER_HEIGHT)
+
+        for (const name of ['Calendar', 'Week', 'Agenda', 'Board', 'Today']) {
+          const box = await banner.getByRole('button', { name, exact: true }).boundingBox()
+          if (!box) throw new Error(`${name} did not render`)
+          expect(box.x + box.width, `${name} runs off the screen`).toBeLessThanOrEqual(360 - 10)
+        }
+        for (const name of ['Search and filters', 'Settings', '+ New task']) {
+          await expect(banner.getByRole('button', { name, exact: true })).toBeInViewport({
+            ratio: 1,
+          })
+        }
+      })
+    }
+  })
 })
 
 /**

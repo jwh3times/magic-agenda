@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useOptionalBoardDirectory } from '../board/boardDirectoryContext'
 import { toolbarChrome } from '../theme/chrome'
+import { useIsMobile } from '../lib/useMediaQuery'
 import { useTheme } from '../theme/ThemeProvider'
 
 /**
@@ -20,13 +21,15 @@ const MAX_NAME = 120
  * on its own and by the landing preview, and a switcher is chrome those surfaces legitimately do
  * not have. Anything that genuinely needs the Board list should use `useBoardDirectoryContext`.
  *
- * The creator replaces the select in place rather than expanding below it. The toolbar is a fixed
- * set of rows whose mobile layout depends on `flexWrap: 'nowrap'`, so a slot that grows a second
- * row is how that layout breaks; swapping the contents of one slot cannot.
+ * The creator replaces the select in place rather than expanding below it. On a phone the row it
+ * sits in also holds the date controls, and there is no room for both (#564), so the creator takes
+ * a whole line of that wrapping row while it is open, and the select starts from its minimum width
+ * so that a long Board name shrinks instead of wrapping the row.
  */
 export function BoardSwitcher() {
   const directory = useOptionalBoardDirectory()
   const { theme, conf } = useTheme()
+  const isMobile = useIsMobile()
   const [focused, setFocused] = useState(false)
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
@@ -63,7 +66,15 @@ export function BoardSwitcher() {
 
   if (creating) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          minWidth: 0,
+          ...(isMobile && { flex: '1 1 100%', flexWrap: 'wrap' }),
+        }}
+      >
         <input
           aria-label="New board name"
           value={name}
@@ -82,6 +93,8 @@ export function BoardSwitcher() {
             ...c.field,
             minWidth: 72,
             maxWidth: 190,
+            // Starts small on a phone: at its default width it would push Cancel onto a line below.
+            ...(isMobile && { flex: '1 1 72px', maxWidth: 'none' }),
             // index.css removes the outline from focused inputs, so the field draws its own ring.
             boxShadow: focused ? `0 0 0 2px ${conf.toolbarFg}` : 'none',
           }}
@@ -123,7 +136,12 @@ export function BoardSwitcher() {
         }
         selectBoard(e.target.value)
       }}
-      style={{ ...c.select, minWidth: 72, maxWidth: 190 }}
+      style={{
+        ...c.select,
+        minWidth: 72,
+        maxWidth: 190,
+        ...(isMobile && { flex: '1 1 72px' }),
+      }}
     >
       {boards.map((board) => (
         <option key={board.id} value={board.id} style={c.option}>

@@ -93,6 +93,9 @@ export const TOOLBAR_CONTROL_HEIGHT = 34
 /** A secondary control's fill: a light wash over the toolbar, the same in every theme. */
 export const TOOLBAR_CONTROL_FILL = 'rgba(255,255,255,.12)'
 
+/** The same wash, stronger: a toggle on the toolbar while what it opens is open. */
+export const TOOLBAR_CONTROL_FILL_ACTIVE = 'rgba(255,255,255,.28)'
+
 export function toolbarChrome(theme: ThemeName, conf: ThemeConf) {
   const glass = theme === 'glass'
   const control: CSSProperties = {
