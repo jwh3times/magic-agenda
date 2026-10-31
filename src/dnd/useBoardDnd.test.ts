@@ -3,12 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { useBoardDnd } from './useBoardDnd'
 import { dropTargetId } from './resolveDrop'
 import { NO_RECUR, type Task } from '../types/task'
-import {
-  closestCorners,
-  type DragEndEvent,
-  type DragOverEvent,
-  type DragStartEvent,
-} from '@dnd-kit/core'
+import type { DragEndEvent, DragOverEvent, DragStartEvent } from '@dnd-kit/core'
 
 function inboxTask(): Task {
   return {
@@ -146,10 +141,17 @@ describe('useBoardDnd over a phone grid cell or the Inbox tab', () => {
     expect(persistReorder).not.toHaveBeenCalled()
   })
 
-  it('keeps closestCorners everywhere but the phone Calendar', () => {
-    const desktop = renderHook(() => useBoardDnd('calendar', [], vi.fn(), vi.fn()))
-    expect(desktop.result.current.collisionDetection).toBe(closestCorners)
-    const phone = renderHook(() => useBoardDnd('calendar', [], vi.fn(), vi.fn(), true))
-    expect(phone.result.current.collisionDetection).not.toBe(closestCorners)
+  it('arms Undo with the pre-drag board before persisting a drop', () => {
+    const calls: string[] = []
+    const previewReorder = vi.fn(() => calls.push('preview'))
+    const persistReorder = vi.fn(() => {
+      calls.push('persist')
+    })
+    const { result } = renderHook(() =>
+      useBoardDnd('calendar', [inboxTask()], previewReorder, persistReorder, true),
+    )
+    act(() => result.current.onDragStart(startEvt))
+    act(() => result.current.onDragEnd(endEvt(dropTargetId(DAY))))
+    expect(calls).toEqual(['preview', 'persist'])
   })
 })

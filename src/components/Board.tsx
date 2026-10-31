@@ -137,9 +137,9 @@ const THEME_OPTIONS: { key: ThemeName; label: string }[] = [
 
 const PHONE_OVERLAY_MODIFIERS = [aboveFinger]
 
-/** What the drag overlay names, which is nothing over the Task's own lane: no move would happen. */
-function dropTargetName(lane: string | null, task: Task): string | undefined {
-  if (lane === null || lane === task.day) return undefined
+/** How the drag overlay names the phone grid cell or Inbox tab under the finger. */
+function dropTargetName(lane: string | null): string | undefined {
+  if (lane === null) return undefined
   return lane === INBOX ? 'Inbox' : formatDayShort(lane)
 }
 
@@ -644,7 +644,7 @@ export function Board({
                 task={dnd.activeTask}
                 width={dnd.activeWidth}
                 compact={phoneCalendar}
-                target={dropTargetName(dnd.overTargetLane, dnd.activeTask)}
+                target={dropTargetName(dnd.overTargetLane)}
               />
             ) : null}
           </DragOverlay>

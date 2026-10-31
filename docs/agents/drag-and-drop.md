@@ -64,7 +64,8 @@ all of them only on that layout. The pure modules decide; `src/dnd/phoneDrag.ts`
   `resolveDrop`: a hover relocates nothing, a drop settles at the end of that day because `overId` is
   the lane, and a drop back on the card's own lane does nothing. Relocating on hover would pull the
   card out of the panel mid-gesture, and a cell has nowhere to show it. So `touched` gains the target
-  only on the drop, and the panel stays on the source day, ready for the next card.
+  only on the drop, and the panel stays on the source day, ready for the next card. That drop also
+  calls `previewReorder` before persisting, because Undo is armed by a drag's first preview.
 - **Collision follows the finger.** `phoneCalendarCollision` looks for a target under the pointer
   first, because `closestCorners` compares the card's corners, which would pick the wrong day, and a
   card scrolled out of the panel keeps a rect behind the grid. In the panel it keeps `closestCorners`,
@@ -72,7 +73,7 @@ all of them only on that layout. The pure modules decide; `src/dnd/phoneDrag.ts`
   the lane, which sends a card to the end. Anywhere else is nothing, so letting go leaves the Task.
 
 The overlay is `compact` there, held above the finger by the `aboveFinger` modifier, and names the
-target (`Move to Tue 10 Nov`), since a finger covers the cell. That modifier is on `DragOverlay`, so it
+target (`→ Tue 10 Nov`), since a finger covers the cell. That modifier is on `DragOverlay`, so it
 moves only the picture.
 
 **`PhoneCalendar` holds its selected day for the length of a drag.** With no day tapped the panel

@@ -366,16 +366,13 @@ test.describe('phone-width board', () => {
 
     test.describe('dragging a panel card onto the grid (#566)', () => {
       const todaysDay = () => new Date().toISOString().slice(0, 10)
-      const dayCell = (page: Page, offset: number) =>
-        page.getByRole('button', { name: /^\w+day \d+ \w+, / }).nth(offset)
-
       /** A day in the visible month that isn't the selected one: today's neighbour in the grid. */
       async function neighbour(page: Page) {
         const days = page.getByRole('button', { name: /^\w+day \d+ \w+, / })
         const selected = await days.evaluateAll((all) =>
           all.findIndex((el) => el.getAttribute('aria-pressed') === 'true'),
         )
-        return dayCell(page, selected === 0 ? 1 : selected - 1)
+        return days.nth(selected === 0 ? 1 : selected - 1)
       }
 
       async function centre(locator: Locator) {
@@ -408,10 +405,12 @@ test.describe('phone-width board', () => {
         await openBoard(page, { view: 'calendar' })
         const title = 'Draft the launch note'
         const target = await neighbour(page)
-        const targetName = await target.getAttribute('aria-label')
-        const targetDay = await target.evaluate(
-          (el) => el.parentElement && [...el.parentElement.children].indexOf(el),
+        // By position, because a day's name changes with what it holds.
+        const targetIndex = await target.evaluate((el) =>
+          [...(el.parentElement as HTMLElement).children].indexOf(el),
         )
+        const landed = page.getByRole('button', { name: /^\w+day \d+ \w+, / }).nth(targetIndex)
+        await expect(landed).toHaveAccessibleName(/, no tasks$/)
         await expect(page.getByRole('tabpanel').getByText(title)).toBeVisible()
 
         await pickUp(page, title)
@@ -419,26 +418,41 @@ test.describe('phone-width board', () => {
         await page.mouse.move(to.x, to.y, { steps: 10 })
 
         // Hovering highlights and names the day, and moves nothing.
-        await expect(page.getByText(/^Move to /)).toBeVisible()
+        await expect(page.getByText(/^→ /)).toBeVisible()
         await expect(target).toHaveCSS('outline-style', 'solid')
         expect(await savedDay(title)).toBe(todaysDay())
 
         await page.mouse.up()
 
         // The panel stays on the source day, and the target's name and markers now count the Task.
-        const days = page.getByRole('button', { name: /^\w+day \d+ \w+, / })
         await expect(page.getByRole('tabpanel').getByText(title)).toHaveCount(0)
-        await expect(days.nth(targetDay as number)).toHaveAccessibleName(/, 1 task/)
-        expect(targetName).not.toMatch(/, 1 task/)
-        await expect(days.nth(targetDay as number).getByTestId('day-marker')).toHaveCount(1)
+        await expect(landed).toHaveAccessibleName(/, 1 task/)
+        await expect(landed.getByTestId('day-marker')).toHaveCount(1)
 
         await expect.poll(() => savedDay(title)).not.toBe(todaysDay())
         const moved = await savedDay(title)
 
         await page.reload()
-        await expect(days.nth(targetDay as number)).toHaveAccessibleName(/, 1 task/)
+        await expect(landed).toHaveAccessibleName(/, 1 task/)
         await expect(page.getByRole('tabpanel').getByText(title)).toHaveCount(0)
         expect(await savedDay(title)).toBe(moved)
+      })
+
+      test('a drop offers Undo, which puts the Task back', async ({ page }) => {
+        await openBoard(page, { view: 'calendar' })
+        const title = 'Draft the launch note'
+        const target = await neighbour(page)
+        await pickUp(page, title)
+        const to = await centre(target)
+        await page.mouse.move(to.x, to.y, { steps: 10 })
+        await page.mouse.up()
+
+        await expect(page.getByText(`Moved “${title}”`)).toBeVisible()
+        await expect.poll(() => savedDay(title)).not.toBe(todaysDay())
+        await page.getByRole('button', { name: 'Undo' }).click()
+
+        await expect(page.getByRole('tabpanel').getByText(title)).toBeVisible()
+        await expect.poll(() => savedDay(title)).toBe(todaysDay())
       })
 
       test('a drop on the Inbox tab moves the Task there, and a day takes it back', async ({
@@ -452,7 +466,8 @@ test.describe('phone-width board', () => {
         await pickUp(page, title)
         const tab = await centre(inboxTab)
         await page.mouse.move(tab.x, tab.y, { steps: 10 })
-        await expect(page.getByText('Move to Inbox')).toBeVisible()
+        await expect(page.getByText('→ Inbox')).toBeVisible()
+        await expect(inboxTab).toHaveCSS('outline-style', 'solid')
         await page.mouse.up()
         await expect(inboxTab).toHaveAccessibleName('Inbox, 2 tasks')
         await expect.poll(() => savedDay(title)).toBeNull()
@@ -468,7 +483,7 @@ test.describe('phone-width board', () => {
       })
 
       // Chromium's touch input, which reaches TouchSensor and the browser's own scrolling as the
-      // mouse tests can't. It isn't an iPhone, whose check stays the maintainer's before merge.
+      // mouse tests can't. It isn't an iPhone.
       test.describe('by touch', () => {
         test.use({ hasTouch: true, isMobile: true })
 
@@ -520,7 +535,7 @@ test.describe('phone-width board', () => {
           await touch.end()
 
           await expect.poll(() => list.evaluate((el) => el.scrollTop)).toBeGreaterThan(50)
-          await expect(page.getByText(/^Move to /)).toHaveCount(0)
+          await expect(page.getByText(/^→ /)).toHaveCount(0)
           await expect(page.getByRole('status')).toHaveText('')
         })
 
@@ -536,7 +551,7 @@ test.describe('phone-width board', () => {
             await centre(page.getByRole('tabpanel').getByText(title)),
             await centre(target),
           )
-          await expect(page.getByText(/^Move to /)).toBeVisible()
+          await expect(page.getByText(/^→ /)).toBeVisible()
           await expect(target).toHaveCSS('outline-style', 'solid')
           await touch.end()
 
@@ -559,7 +574,7 @@ test.describe('phone-width board', () => {
           await expect(target).toHaveCSS('outline-style', 'solid')
           await touch.cancel()
 
-          await expect(page.getByText(/^Move to /)).toHaveCount(0)
+          await expect(page.getByText(/^→ /)).toHaveCount(0)
           await expect(page.getByRole('tabpanel').getByText(title)).toBeVisible()
           expect(await savedDay(title)).toBe(todaysDay())
         })

@@ -1,16 +1,45 @@
+import { useState } from 'react'
 import {
   closestCorners,
   pointerWithin,
+  useDndMonitor,
+  useDroppable,
   type CollisionDetection,
   type Modifier,
 } from '@dnd-kit/core'
-import { getEventCoordinates } from '@dnd-kit/utilities'
-import { isDropTarget } from './resolveDrop'
+import { getEventCoordinates, isKeyboardEvent } from '@dnd-kit/utilities'
+import { dropTargetId, isDropTarget } from './resolveDrop'
 
 /**
  * dnd-kit's half of a drag on the phone Calendar (#566), where a full-width card is dragged onto a
- * 53px cell. The decisions about what a drop does stay in `resolveDrop.ts`.
+ * day's small cell. The decisions about what a drop does stay in `resolveDrop.ts`.
  */
+
+/** Makes a grid cell or the Inbox tab a drop target for `lane`, under its own droppable id. */
+export function useDropTarget(lane: string, disabled: boolean) {
+  return useDroppable({ id: dropTargetId(lane), disabled })
+}
+
+/**
+ * What the panel needs to hold still for a drag.
+ *
+ * - `day` is the given day, frozen for the whole gesture. With no day tapped the panel follows today,
+ *   so midnight would swap its lane under a held card, and hovering that new lane would relocate the
+ *   Task to it.
+ * - `dropsDisabled` is for a keyboard drag. The arrow keys step between enabled droppables, so a cell
+ *   would let them walk the card out of the panel and across the month. A keyboard drag reorders, and
+ *   the editor moves a Task.
+ */
+export function usePanelDragHold(day: string) {
+  const [live, setLive] = useState<{ day: string; keyboard: boolean } | null>(null)
+  useDndMonitor({
+    onDragStart: ({ activatorEvent }) =>
+      setLive({ day, keyboard: isKeyboardEvent(activatorEvent) }),
+    onDragEnd: () => setLive(null),
+    onDragCancel: () => setLive(null),
+  })
+  return { day: live?.day ?? day, dropsDisabled: live?.keyboard === true }
+}
 
 /**
  * Which droppable the finger is on.
@@ -43,23 +72,25 @@ const SCREEN_MARGIN = 8
 /**
  * Holds the compact overlay above the finger, which would otherwise cover the target date it shows.
  * A `DragOverlay` modifier, so it moves only the picture: the collision rect still follows the card.
+ *
+ * Measured from the overlay's own rect, which ignores this transform and so stays where the drag
+ * began. The card's rect would not do: it moves if the panel scrolls or a row arrives mid-drag.
  */
 export const aboveFinger: Modifier = ({
   activatorEvent,
-  activeNodeRect,
   overlayNodeRect,
   transform,
   windowRect,
 }) => {
   const start = activatorEvent && getEventCoordinates(activatorEvent)
-  if (!start || !activeNodeRect || !overlayNodeRect || !windowRect) return transform
+  if (!start || !overlayNodeRect || !windowRect) return transform
 
   const left = start.x + transform.x - overlayNodeRect.width / 2
   const top = start.y + transform.y - overlayNodeRect.height - FINGER_CLEARANCE
   const rightmost = windowRect.width - overlayNodeRect.width - SCREEN_MARGIN
   return {
     ...transform,
-    x: Math.min(Math.max(left, SCREEN_MARGIN), rightmost) - activeNodeRect.left,
-    y: Math.max(top, SCREEN_MARGIN) - activeNodeRect.top,
+    x: Math.min(Math.max(left, SCREEN_MARGIN), rightmost) - overlayNodeRect.left,
+    y: Math.max(top, SCREEN_MARGIN) - overlayNodeRect.top,
   }
 }

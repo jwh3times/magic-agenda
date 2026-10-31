@@ -63,9 +63,11 @@ export interface BoardDnd {
 type PersistReorder = (next: Task[], containers: string[], mode: Mode) => void | Promise<void>
 type PreviewReorder = (next: Task[]) => void
 
+const overIdOf = (e: DragOverEvent | DragEndEvent) => (e.over ? String(e.over.id) : null)
+
 /** Maps a dnd-kit event onto the pure module's input. The only place dnd-kit's shapes are read. */
 function dropInput(e: DragOverEvent | DragEndEvent, phase: DragPhase): DropInput {
-  const overId = e.over ? String(e.over.id) : null
+  const overId = overIdOf(e)
   return {
     phase,
     // The pure module sees only lanes and cards, never a grid cell's or the Inbox tab's own id.
@@ -100,7 +102,7 @@ export function useBoardDnd(
 ): BoardDnd {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [activeWidth, setActiveWidth] = useState<number | undefined>(undefined)
-  const [overId, setOverId] = useState<string | null>(null)
+  const [overTargetLane, setOverTargetLane] = useState<string | null>(null)
   // A ref, not state: a drag mutates this many times per second and none of it should render.
   const session = useRef<DragSession | null>(null)
 
@@ -117,12 +119,11 @@ export function useBoardDnd(
 
   const mode = modeForView(view)
   const activeTask = tasks.find((t) => t.id === activeId) ?? null
-  const overOnTarget = overId !== null && isDropTarget(overId)
 
   const reset = () => {
     setActiveId(null)
     setActiveWidth(undefined)
-    setOverId(null)
+    setOverTargetLane(null)
     session.current = null
   }
 
@@ -133,25 +134,31 @@ export function useBoardDnd(
     session.current = beginDrag(tasks, id, mode)
   }
 
-  // Cross-lane relocation happens live as you hover a different lane.
+  // Cross-lane relocation happens live as you hover a different lane, except over a phone grid cell
+  // or the Inbox tab, which only report themselves until the drop.
   const onDragOver = (e: DragOverEvent) => {
     if (!session.current) return
-    setOverId(e.over ? String(e.over.id) : null)
+    const overId = overIdOf(e)
+    setOverTargetLane(overId && isDropTarget(overId) ? laneOfDroppable(overId) : null)
     const step = resolveDrop(session.current, tasks, dropInput(e, 'hover'))
     if (!step) return
     session.current = step.session
     previewReorder(step.tasks)
   }
 
-  // Settle on drop. A within-lane reorder happens here; cross-lane moves already happened on
-  // drag-over. Persist whenever ANY move occurred during the drag — even if the final over-target
+  // Settle on drop. A within-lane reorder or a drop-only move happens here; other cross-lane moves
+  // already happened on drag-over. Persist whenever ANY move occurred during the drag — even if the final over-target
   // is the dragged item's own slot, which is the common case since the optimistic move parks it
   // under the cursor.
   const onDragEnd = (e: DragEndEvent) => {
     const current = session.current
     if (current) {
-      const step = resolveDrop(current, tasks, dropInput(e, 'drop'))
+      const input = dropInput(e, 'drop')
+      const step = resolveDrop(current, tasks, input)
       const settled = step?.session ?? current
+      // Undo is armed by the first preview of a drag, and a drop-only move has had none. Without this
+      // it would be the one cross-lane move that offers no Undo.
+      if (step && input.dropOnly) previewReorder(step.tasks)
       if (settled.didMove)
         void persistReorder(step?.tasks ?? tasks, [...settled.touched], settled.mode)
     }
@@ -163,7 +170,7 @@ export function useBoardDnd(
     collisionDetection: phoneCalendar ? phoneCalendarCollision : closestCorners,
     activeTask,
     activeWidth,
-    overTargetLane: overOnTarget ? laneOfDroppable(overId) : null,
+    overTargetLane,
     onDragStart,
     onDragOver,
     onDragEnd,

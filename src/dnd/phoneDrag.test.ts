@@ -86,7 +86,8 @@ describe('aboveFinger', () => {
   ) =>
     aboveFinger({
       activatorEvent,
-      activeNodeRect: box(10, 500, 370, 70),
+      // Where the card has got to, which the overlay must not follow.
+      activeNodeRect: box(10, 260, 370, 70),
       overlayNodeRect: box(10, 500, 200, 50),
       windowRect: box(0, 0, 390, 844),
       transform: { x: 0, y: 0, scaleX: 1, scaleY: 1 },

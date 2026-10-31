@@ -549,6 +549,15 @@ export function phoneMonthChrome(theme: ThemeName, conf: ThemeConf) {
   } satisfies Record<string, CSSProperties>
 }
 
+/** A phone grid cell or the Inbox tab under a dragged card. Drawn inside, so brutal's shared borders can't hide it. */
+function dropOverStyle(conf: ThemeConf): CSSProperties {
+  return {
+    outline: `3px solid ${conf.accent}`,
+    outlineOffset: '-3px',
+    background: `${conf.accent}55`,
+  }
+}
+
 /** One phone Calendar day: `cellChrome`'s colours, as a button with a number and its markers. */
 export function phoneDayChrome(
   theme: ThemeName,
@@ -570,12 +579,7 @@ export function phoneDayChrome(
       padding: '3px 1px',
       cursor: 'pointer',
       font: 'inherit',
-      // The day under a dragged card. Drawn inside the cell, so brutal's shared borders can't hide it.
-      ...(dropOver && {
-        outline: `3px solid ${conf.accent}`,
-        outlineOffset: '-3px',
-        background: `${conf.accent}55`,
-      }),
+      ...(dropOver && dropOverStyle(conf)),
     },
     num: {
       ...c.numStyle,
@@ -656,12 +660,7 @@ export function phonePanelChrome(theme: ThemeName, conf: ThemeConf) {
       fontWeight: 800,
       borderBottom: `3px solid ${conf.accent}`,
     },
-    // The Inbox tab under a dragged card, as a day is highlighted in the grid.
-    tabDropOver: {
-      outline: `3px solid ${conf.accent}`,
-      outlineOffset: '-3px',
-      background: `${conf.accent}55`,
-    },
+    tabDropOver: dropOverStyle(conf),
     count: { ...c.inboxCount, padding: '1px 7px', fontSize: '11px' },
     add: {
       ...c.inboxAdd,

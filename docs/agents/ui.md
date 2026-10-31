@@ -67,8 +67,8 @@ Inbox. The rules worth keeping:
 - **A long-press drags a panel card onto a day or the Inbox tab (#566).** The target highlights and
   the overlay names it, the Task lands at the end of that day, and the panel stays where it was so
   several Tasks can be moved in a row. Dragging within the panel still reorders. The editor's date
-  field reaches another month, and is the only way to move a Task without dragging. The rules are in
-  [Drag-and-drop](drag-and-drop.md).
+  field reaches another month, and moves a Task without dragging, as does Select's bulk action. The
+  rules are in [Drag-and-drop](drag-and-drop.md).
 - **A read-only Board shows no add button in the panel**, the same answer as the Toolbar's disabled
   New task, because the editor it would open cannot save.
 - **Only the Calendar changed.** Week keeps its docked, collapsible Inbox, and the desktop grid's
@@ -137,9 +137,10 @@ themes: `cork` / `brutal` / `glass`. **Do not refactor this to CSS variables**: 
 branching that CSS vars cannot express cleanly.
 
 `theme/chrome.ts` contains shared or theme-branching chrome factories, not speculative interaction
-states. The DnD adapter does not currently publish a per-lane hover state, so `cellChrome` /
-`columnChrome` have no `isDrop` parameter. Add such a branch only together with a real caller and an
-observable interaction test.
+states. The DnD adapter publishes a hover state only for the phone Calendar's grid cells and
+Inbox tab (`phoneDayChrome`'s `dropOver`, `phonePanelChrome`'s `tabDropOver`, both E2E-tested), so
+`cellChrome` / `columnChrome` have no `isDrop` parameter. Add such a branch only together with a real
+caller and an observable interaction test.
 
 Scrollbars are themed the same way, via `scrollbars(conf)` in `chrome.ts` — spread into every
 container that can overflow (the shared month/desktop-week `grid`, a day cell's `notesWrap`,

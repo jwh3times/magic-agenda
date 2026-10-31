@@ -11,7 +11,7 @@ const COMPACT_WIDTH = 210
  * with rotation suppressed and a slight scale-up — ported from the prototype's `buildGhost`.
  *
  * `compact` is the phone Calendar's (#566): small enough to see the grid around it, one line of
- * title, and in place of the Label the `target` a finger on a 53px cell would otherwise hide.
+ * title, and in place of the Label the name of the `target`, which a finger would otherwise hide.
  */
 export function CardOverlay({
   task,
@@ -51,7 +51,7 @@ export function CardOverlay({
       </div>
       <div style={s.meta}>
         {!target && <span style={s.dot} />}
-        <span style={s.labelStyle}>{target ? `Move to ${target}` : label.name}</span>
+        <span style={s.labelStyle}>{target ? `→ ${target}` : label.name}</span>
       </div>
     </div>
   )

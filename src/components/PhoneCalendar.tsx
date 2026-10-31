@@ -1,6 +1,4 @@
 import { useCallback, useContext, useId, useRef, useState, type KeyboardEvent } from 'react'
-import { useDndMonitor, useDroppable } from '@dnd-kit/core'
-import { isKeyboardEvent } from '@dnd-kit/utilities'
 import { useTheme } from '../theme/ThemeProvider'
 import { dayMarkerStyle, phoneDayChrome, phoneMonthChrome, phonePanelChrome } from '../theme/chrome'
 import {
@@ -20,7 +18,7 @@ import { useLabel } from '../labels/LabelDirectoryProvider'
 import { labelPresentation } from '../labels/presentation'
 import { formatDayShort, MONTHS_LONG } from '../lib/dates'
 import { DropLane } from '../dnd/DropLane'
-import { dropTargetId } from '../dnd/resolveDrop'
+import { usePanelDragHold, useDropTarget } from '../dnd/phoneDrag'
 import { SortableCard } from '../dnd/SortableCard'
 import { INBOX, type Task } from '../types/task'
 import { useBoardActions } from './boardActionContext'
@@ -37,12 +35,6 @@ export interface PhoneCalendarProps {
 }
 
 type PanelTab = 'day' | 'inbox'
-
-/** A drag in progress: the panel's day when it started, and whether a keyboard is carrying it. */
-interface LiveDrag {
-  day: string
-  keyboard: boolean
-}
 
 function Marker({ marker }: { marker: DayMarker }) {
   const { conf } = useTheme()
@@ -71,10 +63,7 @@ function PhoneDay({
 }) {
   const { theme, conf } = useTheme()
   const { nowMs, timezone } = useDueClock()
-  const { setNodeRef, isOver } = useDroppable({
-    id: dropTargetId(meta.dateStr),
-    disabled: dropsDisabled,
-  })
+  const { setNodeRef, isOver } = useDropTarget(meta.dateStr, dropsDisabled)
   const summary = dayMarkers(tasks, meta.dateStr, nowMs, timezone)
   const c = phoneDayChrome(theme, conf, meta, selected, isOver)
   return (
@@ -130,20 +119,9 @@ export function PhoneCalendar({
     if (seen.todayRequest !== todayRequest) setTab('day')
   }
 
-  const [liveDrag, setLiveDrag] = useState<LiveDrag | null>(null)
-  const settled = picked ?? defaultSelectedDay(viewY, viewM, today)
-  // Held for the whole gesture. With no day tapped the panel follows today, so midnight would swap
-  // its lane under a held card, and hovering that new lane would relocate the Task to it.
-  const selected = liveDrag?.day ?? settled
-  useDndMonitor({
-    onDragStart: ({ activatorEvent }) =>
-      setLiveDrag({ day: settled, keyboard: isKeyboardEvent(activatorEvent) }),
-    onDragEnd: () => setLiveDrag(null),
-    onDragCancel: () => setLiveDrag(null),
-  })
-  // A grid cell is no use to the arrow keys, which step between droppables: they would walk the card
-  // out of the panel and across the month. A keyboard drag reorders, and the editor moves a Task.
-  const dropsDisabled = liveDrag?.keyboard === true
+  const { day: selected, dropsDisabled } = usePanelDragHold(
+    picked ?? defaultSelectedDay(viewY, viewM, today),
+  )
   const { weekdays, cells } = buildMonthGrid(viewY, viewM, today, weekStart)
   const dayNotes = notesForDay(tasks, selected)
   const inboxNotes = notesForDay(tasks, INBOX)
@@ -170,10 +148,7 @@ export function PhoneCalendar({
   const tabId = (which: PanelTab) => `${baseId}-${which}`
   const dayTabRef = useRef<HTMLButtonElement>(null)
   const inboxTabRef = useRef<HTMLButtonElement>(null)
-  const { setNodeRef: setInboxTarget, isOver: overInboxTab } = useDroppable({
-    id: dropTargetId(INBOX),
-    disabled: dropsDisabled,
-  })
+  const { setNodeRef: setInboxTarget, isOver: overInboxTab } = useDropTarget(INBOX, dropsDisabled)
   const setInboxTab = useCallback(
     (node: HTMLButtonElement | null) => {
       inboxTabRef.current = node
