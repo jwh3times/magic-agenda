@@ -124,8 +124,7 @@ auto-resolve a divergence; and nothing in it — its **contents** — may enter 
 issue, a PR, a log, or a chat transcript. **Its name and remote URL are not secret** (decided
 2026-09-22): a private repository answers 404 to anyone without access, so the name discloses nothing
 an outsider can use, and pretending otherwise was already false — `docs/plans/2026-08-25-private-companion-repository.md`
-and `scripts/sync-main.mjs` both name it, and the second is a live script whose usage example is the
-natural thing to write. A rule contradicted by the files it governs protects nothing and teaches
+names it, as a live script's usage example did at the time, which is the natural thing to write. A rule contradicted by the files it governs protects nothing and teaches
 readers to discount it. **The commit SHA of a push you just made** is likewise reportable, and the
 operating policy requires it so the maintainer can confirm the push landed. Its staged diff is
 likewise **inspected, not printed** — describe what changed and hand over the command, and the

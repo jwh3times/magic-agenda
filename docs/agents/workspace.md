@@ -12,10 +12,6 @@ Repository: `discover: git -C private remote get-url origin`. `private/README.md
 `private/OPERATING-POLICY.md` binds it. Nothing in it — its contents — may enter this repository, an
 issue, a PR, a log or a chat transcript; a bare commit SHA may.
 
-## Sync with main
-
-`npm run sync:main` — moves the public checkout and `private/` to `main` and fast-forwards both.
-
 ## Safe-to-remove paths
 
 - `test-results/`, `test-results-visual/`, `playwright-report/` — Playwright output. Traces in
