@@ -12,6 +12,25 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.61] - 2026-10-31
+
+### Fixed
+
+- **Cancelling a drag now puts the Task back, and can't save the move later.** On Week, Board and the
+  desktop Calendar, a card moves as soon as you hover another lane. Cancelling, with Escape for
+  example, left it there on screen, and the next drag into that lane saved the cancelled move without
+  anyone choosing it. A cancel now takes back only what the drag moved, so an edit from another device
+  or anything else that landed during the drag stays, and it writes nothing. A Task saved in the wrong
+  place by the old behavior stays where it is, and can be moved back as usual.
+- **A drop never offers an Undo that would keep the move.** If another device or another of your
+  changes altered the board during a drag, the drop's Undo could "restore" the moved board itself. A
+  drop like that now offers no Undo.
+
+### Internal
+
+- **Cancelled drags are covered in a browser.** `smoke.spec.ts` cancels on Calendar, Week and Board and
+  with a keyboard, and checks that a later drag into the same lane saves nothing extra.
+
 ## [1.17.60] - 2026-10-31
 
 ### Changed
@@ -5585,7 +5604,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.60...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.61...HEAD
+[1.17.61]: https://github.com/jwh3times/magic-agenda/compare/v1.17.60...v1.17.61
 [1.17.60]: https://github.com/jwh3times/magic-agenda/compare/v1.17.59...v1.17.60
 [1.17.59]: https://github.com/jwh3times/magic-agenda/compare/v1.17.58...v1.17.59
 [1.17.58]: https://github.com/jwh3times/magic-agenda/compare/v1.17.57...v1.17.58

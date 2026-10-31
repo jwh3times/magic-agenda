@@ -2,6 +2,7 @@
 
 Two pure modules, then thin wiring. `src/dnd/reorder.ts` is the **splice math** (`moveToDay` /
 `moveToStatus`): it reindexes **both** the source and destination lanes on a cross-container move.
+It also holds `revertPreview`, which takes that math back out when a drag is cancelled.
 `src/dnd/resolveDrop.ts` is **every decision** — `modeForView`, `containerOf`, `isBelowOver`,
 `insertionIndex`, and the `resolveDrop` session reducer that accumulates `touched` and `didMove`.
 Neither imports `@dnd-kit/core`. `src/dnd/useBoardDnd.ts` is now only sensors, event mapping, and

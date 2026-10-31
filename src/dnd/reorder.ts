@@ -18,8 +18,9 @@ const PLACEMENT_FIELDS = [
 export type Mode = 'day' | 'status'
 
 /**
- * The splice math, and only the splice math. Deciding *what* to splice — which lane an id
- * belongs to, whether the drop lands above or below, at which index — lives in `resolveDrop.ts`.
+ * The splice math, and `revertPreview` to take it back out of a cancelled drag. Deciding *what* to
+ * splice — which lane an id belongs to, whether the drop lands above or below, at which index —
+ * lives in `resolveDrop.ts`.
  *
  * This module used to also export `findContainer` and `reindex`. Neither had a production call
  * site: `findContainer` was re-implemented (with different fallback behaviour) inside the dnd-kit
