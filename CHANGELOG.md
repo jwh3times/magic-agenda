@@ -36,6 +36,7 @@ No unreleased changes.
 - **The phone Calendar's drag is covered by touch.** `smoke.spec.ts` now runs a swipe, a long-press
   drag and a cancelled touch through Chromium's touch input, as well as the mouse paths. Nothing
   automated runs iOS Safari or Android, and Week and Board have no automated touch coverage.
+
 ## [1.17.59] - 2026-10-31
 
 ### Internal
