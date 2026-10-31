@@ -13,7 +13,7 @@ import {
 } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import type { Task, ViewName } from '../types/task'
-import type { Mode } from './reorder'
+import type { TaskBoard } from '../data/taskBoardContext'
 import { phoneCalendarCollision } from './phoneDrag'
 import {
   beginDrag,
@@ -59,9 +59,8 @@ export interface BoardDnd {
   onDragCancel: () => void
 }
 
-/** Persists the lanes that a drag reindexed (passed to useTasks.persistReorder). */
-type PersistReorder = (next: Task[], containers: string[], mode: Mode) => void | Promise<void>
-type PreviewReorder = (next: Task[]) => void
+/** What a drag does to the board: show a move, save it, or undo what was shown. */
+type BoardReorder = Pick<TaskBoard, 'previewReorder' | 'persistReorder' | 'cancelReorder'>
 
 const overIdOf = (e: DragOverEvent | DragEndEvent) => (e.over ? String(e.over.id) : null)
 
@@ -96,8 +95,7 @@ function dropInput(e: DragOverEvent | DragEndEvent, phase: DragPhase): DropInput
 export function useBoardDnd(
   view: ViewName,
   tasks: Task[],
-  previewReorder: PreviewReorder,
-  persistReorder: PersistReorder,
+  { previewReorder, persistReorder, cancelReorder }: BoardReorder,
   phoneCalendar = false,
 ): BoardDnd {
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -165,6 +163,13 @@ export function useBoardDnd(
     reset()
   }
 
+  // A hover already put the move on screen, so a cancel has to take it back. Left there, the next
+  // drag on that lane would save it, because a write covers the whole lane.
+  const onDragCancel = () => {
+    if (session.current?.didMove) cancelReorder()
+    reset()
+  }
+
   return {
     sensors,
     collisionDetection: phoneCalendar ? phoneCalendarCollision : closestCorners,
@@ -174,6 +179,6 @@ export function useBoardDnd(
     onDragStart,
     onDragOver,
     onDragEnd,
-    onDragCancel: reset,
+    onDragCancel,
   }
 }

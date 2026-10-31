@@ -22,6 +22,12 @@ optimistic move the dragged card sits under the cursor as its own drop target), 
 "moved". Container ids are overloaded on purpose: `dateStr | 'inbox'` (day mode) or a status
 (kanban) identifies a _lane_, and an id matching no task **is** a lane id.
 
+**A cancel undoes what the drag showed (#583).** A hover has already put a cross-lane move in state,
+so `onDragCancel` calls `cancelReorder` when the session's `didMove` is set. Before this the card
+stayed in the other lane, and worse, the next drag on that lane saved it, since `persistReorder` writes
+every Task in a touched lane. Letting go over nothing is not a cancel: on layouts that relocate on
+hover it's a drop, and it persists where the card last moved to.
+
 `useBoardDnd` must be given the **unfiltered** board, even though views render `visibleTasks`.
 Passing the filtered list would corrupt data rather than merely narrow the drag: `persistReorder`
 writes back every task in a touched lane, so the visible tasks would get contiguous `0..n-1`

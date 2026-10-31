@@ -17,6 +17,7 @@ export function fakeUseTasks(overrides: Partial<UseTasks> = {}): UseTasks {
     removeTask: () => Promise.resolve(true),
     toggleCompletion: noOpAsync,
     persistReorder: noOpAsync,
+    cancelReorder: noOp,
     rollForward: noOpAsync,
     getTemplate: () => undefined,
     saveTask: noOpAsync,

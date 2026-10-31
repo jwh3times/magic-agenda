@@ -222,9 +222,9 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
   // Bumped by anything that changes the board without a local write: a reload or a remote change.
   const boardGen = useRef(0)
   // The board as it was when the current drag began. `previewReorder` replaces state on every
-  // hover, so by the time a drop persists, `tasksRef` already holds the moved board. Stamped with
-  // both generations and the Board, because a drag can be cancelled without persisting: a later
-  // drag must not inherit an origin that predates writes, reloads, or remote changes since.
+  // hover, so by the time a drop persists, `tasksRef` already holds the moved board, and a cancel
+  // puts this back. Stamped with both generations and the Board, because something else can change
+  // the board during a drag: this copy is then stale, and neither a drop nor a cancel can trust it.
   const dragOrigin = useRef<{
     writeGen: number
     boardGen: number
@@ -269,7 +269,10 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
 
   const previewReorder = useCallback(
     (next: Task[]) => {
-      if (!originIsCurrent(dragOrigin.current)) {
+      // Only the first preview of a drag. A later one holds the moved board, and recording that
+      // would have Undo and a cancel "restore" the move. A drop or a cancel clears this for the next
+      // drag, and so does a change of Board.
+      if (dragOrigin.current?.boardId !== boardId) {
         dragOrigin.current = {
           writeGen: writeGen.current,
           boardGen: boardGen.current,
@@ -279,7 +282,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       }
       setTasks(next)
     },
-    [setTasks, originIsCurrent, boardId],
+    [setTasks, boardId],
   )
 
   /**
@@ -877,6 +880,19 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     ],
   )
 
+  const cancelReorder = useCallback(() => {
+    const origin = dragOrigin.current
+    dragOrigin.current = null
+    if (!origin) return
+    if (originIsCurrent(origin)) {
+      setTasks(origin.tasks)
+      return
+    }
+    // A remote change or reload landed during the drag, so restoring the old copy would lose it, and
+    // nothing here can pick the preview out of the current board. The server has neither problem.
+    void reloadAfterWrite()
+  }, [setTasks, originIsCurrent, reloadAfterWrite])
+
   const rollForward = useCallback(
     async (todayStr: string, onlyIds?: ReadonlySet<string>) => {
       const generation = forgetUndo()
@@ -1309,6 +1325,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     removeTask,
     toggleCompletion,
     persistReorder,
+    cancelReorder,
     rollForward,
     getTemplate,
     saveTask,

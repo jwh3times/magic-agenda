@@ -107,6 +107,78 @@ test.describe('signed in', () => {
  * would pass vacuously against a loading screen. Every one of the six routes has exactly one
  * level-one heading once it has rendered.
  */
+// A hover on these layouts moves the Task on screen straight away, so a cancel has something to undo.
+test.describe('cancelling a drag (#583)', () => {
+  const UNSCHEDULED = 'Unscheduled idea'
+  const SCHEDULED = 'Book the venue'
+
+  const inbox = (page: Page) => page.getByRole('complementary', { name: 'Inbox' })
+  const today = () => new Date().toISOString().slice(0, 10)
+
+  /** Where a Task is saved, which an unscheduled one has no day for. */
+  async function savedDay(title: string): Promise<string | null> {
+    const client = await testClient()
+    const boardId = await testBoardId(client)
+    const { data } = await client
+      .from('tasks')
+      .select('day')
+      .eq('board_id', boardId)
+      .eq('title', title)
+      .single()
+    return data?.day ? String(data.day) : null
+  }
+
+  async function openCalendar(page: Page) {
+    await seedBoard({ view: 'calendar' })
+    await page.goto('/')
+    await expect(inbox(page).getByText(UNSCHEDULED)).toBeVisible()
+    await expect(page.getByText(SCHEDULED)).toBeVisible()
+  }
+
+  async function centre(page: Page, title: string) {
+    const found = await page.getByText(title, { exact: true }).boundingBox()
+    if (!found) throw new Error(`${title} did not render`)
+    return { x: found.x + found.width / 2, y: found.y + found.height / 2 }
+  }
+
+  /** Picks `title` up and carries it over `onto`, whose lane it then moves into on screen. */
+  async function carry(page: Page, title: string, onto: string) {
+    const from = await centre(page, title)
+    const to = await centre(page, onto)
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(from.x + 10, from.y + 10, { steps: 3 })
+    await page.mouse.move(to.x, to.y, { steps: 12 })
+  }
+
+  test('Escape after a hover move puts the Task back, on screen and saved', async ({ page }) => {
+    await openCalendar(page)
+    await carry(page, UNSCHEDULED, SEEDED_TITLES[0])
+    await expect(inbox(page).getByText(UNSCHEDULED)).toHaveCount(0)
+
+    await page.keyboard.press('Escape')
+    await page.mouse.up()
+
+    await expect(inbox(page).getByText(UNSCHEDULED)).toBeVisible()
+    expect(await savedDay(UNSCHEDULED)).toBeNull()
+  })
+
+  test('a later drag on the same lane does not save the cancelled move', async ({ page }) => {
+    await openCalendar(page)
+    await carry(page, UNSCHEDULED, SEEDED_TITLES[0])
+    await expect(inbox(page).getByText(UNSCHEDULED)).toHaveCount(0)
+    await page.keyboard.press('Escape')
+    await page.mouse.up()
+
+    // A real move into the lane the cancelled drag went through, which writes that whole lane.
+    await carry(page, SCHEDULED, SEEDED_TITLES[0])
+    await page.mouse.up()
+    await expect.poll(() => savedDay(SCHEDULED)).toBe(today())
+
+    expect(await savedDay(UNSCHEDULED)).toBeNull()
+  })
+})
+
 test.describe('phone-width layout', () => {
   test.use({
     storageState: { cookies: [], origins: [] },
