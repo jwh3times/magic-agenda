@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import { seedBoard, SEEDED_TITLES } from './fixtures/seedBoard'
 import { testBoardId, testClient } from './fixtures/supabase'
 
@@ -362,6 +362,247 @@ test.describe('phone-width board', () => {
       await page.reload()
       await expect(panel.getByText('Extra task 0')).toBeVisible()
       await expect.poll(titles).toEqual(['Extra task 0', 'Draft the launch note'])
+    })
+
+    test.describe('dragging a panel card onto the grid (#566)', () => {
+      const todaysDay = () => new Date().toISOString().slice(0, 10)
+      /** A day in the visible month that isn't the selected one: today's neighbour in the grid. */
+      async function neighbour(page: Page) {
+        const days = page.getByRole('button', { name: /^\w+day \d+ \w+, / })
+        const selected = await days.evaluateAll((all) =>
+          all.findIndex((el) => el.getAttribute('aria-pressed') === 'true'),
+        )
+        return days.nth(selected === 0 ? 1 : selected - 1)
+      }
+
+      async function centre(locator: Locator) {
+        const found = await locator.boundingBox()
+        if (!found) throw new Error('the element did not render')
+        return { x: found.x + found.width / 2, y: found.y + found.height / 2 }
+      }
+
+      async function pickUp(page: Page, title: string) {
+        const from = await centre(page.getByRole('tabpanel').getByText(title))
+        await page.mouse.move(from.x, from.y)
+        await page.mouse.down()
+        await page.mouse.move(from.x, from.y - 10, { steps: 5 })
+      }
+
+      /** The Scheduled Day in the database, which an unscheduled Task has none of. */
+      async function savedDay(title: string): Promise<string | null> {
+        const client = await testClient()
+        const boardId = await testBoardId(client)
+        const { data } = await client
+          .from('tasks')
+          .select('day')
+          .eq('board_id', boardId)
+          .eq('title', title)
+          .single()
+        return data?.day ? String(data.day) : null
+      }
+
+      test('a drop lands on the highlighted day, and survives a reload', async ({ page }) => {
+        await openBoard(page, { view: 'calendar' })
+        const title = 'Draft the launch note'
+        const target = await neighbour(page)
+        // By position, because a day's name changes with what it holds.
+        const targetIndex = await target.evaluate((el) =>
+          [...(el.parentElement as HTMLElement).children].indexOf(el),
+        )
+        const landed = page.getByRole('button', { name: /^\w+day \d+ \w+, / }).nth(targetIndex)
+        await expect(landed).toHaveAccessibleName(/, no tasks$/)
+        await expect(page.getByRole('tabpanel').getByText(title)).toBeVisible()
+
+        await pickUp(page, title)
+        const to = await centre(target)
+        await page.mouse.move(to.x, to.y, { steps: 10 })
+
+        // Hovering highlights and names the day, and moves nothing.
+        await expect(page.getByText(/^→ /)).toBeVisible()
+        await expect(target).toHaveCSS('outline-style', 'solid')
+        expect(await savedDay(title)).toBe(todaysDay())
+
+        await page.mouse.up()
+
+        // The panel stays on the source day, and the target's name and markers now count the Task.
+        await expect(page.getByRole('tabpanel').getByText(title)).toHaveCount(0)
+        await expect(landed).toHaveAccessibleName(/, 1 task/)
+        await expect(landed.getByTestId('day-marker')).toHaveCount(1)
+
+        await expect.poll(() => savedDay(title)).not.toBe(todaysDay())
+        const moved = await savedDay(title)
+
+        await page.reload()
+        await expect(landed).toHaveAccessibleName(/, 1 task/)
+        await expect(page.getByRole('tabpanel').getByText(title)).toHaveCount(0)
+        expect(await savedDay(title)).toBe(moved)
+      })
+
+      test('a drop offers Undo, which puts the Task back', async ({ page }) => {
+        await openBoard(page, { view: 'calendar' })
+        const title = 'Draft the launch note'
+        const target = await neighbour(page)
+        await pickUp(page, title)
+        const to = await centre(target)
+        await page.mouse.move(to.x, to.y, { steps: 10 })
+        await page.mouse.up()
+
+        await expect(page.getByText(`Moved “${title}”`)).toBeVisible()
+        await expect.poll(() => savedDay(title)).not.toBe(todaysDay())
+        await page.getByRole('button', { name: 'Undo' }).click()
+
+        await expect(page.getByRole('tabpanel').getByText(title)).toBeVisible()
+        await expect.poll(() => savedDay(title)).toBe(todaysDay())
+      })
+
+      test('a drop on the Inbox tab moves the Task there, and a day takes it back', async ({
+        page,
+      }) => {
+        await openBoard(page, { view: 'calendar' })
+        const title = 'Draft the launch note'
+        const inboxTab = page.getByRole('tab', { name: /^Inbox/ })
+        await expect(page.getByRole('tabpanel').getByText(title)).toBeVisible()
+
+        await pickUp(page, title)
+        const tab = await centre(inboxTab)
+        await page.mouse.move(tab.x, tab.y, { steps: 10 })
+        await expect(page.getByText('→ Inbox')).toBeVisible()
+        await expect(inboxTab).toHaveCSS('outline-style', 'solid')
+        await page.mouse.up()
+        await expect(inboxTab).toHaveAccessibleName('Inbox, 2 tasks')
+        await expect.poll(() => savedDay(title)).toBeNull()
+
+        await inboxTab.click()
+        await pickUp(page, title)
+        const selected = page.getByRole('button', { pressed: true, name: /^\w+day \d+ \w+, / })
+        const day = await centre(selected)
+        await page.mouse.move(day.x, day.y, { steps: 10 })
+        await page.mouse.up()
+        await expect(inboxTab).toHaveAccessibleName('Inbox, 1 task')
+        await expect.poll(() => savedDay(title)).toBe(todaysDay())
+      })
+
+      // Chromium's touch input, which reaches TouchSensor and the browser's own scrolling as the
+      // mouse tests can't. It isn't an iPhone.
+      test.describe('by touch', () => {
+        test.use({ hasTouch: true, isMobile: true })
+
+        async function touchscreen(page: Page) {
+          const cdp = await page.context().newCDPSession(page)
+          const at = (point: { x: number; y: number }) => ({ touchPoints: [point] })
+          return {
+            start: (point: { x: number; y: number }) =>
+              cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', ...at(point) }),
+            move: (point: { x: number; y: number }) =>
+              cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', ...at(point) }),
+            end: () => cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }),
+            cancel: () =>
+              cdp.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] }),
+          }
+        }
+
+        /** Long enough for the 250ms press, then far enough to start moving. */
+        async function pressAndCarry(
+          page: Page,
+          touch: Awaited<ReturnType<typeof touchscreen>>,
+          from: { x: number; y: number },
+          to: { x: number; y: number },
+        ) {
+          await touch.start(from)
+          await page.waitForTimeout(350)
+          const steps = 10
+          for (let i = 1; i <= steps; i++) {
+            await touch.move({
+              x: from.x + ((to.x - from.x) * i) / steps,
+              y: from.y + ((to.y - from.y) * i) / steps,
+            })
+          }
+        }
+
+        test('a swipe over a card scrolls the panel and picks nothing up', async ({ page }) => {
+          await openBoard(page, { view: 'calendar' })
+          await addTasksToday(page, 12)
+          const panel = page.getByRole('tabpanel')
+          const list = panel.locator('> div').first()
+          const touch = await touchscreen(page)
+
+          const from = await centre(panel.getByText('Extra task 1', { exact: true }))
+          await touch.start(from)
+          for (let i = 1; i <= 15; i++) {
+            await touch.move({ x: from.x, y: from.y - i * 12 })
+            await page.waitForTimeout(10)
+          }
+          await touch.end()
+
+          await expect.poll(() => list.evaluate((el) => el.scrollTop)).toBeGreaterThan(50)
+          await expect(page.getByText(/^→ /)).toHaveCount(0)
+          await expect(page.getByRole('status')).toHaveText('')
+        })
+
+        test('a long press drags a card to a day, where it lands', async ({ page }) => {
+          await openBoard(page, { view: 'calendar' })
+          const title = 'Draft the launch note'
+          const touch = await touchscreen(page)
+          const target = await neighbour(page)
+
+          await pressAndCarry(
+            page,
+            touch,
+            await centre(page.getByRole('tabpanel').getByText(title)),
+            await centre(target),
+          )
+          await expect(page.getByText(/^→ /)).toBeVisible()
+          await expect(target).toHaveCSS('outline-style', 'solid')
+          await touch.end()
+
+          await expect(page.getByRole('tabpanel').getByText(title)).toHaveCount(0)
+          await expect.poll(() => savedDay(title)).not.toBe(todaysDay())
+        })
+
+        test('a cancelled touch leaves the Task where it was', async ({ page }) => {
+          await openBoard(page, { view: 'calendar' })
+          const title = 'Draft the launch note'
+          const touch = await touchscreen(page)
+          const target = await neighbour(page)
+
+          await pressAndCarry(
+            page,
+            touch,
+            await centre(page.getByRole('tabpanel').getByText(title)),
+            await centre(target),
+          )
+          await expect(target).toHaveCSS('outline-style', 'solid')
+          await touch.cancel()
+
+          await expect(page.getByText(/^→ /)).toHaveCount(0)
+          await expect(page.getByRole('tabpanel').getByText(title)).toBeVisible()
+          expect(await savedDay(title)).toBe(todaysDay())
+        })
+      })
+
+      test('letting go over nothing leaves the Task where it was', async ({ page }) => {
+        await openBoard(page, { view: 'calendar' })
+        const title = 'Draft the launch note'
+        await pickUp(page, title)
+        await page.mouse.move(195, 5, { steps: 10 })
+        await page.mouse.up()
+        await expect(page.getByRole('tabpanel').getByText(title)).toBeVisible()
+        expect(await savedDay(title)).toBe(todaysDay())
+      })
+
+      test('Escape cancels a drag held over a day', async ({ page }) => {
+        await openBoard(page, { view: 'calendar' })
+        const title = 'Draft the launch note'
+        const target = await neighbour(page)
+        await pickUp(page, title)
+        const to = await centre(target)
+        await page.mouse.move(to.x, to.y, { steps: 10 })
+        await expect(target).toHaveCSS('outline-style', 'solid')
+        await page.keyboard.press('Escape')
+        await page.mouse.up()
+        await expect(page.getByRole('tabpanel').getByText(title)).toBeVisible()
+        expect(await savedDay(title)).toBe(todaysDay())
+      })
     })
 
     // A real keypress as well as the unit test's: focus now moves during the keydown, and a browser

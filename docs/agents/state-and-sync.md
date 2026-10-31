@@ -41,8 +41,9 @@ records the prior version of exactly the rows that action wrote (`captureUndo`,
 `src/data/undo.ts`) and publishes `lastUndo` for `Board`'s 6-second toast. Two rules keep it
 honest. **Any other write from this client forgets the entry**, because undoing past a later edit
 would silently revert that edit. **A drag's "before" is the board when the drag began:**
-`previewReorder` records that origin on its first hover, since by drop time `tasksRef` already holds
-the preview. The origin is stamped with the write generation, a board generation (bumped by
+`previewReorder` records that origin on a drag's first preview, since by drop time `tasksRef` already
+holds the preview. That is normally its first hover; hovering a phone Calendar cell or the Inbox tab
+previews nothing, so `useBoardDnd` calls it on that drop instead (#566). The origin is stamped with the write generation, a board generation (bumped by
 reloads and remote changes), and the Board, so a cancelled drag's origin can never be inherited by a
 later drag; a drop whose origin went stale offers no undo rather than a wrong one. The same write
 generation closes the in-flight race: an action may offer undo only if no later write started

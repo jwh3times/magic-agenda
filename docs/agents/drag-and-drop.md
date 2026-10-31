@@ -48,8 +48,41 @@ on a card toggles its selection (`Board.openTask` decides; `SortableCard` report
 `visibleTasks`, so a filter change can never leave a hidden card inside the next bulk action. Sensors are split Mouse/Touch (not `PointerSensor`):
 touch drags require a **250ms long-press** and cards use `touchAction: 'manipulation'`; together
 that's what lets a plain swipe over a card scroll the board on phones. Do not collapse these back
-into a `PointerSensor` or set `touchAction: 'none'`. The phone Calendar's panel holds one lane at a
-time and no day button is a drop target, so a drag there only reorders (see [UI](ui.md)).
+into a `PointerSensor` or set `touchAction: 'none'`. `touch-action` narrows down the tree, so it must
+hold on everything inside a card too: until #566 `cardStyles`' wrap set `'none'` inside this wrapper,
+and a swipe over a card scrolled nothing on any phone view. Chromium's touch input in `smoke.spec.ts`
+covers this on the phone Calendar's panel, along with a long-press drag. No automated test runs iOS
+Safari.
+
+**The phone Calendar drags a full-width card onto a 53px cell (#566), which changes three things**,
+all of them only on that layout. The pure modules decide; `src/dnd/phoneDrag.ts` is the dnd-kit half.
+
+- **Droppable ids stay unique.** The selected day is both a grid cell and the panel's lane, and the
+  Inbox is both a tab and a lane. So cells and the Inbox tab register `dropTargetId(lane)`, and
+  `useBoardDnd`'s `dropInput` maps them back with `laneOfDroppable` before `resolveDrop` runs. The pure
+  modules still see only lane and card ids, because `containerOf` takes any other id to be a lane.
+- **Hovering a target only highlights it.** `dropInput` says so with `dropOnly`, an explicit input to
+  `resolveDrop`: a hover relocates nothing, a drop settles at the end of that day because `overId` is
+  the lane, and a drop back on the card's own lane does nothing. Relocating on hover would pull the
+  card out of the panel mid-gesture, and a cell has nowhere to show it. So `touched` gains the target
+  only on the drop, and the panel stays on the source day, ready for the next card. That drop also
+  calls `previewReorder` before persisting, because Undo is armed by a drag's first preview.
+- **Collision follows the finger.** `phoneCalendarCollision` looks for a target under the pointer
+  first, because `closestCorners` compares the card's corners, which would pick the wrong day, and a
+  card scrolled out of the panel keeps a rect behind the grid. In the panel it keeps `closestCorners`,
+  so reordering behaves as it does elsewhere: the pointer alone would read the gap between two cards as
+  the lane, which sends a card to the end. Anywhere else is nothing, so letting go leaves the Task.
+
+The overlay is `compact` there, held above the finger by the `aboveFinger` modifier, and names the
+target (`→ Tue 10 Nov`), since a finger covers the cell. That modifier is on `DragOverlay`, so it
+moves only the picture.
+
+**`PhoneCalendar` holds its selected day for the length of a drag.** With no day tapped the panel
+follows today, so midnight would otherwise re-key its `DropLane` under a held card, and hovering that
+new lane would relocate the Task and persist it. **A keyboard drag only reorders there:** the cells and
+the tab disable their droppables for one, because `sortableKeyboardCoordinates` steps between enabled
+droppables and would walk the card across the month. The editor's date field moves a Task from the
+keyboard, and to another month, which a drag can't reach.
 
 **`SortableCard` is the card's only tab stop, and it now answers two keys, not one (#281).**
 dnd-kit's default `KeyboardSensor` `start` codes are `[Space, Enter]`, so Enter was consumed by the

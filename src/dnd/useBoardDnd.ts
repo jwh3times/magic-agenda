@@ -14,8 +14,11 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import type { Task, ViewName } from '../types/task'
 import type { Mode } from './reorder'
+import { phoneCalendarCollision } from './phoneDrag'
 import {
   beginDrag,
+  isDropTarget,
+  laneOfDroppable,
   modeForView,
   resolveDrop,
   type DragPhase,
@@ -48,6 +51,8 @@ export interface BoardDnd {
   collisionDetection: typeof closestCorners
   activeTask: Task | null
   activeWidth: number | undefined
+  /** The lane of the phone grid cell or Inbox tab under the finger, or null over anything else. */
+  overTargetLane: string | null
   onDragStart: (e: DragStartEvent) => void
   onDragOver: (e: DragOverEvent) => void
   onDragEnd: (e: DragEndEvent) => void
@@ -58,14 +63,19 @@ export interface BoardDnd {
 type PersistReorder = (next: Task[], containers: string[], mode: Mode) => void | Promise<void>
 type PreviewReorder = (next: Task[]) => void
 
+const overIdOf = (e: DragOverEvent | DragEndEvent) => (e.over ? String(e.over.id) : null)
+
 /** Maps a dnd-kit event onto the pure module's input. The only place dnd-kit's shapes are read. */
 function dropInput(e: DragOverEvent | DragEndEvent, phase: DragPhase): DropInput {
+  const overId = overIdOf(e)
   return {
     phase,
-    overId: e.over ? String(e.over.id) : null,
+    // The pure module sees only lanes and cards, never a grid cell's or the Inbox tab's own id.
+    overId: overId && laneOfDroppable(overId),
     activeRect: e.active.rect.current.translated,
     overRect: e.over?.rect ?? null,
     now: new Date().toISOString(),
+    dropOnly: overId !== null && isDropTarget(overId),
   }
 }
 
@@ -79,15 +89,20 @@ function dropInput(e: DragOverEvent | DragEndEvent, phase: DragPhase): DropInput
  * touched lane, and a filtered list would hand contiguous 0..n-1 indices to the visible tasks
  * while the hidden ones in that lane kept theirs — colliding orders in the same lane. Dragging
  * under an active filter is prevented one level up, by `DragDisabledContext`, not here.
+ *
+ * `phoneCalendar` says this is the phone Calendar's layout, where a card is dragged onto a small grid
+ * cell and collision follows the finger. See `phoneDrag.ts`.
  */
 export function useBoardDnd(
   view: ViewName,
   tasks: Task[],
   previewReorder: PreviewReorder,
   persistReorder: PersistReorder,
+  phoneCalendar = false,
 ): BoardDnd {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [activeWidth, setActiveWidth] = useState<number | undefined>(undefined)
+  const [overTargetLane, setOverTargetLane] = useState<string | null>(null)
   // A ref, not state: a drag mutates this many times per second and none of it should render.
   const session = useRef<DragSession | null>(null)
 
@@ -108,6 +123,7 @@ export function useBoardDnd(
   const reset = () => {
     setActiveId(null)
     setActiveWidth(undefined)
+    setOverTargetLane(null)
     session.current = null
   }
 
@@ -118,24 +134,31 @@ export function useBoardDnd(
     session.current = beginDrag(tasks, id, mode)
   }
 
-  // Cross-lane relocation happens live as you hover a different lane.
+  // Cross-lane relocation happens live as you hover a different lane, except over a phone grid cell
+  // or the Inbox tab, which only report themselves until the drop.
   const onDragOver = (e: DragOverEvent) => {
     if (!session.current) return
+    const overId = overIdOf(e)
+    setOverTargetLane(overId && isDropTarget(overId) ? laneOfDroppable(overId) : null)
     const step = resolveDrop(session.current, tasks, dropInput(e, 'hover'))
     if (!step) return
     session.current = step.session
     previewReorder(step.tasks)
   }
 
-  // Settle on drop. A within-lane reorder happens here; cross-lane moves already happened on
-  // drag-over. Persist whenever ANY move occurred during the drag — even if the final over-target
+  // Settle on drop. A within-lane reorder or a drop-only move happens here; other cross-lane moves
+  // already happened on drag-over. Persist whenever ANY move occurred during the drag — even if the final over-target
   // is the dragged item's own slot, which is the common case since the optimistic move parks it
   // under the cursor.
   const onDragEnd = (e: DragEndEvent) => {
     const current = session.current
     if (current) {
-      const step = resolveDrop(current, tasks, dropInput(e, 'drop'))
+      const input = dropInput(e, 'drop')
+      const step = resolveDrop(current, tasks, input)
       const settled = step?.session ?? current
+      // Undo is armed by the first preview of a drag, and a drop-only move has had none. Without this
+      // it would be the one cross-lane move that offers no Undo.
+      if (step && input.dropOnly) previewReorder(step.tasks)
       if (settled.didMove)
         void persistReorder(step?.tasks ?? tasks, [...settled.touched], settled.mode)
     }
@@ -144,9 +167,10 @@ export function useBoardDnd(
 
   return {
     sensors,
-    collisionDetection: closestCorners,
+    collisionDetection: phoneCalendar ? phoneCalendarCollision : closestCorners,
     activeTask,
     activeWidth,
+    overTargetLane,
     onDragStart,
     onDragOver,
     onDragEnd,

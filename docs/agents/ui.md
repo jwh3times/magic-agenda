@@ -64,8 +64,11 @@ Inbox. The rules worth keeping:
 - **The panel reuses the Inbox's surface and full-width `inbox` card**, so a card opens the editor,
   pins, and completes as it does elsewhere. A long panel scrolls inside itself. The whole view
   scrolls only in a window too short for both the month and the panel's 200px minimum.
-- **Dragging within the panel reorders.** The panel's one `DropLane` takes the plain lane id, and no
-  day button is a drop target yet, so a Task moves to another day through the editor's date field.
+- **A long-press drags a panel card onto a day or the Inbox tab (#566).** The target highlights and
+  the overlay names it, the Task lands at the end of that day, and the panel stays where it was so
+  several Tasks can be moved in a row. Dragging within the panel still reorders. The editor's date
+  field reaches another month, and moves a Task without dragging, as does Select's bulk action. The
+  rules are in [Drag-and-drop](drag-and-drop.md).
 - **A read-only Board shows no add button in the panel**, the same answer as the Toolbar's disabled
   New task, because the editor it would open cannot save.
 - **Only the Calendar changed.** Week keeps its docked, collapsible Inbox, and the desktop grid's
@@ -134,9 +137,10 @@ themes: `cork` / `brutal` / `glass`. **Do not refactor this to CSS variables**: 
 branching that CSS vars cannot express cleanly.
 
 `theme/chrome.ts` contains shared or theme-branching chrome factories, not speculative interaction
-states. The DnD adapter does not currently publish a per-lane hover state, so `cellChrome` /
-`columnChrome` have no `isDrop` parameter. Add such a branch only together with a real caller and an
-observable interaction test.
+states. The DnD adapter publishes a hover state only for the phone Calendar's grid cells and
+Inbox tab (`phoneDayChrome`'s `dropOver`, `phonePanelChrome`'s `tabDropOver`, both E2E-tested), so
+`cellChrome` / `columnChrome` have no `isDrop` parameter. Add such a branch only together with a real
+caller and an observable interaction test.
 
 Scrollbars are themed the same way, via `scrollbars(conf)` in `chrome.ts` — spread into every
 container that can overflow (the shared month/desktop-week `grid`, a day cell's `notesWrap`,

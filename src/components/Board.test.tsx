@@ -653,11 +653,10 @@ describe('mobile layout', () => {
       expect(screen.getByText('Already done')).toBeInTheDocument()
     })
 
-    test('an empty Inbox tab says so, and promises no drag it cannot do', async () => {
+    test('an empty Inbox tab says so', async () => {
       const user = renderPhone(SEED.filter((t) => t.day !== 'inbox'))
       await user.click(screen.getByRole('tab', { name: 'Inbox, 0 tasks' }))
       expect(screen.getByText('Nothing in the Inbox')).toBeInTheDocument()
-      expect(screen.queryByText(/Drag/)).not.toBeInTheDocument()
     })
 
     test('a read-only Board offers no add button in the panel', async () => {
@@ -679,6 +678,72 @@ describe('mobile layout', () => {
       expect(screen.queryByRole('button', { name: '+ Add a task' })).not.toBeInTheDocument()
       await user.click(screen.getByRole('tab', { name: /^Inbox/ }))
       expect(screen.queryByRole('button', { name: 'Add to inbox' })).not.toBeInTheDocument()
+    })
+
+    describe('dragging (#566)', () => {
+      // dnd-kit's live region stays empty until a drag begins, and "Picked up" is replaced at once.
+      const pickedUp = () =>
+        screen.getAllByRole('status').some((el) => /draggable item/i.test(el.textContent ?? ''))
+
+      // The panel follows today until a day is tapped, so midnight would otherwise swap its lane
+      // under a held card, and hovering that new lane would silently move the Task to it.
+      test('a drag in progress holds the panel on its day when midnight passes', async () => {
+        sessionStorage.removeItem('ma-board-view')
+        stubMobile()
+        const tree = (today: string) => (
+          <TodayContext.Provider value={today}>
+            <DueClockContext.Provider value={{ nowMs: NOW, timezone: 'UTC' }}>
+              <Harness seed={SEED} />
+            </DueClockContext.Provider>
+          </TodayContext.Provider>
+        )
+        const user = userEvent.setup()
+        const { rerender } = render(tree(TODAY))
+
+        cardFor('Standup').focus()
+        await user.keyboard('[Space]')
+        expect(pickedUp()).toBe(true)
+
+        rerender(tree('2026-03-18'))
+        expect(screen.getByRole('tab', { name: 'Tue 17 Mar, 2 tasks' })).toBeInTheDocument()
+        expect(screen.getByText('Call the bank')).toBeInTheDocument()
+
+        await user.keyboard('{Escape}')
+        expect(screen.getByRole('tab', { name: 'Wed 18 Mar, 0 tasks' })).toBeInTheDocument()
+        expect(screen.getByText('Nothing on Wed 18 Mar')).toBeInTheDocument()
+      })
+
+      test('an active filter disables dragging a panel card', async () => {
+        const user = renderPhone()
+        expect(cardFor('Standup')).not.toHaveAttribute('aria-disabled', 'true')
+        await user.click(screen.getByRole('button', { name: 'Search and filters' }))
+        await user.type(screen.getByRole('textbox', { name: 'Search tasks' }), 'Standup')
+        expect(cardFor('Standup')).toHaveAttribute('aria-disabled', 'true')
+      })
+
+      test('a read-only Board disables dragging a panel card', () => {
+        sessionStorage.removeItem('ma-board-view')
+        stubMobile()
+        render(
+          <OfflineContext.Provider
+            value={{ readOnly: true, fallbackReason: 'network', savedAt: NOW, timezone: 'UTC' }}
+          >
+            <TodayContext.Provider value={TODAY}>
+              <Harness seed={SEED} />
+            </TodayContext.Provider>
+          </OfflineContext.Provider>,
+        )
+        expect(cardFor('Standup')).toHaveAttribute('aria-disabled', 'true')
+      })
+
+      test('selection mode disables dragging a panel card', async () => {
+        const user = renderPhone()
+        await user.click(screen.getByRole('button', { name: 'Search and filters' }))
+        await user.click(screen.getByRole('button', { name: /Select$/ }))
+        cardFor('Standup').focus()
+        await user.keyboard('[Space]')
+        expect(pickedUp()).toBe(false)
+      })
     })
 
     test('the week starts on the weekday chosen in Settings', () => {
