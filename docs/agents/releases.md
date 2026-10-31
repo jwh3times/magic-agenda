@@ -28,7 +28,9 @@ PRs are exempt from the first (a bot can't write an entry) — so their merges s
 the second rule fails the next human PR until those builds are backfilled. That job must keep
 reporting a status on **every** PR including Dependabot's (the exemption lives inside the step, not in
 a job-level `if:`) — a required check that never runs leaves a PR unmergeable forever. The `ship`
-skill automates the whole flow, backfill included.
+skill automates the whole flow, backfill included. `next-version.mjs`, `check-changelog.mjs`,
+`check-docs.mjs` and `sync-main.mjs`, with their `node:test` suites, are canonical in
+`jwh3times/skills`: fix them there, then copy them here.
 
 **Two PRs open at once both name the same version, and that is the design rather than a bug**
 (#223). The next build is computed from the highest existing tag, so branches cut from the same
@@ -75,12 +77,3 @@ and each merge's dated changelog section names the version it mints.
 ## Ask before bumping
 
 always
-
-## Next-version command
-
-`node scripts/next-version.mjs`
-
-## Changelog check
-
-`node scripts/check-changelog.mjs` — the script the required `Changelog` job runs: this PR names
-its version, and every released 3-part tag has a section.
