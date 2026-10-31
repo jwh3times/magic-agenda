@@ -263,6 +263,10 @@ is a deliberate tradeoff worth understanding before it costs one:
   **So is the open Members panel (#494)**: `members-cork`, `members-brutal`, `members-glass`, with
   the invitee joined for the scan so an Owner's per-member controls (role, Name…, Remove…) and the
   unassigned-reminder opt-in are on screen.
+  **The phone layout is scanned per theme at 390×844 (#570)**: `phone-board-<theme>` with the
+  controls shut and `phone-controls-<theme>` with them open. Every other scan runs at the desktop
+  viewport, so nothing that renders only at or below the 760px breakpoint reaches axe unless one of
+  these two can see it.
   `FREEZE_ANIMATION` is injected before every scan because `page.clock` does not stop
   CSS animations and a drifting glass blob turns a `color-contrast` violation into an `incomplete`.
 - **The a11y baseline asserts counts by strict equality, in both directions.** A count that rose is

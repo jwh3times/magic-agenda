@@ -58,5 +58,65 @@
     "label": "editor-glass",
     "ruleId": "nested-interactive",
     "count": 3
+  },
+  {
+    "label": "phone-board-brutal",
+    "ruleId": "label-content-name-mismatch",
+    "count": 1
+  },
+  {
+    "label": "phone-board-brutal",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "phone-board-cork",
+    "ruleId": "label-content-name-mismatch",
+    "count": 1
+  },
+  {
+    "label": "phone-board-cork",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "phone-board-glass",
+    "ruleId": "label-content-name-mismatch",
+    "count": 1
+  },
+  {
+    "label": "phone-board-glass",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "phone-controls-brutal",
+    "ruleId": "label-content-name-mismatch",
+    "count": 1
+  },
+  {
+    "label": "phone-controls-brutal",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "phone-controls-cork",
+    "ruleId": "label-content-name-mismatch",
+    "count": 1
+  },
+  {
+    "label": "phone-controls-cork",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "phone-controls-glass",
+    "ruleId": "label-content-name-mismatch",
+    "count": 1
+  },
+  {
+    "label": "phone-controls-glass",
+    "ruleId": "nested-interactive",
+    "count": 3
   }
 ]

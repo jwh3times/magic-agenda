@@ -227,6 +227,38 @@ test.describe('signed in', () => {
     })
   }
 
+  // The phone layout (#570). At 760px or below the Board renders its own header, whose icon-only
+  // buttons are named by aria-label alone, and the scans above never see it: they run at the
+  // desktop viewport. The controls get a scan of their own because the search and filter bar does
+  // not exist until that button opens it.
+  test.describe('phone width', () => {
+    test.use({ viewport: { width: 390, height: 844 } })
+
+    async function openBoard(page: Page, theme: Theme) {
+      await page.clock.setFixedTime(new Date(PINNED_TIME))
+      await seedBoard({ theme, anchor: PINNED_DAY })
+      await page.goto('/')
+      await page.getByRole('button', { name: '+ New task' }).waitFor()
+      for (const title of SEEDED_TITLES) await page.getByText(title).waitFor()
+    }
+
+    for (const theme of ['cork', 'brutal', 'glass'] as Theme[]) {
+      test(`phone board (${theme}) matches the a11y baseline`, async ({ page }) => {
+        await openBoard(page, theme)
+        await settle(page)
+        await scanAndAssert(page, `phone-board-${theme}`)
+      })
+
+      test(`phone controls (${theme}) match the a11y baseline`, async ({ page }) => {
+        await openBoard(page, theme)
+        await page.getByRole('button', { name: 'Search and filters' }).click()
+        await page.getByRole('search').waitFor()
+        await settle(page)
+        await scanAndAssert(page, `phone-controls-${theme}`)
+      })
+    }
+  })
+
   // The open task editor (#486). It was never scanned, which is how two of its controls shipped
   // with no accessible name. Per theme for the same reason as the board: its colours are themed.
   for (const theme of ['cork', 'brutal', 'glass'] as Theme[]) {
