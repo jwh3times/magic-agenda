@@ -12,6 +12,31 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.60] - 2026-10-31
+
+### Changed
+
+- **On the phone Calendar, you can drag a Task onto any day.** Long-press a card in the panel and drag
+  it onto a day in the grid. The day under your finger highlights, and the dragged card floats above
+  your finger and shows the date, since your finger covers the day. The Task lands at the end of that
+  day, its markers update, and the panel stays where it was, so you can move several in a row. Undo
+  works as it does for any other move, and moving an Occurrence changes This Occurrence only.
+- **The Inbox tab takes drops too.** Dropping a card on it unschedules the Task and clears its Due
+  Time, and an Inbox card can be dragged onto a day. Reaching another month still takes the Task
+  editor's date field.
+
+### Fixed
+
+- **Swiping over a card now scrolls, in every phone view.** A style on the card stopped the browser
+  from scrolling when a swipe started on one, so only the gaps between cards could scroll a list.
+  A long-press still starts a drag.
+
+### Internal
+
+- **The phone Calendar's drag is covered by touch.** `smoke.spec.ts` now runs a swipe, a long-press
+  drag and a cancelled touch through Chromium's touch input, as well as the mouse paths. Nothing
+  automated runs iOS Safari or Android, and Week and Board have no automated touch coverage.
+
 ## [1.17.58] - 2026-10-31
 
 ### Changed
@@ -5550,7 +5575,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.58...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.60...HEAD
+[1.17.60]: https://github.com/jwh3times/magic-agenda/compare/v1.17.59...v1.17.60
 [1.17.58]: https://github.com/jwh3times/magic-agenda/compare/v1.17.57...v1.17.58
 [1.17.57]: https://github.com/jwh3times/magic-agenda/compare/v1.17.56...v1.17.57
 [1.17.56]: https://github.com/jwh3times/magic-agenda/compare/v1.17.55...v1.17.56

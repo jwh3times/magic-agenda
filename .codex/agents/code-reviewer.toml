@@ -44,7 +44,10 @@ any of these (each is a correctness bug, not a preference):
    when `over.id === active.id` (`DragSession.didMove`, not the final over-target); every drag
    decision belongs in the pure `src/dnd/resolveDrop.ts`, not in the dnd-kit wiring; drag stays
    disabled through `DragDisabledContext` while a search filter is active, and `useBoardDnd` gets
-   the **unfiltered** board.
+   the **unfiltered** board. Nothing inside a card may set `touchAction: 'none'`, which stops a
+   swipe over it scrolling on a phone. A phone Calendar drop target registers through
+   `useDropTarget`, and `useBoardDnd` maps its id back to a lane before `resolveDrop` runs. A
+   drop-only move must call `previewReorder` before persisting, or it offers no Undo.
 5. **Theming stays inline-style objects** with per-theme branching — do not accept a CSS-variable
    refactor of `src/theme/`.
 6. **Schema workflow.** A migration under `supabase/migrations/` auto-applies to production on

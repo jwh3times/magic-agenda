@@ -51,7 +51,8 @@ that's what lets a plain swipe over a card scroll the board on phones. Do not co
 into a `PointerSensor` or set `touchAction: 'none'`. `touch-action` narrows down the tree, so it must
 hold on everything inside a card too: until #566 `cardStyles`' wrap set `'none'` inside this wrapper,
 and a swipe over a card scrolled nothing on any phone view. Chromium's touch input in `smoke.spec.ts`
-now covers this on the phone Calendar's panel.
+covers this on the phone Calendar's panel, along with a long-press drag. No automated test runs iOS
+Safari.
 
 **The phone Calendar drags a full-width card onto a 53px cell (#566), which changes three things**,
 all of them only on that layout. The pure modules decide; `src/dnd/phoneDrag.ts` is the dnd-kit half.
