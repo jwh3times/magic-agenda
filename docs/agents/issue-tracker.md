@@ -56,8 +56,8 @@ Used by `/wayfinder`. The **map** is a single issue with **child** issues as tic
 **Every unbuilt item is an open issue, including the ones that are years out.** There is no Markdown
 backlog to consult alongside it — `ROADMAP.md` is a pointer, and the per-item implementation
 sketches that used to live there are now issue bodies. The
-[project board](https://github.com/users/jwh3times/projects/5) carries `Phase` / `Priority` / `Size`
-/ `Status` as fields, and ordering is expressed with GitHub's native **blocked-by** dependency
+[project board](https://github.com/users/jwh3times/projects/5) carries the `Board fields` below, and
+ordering is expressed with GitHub's native **blocked-by** dependency
 edges rather than prose, so a blocked item shows its open blockers in the UI. The board is private
 because it also holds maintainer-only items; the public issues on it stay public regardless, since
 a private project cannot make a public issue's body private.
@@ -65,11 +65,11 @@ a private project cannot make a public issue's body private.
 **The automation covers less than it looks like it does, in two specific ways.** A new _public_
 issue lands on the board by itself (`Auto-add to project`, filter `is:issue`) and gets
 `Status: Todo` (`Item added to project` — that workflow sets status when something is added; it
-does not add anything). But **no workflow sets `Phase`, `Priority`, or `Size`**, so a freshly filed
-issue sits on the board unfielded until someone sets them. And a **private-repo** issue is never
-auto-added at all: auto-add is per-repository, GitHub Free permits exactly one workflow, and that
-one is spent on the public repo. Adding it is a manual `gh project item-add`. Both gaps are quiet —
-nothing errors — which is why the `end-session` skill names them as steps.
+does not add anything). But **no workflow sets `Phase`, `Priority`, `Size` or `Gate`**, so a freshly
+filed issue sits on the board unfielded until someone sets them. And a **private-repo** issue is
+never auto-added at all: auto-add is per-repository, GitHub Free permits exactly one workflow, and
+that one is spent on the public repo. Adding it is a manual `gh project item-add`. Both gaps are
+quiet — nothing errors — so whoever files an item sets its fields and, for a private issue, adds it.
 
 The dividing line is worth stating because it is what stopped the old file drifting: **state goes in
 GitHub, reasoning stays in files.** An issue has a closed state and a dependency graph; a Markdown
@@ -82,7 +82,8 @@ copy of something GitHub already answers authoritatively, and each drifted befor
 Work whose **issue body itself** would disclose something the public code does not — an undefended
 surface, an unclosable production weakness, provider or credential metadata — goes in the private
 companion's tracker instead. Note that GitHub cannot transfer a private-repository issue to a public
-one, so misfiling in that direction is the harder mistake to undo.
+one, so misfiling in that direction is the harder mistake to undo. A security finding awaiting its
+fix goes in neither tracker: it is a draft repository advisory (`Security findings` below).
 
 **Use the glossary's words.** `CONTEXT.md` is authoritative for domain vocabulary — Recurring
 Series, Recurrence Rule, Occurrence, Occurrence Date, Scheduled Day, Excluded Date. `template` and
@@ -91,11 +92,6 @@ Series, Recurrence Rule, Occurrence, Occurrence Date, Scheduled Day, Excluded Da
 ## Public repository
 
 jwh3times/magic-agenda
-
-## Private issue repository
-
-`discover: git -C private remote get-url origin` — issues whose body would disclose what the public
-code does not (an undefended surface, provider or credential metadata).
 
 ## Board
 
@@ -118,12 +114,7 @@ No workflow sets `Phase`, `Priority`, `Size` or `Gate`: set them on every new it
 blocking are GitHub's native `blocked_by` dependencies (see Wayfinding operations), with `Gate`
 `Depends on another item`.
 
-## New work
-
-issue
-
 ## Security findings
 
-An issue in the `Private issue repository`, never a public issue before the fix ships; an accepted
-risk also goes in the current security and operational register in `private/README.md`, with its
-revisit trigger. External reporters use private vulnerability reporting (`SECURITY.md`).
+The default. An accepted risk also goes in the current security and operational register in
+`private/README.md`, with its revisit trigger.

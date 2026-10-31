@@ -12,6 +12,38 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.54] - 2026-10-30
+
+### Internal
+
+- **The agent settings converge with the other repositories.** The doc map now covers
+  `CODE_OF_CONDUCT.md`, `LICENSE` and `SUPPORT.md`; dated research is `amend-only` rather than
+  `frozen`; `*.tsbuildinfo` is safe to remove; and the board prose in
+  `docs/agents/issue-tracker.md` names `Gate` among the fields no workflow sets, and no longer says
+  `/end-session` sets them.
+
+## [1.17.53] - 2026-10-30
+
+### Internal
+
+- **The shared skills are refreshed, and their defaults replace matching settings.** Most
+  `docs/agents/` settings that matched a new default in `jwh3times/skills` are gone. Two rules
+  change: a security finding awaiting its fix is now a draft repository advisory rather than a
+  private issue (an accepted risk still goes in the companion's register), and `/end-session` ends
+  by proving both repositories clean and pushed. `/ship` bumps with `--allow-same-version`, so a
+  re-run lands on the same version; `/handoff` names `npm run bootstrap:private` for a machine
+  without `private/`, and `/lets-go` offers it.
+
+## [1.17.52] - 2026-10-30
+
+### Internal
+
+- **The shared skills are refreshed.** Agents commit in `private/` only after asking, by one
+  procedure every repository shares; its checks (a value scan, `PRIVATE` visibility, a plain push
+  and a `0 0` ahead/behind count) were this repository's own, so `Companion commit policy` leaves
+  `docs/agents/workspace.md`. `/ship` reports an open PR that claims the same version again, and
+  `/lets-go` installs from a changed lockfile.
+
 ## [1.17.51] - 2026-10-28
 
 ### Internal
@@ -5442,7 +5474,10 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.51...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.54...HEAD
+[1.17.54]: https://github.com/jwh3times/magic-agenda/compare/v1.17.53...v1.17.54
+[1.17.53]: https://github.com/jwh3times/magic-agenda/compare/v1.17.52...v1.17.53
+[1.17.52]: https://github.com/jwh3times/magic-agenda/compare/v1.17.51...v1.17.52
 [1.17.51]: https://github.com/jwh3times/magic-agenda/compare/v1.17.50...v1.17.51
 [1.17.50]: https://github.com/jwh3times/magic-agenda/compare/v1.17.49...v1.17.50
 [1.17.49]: https://github.com/jwh3times/magic-agenda/compare/v1.17.48...v1.17.49

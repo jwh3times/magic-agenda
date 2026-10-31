@@ -28,6 +28,8 @@ Settings the shared `docs-updater`, `end-session` and `ship` skills read (instal
   setup step, npm script or deployment step changes.
 - `CONTRIBUTING.md` — the workflow and standards. **When:** the development flow or a required
   check changes.
+- `SUPPORT.md` — where to ask for help. **When:** the issue templates or the support route change.
+- `CODE_OF_CONDUCT.md`, `LICENSE` — `owner-only`.
 - `SECURITY.md` — the security model and the reporting route. **When:** a load-bearing boundary it
   describes (RLS, response headers, auth, backups) or the reporting route changes.
 - `ROADMAP.md` — a pointer to GitHub Issues and the board; it lists nothing. **When:** where planned
@@ -45,8 +47,8 @@ Settings the shared `docs-updater`, `end-session` and `ship` skills read (instal
 - `CONTEXT.md` — the domain glossary, maintained through `domain-modeling` (`docs/agents/domain.md`).
   `frozen` for this skill: report a term the code contradicts instead of editing it.
 - `docs/adr/*.md` — accepted decisions, superseded only by another ADR. `frozen`.
-- `docs/plans/`, `docs/specs/`, `docs/research/`, `docs/superpowers/` — dated historical records.
-  `frozen`.
+- `docs/plans/`, `docs/specs/`, `docs/superpowers/` — dated historical records. `frozen`.
+- `docs/research/*.md` — dated investigations, superseded by later work. `amend-only`.
 - `design/` — the reference-only prototype. `frozen`.
 - `.agents/skills/*/**` — skills, mirrored to `.claude/skills/`: the `mattpocock/skills` set and
   `end-session`, `handoff`, `lets-go`, `ship` and `docs-updater` from `jwh3times/skills`, all
