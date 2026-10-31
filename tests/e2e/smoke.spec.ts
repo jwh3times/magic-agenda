@@ -208,15 +208,29 @@ test.describe('phone-width board', () => {
     })
   }
 
+  /**
+   * Not the document's width, which the checks above use: `.app-root` is `overflow: hidden`, so the
+   * Board clips anything too wide and the document can never report it. Each of the shell's layers
+   * is measured instead, skipping the absolutely placed glass blobs, which overhang on purpose. A
+   * scroller inside a layer (the month grid, the kanban columns) keeps its overflow to itself.
+   */
   async function expectNoOverflow(page: Page, what: string) {
-    const { scrollWidth, clientWidth } = await page.evaluate(() => ({
-      scrollWidth: document.documentElement.scrollWidth,
-      clientWidth: document.documentElement.clientWidth,
-    }))
+    const { widest, available } = await page.evaluate(() => {
+      const root = document.querySelector('.app-root')
+      if (!root) throw new Error('the board shell did not render')
+      const layers = [...root.children].filter((el) =>
+        ['static', 'relative'].includes(getComputedStyle(el).position),
+      )
+      const edges = layers.map((el) => {
+        const { left, right } = el.getBoundingClientRect()
+        return Math.max(right, left + el.scrollWidth)
+      })
+      return { widest: Math.max(...edges), available: root.clientWidth }
+    })
     expect(
-      scrollWidth,
-      `${what} is ${scrollWidth - clientWidth}px wider than the viewport.`,
-    ).toBeLessThanOrEqual(clientWidth)
+      widest,
+      `${what} is ${widest - available}px wider than the viewport.`,
+    ).toBeLessThanOrEqual(available)
   }
 
   test.describe('at 390×844', () => {
@@ -252,6 +266,21 @@ test.describe('phone-width board', () => {
       await expect(search).toBeFocused()
       await expect(search).toHaveValue('')
     })
+
+    test('the controls button shows a visible marker while a filter is active', async ({
+      page,
+    }) => {
+      await openBoard(page, { view: 'calendar' })
+      const marker = page.getByRole('banner').getByTestId('filter-marker')
+      await expect(marker).toHaveCount(0)
+
+      await page.getByRole('button', { name: 'Search and filters' }).click()
+      await page.getByRole('button', { name: 'Show pinned only' }).click()
+      // Shut, because that is when the marker is the only sign that the board is filtered.
+      await page.getByRole('button', { name: 'Search and filters, filters active' }).click()
+      await expect(marker).toBeVisible()
+      await expect(marker).toBeInViewport({ ratio: 1 })
+    })
   })
 
   // The narrowest common phone, per theme: their fonts differ in width, and the first toolbar row
@@ -279,6 +308,28 @@ test.describe('phone-width board', () => {
             ratio: 1,
           })
         }
+
+        // The longest month name, wherever the real clock happens to be.
+        const label = banner.getByText(/^[A-Z][a-z]+ \d{4}$/)
+        for (let i = 0; i < 12 && !(await label.innerText()).startsWith('September'); i++) {
+          await banner.getByRole('button', { name: '‹' }).click()
+        }
+        await expect(label).toContainText('September')
+        expect(
+          await label.evaluate((el) => el.scrollWidth <= el.clientWidth),
+          '"September" does not fit the month label',
+        ).toBe(true)
+        expect((await banner.boundingBox())?.height).toBeLessThanOrEqual(MAX_HEADER_HEIGHT)
+
+        // The widest Today a real board plausibly shows. Text rather than twelve seeded Tasks,
+        // because only its width matters here.
+        await banner.getByRole('button', { name: /^Today/ }).evaluate((button) => {
+          button.textContent = 'Today (12)'
+        })
+        expect(
+          (await banner.boundingBox())?.height,
+          'a two-digit overdue count pushes the header onto a third row',
+        ).toBeLessThanOrEqual(MAX_HEADER_HEIGHT)
       })
     }
   })

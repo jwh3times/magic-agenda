@@ -6,8 +6,8 @@ view module, a theme token, or anything that asks what day it is.
 ## Responsive layout branches on `useIsMobile()`, not CSS media queries
 
 Because styles are inline objects (below), media queries cannot reach them. Components that adapt to
-phones (`Board`, `Toolbar`, `CalendarView`, `WeekView`, `KanbanView`, `Inbox`, `SearchFilterBar`,
-`TaskEditor`) call `useIsMobile()` from `src/lib/useMediaQuery.ts` (a reactive `matchMedia` hook;
+phones (`Board`, `Toolbar`, `BoardSwitcher`, `CalendarView`, `WeekView`, `KanbanView`, `Inbox`,
+`SearchFilterBar`, `TaskEditor`) call `useIsMobile()` from `src/lib/useMediaQuery.ts` (a reactive `matchMedia` hook;
 breakpoint `MOBILE_QUERY` = 760px) and branch in JSX, spreading overrides onto the chrome styles.
 The hook returns `false` where `matchMedia` is missing, so jsdom tests render the desktop layout
 unless they stub `matchMedia` (see the mobile block in `Board.test.tsx`). Mobile layouts: a two-row
@@ -36,7 +36,9 @@ board down, so it is not a modal. Five things are easy to break:
   controls, and New task, which shows only `+` but keeps "+ New task" as its accessible name. Row two
   wraps instead of overflowing: the Board creator takes a line of its own while it is open, and a
   window under about 340px gets a third row. `smoke.spec.ts` (`phone-width board`) checks all four
-  views at 390×844 and every theme's fit at 360×800, since jsdom has no layout engine.
+  views at 390×844 and every theme's fit at 360×800, since jsdom has no layout engine. It measures
+  the shell's layers rather than the document, because `.app-root` is `overflow: hidden` and clips
+  anything too wide before the document can report it.
 - **Sign out is not in the phone header.** It is in Settings → Profile at every width, including the
   offline-boot fallback, and it calls `AuthProvider.signOut`, the path that releases this device's
   push subscription first. Desktop's toolbar keeps its own button.

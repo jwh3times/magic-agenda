@@ -9,7 +9,12 @@ import {
   type ButtonVariant,
 } from './controls'
 import { themeConf } from './themeConf'
-import { TOOLBAR_CONTROL_FILL, TOOLBAR_CONTROL_HEIGHT, toolbarChrome } from './chrome'
+import {
+  TOOLBAR_CONTROL_FILL,
+  TOOLBAR_CONTROL_FILL_ACTIVE,
+  TOOLBAR_CONTROL_HEIGHT,
+  toolbarChrome,
+} from './chrome'
 
 const THEMES: ThemeName[] = ['cork', 'brutal', 'glass']
 const VARIANTS: ButtonVariant[] = ['primary', 'secondary', 'danger', 'destructive']
@@ -186,6 +191,13 @@ describe('toolbar controls (#483)', () => {
       expect(contrast(over(conf.accentFg, accent), accent)).toBeGreaterThanOrEqual(4.5)
       const option = over(String(c.option.background), toolbar)
       expect(contrast(over(String(c.option.color), option), option)).toBeGreaterThanOrEqual(4.5)
+    })
+
+    // A graphic rather than text, so WCAG 1.4.11's 3:1: the phone's controls button draws only its
+    // icon on the open state's stronger wash (#564), and the filter marker's ring is the same colour.
+    it(`${theme}: the open controls button's icon and marker read as graphics`, () => {
+      const active = over(TOOLBAR_CONTROL_FILL_ACTIVE, toolbar)
+      expect(contrast(over(conf.toolbarFg, active), active)).toBeGreaterThanOrEqual(3)
     })
 
     it(`${theme}: the select is a native control drawn for a dark toolbar`, () => {

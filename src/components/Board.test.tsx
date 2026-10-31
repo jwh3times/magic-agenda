@@ -429,19 +429,24 @@ describe('mobile layout', () => {
     stubMobile()
     const user = userEvent.setup()
     renderBoard()
+    const marker = () => within(controlsButton()).queryByTestId('filter-marker')
     expect(controlsButton()).toHaveAccessibleName('Search and filters')
+    expect(marker()).not.toBeInTheDocument()
 
     await user.click(controlsButton())
     await user.click(screen.getByRole('button', { name: 'Show pinned only' }))
     expect(controlsButton()).toHaveAccessibleName('Search and filters, filters active')
+    expect(marker()).toBeInTheDocument()
 
     // Shutting the controls keeps the filter, which is exactly when the marker matters.
     await user.click(controlsButton())
     expect(controlsButton()).toHaveAccessibleName('Search and filters, filters active')
+    expect(marker()).toBeInTheDocument()
 
     await user.click(controlsButton())
     await user.click(screen.getByRole('button', { name: 'Clear' }))
     expect(controlsButton()).toHaveAccessibleName('Search and filters')
+    expect(marker()).not.toBeInTheDocument()
   })
 
   test('/ opens the controls and focuses the search box', async () => {

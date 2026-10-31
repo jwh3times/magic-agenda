@@ -90,7 +90,15 @@ export function Toolbar({
             />
           </h1>
           {/* Fits from 360px up; narrower than that it scrolls rather than push the page wider. */}
-          <div style={{ flex: '0 1 auto', minWidth: 0, overflowX: 'auto', ...scrollbars(conf) }}>
+          <div
+            style={{
+              flex: '0 1 auto',
+              minWidth: 0,
+              marginRight: 'auto',
+              overflowX: 'auto',
+              ...scrollbars(conf),
+            }}
+          >
             <ViewSwitcher views={views} view={view} onChange={onChangeView} compact />
           </div>
           {onToggleControls && (
@@ -104,7 +112,6 @@ export function Toolbar({
               style={{
                 ...c.iconBtn,
                 flex: 'none',
-                marginLeft: 'auto',
                 position: 'relative',
                 ...(controlsOpen && { background: TOOLBAR_CONTROL_FILL_ACTIVE }),
               }}
@@ -127,6 +134,7 @@ export function Toolbar({
               {filterActive && (
                 <span
                   aria-hidden="true"
+                  data-testid="filter-marker"
                   style={{
                     position: 'absolute',
                     top: -3,
@@ -148,11 +156,7 @@ export function Toolbar({
               onClick={onOpenSettings}
               aria-label="Settings"
               title="Settings"
-              style={{
-                ...c.iconBtn,
-                flex: 'none',
-                ...(!onToggleControls && { marginLeft: 'auto' }),
-              }}
+              style={{ ...c.iconBtn, flex: 'none' }}
             >
               ⚙
             </button>
@@ -166,19 +170,22 @@ export function Toolbar({
           <BoardSwitcher />
           {showNav && (
             <div style={{ ...c.navGroup, gap: 4 }}>
-              <button type="button" onClick={onPrev} style={c.navBtn}>
+              <button type="button" onClick={onPrev} style={{ ...c.navBtn, width: 30 }}>
                 ‹
               </button>
-              {/* Two lines at most: "November" over "2026", within the height of the row. */}
-              <div
-                style={{ ...c.monthLabel, flex: 'none', width: 64, fontSize: 12.5, minWidth: 0 }}
-              >
+              {/* Two lines at most: "September" over "2026", within the height of the row. */}
+              <div style={{ ...c.monthLabel, flex: 'none', width: 68, fontSize: 12, minWidth: 0 }}>
                 {navLabel}
               </div>
-              <button type="button" onClick={onNext} style={c.navBtn}>
+              <button type="button" onClick={onNext} style={{ ...c.navBtn, width: 30 }}>
                 ›
               </button>
-              <button type="button" onClick={onToday} style={{ ...c.todayBtn, padding: '0 9px' }}>
+              {/* Tight enough that a two-digit overdue count stays on this row at 360px. */}
+              <button
+                type="button"
+                onClick={onToday}
+                style={{ ...c.todayBtn, padding: '0 7px', fontSize: 12 }}
+              >
                 Today{overdueCount ? ` (${overdueCount})` : ''}
               </button>
             </div>
