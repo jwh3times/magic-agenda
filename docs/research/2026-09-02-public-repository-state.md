@@ -21,7 +21,7 @@ recovery-record action was completed and verified. Portability is therefore clos
 plan's older unchecked procedural steps are historical rather than active work. See
 [the plan's resumption contract](../plans/2026-08-25-private-companion-repository.md#resumption-contract),
 [its recorded rehearsal](../plans/2026-08-25-private-companion-repository.md#execution-checkpoint--2026-08-27-clean-machine-rehearsal-linux),
-and [the v1.8.28 changelog entry](../../CHANGELOG.md#1828---2026-08-28).
+and [the v1.8.28 changelog entry](../../CHANGELOG.md#1828---2026-08-27).
 
 ## Evidence
 
@@ -31,7 +31,7 @@ and [the v1.8.28 changelog entry](../../CHANGELOG.md#1828---2026-08-28).
   workflow. Its file list includes the bootstrap implementation and tests, maintainer recovery
   runbook, agent guidance, session-closeout skill, README, and changelog.
 - The public interface is documented as `npm run bootstrap:private` in
-  [README.md](../../README.md#development), while the complete public recovery path is in
+  [README.md](../../README.md#getting-started), while the complete public recovery path is in
   [the maintainer workstation runbook](../runbooks/maintainer-workstation-recovery.md).
 - The plan records a real Linux clean-machine rehearsal that recovered credentials access, both
   checkouts, local development, Supabase link state, the full public verification suite, and backup
@@ -72,7 +72,7 @@ and [the v1.8.28 changelog entry](../../CHANGELOG.md#1828---2026-08-28).
    [#241](https://github.com/jwh3times/magic-agenda/issues/241) →
    [#242](https://github.com/jwh3times/magic-agenda/issues/242). #239 is deliberately additive
    schema first because migrations and the deployed client race. This chain is marked
-   `ready-for-agent` and is also represented in [ROADMAP.md](../../ROADMAP.md#phase-4--productivity--personalization).
+   `ready-for-agent` and is also represented in [ROADMAP.md](../../ROADMAP.md).
 
 4. **Keep #166 ahead of reminders implementation, but route it to a human modeling session.**
    [#166](https://github.com/jwh3times/magic-agenda/issues/166) must settle schedule placement,

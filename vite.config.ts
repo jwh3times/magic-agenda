@@ -60,8 +60,7 @@ export default defineConfig({
     // Vitest's default `include` matches the whole repo, so without this the RLS integration
     // tests -- and the Playwright specs under tests/e2e/ -- would be swept into `npm test`,
     // which must never need Docker, a database, or a browser.
-    // scripts/sync-agents.test.mjs and scripts/lint-agent-neutrality.test.mjs are shared verbatim
-    // across repositories and use node:test, so CI runs them with `node --test` in the `Agents` job
+    // The canonical scripts' tests are shared verbatim across repositories and use node:test, so CI runs them with `node --test` in the `Agents` job
     // instead.
     exclude: [
       ...configDefaults.exclude,
@@ -69,6 +68,10 @@ export default defineConfig({
       'tests/**',
       'scripts/sync-agents.test.mjs',
       'scripts/lint-agent-neutrality.test.mjs',
+      'scripts/sync-main.test.mjs',
+      'scripts/next-version.test.mjs',
+      'scripts/check-changelog.test.mjs',
+      'scripts/check-docs.test.mjs',
     ],
     // Hermetic: tests never touch a real project (getSession is local-only anyway).
     // Port 1 is privileged (root can bind it) but nothing listens there, so an unmocked call

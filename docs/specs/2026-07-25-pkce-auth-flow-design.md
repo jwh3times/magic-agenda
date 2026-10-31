@@ -5,7 +5,7 @@
 - **Revised:** 2026-07-25 (post-review) — `verifyOtp` emits `PASSWORD_RECOVERY` itself so
   `AuthProvider` is unchanged; single-use-token re-entry rules for `/auth/reset`; StrictMode
   once-guards; residual-risk acceptance; cutover note extended to signup confirmations
-- **Drives:** Finding 1 of [`private/2026-07-25-security-review.md`](../../private/2026-07-25-security-review.md)
+- **Drives:** Finding 1 of `private/2026-07-25-security-review.md`
   (Medium — session fixation via unbound implicit-flow tokens)
 
 ## Problem

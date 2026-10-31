@@ -81,5 +81,6 @@ work state); credential values.
 
 ## Docs validation
 
+- `node scripts/check-docs.mjs`
 - `npm run format:check` — Prettier covers every Markdown file outside `.prettierignore`.
 - `npm run check:claude-md`

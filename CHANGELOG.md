@@ -12,6 +12,16 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.59] - 2026-10-31
+
+### Internal
+
+- **The version, changelog, docs and sync scripts are now the canonical ones from `jwh3times/skills`,**
+  and the shared skills are refreshed to match. The `Changelog` rules are unchanged. The `Agents` job
+  now runs `node scripts/check-docs.mjs`: local links and anchors must resolve, and the doc map must
+  list every document. Five stale links in `CHANGELOG.md` and two dated documents are repaired or
+  unlinked for it.
+
 ## [1.17.58] - 2026-10-31
 
 ### Changed
@@ -5237,7 +5247,7 @@ translate host name`. The runbook now connects through the Session pooler
 ### Internal
 
 - **Codex's agent config is now generated from Claude's, not hand-copied.** `.claude/` is the single
-  source of truth: [`scripts/sync-codex.mjs`](./scripts/sync-codex.mjs) converts
+  source of truth: `scripts/sync-codex.mjs` converts
   `.claude/agents/<name>.md` into `.codex/agents/<name>.toml` and copies `.claude/skills/<name>/` to
   `.agents/skills/<name>/`, which is where Codex actually looks for each. Both generated trees are
   committed, so a Codex session picks up the same `docs-updater`, `code-reviewer`, and `ship`
@@ -5550,7 +5560,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.58...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.59...HEAD
+[1.17.59]: https://github.com/jwh3times/magic-agenda/compare/v1.17.58...v1.17.59
 [1.17.58]: https://github.com/jwh3times/magic-agenda/compare/v1.17.57...v1.17.58
 [1.17.57]: https://github.com/jwh3times/magic-agenda/compare/v1.17.56...v1.17.57
 [1.17.56]: https://github.com/jwh3times/magic-agenda/compare/v1.17.55...v1.17.56
