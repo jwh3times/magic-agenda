@@ -146,11 +146,28 @@ test.describe('cancelling a drag (#583)', () => {
     await page.mouse.move(to.x, to.y, { steps: 12 })
   }
 
+  /**
+   * Carries the Inbox card over `onto` until it has moved out of the Inbox on screen. Its row can be
+   * replaced during the hover, by a late realtime event from seeding for one, which sends it back.
+   * dnd-kit doesn't report the same target twice, so that takes going back and hovering again.
+   */
+  async function hoverOutOfInbox(page: Page, onto: Locator) {
+    const from = await centre(inbox(page).getByText(UNSCHEDULED, { exact: true }))
+    const to = await centre(onto)
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(from.x + 10, from.y + 10, { steps: 3 })
+    await expect(async () => {
+      await page.mouse.move(from.x, from.y, { steps: 2 })
+      await page.mouse.move(to.x, to.y, { steps: 12 })
+      await expect(inbox(page).getByText(UNSCHEDULED)).toHaveCount(0, { timeout: 1000 })
+    }).toPass({ timeout: 10000 })
+  }
+
   for (const view of ['calendar', 'week'] as const) {
     test(`Escape after a hover move puts the Task back (${view})`, async ({ page }) => {
       await open(page, view)
-      await carry(page, UNSCHEDULED, page.getByText(FIRST, { exact: true }))
-      await expect(inbox(page).getByText(UNSCHEDULED)).toHaveCount(0)
+      await hoverOutOfInbox(page, page.getByText(FIRST, { exact: true }))
 
       await page.keyboard.press('Escape')
       await page.mouse.up()
@@ -198,8 +215,7 @@ test.describe('cancelling a drag (#583)', () => {
 
   test('a later drag on the same lane does not save the cancelled move', async ({ page }) => {
     await open(page, 'calendar')
-    await carry(page, UNSCHEDULED, page.getByText(FIRST, { exact: true }))
-    await expect(inbox(page).getByText(UNSCHEDULED)).toHaveCount(0)
+    await hoverOutOfInbox(page, page.getByText(FIRST, { exact: true }))
     await page.keyboard.press('Escape')
     await page.mouse.up()
 
