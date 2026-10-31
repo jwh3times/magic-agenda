@@ -12,6 +12,41 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.56] - 2026-10-31
+
+### Added
+
+- **Settings has a Sign out button.** It is in the Profile section at every width, including when the
+  app has started offline, and it uses the same path as the toolbar's button, so it still removes
+  this device from reminders first.
+
+### Changed
+
+- **On a phone, the board gets about 200px more height.** At 760px wide or less, the header now takes
+  two rows, and search, the label and status filters, Pinned, Assigned to me, and Select stay hidden
+  until the new **Search and filters** button opens them, in all four views. To make the two rows
+  fit, New task shows as `+`, the logo shows only its tile, and Sign out moves to Settings. Desktop
+  is unchanged.
+- **A filtered board says so on a phone.** The Search and filters button shows a dot while any filter
+  is active, even with the controls shut, and screen readers hear "filters active" in its name.
+- **The search shortcut and the command palette's Search tasks open the controls** on a phone-width
+  screen before focusing the search box, which would otherwise not be there to focus.
+
+### Internal
+
+- **The authenticated Board has phone-width E2E checks.** `smoke.spec.ts` covers all four views at
+  390×844 and each theme's header at 360×800, including the longest month name and a two-digit
+  overdue count. They measure the Board's own layers, because `.app-root` is `overflow: hidden` and
+  clips anything too wide before the document can report it. The `board-calendar-cork-mobile` and
+  `settings-cork` visual baselines are refreshed for the new header and button.
+
+## [1.17.55] - 2026-10-30
+
+### Internal
+
+- Dependabot: bumped the `npm-minor-and-patch` group (#559) — `oxlint` 1.89.0 → 1.90.0, a development
+  dependency. Backfilled by v1.17.56, per the changelog guard's Dependabot exemption.
+
 ## [1.17.54] - 2026-10-30
 
 ### Internal
@@ -5474,7 +5509,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.54...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.56...HEAD
+[1.17.56]: https://github.com/jwh3times/magic-agenda/compare/v1.17.55...v1.17.56
+[1.17.55]: https://github.com/jwh3times/magic-agenda/compare/v1.17.54...v1.17.55
 [1.17.54]: https://github.com/jwh3times/magic-agenda/compare/v1.17.53...v1.17.54
 [1.17.53]: https://github.com/jwh3times/magic-agenda/compare/v1.17.52...v1.17.53
 [1.17.52]: https://github.com/jwh3times/magic-agenda/compare/v1.17.51...v1.17.52

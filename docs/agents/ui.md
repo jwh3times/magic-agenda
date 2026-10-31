@@ -17,9 +17,9 @@ board. The shell height is the `.app-root` CSS class (`100dvh` with a `100vh` fa
 styles cannot express the fallback, so do not move it back into `rootStyle`. Form fields use >=16px
 text on mobile (smaller triggers iOS Safari's focus zoom).
 
-**The phone controls (#564) sit behind one toolbar button in all four views.** Below the breakpoint
-`SearchFilterBar` (search, the Label and status filters, Pinned, Assigned to me, and Select) is not
-mounted until the "Search and filters" button in `Toolbar` opens it. It opens inline and pushes the
+**The phone controls (#564) sit behind one toolbar button in all four views.** At or below the
+breakpoint `SearchFilterBar` (search, the Label and status filters, Pinned, Assigned to me, and
+Select) is not mounted until the "Search and filters" button in `Toolbar` opens it. It opens inline and pushes the
 board down, so it is not a modal. Five things are easy to break:
 
 - **A filter outlives the bar.** `filter` and the open state are separate in `Board`, so shutting the
@@ -29,12 +29,12 @@ board down, so it is not a modal. Five things are easy to break:
 - **The search shortcut and the palette's search action must open the bar first.** `focusSearch`
   uses `flushSync`, because the input does not exist until the bar renders and iOS Safari raises the
   keyboard only for a `focus()` made during the tap that asked for it. An effect would run too late.
-- **Selection belongs to the action bar, not to the controls.** Select only starts it. Shutting the
-  bar leaves selection running, and `BulkActionBar`'s Done ends it.
+- **Selection belongs to the action bar, not to the controls.** Select toggles it while the bar is
+  open, but shutting the bar leaves selection running, and `BulkActionBar`'s Done ends it.
 - **The two rows are measured, not assumed.** Row one holds the logo's tile, `ViewSwitcher` with its
   `compact` buttons, the controls button, and Settings. Row two holds `BoardSwitcher`, the date
-  controls, and New task, which shows only `+` but keeps "+ New task" as its accessible name. Row two
-  wraps instead of overflowing: the Board creator takes a line of its own while it is open, and a
+  controls (Calendar and Week only), and New task, which shows only `+` but keeps "+ New task" as its
+  accessible name. Row two wraps instead of overflowing: the Board creator takes a line of its own while it is open, and a
   window under about 340px gets a third row. `smoke.spec.ts` (`phone-width board`) checks all four
   views at 390×844 and every theme's fit at 360×800, since jsdom has no layout engine. It measures
   the shell's layers rather than the document, because `.app-root` is `overflow: hidden` and clips
@@ -218,8 +218,9 @@ disclosure. Bars use the per-theme **`chartMark`** token, which is held to 3:1 a
 **The toolbar is not a card, so its controls come from `toolbarChrome` in `src/theme/chrome.ts` (#483),
 not from `controls.ts`.** Every toolbar is dark (glass's is translucent), and the card factories are
 tuned for paper. **Every toolbar control shares `TOOLBAR_CONTROL_HEIGHT` (34px, border-box):**
-Settings (`iconBtn`, a square), New task (`addBtn`), Sign out and Today (`todayBtn`), and the
-arrows (`navBtn`). Settings, New task, and Sign out sit side by side and used to be three heights.
+Settings and the phone's controls button (`iconBtn`, a square), New task (`addBtn`, also square on a
+phone), Sign out and Today (`todayBtn`), and the arrows (`navBtn`). On desktop, Settings, New task,
+and Sign out sit side by side and used to be three heights.
 Keep a border, margin, or glyph from setting one control's size; `controls.test.ts` pins the shared
 height. The Board switcher's `select` and `field` styles keep 16px text (iOS zoom) and set
 `colorScheme: 'dark'`, so the native option list is light on dark in every theme. Its options also
