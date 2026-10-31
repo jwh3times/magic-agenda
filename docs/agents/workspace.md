@@ -23,8 +23,7 @@ issue, a PR, a log or a chat transcript; a bare commit SHA may.
 - `dist/` — build output (`npm run build`).
 - `supabase/.temp/pgdelta/` — a regenerable schema-diff cache, and the only cache under
   `supabase/.temp/`.
-- Untracked one-off scratch at the repository root (`*.sql`, `*.mjs`, `*.json`, `*.md` written to
-  poke at something).
+- `*.tsbuildinfo` — the incremental typecheck cache; deleting it only makes the next `tsc -b` slow.
 
 ## Never-remove paths
 
@@ -34,7 +33,6 @@ issue, a PR, a log or a chat transcript; a bare commit SHA may.
 - `supabase/.temp/` (all but `pgdelta/`) and `supabase/.branches/` — Supabase CLI link state.
   Deleting it unlinks the project, and relinking needs the database password.
 - `node_modules/`, `supabase/functions/node_modules/` — reinstallable, but not cleanup.
-- `*.tsbuildinfo` — the incremental typecheck cache; deleting it only makes the next `tsc -b` slow.
 - `.superpowers/` — workflow scratch that may still be mid-flight: ask first.
 
 ## Dev stack
