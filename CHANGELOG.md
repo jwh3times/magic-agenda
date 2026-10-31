@@ -12,7 +12,7 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
-## [1.17.57] - 2026-10-31
+## [1.17.58] - 2026-10-31
 
 ### Internal
 
@@ -21,6 +21,18 @@ No unreleased changes.
   now runs `node scripts/check-docs.mjs`: local links and anchors must resolve, and the doc map must
   list every document. Five stale links in `CHANGELOG.md` and two dated documents are repaired or
   unlinked for it.
+
+## [1.17.57] - 2026-10-31
+
+### Internal
+
+- **The accessibility suite now scans the phone layout.** Every scan ran at the desktop viewport, so
+  nothing that renders only at 760px wide or less ever reached axe. The Calendar Board is now scanned
+  at 390×844 in all three themes, with the controls shut and open. These scans find only the two
+  families already accepted, at the same counts as the desktop Board, and the app does not change.
+  Each scan waits for a button only the phone layout has, so a lost viewport fails instead of quietly
+  scanning desktop. Phone Week, Agenda and Kanban, the task editor, and Settings are not scanned yet
+  (#576).
 
 ## [1.17.56] - 2026-10-31
 
@@ -5519,7 +5531,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.57...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.58...HEAD
+[1.17.58]: https://github.com/jwh3times/magic-agenda/compare/v1.17.57...v1.17.58
 [1.17.57]: https://github.com/jwh3times/magic-agenda/compare/v1.17.56...v1.17.57
 [1.17.56]: https://github.com/jwh3times/magic-agenda/compare/v1.17.55...v1.17.56
 [1.17.55]: https://github.com/jwh3times/magic-agenda/compare/v1.17.54...v1.17.55
