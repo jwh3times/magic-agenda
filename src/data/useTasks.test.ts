@@ -1604,7 +1604,7 @@ test('an action still saving when a later write starts offers no undo', async ()
   expect(result.current.lastUndo).toBeNull()
 })
 
-test('a drag origin left by a cancelled drag is not inherited after a reload', async () => {
+test('a drag after a cancel and a reload undoes to where the reload put the Task', async () => {
   h.capture.rows = [
     serverRow({ id: 't1', title: 'dragged', day: '2026-07-01', order_index: 0 }),
     serverRow({ id: 't2', day: '2026-07-02', order_index: 0 }),
@@ -1612,7 +1612,7 @@ test('a drag origin left by a cancelled drag is not inherited after a reload', a
   const { result } = renderHook(() => useTasks('u1', 'b1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))
 
-  // A drag that hovers and is cancelled: an origin is recorded, nothing persists.
+  // A drag that hovers and is cancelled, so nothing persists.
   act(() =>
     result.current.previewReorder(
       result.current.tasks.map((t) => (t.id === 't1' ? { ...t, day: '2026-07-03' } : t)),
@@ -1637,7 +1637,7 @@ test('a drag origin left by a cancelled drag is not inherited after a reload', a
   await act(async () => {
     await result.current.undo()
   })
-  // Restored to where the reload put it, not to the stale pre-cancel origin.
+  // Restored to where the reload put it, not to the board before the cancelled drag.
   expect(result.current.tasks.find((t) => t.id === 't1')?.day).toBe('2026-07-05')
 })
 
@@ -1717,23 +1717,70 @@ describe('cancelling a drag', () => {
     expect(calls[calls.length - 1][0].find((row) => row.id === 't1')?.day).toBe('2026-07-01')
   })
 
-  test('keeps a remote change that landed during the drag, by reloading', async () => {
+  test('keeps a remote change that landed during the drag, with no reload', async () => {
+    const { result } = await renderBoard()
+    h.capture.rows = []
+    act(() => result.current.previewReorder(hoverOtherLane(result.current.tasks)))
+
+    const renamed = serverRow({ id: 't3', title: 'renamed', day: '2026-07-02', order_index: 0 })
+    act(() => h.capture.handler!({ eventType: 'UPDATE', new: renamed, old: {} }))
+    act(() => result.current.cancelReorder())
+
+    expect(result.current.tasks.find((t) => t.id === 't1')?.day).toBe('2026-07-01')
+    expect(result.current.tasks.find((t) => t.id === 't3')?.title).toBe('renamed')
+    expect(result.current.loading).toBe(false)
+    expect(h.upsert).not.toHaveBeenCalled()
+  })
+
+  test('keeps a load that settled during the drag', async () => {
     const { result } = await renderBoard()
     act(() => result.current.previewReorder(hoverOtherLane(result.current.tasks)))
 
-    // Another device renames a Task mid-drag, and the server has it.
-    const renamed = serverRow({ id: 't3', title: 'renamed', day: '2026-07-02', order_index: 0 })
-    h.capture.rows = [...twoLanes().slice(0, 2), renamed]
-    act(() => h.capture.handler!({ eventType: 'UPDATE', new: renamed, old: {} }))
-
+    h.capture.rows = [
+      ...twoLanes(),
+      serverRow({ id: 't4', title: 'loaded', day: '2026-07-02', order_index: 1 }),
+    ]
     await act(async () => {
-      result.current.cancelReorder()
-      await Promise.resolve()
+      await result.current.reload()
     })
-    await waitFor(() => expect(result.current.loading).toBe(false))
+    act(() => result.current.cancelReorder())
+
     expect(result.current.tasks.find((t) => t.id === 't1')?.day).toBe('2026-07-01')
-    expect(result.current.tasks.find((t) => t.id === 't3')?.title).toBe('renamed')
-    expect(h.upsert).not.toHaveBeenCalled()
+    expect(result.current.tasks.find((t) => t.id === 't4')?.title).toBe('loaded')
+  })
+
+  // Clicking Pin or Complete is possible during a keyboard drag, and every write forgets Undo. That
+  // must not cost the cancel what it needs, or the preview stays for a later lane write to save.
+  test('still undoes the preview after a local write during the drag', async () => {
+    const { result } = await renderBoard()
+    const moved = hoverOtherLane(result.current.tasks)
+    act(() => result.current.previewReorder(moved))
+
+    const other = result.current.tasks.find((t) => t.id === 't3')!
+    await act(async () => {
+      await result.current.updateTask({ ...other, pinned: true })
+    })
+    // Each hover computes from the current board, so it carries the write along.
+    act(() => result.current.previewReorder(hoverOtherLane(result.current.tasks)))
+    act(() => result.current.cancelReorder())
+
+    expect(result.current.tasks.find((t) => t.id === 't1')?.day).toBe('2026-07-01')
+    expect(result.current.tasks.find((t) => t.id === 't3')?.pinned).toBe(true)
+  })
+
+  test('a drop after a local write during the drag offers no Undo of the move', async () => {
+    const { result } = await renderBoard()
+    const moved = hoverOtherLane(result.current.tasks)
+    act(() => result.current.previewReorder(moved))
+    const other = result.current.tasks.find((t) => t.id === 't3')!
+    await act(async () => {
+      await result.current.updateTask({ ...other, pinned: true })
+    })
+    act(() => result.current.previewReorder(moved))
+    await act(async () => {
+      await result.current.persistReorder(moved, ['2026-07-01', '2026-07-02'], 'day')
+    })
+    expect(result.current.lastUndo).toBeNull()
   })
 
   test('does nothing when the drag previewed nothing', async () => {
