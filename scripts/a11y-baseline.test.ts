@@ -209,6 +209,23 @@ describe('parseScanCallSites', () => {
     expect(parseScanCallSites(src)).toEqual(['board-cork', 'board-brutal', 'board-glass'])
   })
 
+  it('expands the phone templates against the theme literals in the same source', () => {
+    const src = `
+      for (const theme of ['cork', 'brutal', 'glass'] as Theme[]) {
+        await scanAndAssert(page, \`phone-board-\${theme}\`)
+        await scanAndAssert(page, \`phone-controls-\${theme}\`)
+      }
+    `
+    expect(parseScanCallSites(src)).toEqual([
+      'phone-board-cork',
+      'phone-board-brutal',
+      'phone-board-glass',
+      'phone-controls-cork',
+      'phone-controls-brutal',
+      'phone-controls-glass',
+    ])
+  })
+
   // The whole risk of a text-parsing check: if the regex stops matching after a rename or a
   // refactor, it would report "no labels", compare equal to nothing, and pass vacuously. That is
   // the exact silent rot this check exists to prevent, so finding nothing must be an ERROR.
