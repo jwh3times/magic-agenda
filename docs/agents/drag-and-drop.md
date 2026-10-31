@@ -2,6 +2,7 @@
 
 Two pure modules, then thin wiring. `src/dnd/reorder.ts` is the **splice math** (`moveToDay` /
 `moveToStatus`): it reindexes **both** the source and destination lanes on a cross-container move.
+It also holds `revertPreview`, which takes that math back out when a drag is cancelled.
 `src/dnd/resolveDrop.ts` is **every decision** — `modeForView`, `containerOf`, `isBelowOver`,
 `insertionIndex`, and the `resolveDrop` session reducer that accumulates `touched` and `didMove`.
 Neither imports `@dnd-kit/core`. `src/dnd/useBoardDnd.ts` is now only sensors, event mapping, and
@@ -21,6 +22,13 @@ optimistic move the dragged card sits under the cursor as its own drop target), 
 `DragSession.didMove` — `resolveDrop` returns `null` for that event while the session stays
 "moved". Container ids are overloaded on purpose: `dateStr | 'inbox'` (day mode) or a status
 (kanban) identifies a _lane_, and an id matching no task **is** a lane id.
+
+**A cancel undoes what the drag showed (#583).** A hover has already put a cross-lane move in state,
+so `onDragCancel` calls `cancelReorder` when the session's `didMove` is set, and `revertPreview` in
+`reorder.ts` restores only the fields that still hold what the preview showed. Before this the card
+stayed in the other lane, and worse, the next drag on that lane saved it, since `persistReorder` writes
+every Task in a touched lane. Letting go over nothing is not a cancel: on layouts that relocate on
+hover it's a drop, and it persists where the card last moved to.
 
 `useBoardDnd` must be given the **unfiltered** board, even though views render `visibleTasks`.
 Passing the filtered list would corrupt data rather than merely narrow the drag: `persistReorder`

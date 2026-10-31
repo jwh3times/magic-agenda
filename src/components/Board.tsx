@@ -276,13 +276,7 @@ export function Board({
     })
 
   const phoneCalendar = view === 'calendar' && isMobile
-  const dnd = useBoardDnd(
-    view,
-    tasks,
-    taskBoard.previewReorder,
-    taskBoard.persistReorder,
-    phoneCalendar,
-  )
+  const dnd = useBoardDnd(view, tasks, taskBoard, phoneCalendar)
 
   useEffect(() => () => window.clearTimeout(popTimer.current), [])
 

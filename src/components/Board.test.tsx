@@ -56,6 +56,7 @@ function Harness({
     tasks,
     previewReorder: setTasks,
     persistReorder: setTasks,
+    cancelReorder: () => {},
     // This in-memory adapter applies the scope-free cases only; recurrence dispatch is tested
     // directly through resolveSave/resolveDelete in src/data/series.test.ts.
     revisionOf: () => (conflicts ? 5 : undefined),

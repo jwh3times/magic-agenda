@@ -48,7 +48,10 @@ any of these (each is a correctness bug, not a preference):
    the **unfiltered** board. Nothing inside a card may set `touchAction: 'none'`, which stops a
    swipe over it scrolling on a phone. A phone Calendar drop target registers through
    `useDropTarget`, and `useBoardDnd` maps its id back to a lane before `resolveDrop` runs. A
-   drop-only move must call `previewReorder` before persisting, or it offers no Undo.
+   drop-only move must call `previewReorder` before persisting, or it offers no Undo. A cancel
+   must take a hover's move back out through `cancelReorder` and write nothing, or the next drag
+   on that lane saves it; `revertPreview` restores per field, never the whole pre-drag board, which
+   would undo changes that landed during the drag.
 5. **Theming stays inline-style objects** with per-theme branching — do not accept a CSS-variable
    refactor of `src/theme/`.
 6. **Schema workflow.** A migration under `supabase/migrations/` auto-applies to production on

@@ -39,7 +39,7 @@ import { captureTaskAttachments, restoreAttachments, type Attachment } from './a
 import { newId } from '../lib/id'
 import { ymd } from '../lib/dates'
 import { isSeriesDefinition, type SeriesDefinition, type Task, type TaskDraft } from '../types/task'
-import type { Mode } from '../dnd/reorder'
+import { revertPreview, type Mode } from '../dnd/reorder'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 import type { Database, Json } from '../types/database.types'
 import type { SaveConflict, TaskBoard } from './taskBoardContext'
@@ -223,13 +223,15 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
   const boardGen = useRef(0)
   // The board as it was when the current drag began. `previewReorder` replaces state on every
   // hover, so by the time a drop persists, `tasksRef` already holds the moved board. Stamped with
-  // both generations and the Board, because a drag can be cancelled without persisting: a later
-  // drag must not inherit an origin that predates writes, reloads, or remote changes since.
+  // both generations and the Board, because something else can change the board during a drag, and
+  // Undo must not then restore this stale copy. `shown` is the latest preview, which is what a cancel
+  // takes back out. A drag's drop or cancel clears all of this, so it never outlives the drag.
   const dragOrigin = useRef<{
     writeGen: number
     boardGen: number
     boardId: string
     tasks: Task[]
+    shown: Task[]
   } | null>(null)
   const originIsCurrent = useCallback(
     (origin: typeof dragOrigin.current): origin is NonNullable<typeof origin> =>
@@ -243,7 +245,6 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
   const forgetUndo = useCallback(() => {
     writeGen.current += 1
     setUndoable(null)
-    dragOrigin.current = null
     return writeGen.current
   }, [])
   const offerUndo = useCallback(
@@ -269,17 +270,22 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
 
   const previewReorder = useCallback(
     (next: Task[]) => {
-      if (!originIsCurrent(dragOrigin.current)) {
+      // Only the first preview of a drag records the board. A later one holds the moved board, and
+      // recording that would have Undo "restore" the move itself.
+      if (dragOrigin.current?.boardId === boardId) {
+        dragOrigin.current.shown = next
+      } else {
         dragOrigin.current = {
           writeGen: writeGen.current,
           boardGen: boardGen.current,
           boardId,
           tasks: tasksRef.current,
+          shown: next,
         }
       }
       setTasks(next)
     },
-    [setTasks, originIsCurrent, boardId],
+    [setTasks, boardId],
   )
 
   /**
@@ -827,6 +833,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
   const persistReorder = useCallback(
     async (next: Task[], containers: string[], mode: Mode) => {
       const origin = originIsCurrent(dragOrigin.current) ? dragOrigin.current.tasks : null
+      dragOrigin.current = null
       const generation = forgetUndo()
       setTasks(next)
       const moved = next.filter((t) => containers.includes(mode === 'day' ? t.day : t.status))
@@ -842,7 +849,8 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
         settleWrites(data)
         recordRevisions(revisions.current, data)
         if (cameBackShort(rows, data)) void reloadAfterWrite()
-        // Undo needs the pre-drag board; a drop without one (another write intervened) has none.
+        // Undo needs the pre-drag board; a drop without one (something else changed the board during
+        // the drag) has none.
         if (origin) {
           const before = new Map(origin.map((t) => [t.id, t]))
           const relocated = moved.filter((t) => {
@@ -876,6 +884,13 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       originIsCurrent,
     ],
   )
+
+  const cancelReorder = useCallback(() => {
+    const origin = dragOrigin.current
+    dragOrigin.current = null
+    if (origin?.boardId !== boardId) return
+    setTasks((current) => revertPreview(current, origin.tasks, origin.shown))
+  }, [setTasks, boardId])
 
   const rollForward = useCallback(
     async (todayStr: string, onlyIds?: ReadonlySet<string>) => {
@@ -1309,6 +1324,7 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
     removeTask,
     toggleCompletion,
     persistReorder,
+    cancelReorder,
     rollForward,
     getTemplate,
     saveTask,

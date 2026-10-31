@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { moveToDay, moveToStatus } from './reorder'
+import { moveToDay, moveToStatus, revertPreview } from './reorder'
 import { asTask, NO_RECUR, type Task, type TaskDraft, type WorkflowStatus } from '../types/task'
 
 const NOW = '2026-09-03T14:45:00.000Z'
@@ -167,5 +167,69 @@ describe('moveToStatus', () => {
     const tasks = base()
     moveToStatus(tasks, 'a', 'completed', 0, NOW)
     expect(tasks.find((x) => x.id === 'a')!.status).toBe('todo')
+  })
+})
+
+describe('revertPreview', () => {
+  const DAY = '2026-07-01'
+  const OTHER = '2026-07-02'
+  const before = [
+    t('a', { day: DAY, order: 0, atTime: '09:00' }),
+    t('b', { day: DAY, order: 1 }),
+    t('c', { day: OTHER, order: 0 }),
+  ]
+  const shown = moveToDay(before, 'a', OTHER, 1)
+  const find = (tasks: Task[], id: string) => tasks.find((x) => x.id === id)!
+
+  it('puts every lane the preview reindexed back', () => {
+    const next = revertPreview(shown, before, shown)
+    expect(find(next, 'a')).toMatchObject({ day: DAY, order: 0, atTime: '09:00' })
+    expect(find(next, 'b').order).toBe(1)
+    expect(find(next, 'c').order).toBe(0)
+  })
+
+  it('undoes a move to the Inbox, including the Due Time it cleared', () => {
+    const toInbox = moveToDay(before, 'a', 'inbox', 0)
+    expect(find(toInbox, 'a').atTime).toBeNull()
+    expect(find(revertPreview(toInbox, before, toInbox), 'a')).toMatchObject({
+      day: DAY,
+      atTime: '09:00',
+    })
+  })
+
+  it('undoes a move across Workflow Statuses, including its Completion fields', () => {
+    const toDone = moveToStatus(before, 'a', 'completed', 0, NOW)
+    expect(find(toDone, 'a').completedAt).toBe(NOW)
+    expect(find(revertPreview(toDone, before, toDone), 'a')).toMatchObject({
+      status: 'todo',
+      completedAt: null,
+    })
+  })
+
+  it('keeps an edit to another field of the dragged Task', () => {
+    const current = shown.map((x) => (x.id === 'a' ? { ...x, title: 'renamed remotely' } : x))
+    const a = find(revertPreview(current, before, shown), 'a')
+    expect(a.title).toBe('renamed remotely')
+    expect(a.day).toBe(DAY)
+  })
+
+  it('keeps a placement something else set since the preview', () => {
+    const elsewhere = '2026-07-09'
+    const current = shown.map((x) => (x.id === 'c' ? { ...x, day: elsewhere, order: 7 } : x))
+    expect(find(revertPreview(current, before, shown), 'c')).toMatchObject({
+      day: elsewhere,
+      order: 7,
+    })
+  })
+
+  it('keeps a row that arrived during the drag, and stays out of one that left', () => {
+    const current = [...shown.filter((x) => x.id !== 'c'), t('new', { day: OTHER, order: 3 })]
+    const next = revertPreview(current, before, shown)
+    expect(next.map((x) => x.id).sort()).toEqual(['a', 'b', 'new'])
+    expect(find(next, 'new')).toMatchObject({ day: OTHER, order: 3 })
+  })
+
+  it('returns the same board when the preview has already gone', () => {
+    expect(revertPreview(before, before, shown)).toBe(before)
   })
 })

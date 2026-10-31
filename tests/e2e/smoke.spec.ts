@@ -5,6 +5,29 @@ import { testBoardId, testClient } from './fixtures/supabase'
 // No fake clock in this file, deliberately. `page.clock` can invalidate Supabase's JWT expiry
 // checks because the token was issued in real time.
 
+const todaysDay = () => new Date().toISOString().slice(0, 10)
+
+/** One column of a seeded Task's row. A failed query fails the test rather than reading as empty. */
+async function savedColumn(title: string, column: 'day' | 'status') {
+  const client = await testClient()
+  const boardId = await testBoardId(client)
+  const { data, error } = await client
+    .from('tasks')
+    .select(column)
+    .eq('board_id', boardId)
+    .eq('title', title)
+    .single()
+  if (error) throw new Error(`reading ${title} failed: ${error.message}`)
+  return (data as Record<string, string | null>)[column]
+}
+
+/** The Scheduled Day in the database, which an unscheduled Task has none of. */
+async function savedDay(title: string): Promise<string | null> {
+  return savedColumn(title, 'day')
+}
+
+const savedStatus = (title: string) => savedColumn(title, 'status')
+
 test.describe('signed in', () => {
   test('board renders the seeded tasks', async ({ page }) => {
     await seedBoard()
@@ -91,6 +114,117 @@ test.describe('signed in', () => {
     // Playwright's strict mode throws. src/components/Board.test.tsx:53-55 documents the same trap.
     await expect(page.getByRole('status').filter({ hasText: 'Offline.' })).toBeVisible()
     await expect(page.getByText(SEEDED_TITLES[0])).toBeVisible()
+  })
+})
+
+// A hover on these layouts moves the Task on screen straight away, so a cancel has something to undo.
+test.describe('cancelling a drag (#583)', () => {
+  const [FIRST, SCHEDULED, UNSCHEDULED] = SEEDED_TITLES
+
+  const inbox = (page: Page) => page.getByRole('complementary', { name: 'Inbox' })
+
+  async function open(page: Page, view: 'calendar' | 'week') {
+    await seedBoard({ view })
+    await page.goto('/')
+    await expect(inbox(page).getByText(UNSCHEDULED)).toBeVisible()
+    await expect(page.getByText(FIRST)).toBeVisible()
+  }
+
+  async function centre(locator: Locator) {
+    const found = await locator.boundingBox()
+    if (!found) throw new Error('the element did not render')
+    return { x: found.x + found.width / 2, y: found.y + found.height / 2 }
+  }
+
+  /** Picks `title` up and carries it over `onto`, whose lane it then moves into on screen. */
+  async function carry(page: Page, title: string, onto: Locator) {
+    const from = await centre(page.getByText(title, { exact: true }))
+    const to = await centre(onto)
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(from.x + 10, from.y + 10, { steps: 3 })
+    await page.mouse.move(to.x, to.y, { steps: 12 })
+  }
+
+  /**
+   * Carries the Inbox card over `onto` until it has moved out of the Inbox on screen. Its row can be
+   * replaced during the hover, by a late realtime event from seeding for one, which sends it back.
+   * dnd-kit doesn't report the same target twice, so that takes going back and hovering again.
+   */
+  async function hoverOutOfInbox(page: Page, onto: Locator) {
+    const from = await centre(inbox(page).getByText(UNSCHEDULED, { exact: true }))
+    const to = await centre(onto)
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(from.x + 10, from.y + 10, { steps: 3 })
+    await expect(async () => {
+      await page.mouse.move(from.x, from.y, { steps: 2 })
+      await page.mouse.move(to.x, to.y, { steps: 12 })
+      await expect(inbox(page).getByText(UNSCHEDULED)).toHaveCount(0, { timeout: 1000 })
+    }).toPass({ timeout: 10000 })
+  }
+
+  for (const view of ['calendar', 'week'] as const) {
+    test(`Escape after a hover move puts the Task back (${view})`, async ({ page }) => {
+      await open(page, view)
+      await hoverOutOfInbox(page, page.getByText(FIRST, { exact: true }))
+
+      await page.keyboard.press('Escape')
+      await page.mouse.up()
+      await expect(inbox(page).getByText(UNSCHEDULED)).toBeVisible()
+
+      await page.reload()
+      await expect(inbox(page).getByText(UNSCHEDULED)).toBeVisible()
+      expect(await savedDay(UNSCHEDULED)).toBeNull()
+    })
+  }
+
+  test('Escape after a hover move puts the Task back in its Kanban column', async ({ page }) => {
+    await seedBoard({ view: 'kanban' })
+    await page.goto('/')
+    const card = page.getByText(FIRST, { exact: true })
+    await expect(card).toBeVisible()
+    const columnBefore = (await card.boundingBox())?.x
+    const statusBefore = await savedStatus(FIRST)
+    const elsewhere = statusBefore === 'doing' ? 'Completed' : 'In Progress'
+
+    await carry(page, FIRST, page.locator('span', { hasText: new RegExp(`^${elsewhere}$`) }))
+    await page.keyboard.press('Escape')
+    await page.mouse.up()
+
+    // Once the drag overlay's copy of the card has gone.
+    await expect(card).toHaveCount(1)
+    await expect.poll(async () => (await card.boundingBox())?.x).toBe(columnBefore)
+    expect(await savedStatus(FIRST)).toBe(statusBefore)
+  })
+
+  test('a keyboard drag cancelled with Escape puts the Task back', async ({ page }) => {
+    await open(page, 'calendar')
+    await inbox(page).getByRole('button', { name: UNSCHEDULED }).focus()
+    await page.keyboard.press('Space')
+    // The sensor starts listening for arrows a moment after the pick-up, so keep pressing.
+    await expect(async () => {
+      await page.keyboard.press('ArrowLeft')
+      await expect(inbox(page).getByText(UNSCHEDULED)).toHaveCount(0, { timeout: 300 })
+    }).toPass({ timeout: 5000 })
+
+    await page.keyboard.press('Escape')
+    await expect(inbox(page).getByText(UNSCHEDULED)).toBeVisible()
+    expect(await savedDay(UNSCHEDULED)).toBeNull()
+  })
+
+  test('a later drag on the same lane does not save the cancelled move', async ({ page }) => {
+    await open(page, 'calendar')
+    await hoverOutOfInbox(page, page.getByText(FIRST, { exact: true }))
+    await page.keyboard.press('Escape')
+    await page.mouse.up()
+
+    // A real move into the lane the cancelled drag went through, which writes that whole lane.
+    await carry(page, SCHEDULED, page.getByText(FIRST, { exact: true }))
+    await page.mouse.up()
+    await expect.poll(() => savedDay(SCHEDULED)).toBe(todaysDay())
+
+    expect(await savedDay(UNSCHEDULED)).toBeNull()
   })
 })
 
@@ -365,7 +499,6 @@ test.describe('phone-width board', () => {
     })
 
     test.describe('dragging a panel card onto the grid (#566)', () => {
-      const todaysDay = () => new Date().toISOString().slice(0, 10)
       /** A day in the visible month that isn't the selected one: today's neighbour in the grid. */
       async function neighbour(page: Page) {
         const days = page.getByRole('button', { name: /^\w+day \d+ \w+, / })
@@ -386,19 +519,6 @@ test.describe('phone-width board', () => {
         await page.mouse.move(from.x, from.y)
         await page.mouse.down()
         await page.mouse.move(from.x, from.y - 10, { steps: 5 })
-      }
-
-      /** The Scheduled Day in the database, which an unscheduled Task has none of. */
-      async function savedDay(title: string): Promise<string | null> {
-        const client = await testClient()
-        const boardId = await testBoardId(client)
-        const { data } = await client
-          .from('tasks')
-          .select('day')
-          .eq('board_id', boardId)
-          .eq('title', title)
-          .single()
-        return data?.day ? String(data.day) : null
       }
 
       test('a drop lands on the highlighted day, and survives a reload', async ({ page }) => {

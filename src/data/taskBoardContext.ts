@@ -25,6 +25,8 @@ export interface TaskBoard {
   /** Show a drag-over result immediately without exposing useTasks' raw React setter. */
   previewReorder: (next: Task[]) => void
   persistReorder: (next: Task[], containers: string[], mode: Mode) => void | Promise<void>
+  /** Undo what `previewReorder` showed for a drag that was then cancelled. Writes nothing. */
+  cancelReorder: () => void
   /**
    * Resolve recurrence scope and save an editor result.
    *

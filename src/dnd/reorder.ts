@@ -2,12 +2,25 @@ import type { Task, WorkflowStatus } from '../types/task'
 import { INBOX } from '../types/task'
 import { completionDecision } from '../data/completion'
 
+/** The fields a drag can change: where a Task sits, and the Completion lifecycle a status move decides. */
+const PLACEMENT_FIELDS = [
+  'day',
+  'atTime',
+  'order',
+  'korder',
+  'status',
+  'completedAt',
+  'reopenStatus',
+  'archivedAt',
+] as const
+
 /** Whether we are ordering by day (calendar/week) or status (kanban). */
 export type Mode = 'day' | 'status'
 
 /**
- * The splice math, and only the splice math. Deciding *what* to splice — which lane an id
- * belongs to, whether the drop lands above or below, at which index — lives in `resolveDrop.ts`.
+ * The splice math, and `revertPreview` to take it back out of a cancelled drag. Deciding *what* to
+ * splice — which lane an id belongs to, whether the drop lands above or below, at which index —
+ * lives in `resolveDrop.ts`.
  *
  * This module used to also export `findContainer` and `reindex`. Neither had a production call
  * site: `findContainer` was re-implemented (with different fallback behaviour) inside the dnd-kit
@@ -81,4 +94,29 @@ export function moveToStatus(
       .forEach((t, i) => (t.korder = i))
   }
   return next
+}
+
+/**
+ * Takes a cancelled drag's preview back out of the board, leaving everything else that happened.
+ *
+ * A three-way comparison per field, rather than putting `before` back. Other changes reach the board
+ * during a drag: a remote edit, a load or a write that settles, an Occurrence materializing. So a
+ * field goes back only if it still holds what the preview showed, which is proof that nothing else
+ * has set it since. Rows that aren't in both boards weren't part of the preview. Returns `current`
+ * itself when there's nothing to take back.
+ */
+export function revertPreview(current: Task[], before: Task[], shown: Task[]): Task[] {
+  const wasById = new Map(before.map((t) => [t.id, t]))
+  const shownById = new Map(shown.map((t) => [t.id, t]))
+  let changed = false
+  const next = current.map((task) => {
+    const was = wasById.get(task.id)
+    const showing = shownById.get(task.id)
+    if (!was || !showing) return task
+    const moved = PLACEMENT_FIELDS.filter((f) => showing[f] !== was[f] && task[f] === showing[f])
+    if (moved.length === 0) return task
+    changed = true
+    return { ...task, ...Object.fromEntries(moved.map((f) => [f, was[f]])) }
+  })
+  return changed ? next : current
 }

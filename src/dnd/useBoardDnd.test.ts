@@ -59,12 +59,11 @@ describe('useBoardDnd persistence', () => {
 
     const { result, rerender } = renderHook(
       ({ tasks }: { tasks: Task[] }) =>
-        useBoardDnd(
-          'calendar',
-          tasks,
-          setTasks as React.Dispatch<React.SetStateAction<Task[]>>,
+        useBoardDnd('calendar', tasks, {
+          previewReorder: setTasks,
           persistReorder,
-        ),
+          cancelReorder: vi.fn(),
+        }),
       { initialProps: { tasks } },
     )
 
@@ -80,14 +79,49 @@ describe('useBoardDnd persistence', () => {
   })
 })
 
+describe('useBoardDnd cancelling (#583)', () => {
+  function renderBoardDnd() {
+    const reorder = { previewReorder: vi.fn(), persistReorder: vi.fn(), cancelReorder: vi.fn() }
+    const hook = renderHook(() => useBoardDnd('calendar', [inboxTask()], reorder))
+    act(() => hook.result.current.onDragStart(startEvt))
+    return { ...hook, reorder }
+  }
+
+  it('undoes a move the drag previewed on hover', () => {
+    const { result, reorder } = renderBoardDnd()
+    act(() => result.current.onDragOver(overEvt('2026-07-02')))
+    expect(reorder.previewReorder).toHaveBeenCalledTimes(1)
+
+    act(() => result.current.onDragCancel())
+    expect(reorder.cancelReorder).toHaveBeenCalledTimes(1)
+    expect(reorder.persistReorder).not.toHaveBeenCalled()
+  })
+
+  it('has nothing to undo when the drag moved nothing', () => {
+    const { result, reorder } = renderBoardDnd()
+    act(() => result.current.onDragCancel())
+    expect(reorder.cancelReorder).not.toHaveBeenCalled()
+  })
+
+  it('leaves a finished drop alone', () => {
+    const { result, reorder } = renderBoardDnd()
+    act(() => result.current.onDragOver(overEvt('2026-07-02')))
+    act(() => result.current.onDragEnd(endEvt('t1')))
+    act(() => result.current.onDragCancel())
+    expect(reorder.persistReorder).toHaveBeenCalledTimes(1)
+    expect(reorder.cancelReorder).not.toHaveBeenCalled()
+  })
+})
+
 describe('useBoardDnd over a phone grid cell or the Inbox tab', () => {
   const DAY = '2026-11-12'
 
   function renderBoardDnd(tasks: Task[]) {
     const previewReorder = vi.fn()
     const persistReorder = vi.fn()
+    const cancelReorder = vi.fn()
     const hook = renderHook(() =>
-      useBoardDnd('calendar', tasks, previewReorder, persistReorder, true),
+      useBoardDnd('calendar', tasks, { previewReorder, persistReorder, cancelReorder }, true),
     )
     act(() => hook.result.current.onDragStart(startEvt))
     return { ...hook, previewReorder, persistReorder }
@@ -148,7 +182,12 @@ describe('useBoardDnd over a phone grid cell or the Inbox tab', () => {
       calls.push('persist')
     })
     const { result } = renderHook(() =>
-      useBoardDnd('calendar', [inboxTask()], previewReorder, persistReorder, true),
+      useBoardDnd(
+        'calendar',
+        [inboxTask()],
+        { previewReorder, persistReorder, cancelReorder: vi.fn() },
+        true,
+      ),
     )
     act(() => result.current.onDragStart(startEvt))
     act(() => result.current.onDragEnd(endEvt(dropTargetId(DAY))))
