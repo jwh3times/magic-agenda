@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { Link, useLocation } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '../auth/AuthProvider'
 import { ThemeProvider, useTheme } from '../theme/ThemeProvider'
 import { ThemeSwitcher } from '../components/ThemeSwitcher'
@@ -102,13 +102,25 @@ function SettingsShell({ defaultView, onChangeView }: SectionContext) {
   const [active, jumpTo] = useActiveSection(SECTION_IDS, !isMobile)
   const version = buildLabel(buildInfo)
 
+  const goTo = useCallback(
+    (id: string) => {
+      jumpTo(id)
+      goToSection(id)
+    },
+    [jumpTo],
+  )
+
   // A link from elsewhere names its section here, since the URL can't carry one: see `goToSection`.
-  const arrivingAt = (useLocation().state as { section?: string } | null)?.section
+  // One-shot, then scrubbed from history, so a reload or a Back to this entry doesn't jump again.
+  const location = useLocation()
+  const { pathname } = location
+  const navigate = useNavigate()
+  const arrivingAt = (location.state as { section?: string } | null)?.section
   useEffect(() => {
-    if (!arrivingAt || !SECTION_IDS.includes(arrivingAt)) return
-    jumpTo(arrivingAt)
-    goToSection(arrivingAt)
-  }, [arrivingAt, jumpTo])
+    if (!arrivingAt) return
+    if (SECTION_IDS.includes(arrivingAt)) goTo(arrivingAt)
+    void navigate(pathname, { replace: true, state: null })
+  }, [arrivingAt, goTo, navigate, pathname])
 
   const card: CSSProperties = {
     background: conf.cellBg,
@@ -207,8 +219,7 @@ function SettingsShell({ defaultView, onChangeView }: SectionContext) {
                       aria-current={active === s.id ? 'true' : undefined}
                       onClick={(e) => {
                         e.preventDefault()
-                        jumpTo(s.id)
-                        goToSection(s.id)
+                        goTo(s.id)
                       }}
                       style={navItemStyle(theme, conf, active === s.id)}
                     >

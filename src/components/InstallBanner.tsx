@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { readInstallBannerDismissed, writeInstallBannerDismissed } from '../install/bannerDismissal'
 import { shouldSuggestInstalling } from '../install/guidance'
 import { useInstallGuidance } from '../install/useInstallGuidance'
@@ -10,6 +10,12 @@ export function InstallBanner() {
   const { conf } = useTheme()
   const { guidance, install } = useInstallGuidance()
   const [dismissed, setDismissed] = useState(readInstallBannerDismissed)
+
+  // "Installed from this tab" isn't stored, so a reload there would otherwise suggest it again.
+  const justInstalled = guidance.kind === 'just-installed'
+  useEffect(() => {
+    if (justInstalled) writeInstallBannerDismissed()
+  }, [justInstalled])
 
   if (dismissed || !shouldSuggestInstalling(guidance)) return null
 

@@ -886,12 +886,9 @@ test.describe('Install the app', () => {
 
   /** The prompt fires on the Board, and Settings opens later without a reload, as it would for real. */
   async function offerThenOpenSettings(page: Page, outcome: 'accepted' | 'dismissed') {
-    await seedBoard({ theme: 'cork' })
-    await page.goto('/')
-    const settings = page.getByRole('button', { name: 'Settings', exact: true })
-    await settings.waitFor()
+    await openBoard(page)
     await offerPrompt(page, outcome)
-    await settings.click()
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
     await page.getByRole('heading', { name: 'Settings', level: 1 }).waitFor()
   }
 
@@ -987,9 +984,17 @@ test.describe('Install the app', () => {
       await expect(page.getByRole('heading', { name: 'Install the app', level: 2 })).toBeFocused()
       await expect(section(page).getByText("Open your browser's menu")).toBeInViewport()
       expect(page.url()).not.toContain('#')
+
+      // Only the arrival jumps: a reload stays wherever the person has got to.
+      await page.reload()
+      await page.getByRole('heading', { name: 'Settings', level: 1 }).waitFor()
+      await section(page).waitFor()
+      await expect(
+        page.getByRole('heading', { name: 'Install the app', level: 2 }),
+      ).not.toBeFocused()
     })
 
-    test('accepting the prompt takes it away', async ({ page }) => {
+    test('accepting the prompt takes it away, and a reload leaves it gone', async ({ page }) => {
       await openBoard(page)
       await offerPrompt(page, 'accepted')
 
@@ -997,6 +1002,10 @@ test.describe('Install the app', () => {
 
       await expect(section(page)).toHaveCount(0)
       expect(await page.evaluate(() => document.documentElement.dataset.promptShown)).toBe('yes')
+
+      await page.reload()
+      await page.getByRole('button', { name: '+ New task' }).waitFor()
+      await expect(section(page)).toHaveCount(0)
     })
 
     test('leaves the Board usable and on the page', async ({ page }) => {
@@ -1008,6 +1017,26 @@ test.describe('Install the app', () => {
       // The Calendar still takes a press while the suggestion shows.
       await page.getByText(SEEDED_TITLES[0]).click()
       await expect(page.getByRole('button', { name: 'Delete' })).toBeVisible()
+    })
+
+    // Roughly an iPhone's viewport in Safari, shorter than the screen because of the browser's bars.
+    test.describe('at 390×664', () => {
+      test.use({ viewport: { width: 390, height: 664 } })
+
+      test('every week of the month still shows, and it fits the width', async ({ page }) => {
+        await seedBoard({ view: 'calendar' })
+        await page.goto('/')
+        await section(page).waitFor()
+
+        const days = page.getByRole('button', { name: /^\w+day \d+ \w+, / })
+        await expect(days).toHaveCount(42)
+        await expect(days.last()).toBeInViewport({ ratio: 1 })
+        await expect(section(page).getByRole('button', { name: 'Dismiss' })).toBeInViewport({
+          ratio: 1,
+        })
+        const box = await section(page).boundingBox()
+        expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(390)
+      })
     })
 
     test.describe('on a desktop', () => {

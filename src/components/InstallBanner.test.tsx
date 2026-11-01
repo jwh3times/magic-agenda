@@ -89,6 +89,16 @@ test('accepting the prompt takes the banner away', () => {
   expect(banner()).not.toBeInTheDocument()
 })
 
+test('once installed from this tab, a reload does not suggest it again', () => {
+  // The guidance forgets on a reload, and falls back to the steps.
+  const first = showing({ kind: 'just-installed' })
+  first.unmount()
+
+  showing({ kind: 'steps', inAppBrowser: false })
+
+  expect(banner()).not.toBeInTheDocument()
+})
+
 test('dismissing it holds for the next visit', async () => {
   const first = showing({ kind: 'steps', inAppBrowser: false })
 
