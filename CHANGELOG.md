@@ -12,6 +12,15 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.5] - 2026-11-01
+
+### Internal
+
+- **The docs map now sends more changes to the README.** A user-visible feature change points at the
+  feature list, and a top-level `src/` folder, a page in `src/pages/` or an Edge Function being added,
+  renamed or removed points at the project structure tree. The map only named setup, npm script and
+  deployment changes, so nothing asked `docs-updater` to look at either section.
+
 ## [1.18.4] - 2026-11-01
 
 ### Fixed
@@ -5697,7 +5706,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.4...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.5...HEAD
+[1.18.5]: https://github.com/jwh3times/magic-agenda/compare/v1.18.4...v1.18.5
 [1.18.4]: https://github.com/jwh3times/magic-agenda/compare/v1.18.3...v1.18.4
 [1.18.3]: https://github.com/jwh3times/magic-agenda/compare/v1.18.2...v1.18.3
 [1.18.2]: https://github.com/jwh3times/magic-agenda/compare/v1.18.1...v1.18.2
