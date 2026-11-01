@@ -215,7 +215,7 @@ npm run dev      # start the dev server at http://localhost:5173
 src/
 ├─ access/       session-scoped account role and feature-flag hooks
 ├─ admin/        AdminPage API client and aggregate charts
-├─ assets/       the logo SVGs
+├─ assets/       the logo SVG
 ├─ auth/         AuthProvider + ProtectedRoute + the auth gateway (only module calling supabase.auth)
 ├─ board/        Board directory/selection/creation/rename/deletion, role capabilities,
 │                BoardDirectoryProvider
