@@ -68,24 +68,29 @@ Version computation, the `Changelog` backfill rule, the two-PRs-one-version clas
 
 ## Development flow
 
-**Every code change starts from a ready issue.** That means a `ready-for-agent` issue carrying a
-`/to-spec` spec, a `/to-tickets` ticket, or a `/triage` brief, or a `bug` issue you are working
-through `/diagnosing-bugs` (the issue number is required there; a spec is not). With no ready
-issue, stop before the first edit, name the command that routes the user there, and wait. Reading
-code, running tests, and answering questions need no issue.
+<!-- shared:development-flow -->
 
-**The human starts every phase.** `/wayfinder`, `/grill-with-docs`, `/to-spec`, `/to-tickets`,
-`/implement`, and `/triage` stay user-invoked (`disable-model-invocation: true`). At a phase
-boundary, name the next command, give one line of why, and wait. Inside a phase, use `/tdd`,
-`/code-review`, `/diagnosing-bugs`, `/domain-modeling`, `/codebase-design`, `/prototype`, and
-`/research` whenever they fit.
+The flow skills are this repository's binding process for changing code. Read
+`.agents/skills/ship/settings/dev-flow.md` (the routing, exemptions and issue linking) and
+`docs/agents/dev-flow.md` (what this repository adds) before the first edit of a change, and whenever
+no ready issue exists. `/ask-matt` maps the flow itself.
 
-**Exempt:** dependency bumps, changes touching only docs and agent config, release prep, and an
-explicit user waiver recorded in the PR body as `Flow waived by the user: <reason>`. Branches are
-`<type>/<issue#>-<slug>`, and the PR body opens with `Closes #N` or `Part of #N`.
+- **The gate.** Every code edit starts from a ready issue: an open `ready-for-agent` issue whose body
+  is a `/to-spec` spec or a `/to-tickets` ticket or that carries a `/triage` brief, or a `bug` issue
+  worked through `/diagnosing-bugs`, which needs the number and no spec. With none, stop before the
+  first edit and route the user. Reading code, running tests and answering questions need no issue.
+- **Private work.** A ready issue in the private tracker counts. Its number stays out of the branch,
+  the PR, commits and public issues, and it is closed by hand after the merge.
+- **The human starts every phase.** `/wayfinder`, `/grill-with-docs`, `/to-spec`, `/to-tickets`,
+  `/implement` and `/triage` stay user-invoked. At a phase boundary, name the next command, say in
+  one line why, and wait. Inside a phase, use `/tdd`, `/code-review`, `/diagnosing-bugs`,
+  `/domain-modeling`, `/codebase-design`, `/prototype` and `/research` whenever they fit.
+- **Exempt from the gate:** dependency bumps, changes touching only docs and agent config, release
+  prep, and an explicit user waiver recorded in the PR body as `Flow waived by the user: <reason>`.
+- **Linking.** Branches are `<type>/<issue#>-<slug>`; the PR body opens with `Closes #N` or
+  `Part of #N`.
 
-What counts as code, the readiness check, the routing table, and the exemptions in full:
-[Development flow](docs/agents/dev-flow.md).
+<!-- /shared:development-flow -->
 
 ## Architecture (the parts that span multiple files)
 
@@ -179,8 +184,7 @@ the area it covers; do not rely on this page's summaries for it.
   retiring an Edge Function.
 - [**Agents, skills, and docs automation**](docs/agents/tooling.md) — the two authored trees and
   their generated mirrors, `npm run sync:agents`, and which documents a change must keep aligned.
-- [**Development flow**](docs/agents/dev-flow.md) — the ready-issue gate, what counts as code,
-  routing when no issue is ready, the exemptions, and branch / PR issue linking.
+- [**Development flow**](docs/agents/dev-flow.md) — what this repository adds to the shared flow.
 - [**Backups**](docs/agents/backups.md) — the nightly encrypted dump, what the bundle must contain,
   and what a restore actually requires.
 
@@ -329,10 +333,8 @@ area detail in `docs/agents/` rather than growing this page. Keep `AGENTS.md`, `
 `CHANGELOG.md` aligned when a change affects project behavior, commands, architecture, or release
 notes.
 
-The `code-reviewer` subagent; the `ship`, `end-session`, `docs-updater`, `handoff` and `lets-go`
-skills, installed from `jwh3times/skills` and configured by the settings files in `docs/agents/`
-(never `npx skills update`); and the two authored trees whose generated mirrors (`.codex/`,
-`.claude/skills/`) must never be hand-edited:
+The `code-reviewer` subagent; the [shared skills](#shared-skills); and the two authored trees whose
+generated mirrors (`.codex/`, `.claude/skills/`) must never be hand-edited:
 [Agents, skills, and docs automation](docs/agents/tooling.md).
 
 ## Backups
@@ -346,6 +348,28 @@ What the bundle must contain, why each verification assertion exists, and what r
 requires: [Backups](docs/agents/backups.md).
 
 ## Agent skills
+
+### Shared skills
+
+<!-- shared:shared-skills -->
+
+`end-session`, `handoff`, `lets-go`, `ship` and `docs-updater` install from `jwh3times/skills`, and
+are never edited here: reinstalling overwrites a local edit. A fix goes upstream, and what they need
+to know about this repository goes in the settings files under `docs/agents/`, which each skill
+proposes on first run. Re-running the install is the update; never run `npx skills update`, which
+leaves `.claude/skills/` linked to its source instead of copied:
+
+```bash
+npx skills add jwh3times/skills -s end-session -s handoff -s lets-go -s ship -s docs-updater -a codex --copy -y
+node scripts/sync-agents.mjs
+```
+
+`scripts/sync-agents.mjs`, `lint-agent-neutrality.mjs`, `check-docs.mjs`, and `sync-main.mjs`,
+`next-version.mjs` and `check-changelog.mjs` where this repository carries them, are canonical in
+`jwh3times/skills` with their tests: fix them there, then copy them here. `sync-agents.mjs` also
+writes the marked blocks in this file: change them in `jwh3times/skills`, not here.
+
+<!-- /shared:shared-skills -->
 
 ### Issue tracker
 
