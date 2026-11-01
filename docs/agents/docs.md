@@ -34,6 +34,8 @@ Settings the shared `docs-updater`, `end-session` and `ship` skills read (instal
   check changes.
 - `SUPPORT.md` — where to ask for help. **When:** the issue templates or the support route change.
 - `CODE_OF_CONDUCT.md`, `LICENSE` — `owner-only`.
+- `THIRD_PARTY_NOTICES.md` — the license notices of third-party files kept here. `owner-only`: report
+  the change when a skill's source changes.
 - `SECURITY.md` — the security model and the reporting route. **When:** a load-bearing boundary it
   describes (RLS, response headers, auth, backups) or the reporting route changes.
 - `ROADMAP.md` — a pointer to GitHub Issues and the board; it lists nothing. **When:** where planned
