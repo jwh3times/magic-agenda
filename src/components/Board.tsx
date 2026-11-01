@@ -4,6 +4,7 @@ import { DndContext, DragOverlay, type ScreenReaderInstructions } from '@dnd-kit
 import { useTheme } from '../theme/ThemeProvider'
 import { DragDisabledContext } from '../dnd/dragContext'
 import { OfflineContext } from '../data/offlineContext'
+import { InstallBanner } from './InstallBanner'
 import { OfflineBanner } from './OfflineBanner'
 import { rootStyle, blobStyles } from '../theme/chrome'
 import {
@@ -552,6 +553,9 @@ export function Board({
             timezone={timezone}
           />
         )}
+
+        {/* Not while read-only: that Board can be an offline fallback with no session behind it. */}
+        {isMobile && !readOnly && <InstallBanner />}
 
         {(!isMobile || controlsOpen) && (
           <SearchFilterBar

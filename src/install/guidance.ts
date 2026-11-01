@@ -18,3 +18,8 @@ export function installGuidance(facts: InstallFacts): InstallGuidance {
   const { inAppBrowser } = facts
   return facts.ios ? { kind: 'ios', inAppBrowser } : { kind: 'steps', inAppBrowser }
 }
+
+/** Whether there's still something to suggest, which there isn't once it's installed. */
+export function shouldSuggestInstalling(guidance: InstallGuidance): boolean {
+  return guidance.kind !== 'in-installed-app' && guidance.kind !== 'just-installed'
+}

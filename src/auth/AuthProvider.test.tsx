@@ -127,9 +127,12 @@ test('SIGNED_OUT clears the remembered board and view, and every offline snapsho
   )
   localStorage.setItem('ma-last-user', 'u1')
   localStorage.setItem('ma-pending-invitation', JSON.stringify({ token: 't', savedAt: Date.now() }))
+  localStorage.setItem('ma-install-banner-dismissed', '1')
   const { result } = renderHook(() => useAuth(), { wrapper })
   await waitFor(() => expect(result.current.loading).toBe(false))
   act(() => fake.emit('SIGNED_OUT', null))
+  // The sweep promises everything, so the banner may come back after the next sign-in (#568).
+  expect(localStorage.getItem('ma-install-banner-dismissed')).toBeNull()
   expect(sessionStorage.getItem('ma-board-view')).toBeNull()
   expect(localStorage.getItem('ma-selected-board')).toBeNull()
   expect(localStorage.getItem('ma-snapshot-board')).toBeNull()

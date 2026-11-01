@@ -341,6 +341,11 @@ test.describe('phone-width board', () => {
   /** The two toolbar rows and their padding, with a little room for a theme's border. */
   const MAX_HEADER_HEIGHT = 96
 
+  // The install suggestion has its own tests below, and these measure the Board without it.
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('ma-install-banner-dismissed', '1'))
+  })
+
   async function openBoard(page: Page, seed: Parameters<typeof seedBoard>[0]) {
     await seedBoard(seed)
     await page.goto('/')
@@ -873,6 +878,12 @@ test.describe('Install the app', () => {
 
   const section = (page: Page) => page.getByRole('region', { name: 'Install the app' })
 
+  async function openBoard(page: Page) {
+    await seedBoard({ theme: 'cork' })
+    await page.goto('/')
+    await page.getByRole('button', { name: '+ New task' }).waitFor()
+  }
+
   /** The prompt fires on the Board, and Settings opens later without a reload, as it would for real. */
   async function offerThenOpenSettings(page: Page, outcome: 'accepted' | 'dismissed') {
     await seedBoard({ theme: 'cork' })
@@ -937,6 +948,76 @@ test.describe('Install the app', () => {
       await expect(page.getByRole('heading', { name: 'Install the app', level: 2 })).toBeFocused()
       await expect(section(page)).toBeInViewport()
       expect(page.url()).not.toContain('#')
+    })
+
+    // A stand-in for the real thing, which only an iPhone can show.
+    test('the installed app opens with no suggestion to install it', async ({ page }) => {
+      await page.addInitScript(() => {
+        const real = window.matchMedia.bind(window)
+        window.matchMedia = (query) =>
+          query === '(display-mode: standalone)'
+            ? ({ matches: true } as MediaQueryList)
+            : real(query)
+      })
+      await openBoard(page)
+
+      await expect(section(page)).toHaveCount(0)
+    })
+  })
+
+  // #568. On the Board, this region is the banner.
+  test.describe('the suggestion on the Board', () => {
+    test('stays dismissed across a reload', async ({ page }) => {
+      await openBoard(page)
+      await expect(section(page).getByRole('link', { name: 'See how' })).toBeVisible()
+
+      await section(page).getByRole('button', { name: 'Dismiss' }).click()
+      await expect(section(page)).toHaveCount(0)
+
+      await page.reload()
+      await page.getByRole('button', { name: '+ New task' }).waitFor()
+      await expect(section(page)).toHaveCount(0)
+    })
+
+    test('leads to the steps in Settings', async ({ page }) => {
+      await openBoard(page)
+
+      await section(page).getByRole('link', { name: 'See how' }).click()
+
+      await expect(page.getByRole('heading', { name: 'Install the app', level: 2 })).toBeFocused()
+      await expect(section(page).getByText("Open your browser's menu")).toBeInViewport()
+      expect(page.url()).not.toContain('#')
+    })
+
+    test('accepting the prompt takes it away', async ({ page }) => {
+      await openBoard(page)
+      await offerPrompt(page, 'accepted')
+
+      await section(page).getByRole('button', { name: 'Install the app' }).click()
+
+      await expect(section(page)).toHaveCount(0)
+      expect(await page.evaluate(() => document.documentElement.dataset.promptShown)).toBe('yes')
+    })
+
+    test('leaves the Board usable and on the page', async ({ page }) => {
+      await seedBoard({ view: 'calendar' })
+      await page.goto('/')
+      await section(page).waitFor()
+      await expect(page.getByRole('dialog')).toHaveCount(0)
+
+      // The Calendar still takes a press while the suggestion shows.
+      await page.getByText(SEEDED_TITLES[0]).click()
+      await expect(page.getByRole('button', { name: 'Delete' })).toBeVisible()
+    })
+
+    test.describe('on a desktop', () => {
+      test.use({ viewport: { width: 1280, height: 720 } })
+
+      test('never shows', async ({ page }) => {
+        await openBoard(page)
+
+        await expect(section(page)).toHaveCount(0)
+      })
     })
   })
 })

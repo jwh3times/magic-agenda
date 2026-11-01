@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { useAuth } from '../auth/AuthProvider'
 import { ThemeProvider, useTheme } from '../theme/ThemeProvider'
 import { ThemeSwitcher } from '../components/ThemeSwitcher'
@@ -101,6 +101,14 @@ function SettingsShell({ defaultView, onChangeView }: SectionContext) {
   const boardSharing = useBoardSharing()
   const [active, jumpTo] = useActiveSection(SECTION_IDS, !isMobile)
   const version = buildLabel(buildInfo)
+
+  // A link from elsewhere names its section here, since the URL can't carry one: see `goToSection`.
+  const arrivingAt = (useLocation().state as { section?: string } | null)?.section
+  useEffect(() => {
+    if (!arrivingAt || !SECTION_IDS.includes(arrivingAt)) return
+    jumpTo(arrivingAt)
+    goToSection(arrivingAt)
+  }, [arrivingAt, jumpTo])
 
   const card: CSSProperties = {
     background: conf.cellBg,

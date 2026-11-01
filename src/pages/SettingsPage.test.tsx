@@ -83,6 +83,25 @@ test('renders the Appearance section with theme and default-view controls', asyn
   expect(screen.getByRole('link', { name: '← Board' })).toHaveAttribute('href', '/')
 })
 
+test('arriving from the Board for the install steps lands on that section', async () => {
+  render(
+    <SettingsProvider>
+      <MemoryRouter initialEntries={[{ pathname: '/settings', state: { section: 'install' } }]}>
+        <SettingsPage />
+      </MemoryRouter>
+    </SettingsProvider>,
+  )
+
+  expect(await screen.findByRole('heading', { name: 'Install the app' })).toHaveFocus()
+})
+
+test('arriving any other way takes focus nowhere', async () => {
+  renderPage()
+
+  await screen.findByRole('heading', { name: 'Install the app' })
+  expect(document.body).toHaveFocus()
+})
+
 test('changing the default view writes the Membership, and only the Membership', async () => {
   renderPage()
   const select = await screen.findByLabelText('Default view')

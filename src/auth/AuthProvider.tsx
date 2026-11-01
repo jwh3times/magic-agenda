@@ -15,6 +15,7 @@ import { clearBoardView } from '../lib/viewStorage'
 import { clearRememberedBoard } from '../board/rememberedBoard'
 import { clearSnapshots } from '../data/snapshot'
 import { clearPendingInvitation } from '../invite/pendingInvitation'
+import { clearInstallBannerDismissed } from '../install/bannerDismissal'
 import { clearLastUserId, writeLastUserId } from '../lib/lastUser'
 import { browserPushGateway, type PushGateway } from '../notifications/pushGateway'
 
@@ -141,6 +142,7 @@ export function AuthProvider({
         // A held Board Invitation (#437) belongs to whoever was about to sign in with it; the next
         // Account on this device must not be routed into someone else's invitation.
         clearPendingInvitation()
+        clearInstallBannerDismissed()
         // Reminders carry Task titles, and the browser's subscription is not tied to an Account:
         // left in place it keeps delivering this Account's reminders to whoever uses the browser
         // next. `signOut` below has already removed the row when it could; this covers every
