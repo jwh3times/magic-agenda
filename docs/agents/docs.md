@@ -24,8 +24,10 @@ Settings the shared `docs-updater`, `end-session` and `ship` skills read (instal
 - `docs/agents/` settings and conventions (`workspace`, `issue-tracker`, `human-follow-up`, `docs`,
   `releases`, `ship`, `handoffs`, `triage-labels`, `domain`) — what the skills read. **When:** a
   convention, route or setting changes.
-- `README.md` — human developers: overview, setup, the commands table, deploy notes. **When:** a
-  setup step, npm script or deployment step changes.
+- `README.md` — human developers: overview, the feature list, setup, the commands table, the project
+  structure tree, deploy notes. **When:** a setup step, npm script or deployment step changes; a
+  user-visible feature changes (the feature list); a top-level `src/` folder, a page in `src/pages/`
+  or an Edge Function is added, renamed or removed (the tree).
 - `CONTRIBUTING.md` — the workflow and standards. **When:** the development flow or a required
   check changes.
 - `SUPPORT.md` — where to ask for help. **When:** the issue templates or the support route change.
