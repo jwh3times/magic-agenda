@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { installGuidance, type InstallFacts } from './guidance'
+import { installGuidance, shouldSuggestInstalling, type InstallFacts } from './guidance'
 
 const browser: InstallFacts = {
   standalone: false,
@@ -53,5 +53,18 @@ describe('installGuidance', () => {
     expect(installGuidance({ ...browser, promptAvailable: true, inAppBrowser: true })).toEqual({
       kind: 'prompt',
     })
+  })
+})
+
+describe('shouldSuggestInstalling', () => {
+  it.each<[string, Partial<InstallFacts>, boolean]>([
+    ['a browser offering its prompt', { promptAvailable: true }, true],
+    ['iPhone or iPad', { ios: true }, true],
+    ['any other browser', {}, true],
+    ["another app's built-in browser", { inAppBrowser: true }, true],
+    ['the installed app', { standalone: true }, false],
+    ['an install just finished', { justInstalled: true }, false],
+  ])('answers for %s', (_name, facts, expected) => {
+    expect(shouldSuggestInstalling(installGuidance({ ...browser, ...facts }))).toBe(expected)
   })
 })

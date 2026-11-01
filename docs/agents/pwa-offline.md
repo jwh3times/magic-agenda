@@ -36,6 +36,22 @@ hook over all of this.
 banner of its own, so a person gets one suggestion (#568) rather than two. The cost is that signed-out
 visitors, who have no install UI, don't get the browser's banner either.
 
+**The Board also suggests installing, on a phone, until dismissed**
+(`src/components/InstallBanner.tsx`). It shows at the 760px breakpoint or narrower, on every view, and
+not while the Board is read-only, because an offline fallback can have no session behind it. It uses
+the same guidance, and `shouldSuggestInstalling()` takes it away in the installed app and once an
+install has happened. Where the browser offers its prompt it has the Install button, and otherwise
+"See how" opens the Settings section. That link passes the section in router state rather than a
+fragment, for the reason `goToSection` gives, and Settings scrubs it on arrival so a reload or a Back
+doesn't jump again. The banner sits in the page above the view and isn't a dialog.
+
+Dismissing it writes `ma-install-banner-dismissed` (`src/install/bannerDismissal.ts`), which the
+sign-out sweep clears, so it can come back after the next sign-in; that cost was accepted. Installing
+from that tab writes the same key, because "installed from this tab" isn't stored and a reload would
+otherwise suggest it again. The Settings section still falls back to the written steps there (#591).
+The phone visual canaries and the `phone-width board` tests set the key, so they measure the Board
+alone; the phone accessibility scans leave the banner showing, so they cover it.
+
 **The words:** the UI says "Install the app", uses "Add to Home Screen" only as the literal iPhone
 step, and never says "PWA".
 
@@ -281,11 +297,12 @@ in the settings and route tests too. A board snapshot's own `boardId`
 field guards against a hand-edited or collided key rendering one Board's tasks under another Board's
 name. **All four are cleared on `SIGNED_OUT`** (`AuthProvider`) — that clearing is the entire
 justification for storing task text at rest in `localStorage` in the first place; see the dated
-security review in `private/` before changing what gets persisted or when it's cleared. Three smaller
+security review in `private/` before changing what gets persisted or when it's cleared. Four smaller
 keys are swept beside them from the same block and are the reason to state the rule as _everything_
 rather than _the snapshots_: `ma-last-user` (`lib/lastUser.ts`), `ma-selected-board`
-(`board/rememberedBoard.ts`, shaped like `lib/viewStorage.ts` and cleared next to it), and
-`ma-pending-invitation` (`src/invite/pendingInvitation.ts`, cleared by the same `SIGNED_OUT` block). The second
+(`board/rememberedBoard.ts`, shaped like `lib/viewStorage.ts` and cleared next to it),
+`ma-pending-invitation` (`src/invite/pendingInvitation.ts`, cleared by the same `SIGNED_OUT` block),
+and `ma-install-banner-dismissed` (`src/install/bannerDismissal.ts`). The second
 was the one exception until #298, harmless on its own — a Board id grants nothing and
 `resolveSelection` falls back when it names a Board the next account cannot see — which is exactly
 why it survived: a rule with a harmless exception is still a rule nobody can rely on. `useTasks`

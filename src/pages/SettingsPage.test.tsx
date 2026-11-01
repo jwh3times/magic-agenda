@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router'
+import { MemoryRouter, useLocation } from 'react-router'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { fakeBoardDirectory, fakeBoardSession } from '../board/fakeBoardDirectory'
 import { fakeLabelDirectory } from '../labels/fakeLabelDirectory'
@@ -81,6 +81,33 @@ test('renders the Appearance section with theme and default-view controls', asyn
   expect(screen.getByRole('heading', { name: 'Appearance' })).toBeInTheDocument()
   expect(screen.getByLabelText('Default view')).toBeInTheDocument()
   expect(screen.getByRole('link', { name: '← Board' })).toHaveAttribute('href', '/')
+})
+
+test('arriving from the Board for the install steps lands on that section, once', async () => {
+  function HistoryState() {
+    return <output aria-label="history state">{JSON.stringify(useLocation().state)}</output>
+  }
+  render(
+    <SettingsProvider>
+      <MemoryRouter initialEntries={[{ pathname: '/settings', state: { section: 'install' } }]}>
+        <SettingsPage />
+        <HistoryState />
+      </MemoryRouter>
+    </SettingsProvider>,
+  )
+
+  expect(await screen.findByRole('heading', { name: 'Install the app' })).toHaveFocus()
+  // Left in history, a reload or a Back to this entry would jump here again and take focus.
+  await waitFor(() =>
+    expect(screen.getByRole('status', { name: 'history state' })).toHaveTextContent('null'),
+  )
+})
+
+test('arriving any other way takes focus nowhere', async () => {
+  renderPage()
+
+  await screen.findByRole('heading', { name: 'Install the app' })
+  expect(document.body).toHaveFocus()
 })
 
 test('changing the default view writes the Membership, and only the Membership', async () => {

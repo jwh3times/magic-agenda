@@ -392,6 +392,33 @@ describe('mobile layout', () => {
     expect(screen.getByText('In Progress', { selector: 'span' })).toBeInTheDocument()
   })
 
+  // ——— the install suggestion (#568) ———
+
+  describe('the install suggestion', () => {
+    const suggestion = () => screen.queryByRole('region', { name: 'Install the app' })
+
+    test('shows on a phone-width Board', () => {
+      stubMobile()
+      renderBoard()
+
+      expect(suggestion()).toBeInTheDocument()
+    })
+
+    test('stays off the desktop Board', () => {
+      renderBoard()
+
+      expect(suggestion()).not.toBeInTheDocument()
+    })
+
+    test('stays off a read-only Board, which may have no session behind it', () => {
+      stubMobile()
+      renderOffline()
+
+      expect(visibleStatus()).toHaveTextContent(/offline/i)
+      expect(suggestion()).not.toBeInTheDocument()
+    })
+  })
+
   // ——— the phone Calendar (#565) ———
 
   describe('the phone Calendar', () => {

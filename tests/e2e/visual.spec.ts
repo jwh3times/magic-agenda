@@ -241,6 +241,11 @@ test.describe('signed in', () => {
   test.describe('mobile', () => {
     test.use({ viewport: MOBILE })
 
+    // The install suggestion is dismissed, so these show the Board alone (#568).
+    test.beforeEach(async ({ page }) => {
+      await page.addInitScript(() => localStorage.setItem('ma-install-banner-dismissed', '1'))
+    })
+
     // Per theme, because the phone Calendar's cells and markers branch on it (#565). Only today's
     // card renders: the second seeded Task is a marker, whose day's spoken name proves it has loaded,
     // and the third is in the Inbox tab, whose count does the same.
