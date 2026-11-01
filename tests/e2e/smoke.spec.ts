@@ -7,8 +7,14 @@ import { testBoardId, testClient } from './fixtures/supabase'
 
 const todaysDay = () => new Date().toISOString().slice(0, 10)
 
+interface SavedRow {
+  day: string | null
+  status: string
+  pinned: boolean
+}
+
 /** A seeded Task's row. A failed query fails the test rather than reading as empty. */
-async function savedRow(title: string) {
+async function savedRow(title: string): Promise<SavedRow> {
   const client = await testClient()
   const boardId = await testBoardId(client)
   const { data, error } = await client
