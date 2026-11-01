@@ -840,3 +840,95 @@ test.describe('phone-width settings', () => {
     })
   }
 })
+
+/**
+ * The Install the app section (#567). Playwright can't install anything and Chromium won't offer a
+ * real prompt here, so a simulated event drives the button's logic: this says nothing about a real
+ * Android phone, which none of this has been checked on.
+ */
+test.describe('Install the app', () => {
+  test.use({ viewport: { width: 390, height: 844 } })
+
+  /** Fire the browser's prompt event, and record on the page whether it gets shown. */
+  const offerPrompt = (page: Page, outcome: 'accepted' | 'dismissed') =>
+    page.evaluate((outcome) => {
+      const event = new Event('beforeinstallprompt', { cancelable: true })
+      Object.assign(event, {
+        prompt: () => {
+          document.documentElement.dataset.promptShown = 'yes'
+          return Promise.resolve()
+        },
+        userChoice: Promise.resolve({ outcome }),
+      })
+      window.dispatchEvent(event)
+    }, outcome)
+
+  const section = (page: Page) => page.getByRole('region', { name: 'Install the app' })
+
+  /** The prompt fires on the Board, and Settings opens later without a reload, as it would for real. */
+  async function offerThenOpenSettings(page: Page, outcome: 'accepted' | 'dismissed') {
+    await seedBoard({ theme: 'cork' })
+    await page.goto('/')
+    const settings = page.getByRole('button', { name: 'Settings', exact: true })
+    await settings.waitFor()
+    await offerPrompt(page, outcome)
+    await settings.click()
+    await page.getByRole('heading', { name: 'Settings', level: 1 }).waitFor()
+  }
+
+  test('a prompt that fired before Settings opened is still there, and accepting it installs', async ({
+    page,
+  }) => {
+    await offerThenOpenSettings(page, 'accepted')
+
+    await section(page).getByRole('button', { name: 'Install the app' }).click()
+
+    await expect(section(page).getByText('Magic Agenda is installed.')).toBeVisible()
+    await expect(section(page).getByRole('button')).toHaveCount(0)
+    expect(await page.evaluate(() => document.documentElement.dataset.promptShown)).toBe('yes')
+  })
+
+  test('dismissing the prompt leaves the written steps', async ({ page }) => {
+    await offerThenOpenSettings(page, 'dismissed')
+
+    await section(page).getByRole('button', { name: 'Install the app' }).click()
+
+    await expect(section(page).getByText("Open your browser's menu")).toBeVisible()
+    await expect(section(page).getByRole('button')).toHaveCount(0)
+  })
+
+  test('the section updates when the browser reports the app installed', async ({ page }) => {
+    await offerThenOpenSettings(page, 'accepted')
+    await section(page).getByRole('button', { name: 'Install the app' }).waitFor()
+
+    await page.evaluate(() => window.dispatchEvent(new Event('appinstalled')))
+
+    await expect(section(page).getByText('Magic Agenda is installed.')).toBeVisible()
+    await expect(section(page).getByRole('button')).toHaveCount(0)
+  })
+
+  test.describe('on an iPhone', () => {
+    test.use({
+      userAgent:
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1',
+    })
+
+    test('Notifications points to the steps', async ({ page }) => {
+      await seedBoard({ theme: 'cork' })
+      await page.goto('/settings')
+      await page.getByRole('heading', { name: 'Settings', level: 1 }).waitFor()
+      await expect(
+        section(page).getByRole('list', { name: 'Steps to install on iPhone or iPad' }),
+      ).toContainText('Add to Home Screen')
+
+      await page
+        .getByRole('region', { name: 'Notifications' })
+        .getByRole('link', { name: 'Install the app' })
+        .click()
+
+      await expect(page.getByRole('heading', { name: 'Install the app', level: 2 })).toBeFocused()
+      await expect(section(page)).toBeInViewport()
+      expect(page.url()).not.toContain('#')
+    })
+  })
+})

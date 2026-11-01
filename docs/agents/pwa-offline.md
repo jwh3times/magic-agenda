@@ -1,5 +1,42 @@
 # Installable PWA and offline read
 
+## Install the app
+
+Settings has an "Install the app" section at every width (`src/components/InstallSection.tsx`). What
+it shows comes from `installGuidance()` (`src/install/guidance.ts`), a pure decision over injected
+facts. In order, the answer is:
+
+1. **The installed app:** a message saying so. This comes first because a Home Screen app's user
+   agent has no `Safari/` token, so it also reads as a built-in browser.
+2. **Installed from this tab:** where to find it. The tab is still a browser tab, so nothing else
+   would tell it apart after the prompt is gone.
+3. **The browser has offered its prompt:** an Install button.
+4. **iPhone or iPad:** Share → Add to Home Screen steps. Their icons are inline SVG in the component,
+   so they work offline and need no CSP source.
+5. **Anything else:** written steps.
+
+The last two also tell someone in another app's built-in browser to open the page in their own
+browser first.
+
+**`src/lib/platform.ts` is the only place that detects iOS, standalone display, and built-in
+browsers.** `pushGateway` and install guidance both read `browserPlatform`, so they can't disagree
+about whether this is an iPhone outside the installed app.
+
+**`beforeinstallprompt` fires once, and Settings is a lazy chunk,** so a listener there would miss
+it. `src/install/installPrompt.ts` starts listening when it loads and `main.tsx` imports it before
+rendering, which holds the event for later. An event works only once, so it is given up when used. A
+dismissal therefore falls back to the written steps until the browser sends another. An accepted
+prompt or an `appinstalled` event moves the section to "installed from this tab"; neither is stored,
+so a reload in that tab shows the written steps. `useInstallGuidance()` is the hook over all of this.
+
+**The words:** the UI says "Install the app", uses "Add to Home Screen" only as the literal iPhone
+step, and never says "PWA".
+
+**What has been checked where.** Chromium never offers a real prompt under test, so `smoke.spec.ts`
+drives the button with a simulated event, which proves its logic and nothing about a real Android
+phone. No Android phone has been available. A person has to check the iPhone steps against what the
+device shows, because the wording depends on the Safari version and layout.
+
 ## Web Push
 
 `src/notifications/pushGateway.ts` owns the browser subscription seam. Settings asks for
@@ -44,10 +81,11 @@ device, because `ready` can stay pending, and Settings applies only its newest r
 Account it was read for. This device has no Remove in the list; the button above removes it with
 `unsubscribe`, which retires both halves.
 
-iOS and iPadOS expose standards-based Web Push only to a Home Screen web app. The Settings section
-therefore gives install guidance before generic feature-detection messaging when it recognizes an
-Apple mobile device outside standalone display mode. The actual capability decision remains feature
-detection; user-agent recognition controls only that more useful explanation.
+iOS and iPadOS expose standards-based Web Push only to a Home Screen web app. The Notifications
+section therefore shows `ios-install-required` before generic feature-detection messaging when it
+recognizes an Apple mobile device outside standalone display mode, with a short sentence pointing to
+[Install the app](#install-the-app). The actual capability decision remains feature detection;
+user-agent recognition controls only that more useful explanation.
 
 `src/sw.ts` handles `push` by always displaying a notification and handles `notificationclick` by
 focusing an existing Magic Agenda window or opening one. `src/sw/notifications.ts` is the pure,

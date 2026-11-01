@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import { useSettingsContext } from '../data/SettingsProvider'
+import { goToSection, sectionId } from '../lib/sectionSpy'
 import { browserPushGateway, type PushDevice, type PushState } from '../notifications/pushGateway'
 import { rowListStyle } from '../theme/controls'
 import { Button, Select } from './controls'
@@ -145,8 +146,18 @@ export function NotificationsSection() {
 
       {push?.availability === 'ios-install-required' && (
         <p style={hint}>
-          On iPhone or iPad, add Magic Agenda to your Home Screen from Safari’s Share menu, then
-          open the installed app to enable notifications (iOS/iPadOS 16.4 or newer).
+          On iPhone and iPad, reminders need the installed app and iOS or iPadOS 16.4 or newer. See{' '}
+          <a
+            href={`#${sectionId('install')}`}
+            onClick={(event) => {
+              event.preventDefault()
+              goToSection('install')
+            }}
+            style={{ color: 'inherit' }}
+          >
+            Install the app
+          </a>
+          .
         </p>
       )}
       {push?.availability === 'unsupported' && (
