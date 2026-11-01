@@ -12,6 +12,13 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.9] - 2026-11-01
+
+### Internal
+
+- **`src/assets/logo.svg` is gone.** Nothing used it: the app imports only `logo-dark.svg`, and the
+  build output is the same without it. The README's project structure tree now says so.
+
 ## [1.18.8] - 2026-11-01
 
 ### Internal
@@ -5731,7 +5738,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.8...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.9...HEAD
+[1.18.9]: https://github.com/jwh3times/magic-agenda/compare/v1.18.8...v1.18.9
 [1.18.8]: https://github.com/jwh3times/magic-agenda/compare/v1.18.7...v1.18.8
 [1.18.7]: https://github.com/jwh3times/magic-agenda/compare/v1.18.6...v1.18.7
 [1.18.6]: https://github.com/jwh3times/magic-agenda/compare/v1.18.5...v1.18.6
