@@ -4,7 +4,7 @@ import { afterEach, describe, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { ThemeProvider } from '../theme/ThemeProvider'
-import { Board, UNDONE_NOTICE } from './Board'
+import { Board, CARRYING_NOTICE, UNDONE_NOTICE } from './Board'
 import { applyToggleCompletion } from '../data/selectors'
 import { describeBulkChange, planBulkUpdate } from '../data/bulk'
 import { countTasks, quoted } from '../data/undo'
@@ -346,6 +346,73 @@ test('Enter dropping a card mid-drag does not also open the editor', async () =>
   await user.keyboard('{Enter}')
 
   expect(screen.queryByText('Edit task')).not.toBeInTheDocument()
+})
+
+// A keyboard drag leaves the pointer free, while a preview has already moved Tasks in state. These
+// actions would save that placement or open an editor on it (#585). Any card, not only the carried
+// one, because a preview renumbers the cards around the move too.
+describe('while a card is carried', () => {
+  const pinOf = (title: string) =>
+    within(cardFor(title)).getByRole('button', { name: /^(Pin|Unpin)$/ })
+  const editorIsOpen = () => screen.queryByPlaceholderText('Task title…') !== null
+
+  async function pickUp(title: string) {
+    const user = userEvent.setup()
+    cardFor(title).focus()
+    await user.keyboard('[Space]')
+    return user
+  }
+
+  test('a card button does nothing and says why', async () => {
+    renderBoard()
+    const pinnedBefore = pinOf('Renew passport').getAttribute('aria-label')
+    const user = await pickUp('Finish Q3 deck')
+
+    await user.click(pinOf('Renew passport'))
+    await user.click(within(cardFor('Renew passport')).getByRole('button', { name: 'Complete' }))
+
+    expect(pinOf('Renew passport')).toHaveAttribute('aria-label', pinnedBefore)
+    expect(
+      within(cardFor('Renew passport')).getByRole('button', { name: 'Complete' }),
+    ).toBeVisible()
+    expect(screen.getByText(CARRYING_NOTICE)).toBeVisible()
+  })
+
+  test('clicking a card or adding a Task opens no editor', async () => {
+    renderBoard()
+    const user = await pickUp('Finish Q3 deck')
+
+    await user.click(screen.getByText('Renew passport'))
+    expect(editorIsOpen()).toBe(false)
+
+    await user.click(screen.getByRole('button', { name: '+ New task' }))
+    expect(editorIsOpen()).toBe(false)
+  })
+
+  test('says so even with an undo offer showing', async () => {
+    renderBoard()
+    const user = userEvent.setup()
+    await user.click(within(cardFor('Renew passport')).getByRole('button', { name: 'Complete' }))
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeVisible()
+
+    cardFor('Finish Q3 deck').focus()
+    await user.keyboard('[Space]')
+    await user.click(pinOf('Renew passport'))
+
+    expect(screen.getByText(CARRYING_NOTICE)).toBeVisible()
+  })
+
+  test('the actions work again once the drag has ended', async () => {
+    renderBoard()
+    const pinnedBefore = pinOf('Renew passport').getAttribute('aria-label')
+    const user = await pickUp('Finish Q3 deck')
+
+    await user.keyboard('{Escape}')
+    await user.click(pinOf('Renew passport'))
+
+    expect(pinOf('Renew passport')).not.toHaveAttribute('aria-label', pinnedBefore)
+    expect(screen.queryByText(CARRYING_NOTICE)).not.toBeInTheDocument()
+  })
 })
 
 test('search hides non-matching tasks live', async () => {

@@ -30,6 +30,15 @@ stayed in the other lane, and worse, the next drag on that lane saved it, since 
 every Task in a touched lane. Letting go over nothing is not a cancel: on layouts that relocate on
 hover it's a drop, and it persists where the card last moved to.
 
+**That only holds if nothing saves the preview first (#585).** A keyboard drag leaves the pointer
+free, and pin, completion and the editor all write whole rows, so pressing Pin on a carried card
+saved the previewed lane, and the cancel afterwards fixed only the screen. So `Board` refuses its
+card actions while `dnd.dragging` is set, through `refusedWhileCarrying`, and says why with a notice:
+Pin, Complete, opening a card, adding a Task and rolling forward. It applies to every card, because a
+preview renumbers the cards around the move too. The buttons stay, because removing them would shift
+the layout under the drag. Undo isn't refused, because it writes only rows captured before the drag.
+Any new action that writes Task rows and can be reached during a drag needs the same guard.
+
 `useBoardDnd` must be given the **unfiltered** board, even though views render `visibleTasks`.
 Passing the filtered list would corrupt data rather than merely narrow the drag: `persistReorder`
 writes back every task in a touched lane, so the visible tasks would get contiguous `0..n-1`

@@ -119,6 +119,10 @@ const DND_INSTRUCTIONS: ScreenReaderInstructions = {
 export const UNDONE_NOTICE =
   'Undone. Your earlier version is back, replacing any change made to those tasks on another device since.'
 
+/** Said when a card's action is refused during a drag, which only a keyboard drag leaves a hand free for. */
+export const CARRYING_NOTICE =
+  'Finish moving this card first: press space to drop it, or escape to cancel.'
+
 const VIEWS: ViewOption[] = [
   { key: 'calendar', label: 'Calendar' },
   { key: 'week', label: 'Week' },
@@ -286,7 +290,19 @@ export function Board({
     writeBoardView(v)
   }
 
+  // A drag's preview is already in state, and the card actions save whole rows or open an editor on
+  // them. A cancel only takes a move off the screen, so a save during the drag would keep it (#585).
+  // The card keeps its buttons, because taking them away would shift the layout under the drag.
+  const refusedWhileCarrying = () => {
+    if (!dnd.dragging) return false
+    // The undo toast outranks a notice, so step it aside or this would wait behind it.
+    taskBoard.dismissUndo()
+    setNotice(CARRYING_NOTICE)
+    return true
+  }
+
   const handleToggle = (id: string) => {
+    if (refusedWhileCarrying()) return
     const t = tasks.find((x) => x.id === id)
     if (t && t.status !== 'completed') {
       setPopId(id)
@@ -297,6 +313,7 @@ export function Board({
   }
 
   const handlePin = (id: string) => {
+    if (refusedWhileCarrying()) return
     const t = tasks.find((x) => x.id === id)
     if (t) void taskBoard.updateTask({ ...t, pinned: !t.pinned })
   }
@@ -340,6 +357,7 @@ export function Board({
   }
 
   const openTask = (task: Task, options?: OpenOptions) => {
+    if (refusedWhileCarrying()) return
     if (!readOnly && (selecting || options?.additive)) {
       setSelecting(true)
       toggleSelected(task.id)
@@ -386,6 +404,10 @@ export function Board({
     })
   }
 
+  const addTask = (task: Task) => {
+    if (!refusedWhileCarrying()) setEditing({ task, isNew: true })
+  }
+
   const actions: BoardActions = {
     popId,
     onOpen: openTask,
@@ -394,11 +416,15 @@ export function Board({
     // <span> when no handler is passed, so this is the existing affordance, not a new one.
     onToggleCompletion: readOnly ? undefined : handleToggle,
     onTogglePin: readOnly ? undefined : handlePin,
-    onAddDay: (dateStr) => setEditing({ task: newTaskTemplate(dateStr, 'todo'), isNew: true }),
-    onAddInbox: () => setEditing({ task: newTaskTemplate('inbox', 'todo'), isNew: true }),
-    onAddStatus: (status) => setEditing({ task: newTaskTemplate('inbox', status), isNew: true }),
+    onAddDay: (dateStr) => addTask(newTaskTemplate(dateStr, 'todo')),
+    onAddInbox: () => addTask(newTaskTemplate('inbox', 'todo')),
+    onAddStatus: (status) => addTask(newTaskTemplate('inbox', status)),
     onRollForward:
-      rollForwardIds.size > 0 ? () => void taskBoard.rollForward(today, rollForwardIds) : undefined,
+      rollForwardIds.size > 0
+        ? () => {
+            if (!refusedWhileCarrying()) void taskBoard.rollForward(today, rollForwardIds)
+          }
+        : undefined,
   }
 
   const year = anchor.getFullYear()
@@ -517,7 +543,7 @@ export function Board({
     characterShortcuts: keyboardShortcuts,
     // A keyboard drag counts as blocking too: "t" mid-drag would move the calendar under the card
     // being carried.
-    blocked: editing !== null || paletteOpen || helpOpen || dnd.activeTask !== null,
+    blocked: editing !== null || paletteOpen || helpOpen || dnd.dragging,
     onAction: onShortcut,
   })
 
