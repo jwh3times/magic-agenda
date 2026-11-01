@@ -12,6 +12,19 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.2] - 2026-11-01
+
+### Internal
+
+- **An E2E test that began failing at random on 2026-11-01 is steady again.** "A later drag on the
+  same lane" could press somewhere other than the card, so no drag started and the required check
+  failed on PRs that had nothing to do with it. The press could land on the cancelled drag's overlay
+  on its way back to the Inbox, or miss a title left clipped in a scrolled Calendar cell. Both need
+  the two seeded cards in one Calendar row, which depends on the day of the week. The test now waits
+  for the overlay to go and scrolls both ends into view first. It lost no drags in 105 runs across
+  all seven weekday layouts with the CPU throttled, against 10 of 25 before the change. Whether the
+  app should scroll those cells back is a separate open decision.
+
 ## [1.18.1] - 2026-10-31
 
 ### Internal
@@ -5638,7 +5651,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.1...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.2...HEAD
+[1.18.2]: https://github.com/jwh3times/magic-agenda/compare/v1.18.1...v1.18.2
 [1.18.1]: https://github.com/jwh3times/magic-agenda/compare/v1.18.0...v1.18.1
 [1.18.0]: https://github.com/jwh3times/magic-agenda/compare/v1.17.61...v1.18.0
 [1.17.61]: https://github.com/jwh3times/magic-agenda/compare/v1.17.60...v1.17.61

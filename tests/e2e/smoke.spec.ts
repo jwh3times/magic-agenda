@@ -138,7 +138,12 @@ test.describe('cancelling a drag (#583)', () => {
 
   /** Picks `title` up and carries it over `onto`, whose lane it then moves into on screen. */
   async function carry(page: Page, title: string, onto: Locator) {
-    const from = await centre(page.getByText(title, { exact: true }))
+    const card = page.getByText(title, { exact: true })
+    // An earlier drag across a calendar cell can leave the cell scrolled with this text clipped
+    // (#595), and a press aimed at clipped text lands on whatever is showing there instead.
+    await card.scrollIntoViewIfNeeded()
+    await onto.scrollIntoViewIfNeeded()
+    const from = await centre(card)
     const to = await centre(onto)
     await page.mouse.move(from.x, from.y)
     await page.mouse.down()
@@ -218,6 +223,9 @@ test.describe('cancelling a drag (#583)', () => {
     await hoverOutOfInbox(page, page.getByText(FIRST, { exact: true }))
     await page.keyboard.press('Escape')
     await page.mouse.up()
+    // Once the drag overlay's copy of the card has gone. It flies back to the Inbox, and a press on
+    // anything it crosses on the way lands on the overlay, so no drag starts.
+    await expect(page.getByText(UNSCHEDULED)).toHaveCount(1)
 
     // A real move into the lane the cancelled drag went through, which writes that whole lane.
     await carry(page, SCHEDULED, page.getByText(FIRST, { exact: true }))
