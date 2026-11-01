@@ -33,10 +33,13 @@ hover it's a drop, and it persists where the card last moved to.
 **That only holds if nothing saves the preview first (#585).** A keyboard drag leaves the pointer
 free, and pin, completion and the editor all write whole rows, so pressing Pin on a carried card
 saved the previewed lane, and the cancel afterwards fixed only the screen. So `Board` refuses its
-card actions while `dnd.dragging` is set, through `refusedWhileCarrying`, and says why with a notice:
-Pin, Complete, opening a card, adding a Task and rolling forward. It applies to every card, because a
-preview renumbers the cards around the move too. The buttons stay, because removing them would shift
-the layout under the drag. Undo isn't refused, because it writes only rows captured before the drag.
+card actions while `dnd.dragging` is set, through `refuseIfCarrying`, and says why with a notice:
+Pin, Complete, opening a card, adding a Task, moving overdue Tasks to today and Undo. It applies to
+every card, because a preview renumbers the cards around the move too. The buttons stay, because
+removing them would shift the layout under the drag. Undo writes only rows from before the drag, but
+a cancel would then put back on screen the placement it replaced, so the screen and the server would
+disagree. The notice shows over an undo offer without losing it, and goes when the drag ends. Dragging
+is also off behind an open editor, which has no focus trap, so an editor save never meets a preview.
 Any new action that writes Task rows and can be reached during a drag needs the same guard.
 
 `useBoardDnd` must be given the **unfiltered** board, even though views render `visibleTasks`.
@@ -111,7 +114,8 @@ reaching for Enter to drop should not be ignored. Reclaiming Enter cost nothing 
 own default screen-reader instructions say "press the space bar" and never mention a second key, so
 the binding removed was the one nobody was told about. `Board.tsx`'s `DND_INSTRUCTIONS` replaces
 those defaults with a sentence that describes both keys — **keep it in step with `KEYBOARD_CODES`;
-the sensor and the sentence describing it are one decision in two places.**
+the sensor and the sentence describing it are one decision in two places.** `CARRYING_NOTICE` names
+the drop and cancel keys too.
 
 `SortableCard` composes its own `onKeyDown` in front of dnd-kit's: it calls
 `listeners?.onKeyDown?.(e)` first — dnd-kit owns Space, and while a drag is live it owns the arrows,

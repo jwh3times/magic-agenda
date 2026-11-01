@@ -33,7 +33,6 @@ async function savedDay(title: string): Promise<string | null> {
 }
 
 const savedStatus = async (title: string) => (await savedRow(title)).status
-const savedPinned = async (title: string) => (await savedRow(title)).pinned
 
 test.describe('signed in', () => {
   test('board renders the seeded tasks', async ({ page }) => {
@@ -273,7 +272,7 @@ test.describe('cancelling a drag (#583)', () => {
 
       await page.reload()
       await expect(inbox(page).getByText(UNSCHEDULED)).toHaveCount(0)
-      expect(await savedPinned(UNSCHEDULED)).toBe(false)
+      expect((await savedRow(UNSCHEDULED)).pinned).toBe(false)
     })
   })
 
