@@ -17,12 +17,10 @@ update.
 repository that installs them; what is particular to this one is in the settings files under
 `docs/agents/` — `workspace.md`, `issue-tracker.md`, `human-follow-up.md`, `docs.md`, `releases.md`,
 `ship.md`, and `handoffs.md` — which each skill's first step reads and, when one is missing,
-proposes. Change behavior here by editing a setting; fix a skill body upstream, then reinstall:
-
-```bash
-npx skills add jwh3times/skills -s end-session -s handoff -s lets-go -s ship -s docs-updater -a codex --copy -y
-npm run sync:agents
-```
+proposes. Change behavior here by editing a setting; fix a skill body upstream, then reinstall. The
+other skills come from one pinned `mattpocock/skills` snapshot, the same in every repository, and are
+never edited here either. The install commands for both are in the `shared-skills` block of
+`AGENTS.md`.
 
 Never run `npx skills update`: it re-runs the install for every agent it detects, which links
 `.claude/skills/<name>` back to its authored source instead of copying it.
@@ -115,21 +113,21 @@ Rules for this pipeline:
 - **`.agents/skills/` is `.prettierignore`'d even though it is authored**, which looks inconsistent
   with the table above until you check `skills-lock.json`: those files are vendored from
   `mattpocock/skills` and `jwh3times/skills` with a `computedHash` per skill. Formatting them would rewrite third-party
-  content the installer expects byte-for-byte, so every skill update would churn and fight the
-  formatter. Authored-vs-generated and ours-vs-vendored are separate axes; this directory is
+  content the installer expects byte-for-byte, and `scripts/check-skills.mjs` fails on the difference. Authored-vs-generated and ours-vs-vendored are separate axes; this directory is
   authored _and_ vendored, and the vendoring wins. `private/` is ignored for a different reason —
   git-ignored and local-only, so CI never sees it and formatting only rewrites security-review
   evidence in the maintainer's checkout.
 - The required **`Agents` CI job** runs `node --test` over the shared scripts' own `node:test`
   suites (excluded from Vitest); `npm run sync:agents:check`, which fails on any missing,
-  hand-edited, or orphaned generated file; `npm run check:claude-md`
+  hand-edited, or orphaned generated file; `node scripts/check-skills.mjs`, which fails when an
+  installed skill differs from `skills-lock.json`, or the lock from the install commands; `npm run check:claude-md`
   (`scripts/check-claude-md.mjs`), which asserts `CLAUDE.md` still contains its `@AGENTS.md`
   import line; and `npm run lint:agents` (`scripts/lint-agent-neutrality.mjs`, shared verbatim like
   `sync-agents.mjs`), which fails on wording one tool cannot follow and on links that break once a
   file is mirrored. The `CLAUDE.md` check is repository-specific, so it lives outside the shared
   scripts; its Vitest test is `scripts/check-claude-md.test.mjs`.
 - `skills-lock.json` at the repo root is the skills-sync tool's own lockfile (source repo + commit
-  hash per installed skill) — committed as installer metadata, untouched by `sync-agents.mjs`.
+  hash per installed skill) — committed as installer metadata, untouched by `sync-agents.mjs` and read by `check-skills.mjs`.
 
 Completed implementation plans are archived under `docs/plans/` and `docs/specs/` (see
 `docs/README.md`) — they are dated historical records of shipped work, not living documentation;

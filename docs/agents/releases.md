@@ -29,7 +29,7 @@ the second rule fails the next human PR until those builds are backfilled. That 
 reporting a status on **every** PR including Dependabot's (the exemption lives inside the step, not in
 a job-level `if:`) — a required check that never runs leaves a PR unmergeable forever. The `ship`
 skill automates the whole flow, backfill included. `next-version.mjs`, `check-changelog.mjs`,
-`check-docs.mjs` and `sync-main.mjs`, with their `node:test` suites, are canonical in
+`check-docs.mjs`, `check-skills.mjs` and `sync-main.mjs`, with their `node:test` suites, are canonical in
 `jwh3times/skills`: fix them there, then copy them here.
 
 **Two PRs open at once both name the same version, and that is the design rather than a bug**

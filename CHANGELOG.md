@@ -12,6 +12,15 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.7] - 2026-11-01
+
+### Internal
+
+- **Agent skills:** every `mattpocock/skills` skill now installs from one snapshot pinned by commit,
+  the same in every repository that shares `jwh3times/skills`, and `resolving-merge-conflicts` is
+  gone. `scripts/check-skills.mjs` fails CI when an installed skill differs from `skills-lock.json`,
+  and the rules local edits carried moved to `AGENTS.md` or `docs/agents/`.
+
 ## [1.18.6] - 2026-11-01
 
 ### Internal
@@ -5715,7 +5724,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.6...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.7...HEAD
+[1.18.7]: https://github.com/jwh3times/magic-agenda/compare/v1.18.6...v1.18.7
 [1.18.6]: https://github.com/jwh3times/magic-agenda/compare/v1.18.5...v1.18.6
 [1.18.5]: https://github.com/jwh3times/magic-agenda/compare/v1.18.4...v1.18.5
 [1.18.4]: https://github.com/jwh3times/magic-agenda/compare/v1.18.3...v1.18.4

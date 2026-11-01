@@ -72,6 +72,7 @@ export default defineConfig({
       'scripts/next-version.test.mjs',
       'scripts/check-changelog.test.mjs',
       'scripts/check-docs.test.mjs',
+      'scripts/check-skills.test.mjs',
     ],
     // Hermetic: tests never touch a real project (getSession is local-only anyway).
     // Port 1 is privileged (root can bind it) but nothing listens there, so an unmocked call
