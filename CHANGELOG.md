@@ -12,6 +12,28 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.3] - 2026-11-01
+
+### Added
+
+- **A phone browser now suggests installing the app, on the Board.** At phone width, one banner in the
+  page offers the same guidance as Settings: an Install button where the browser offers its prompt,
+  otherwise "See how", which opens Settings at the Install the app section. It sits above the Board
+  rather than over it, so nothing waits on it. It never appears on desktop, in the installed app or
+  on a read-only Board, and it goes away once you accept the browser's prompt. Dismissing it holds
+  across reloads on that device. Signing out clears that along with everything else, so it can come
+  back after you sign in again.
+
+  **The Install button still hasn't been checked on an Android phone**, because none is available. Its
+  logic is tested with a simulated prompt in Chromium, which says nothing about a real device.
+
+### Internal
+
+- **E2E covers the banner at phone width:** appearing, staying dismissed across a reload, leading to
+  the steps, and a month that still fits at 390×664. The phone visual canaries and layout tests run
+  with it dismissed, so their baselines don't change, while the phone accessibility scans leave it
+  showing.
+
 ## [1.18.2] - 2026-11-01
 
 ### Internal
@@ -5652,6 +5674,7 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
 [Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.2...HEAD
+[1.18.3]: https://github.com/jwh3times/magic-agenda/compare/v1.18.2...v1.18.3
 [1.18.2]: https://github.com/jwh3times/magic-agenda/compare/v1.18.1...v1.18.2
 [1.18.1]: https://github.com/jwh3times/magic-agenda/compare/v1.18.0...v1.18.1
 [1.18.0]: https://github.com/jwh3times/magic-agenda/compare/v1.17.61...v1.18.0
