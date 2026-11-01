@@ -221,6 +221,7 @@ src/
 ├─ components/   Board, views (Calendar/Week/Agenda/Kanban), TaskEditor, Toolbar, …
 ├─ data/         useTasks / useSettings hooks, mappers, selectors, filters, recurrence
 ├─ dnd/          pure drag logic (unit‑tested) + dnd‑kit wiring
+├─ install/      Install the app guidance and the held browser install prompt
 ├─ invite/       Board Invitation commands and the pending-invitation store
 ├─ labels/       selected-Board Label directory, presentation, offline read path, and Owner-only
 │                management (create/rename/recolor/reorder/delete)

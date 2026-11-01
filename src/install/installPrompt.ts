@@ -5,7 +5,13 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export interface InstallPromptState {
+  /** The browser has offered its install prompt and it hasn't been used yet. */
   promptAvailable: boolean
+  /**
+   * The person accepted the prompt or the browser reported the app installed, in this tab, which is
+   * still a browser tab. Accepting counts because the install has begun and no event reports one
+   * that fails.
+   */
   justInstalled: boolean
 }
 
@@ -65,6 +71,4 @@ export function createInstallPrompt(target: EventTarget): InstallPrompt {
 }
 
 // Listening starts when this module loads, so `main.tsx` imports it before anything renders.
-export const browserInstallPrompt = createInstallPrompt(
-  typeof window === 'undefined' ? new EventTarget() : window,
-)
+export const browserInstallPrompt = createInstallPrompt(window)

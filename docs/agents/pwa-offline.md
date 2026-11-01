@@ -18,16 +18,23 @@ facts. In order, the answer is:
 The last two also tell someone in another app's built-in browser to open the page in their own
 browser first.
 
-**`src/lib/platform.ts` is the only place that detects iOS, standalone display, and built-in
-browsers.** `pushGateway` and install guidance both read `browserPlatform`, so they can't disagree
-about whether this is an iPhone outside the installed app.
+**`src/lib/platform.ts` decides iOS, standalone display, and built-in browsers for anything that
+chooses what to tell someone.** `pushGateway` and install guidance both read `browserPlatform`, so
+they can't disagree about whether this is an iPhone outside the installed app. `deviceLabel.ts` has
+its own recognition, because it only names a device in a list.
 
 **`beforeinstallprompt` fires once, and Settings is a lazy chunk,** so a listener there would miss
 it. `src/install/installPrompt.ts` starts listening when it loads and `main.tsx` imports it before
 rendering, which holds the event for later. An event works only once, so it is given up when used. A
 dismissal therefore falls back to the written steps until the browser sends another. An accepted
-prompt or an `appinstalled` event moves the section to "installed from this tab"; neither is stored,
-so a reload in that tab shows the written steps. `useInstallGuidance()` is the hook over all of this.
+prompt or an `appinstalled` event moves the section to "installed from this tab". Accepting counts
+because the install has begun and nothing reports one that fails, so the message allows for a delay.
+Neither is stored, so a reload in that tab shows the written steps. `useInstallGuidance()` is the
+hook over all of this.
+
+**The capture calls `preventDefault()`, on every route.** That is what stops the browser showing a
+banner of its own, so a person gets one suggestion (#568) rather than two. The cost is that signed-out
+visitors, who have no install UI, don't get the browser's banner either.
 
 **The words:** the UI says "Install the app", uses "Add to Home Screen" only as the literal iPhone
 step, and never says "PWA".

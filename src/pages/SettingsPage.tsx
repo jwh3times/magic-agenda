@@ -19,7 +19,8 @@ import { TwoFactorSection } from '../components/TwoFactorSection'
 import { Spinner } from '../components/Spinner'
 import { useSettingsContext } from '../data/SettingsProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
-import { currentSection, goToSection, sectionId } from '../lib/sectionSpy'
+import { currentSection } from '../lib/sectionSpy'
+import { goToSection, sectionHeadingId, sectionId } from '../lib/settingsSections'
 import { readLastUserId } from '../lib/lastUser'
 import { buildInfo, buildLabel } from '../lib/buildInfo'
 import { useRole } from '../access/useRole'
@@ -117,11 +118,11 @@ function SettingsShell({ defaultView, onChangeView }: SectionContext) {
         <section
           key={s.id}
           id={sectionId(s.id)}
-          aria-labelledby={`settings-${s.id}`}
+          aria-labelledby={sectionHeadingId(s.id)}
           style={{ ...card, scrollMarginTop: 28 }}
         >
           <h2
-            id={`settings-${s.id}`}
+            id={sectionHeadingId(s.id)}
             tabIndex={-1}
             style={{
               margin: '0 0 14px',

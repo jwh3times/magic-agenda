@@ -38,7 +38,7 @@ describe('just after installing from this tab', () => {
   test('says where to find it', () => {
     showing({ kind: 'just-installed' })
 
-    expect(screen.getByText(/magic agenda is installed/i)).toBeInTheDocument()
+    expect(screen.getByText(/you've installed magic agenda/i)).toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 })
@@ -110,6 +110,11 @@ describe('in any other browser', () => {
 })
 
 describe('the words', () => {
+  test('talk about a device, because the prompt also appears on computers', () => {
+    const { container } = showing({ kind: 'prompt' })
+    expect(container.textContent).not.toMatch(/home screen/i)
+  })
+
   const everyGuidance: InstallGuidance[] = [
     { kind: 'in-installed-app' },
     { kind: 'just-installed' },

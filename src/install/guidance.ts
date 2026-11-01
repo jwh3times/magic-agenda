@@ -1,11 +1,7 @@
 import type { Platform } from '../lib/platform'
+import type { InstallPromptState } from './installPrompt'
 
-export interface InstallFacts extends Platform {
-  /** The browser has offered its install prompt and it hasn't been used yet. */
-  promptAvailable: boolean
-  /** The app was installed from this tab, which is still a browser tab. */
-  justInstalled: boolean
-}
+export type InstallFacts = Platform & InstallPromptState
 
 export type InstallGuidance =
   | { kind: 'in-installed-app' }

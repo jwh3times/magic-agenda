@@ -11,6 +11,8 @@ const IPHONE_INSTAGRAM = `${IPHONE_WEBVIEW} Instagram 390.0.0.0 (iPhone14,5; iOS
 const IPHONE_FACEBOOK = `${IPHONE_WEBVIEW} [FBAN/FBIOS;FBAV/500.0.0;FBDV/iPhone14,5]`
 const IPAD_AS_MAC =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15'
+const IPAD_WEBVIEW_AS_MAC =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)'
 const ANDROID_CHROME =
   'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Mobile Safari/537.36'
 const ANDROID_WEBVIEW =
@@ -34,17 +36,20 @@ describe('isIosDevice', () => {
 
 describe('isInAppBrowser', () => {
   it.each([
-    ['iPhone Safari', IPHONE_SAFARI, false],
-    ['iPhone Chrome', IPHONE_CHROME, false],
-    ['an unnamed iPhone web view', IPHONE_WEBVIEW, true],
-    ['Instagram on iPhone', IPHONE_INSTAGRAM, true],
-    ['Facebook on iPhone', IPHONE_FACEBOOK, true],
-    ['Android Chrome', ANDROID_CHROME, false],
-    ['an Android web view', ANDROID_WEBVIEW, true],
-    ['TikTok on Android', ANDROID_TIKTOK, true],
-    ['Safari on a Mac', IPAD_AS_MAC, false],
-    ['Chrome on Windows', WINDOWS_CHROME, false],
-  ])('%s', (_name, agent, expected) => {
-    expect(isInAppBrowser(agent)).toBe(expected)
+    ['iPhone Safari', IPHONE_SAFARI, 5, false],
+    ['iPhone Chrome', IPHONE_CHROME, 5, false],
+    ['an unnamed iPhone web view', IPHONE_WEBVIEW, 5, true],
+    ['Instagram on iPhone', IPHONE_INSTAGRAM, 5, true],
+    ['Facebook on iPhone', IPHONE_FACEBOOK, 5, true],
+    ['Safari on an iPad asking for desktop sites', IPAD_AS_MAC, 5, false],
+    ['an unnamed iPad web view sending a Mac user agent', IPAD_WEBVIEW_AS_MAC, 5, true],
+    ['Android Chrome', ANDROID_CHROME, 5, false],
+    ['an Android web view', ANDROID_WEBVIEW, 5, true],
+    ['TikTok on Android', ANDROID_TIKTOK, 5, true],
+    ['Safari on a Mac', IPAD_AS_MAC, 0, false],
+    ["a Mac app's web view, which isn't recognized", IPAD_WEBVIEW_AS_MAC, 0, false],
+    ['Chrome on Windows', WINDOWS_CHROME, 10, false],
+  ])('%s', (_name, agent, touchPoints, expected) => {
+    expect(isInAppBrowser(agent, touchPoints)).toBe(expected)
   })
 })

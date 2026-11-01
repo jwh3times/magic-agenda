@@ -9,20 +9,6 @@
  */
 export const SPY_LINE = 80
 
-/** The element id of a Settings section. */
-export const sectionId = (id: string) => `section-${id}`
-
-/**
- * Take someone to a Settings section. This scrolls in place rather than following a fragment:
- * `public/`'s auth bootstrap reads `location.hash` on load, so the URL never carries one it did not
- * put there. Focus moves to the heading so keyboard and screen-reader users land where sighted
- * users do.
- */
-export function goToSection(id: string) {
-  document.getElementById(sectionId(id))?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
-  document.getElementById(`settings-${id}`)?.focus({ preventScroll: true })
-}
-
 /**
  * Which of `ids` a section nav marks as current, given each section's top relative to the window
  * (`null` for one not on the page). The last section whose top has reached `SPY_LINE`, or the

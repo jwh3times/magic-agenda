@@ -883,7 +883,7 @@ test.describe('Install the app', () => {
 
     await section(page).getByRole('button', { name: 'Install the app' }).click()
 
-    await expect(section(page).getByText('Magic Agenda is installed.')).toBeVisible()
+    await expect(section(page).getByText("You've installed Magic Agenda.")).toBeVisible()
     await expect(section(page).getByRole('button')).toHaveCount(0)
     expect(await page.evaluate(() => document.documentElement.dataset.promptShown)).toBe('yes')
   })
@@ -903,7 +903,7 @@ test.describe('Install the app', () => {
 
     await page.evaluate(() => window.dispatchEvent(new Event('appinstalled')))
 
-    await expect(section(page).getByText('Magic Agenda is installed.')).toBeVisible()
+    await expect(section(page).getByText("You've installed Magic Agenda.")).toBeVisible()
     await expect(section(page).getByRole('button')).toHaveCount(0)
   })
 

@@ -21,13 +21,13 @@ const NAMED_IN_APP_BROWSER =
 
 /**
  * From the user agent alone, so an app that names itself nowhere can still be missed. Two generic
- * marks catch most of those: Android marks a web view with `wv`, and an iPhone web view has no
+ * marks catch most of those: Android marks a web view with `wv`, and an iOS web view has no
  * `Safari/` token, which the real browsers there all send. The installed app has no such token
  * either, so a caller checks `standalone` first.
  */
-export function isInAppBrowser(agent: string): boolean {
+export function isInAppBrowser(agent: string, maxTouchPoints: number): boolean {
   if (NAMED_IN_APP_BROWSER.test(agent) || /; wv\)/.test(agent)) return true
-  return /iPad|iPhone|iPod/.test(agent) && !agent.includes('Safari/')
+  return isIosDevice(agent, maxTouchPoints) && !agent.includes('Safari/')
 }
 
 function readPlatform(): Platform {
@@ -40,7 +40,7 @@ function readPlatform(): Platform {
       typeof window !== 'undefined' &&
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(display-mode: standalone)').matches,
-    inAppBrowser: isInAppBrowser(navigator.userAgent),
+    inAppBrowser: isInAppBrowser(navigator.userAgent, navigator.maxTouchPoints),
   }
 }
 

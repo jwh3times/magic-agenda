@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import { useSettingsContext } from '../data/SettingsProvider'
-import { goToSection, sectionId } from '../lib/sectionSpy'
+import { goToSection, sectionId } from '../lib/settingsSections'
 import { browserPushGateway, type PushDevice, type PushState } from '../notifications/pushGateway'
 import { rowListStyle } from '../theme/controls'
 import { Button, Select } from './controls'
