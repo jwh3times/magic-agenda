@@ -148,6 +148,7 @@ const SECTION_TITLES = [
   'Dates',
   'Keyboard shortcuts',
   'Notifications',
+  'Install the app',
   'Boards',
   'Labels',
   'History',

@@ -14,11 +14,13 @@ import { NotificationsSection } from '../components/NotificationsSection'
 import { ProfileSection } from '../components/ProfileSection'
 import { LabelsSection } from '../components/LabelsSection'
 import { HistorySection } from '../components/HistorySection'
+import { InstallSection } from '../components/InstallSection'
 import { TwoFactorSection } from '../components/TwoFactorSection'
 import { Spinner } from '../components/Spinner'
 import { useSettingsContext } from '../data/SettingsProvider'
 import { useIsMobile } from '../lib/useMediaQuery'
 import { currentSection } from '../lib/sectionSpy'
+import { goToSection, sectionHeadingId, sectionId } from '../lib/settingsSections'
 import { readLastUserId } from '../lib/lastUser'
 import { buildInfo, buildLabel } from '../lib/buildInfo'
 import { useRole } from '../access/useRole'
@@ -50,6 +52,7 @@ const SECTIONS: SettingsSection[] = [
   { id: 'dates', title: 'Dates', render: () => <DatesSection /> },
   { id: 'keyboard', title: 'Keyboard shortcuts', render: () => <KeyboardSection /> },
   { id: 'notifications', title: 'Notifications', render: () => <NotificationsSection /> },
+  { id: 'install', title: 'Install the app', render: () => <InstallSection /> },
   {
     id: 'boards',
     title: 'Boards',
@@ -115,11 +118,11 @@ function SettingsShell({ defaultView, onChangeView }: SectionContext) {
         <section
           key={s.id}
           id={sectionId(s.id)}
-          aria-labelledby={`settings-${s.id}`}
+          aria-labelledby={sectionHeadingId(s.id)}
           style={{ ...card, scrollMarginTop: 28 }}
         >
           <h2
-            id={`settings-${s.id}`}
+            id={sectionHeadingId(s.id)}
             tabIndex={-1}
             style={{
               margin: '0 0 14px',
@@ -195,17 +198,9 @@ function SettingsShell({ defaultView, onChangeView }: SectionContext) {
                       href={`#${sectionId(s.id)}`}
                       aria-current={active === s.id ? 'true' : undefined}
                       onClick={(e) => {
-                        // Scroll in place rather than follow the fragment: `public/`'s auth bootstrap
-                        // reads `location.hash` on load, so the URL never carries one it did not put
-                        // there. Focus moves to the heading so keyboard and screen-reader users land
-                        // where sighted users do.
                         e.preventDefault()
                         jumpTo(s.id)
-                        document.getElementById(sectionId(s.id))?.scrollIntoView?.({
-                          behavior: 'smooth',
-                          block: 'start',
-                        })
-                        document.getElementById(`settings-${s.id}`)?.focus({ preventScroll: true })
+                        goToSection(s.id)
                       }}
                       style={navItemStyle(theme, conf, active === s.id)}
                     >
@@ -236,7 +231,6 @@ function SettingsShell({ defaultView, onChangeView }: SectionContext) {
 }
 
 const SECTION_IDS = SECTIONS.map((s) => s.id)
-const sectionId = (id: string) => `section-${id}`
 
 /** How long the scroll must stay quiet before a nav jump's choice stops overriding the spy. */
 const JUMP_SETTLE_MS = 150

@@ -1,3 +1,4 @@
+import { browserPlatform } from '../lib/platform'
 import { supabase } from '../lib/supabase'
 import type { Database } from '../types/database.types'
 import { deviceLabel, serviceLabel } from './deviceLabel'
@@ -251,11 +252,6 @@ export function createPushGateway(deps: PushDependencies): PushGateway {
   return { state, subscribe, unsubscribe, release, reconcile, devices, removeDevice }
 }
 
-function isIosDevice(): boolean {
-  const agent = navigator.userAgent
-  return /iPad|iPhone|iPod/.test(agent) || (agent.includes('Mac') && navigator.maxTouchPoints > 1)
-}
-
 const notification: NotificationAdapter | null =
   typeof Notification === 'undefined'
     ? null
@@ -280,11 +276,8 @@ export const browserPushGateway = createPushGateway({
   publicKey: import.meta.env.VITE_VAPID_PUBLIC_KEY ?? '',
   notification,
   serviceWorkerReady,
-  ios: typeof navigator !== 'undefined' && isIosDevice(),
-  standalone:
-    typeof window !== 'undefined' &&
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(display-mode: standalone)').matches,
+  ios: browserPlatform.ios,
+  standalone: browserPlatform.standalone,
   save: async (row) => {
     const { error } = await supabase
       .from('push_subscriptions')
