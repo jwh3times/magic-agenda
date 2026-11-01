@@ -222,9 +222,10 @@ at 360px, because jsdom has no layout engine to catch it.
 
 **The Settings layout branches on `useIsMobile()`, not a media query.** On desktop a sticky
 `<nav aria-label="Settings sections">` sits beside the content column and the page is capped at
-1480px (it was 640px); phones keep the single column. Nav links scroll the section into view and
-focus its heading, and **never set `location.hash`**: the blocking auth bootstrap in `public/` owns
-the URL fragment, and a stray hash could be read as a token fragment.
+1480px (it was 640px); phones keep the single column. Nav links, and links from one section to
+another, go through `goToSection` in `src/lib/settingsSections.ts`. It scrolls the section into view
+and focuses its heading, and **never sets `location.hash`**: the blocking auth bootstrap in `public/`
+owns the URL fragment, and a stray hash could be read as a token fragment.
 
 The active entry follows scroll position through `currentSection` in `src/lib/sectionSpy.ts`: the
 last section whose top has reached `SPY_LINE` (80px, just below where a jump lands a section), or

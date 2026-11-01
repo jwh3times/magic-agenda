@@ -75,6 +75,39 @@ test('the Account lead can be enabled and disabled', async () => {
   expect(h.saveLead).toHaveBeenCalledWith(null)
 })
 
+test('on iPhone or iPad, it points to the install section instead of explaining the install', async () => {
+  h.state.mockResolvedValue({
+    availability: 'ios-install-required',
+    permission: 'default',
+    subscribed: false,
+  })
+  const target = document.createElement('h2')
+  target.id = 'settings-install'
+  target.tabIndex = -1
+  document.body.append(target)
+  render(<NotificationsSection />)
+
+  await userEvent.click(await screen.findByRole('link', { name: 'Install the app' }))
+
+  expect(screen.getByText(/reminders need the installed app/i)).toBeInTheDocument()
+  expect(screen.queryByText(/share menu/i)).not.toBeInTheDocument()
+  expect(target).toHaveFocus()
+  // The URL never carries a fragment here: `public/`'s auth bootstrap reads `location.hash`.
+  expect(window.location.hash).toBe('')
+  target.remove()
+})
+
+test.each(['supported', 'unsupported', 'unconfigured'] as const)(
+  'no pointer to the install section when Push is %s',
+  async (availability) => {
+    h.state.mockResolvedValue({ availability, permission: 'default', subscribed: false })
+    render(<NotificationsSection />)
+    await screen.findByText('No devices receive reminders.')
+
+    expect(screen.queryByRole('link', { name: 'Install the app' })).not.toBeInTheDocument()
+  },
+)
+
 test('permission is requested only from the explicit device button', async () => {
   render(<NotificationsSection />)
   await screen.findByRole('button', { name: 'Enable on this device' })
@@ -92,7 +125,7 @@ test('a denied permission gets actionable browser-settings guidance', async () =
   expect(await screen.findByText(/browser or system settings/i)).toBeInTheDocument()
 })
 
-test('iOS outside the installed app gets Home Screen guidance', async () => {
+test('iOS outside the installed app is not offered the device button', async () => {
   h.state.mockResolvedValue({
     availability: 'ios-install-required',
     permission: 'default',
@@ -100,7 +133,7 @@ test('iOS outside the installed app gets Home Screen guidance', async () => {
   })
   render(<NotificationsSection />)
 
-  expect(await screen.findByText(/add magic agenda to your home screen/i)).toBeInTheDocument()
+  await screen.findByRole('link', { name: 'Install the app' })
   expect(screen.queryByRole('button', { name: 'Enable on this device' })).not.toBeInTheDocument()
 })
 
