@@ -12,6 +12,15 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.17.62] - 2026-10-31
+
+### Internal
+
+- **The development flow and shared-skills text in `AGENTS.md` now come from `jwh3times/skills`:**
+  `scripts/sync-agents.mjs` writes them between marked lines, and its check fails when they drift.
+  `docs/agents/dev-flow.md` and `docs/agents/triage-labels.md` hold only what this repository adds
+  to the shared defaults, and the shared skills are refreshed to match.
+
 ## [1.17.61] - 2026-10-31
 
 ### Fixed
@@ -5604,7 +5613,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.61...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.62...HEAD
+[1.17.62]: https://github.com/jwh3times/magic-agenda/compare/v1.17.61...v1.17.62
 [1.17.61]: https://github.com/jwh3times/magic-agenda/compare/v1.17.60...v1.17.61
 [1.17.60]: https://github.com/jwh3times/magic-agenda/compare/v1.17.59...v1.17.60
 [1.17.59]: https://github.com/jwh3times/magic-agenda/compare/v1.17.58...v1.17.59
