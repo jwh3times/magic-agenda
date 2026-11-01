@@ -45,6 +45,6 @@ to reach by accident.
 
 ## Generated-config check
 
-`npm run sync:agents:check`; regenerate with `npm run format`, then `npm run sync:agents` — in that
+`npm run sync:agents:check && node scripts/check-skills.mjs`; regenerate with `npm run format`, then `npm run sync:agents` — in that
 order, since `.claude/agents/*.md` is formatted and is the source for `.codex/agents/*.toml`. Run
 it always: it is quick, and the required `Agents` check runs it.
