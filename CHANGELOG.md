@@ -12,6 +12,13 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.8] - 2026-11-01
+
+### Internal
+
+- **Agent skills:** `THIRD_PARTY_NOTICES.md` carries the MIT license notice of the installed
+  `mattpocock/skills` skills, which install without it.
+
 ## [1.18.7] - 2026-11-01
 
 ### Internal
@@ -5724,7 +5731,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.7...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.8...HEAD
+[1.18.8]: https://github.com/jwh3times/magic-agenda/compare/v1.18.7...v1.18.8
 [1.18.7]: https://github.com/jwh3times/magic-agenda/compare/v1.18.6...v1.18.7
 [1.18.6]: https://github.com/jwh3times/magic-agenda/compare/v1.18.5...v1.18.6
 [1.18.5]: https://github.com/jwh3times/magic-agenda/compare/v1.18.4...v1.18.5
