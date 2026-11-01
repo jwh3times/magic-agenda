@@ -30,6 +30,18 @@ stayed in the other lane, and worse, the next drag on that lane saved it, since 
 every Task in a touched lane. Letting go over nothing is not a cancel: on layouts that relocate on
 hover it's a drop, and it persists where the card last moved to.
 
+**That only holds if nothing saves the preview first (#585).** A keyboard drag leaves the pointer
+free, and pin, completion and the editor all write whole rows, so pressing Pin on a carried card
+saved the previewed lane, and the cancel afterwards fixed only the screen. So `Board` refuses its
+card actions while `dnd.dragging` is set, through `refuseIfCarrying`, and says why with a notice:
+Pin, Complete, opening a card, adding a Task, moving overdue Tasks to today and Undo. It applies to
+every card, because a preview renumbers the cards around the move too. The buttons stay, because
+removing them would shift the layout under the drag. Undo writes only rows from before the drag, but
+a cancel would then put back on screen the placement it replaced, so the screen and the server would
+disagree. The notice shows over an undo offer without losing it, and goes when the drag ends. Dragging
+is also off behind an open editor, which has no focus trap, so an editor save never meets a preview.
+Any new action that writes Task rows and can be reached during a drag needs the same guard.
+
 `useBoardDnd` must be given the **unfiltered** board, even though views render `visibleTasks`.
 Passing the filtered list would corrupt data rather than merely narrow the drag: `persistReorder`
 writes back every task in a touched lane, so the visible tasks would get contiguous `0..n-1`
@@ -50,7 +62,7 @@ scheduled Tasks whose Scheduled Day is before today.
 While a search filter is active, drag is disabled via `DragDisabledContext` (consumed by
 `SortableCard`'s `useSortable({ disabled })`); this keeps the `DndContext` sensors array a constant
 size, avoiding a dnd-kit hook-deps warning. Selection mode (#270) is the third reason the context
-is true, beside a filter and a read-only board. While selecting, a click, a Ctrl/Cmd-click, or Enter
+is true, beside a filter and a read-only board; an open editor (#585) is the fourth. While selecting, a click, a Ctrl/Cmd-click, or Enter
 on a card toggles its selection (`Board.openTask` decides; `SortableCard` reports it through
 `aria-pressed`), and a drag would contend for the same gesture. The selection is narrowed to
 `visibleTasks`, so a filter change can never leave a hidden card inside the next bulk action. Sensors are split Mouse/Touch (not `PointerSensor`):
@@ -102,7 +114,8 @@ reaching for Enter to drop should not be ignored. Reclaiming Enter cost nothing 
 own default screen-reader instructions say "press the space bar" and never mention a second key, so
 the binding removed was the one nobody was told about. `Board.tsx`'s `DND_INSTRUCTIONS` replaces
 those defaults with a sentence that describes both keys — **keep it in step with `KEYBOARD_CODES`;
-the sensor and the sentence describing it are one decision in two places.**
+the sensor and the sentence describing it are one decision in two places.** `CARRYING_NOTICE` names
+the drop and cancel keys too.
 
 `SortableCard` composes its own `onKeyDown` in front of dnd-kit's: it calls
 `listeners?.onKeyDown?.(e)` first — dnd-kit owns Space, and while a drag is live it owns the arrows,

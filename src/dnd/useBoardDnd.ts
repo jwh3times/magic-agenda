@@ -49,6 +49,8 @@ const KEYBOARD_CODES = {
 export interface BoardDnd {
   sensors: ReturnType<typeof useSensors>
   collisionDetection: typeof closestCorners
+  /** A drag is under way, even if another device has deleted the card being carried. */
+  dragging: boolean
   activeTask: Task | null
   activeWidth: number | undefined
   /** The lane of the phone grid cell or Inbox tab under the finger, or null over anything else. */
@@ -173,6 +175,7 @@ export function useBoardDnd(
   return {
     sensors,
     collisionDetection: phoneCalendar ? phoneCalendarCollision : closestCorners,
+    dragging: activeId !== null,
     activeTask,
     activeWidth,
     overTargetLane,

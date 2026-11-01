@@ -12,6 +12,30 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.4] - 2026-11-01
+
+### Fixed
+
+- **A card action during a keyboard drag can no longer save a move you then cancel.** A keyboard drag
+  leaves the pointer free, and the move you are hovering is already on screen. Clicking Pin or
+  Complete on a card in that moment saved it there, and pressing Escape only put the screen back, so
+  the card was in the wrong place after a reload. While a card is being carried, Pin, Complete,
+  opening a card, adding a Task, "Move all to today" and Undo now wait, with a notice to press space
+  to drop or escape to cancel.
+
+  **The click that waits doesn't take effect afterwards:** the card isn't pinned or completed until you
+  press the button again once the drag has ended. An Undo offered before the drag is still there.
+
+- **A card behind an open editor can no longer be picked up.** The editor doesn't trap focus, so the
+  keyboard could reach a card behind it and carry it, and saving a "this and later" edit could then
+  write that unfinished move.
+
+### Internal
+
+- **E2E covers the refusal from the database:** on Week, pressing Pin or Complete during a keyboard
+  drag and then Escape leaves the row as it was after a reload, and a drop after pressing one saves
+  the move and nothing else. The other refused actions have unit tests.
+
 ## [1.18.3] - 2026-11-01
 
 ### Added
@@ -5673,7 +5697,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.2...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.4...HEAD
+[1.18.4]: https://github.com/jwh3times/magic-agenda/compare/v1.18.3...v1.18.4
 [1.18.3]: https://github.com/jwh3times/magic-agenda/compare/v1.18.2...v1.18.3
 [1.18.2]: https://github.com/jwh3times/magic-agenda/compare/v1.18.1...v1.18.2
 [1.18.1]: https://github.com/jwh3times/magic-agenda/compare/v1.18.0...v1.18.1

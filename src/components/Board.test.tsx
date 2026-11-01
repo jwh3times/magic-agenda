@@ -4,7 +4,7 @@ import { afterEach, describe, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { ThemeProvider } from '../theme/ThemeProvider'
-import { Board, UNDONE_NOTICE } from './Board'
+import { Board, CARRYING_NOTICE, UNDONE_NOTICE } from './Board'
 import { applyToggleCompletion } from '../data/selectors'
 import { describeBulkChange, planBulkUpdate } from '../data/bulk'
 import { countTasks, quoted } from '../data/undo'
@@ -29,7 +29,9 @@ function Harness({
   keyboardShortcuts,
   bulkFails = false,
   conflicts,
+  rollForward = () => {},
 }: {
+  rollForward?: () => void
   weekStart?: number
   initialView?: ViewName
   canAssignLabels?: boolean
@@ -86,7 +88,7 @@ function Harness({
         offerUndo(`${toggled.status === 'completed' ? 'Completed' : 'Reopened'} ${quoted(toggled)}`)
       setTasks(next)
     },
-    rollForward: () => {},
+    rollForward,
     // Plain Tasks only, like saveTask above; Series bulk semantics are tested in series.test.ts.
     bulkUpdate: (ids, change) => {
       if (bulkFails) return false
@@ -346,6 +348,131 @@ test('Enter dropping a card mid-drag does not also open the editor', async () =>
   await user.keyboard('{Enter}')
 
   expect(screen.queryByText('Edit task')).not.toBeInTheDocument()
+})
+
+// A keyboard drag leaves the pointer free, while a preview has already moved Tasks in state. These
+// actions would save that placement or open an editor on it (#585). Any card, not only the carried
+// one, because a preview renumbers the cards around the move too.
+describe('while a card is carried', () => {
+  const pinOf = (title: string) =>
+    within(cardFor(title)).getByRole('button', { name: /^(Pin|Unpin)$/ })
+  const editorIsOpen = () => screen.queryByPlaceholderText('Task title…') !== null
+
+  async function pickUp(title: string, user = userEvent.setup()) {
+    cardFor(title).focus()
+    await user.keyboard('[Space]')
+    return user
+  }
+
+  test('a card button does nothing and says why', async () => {
+    renderBoard()
+    const pinnedBefore = pinOf('Renew passport').getAttribute('aria-label')
+    const user = await pickUp('Finish Q3 deck')
+
+    await user.click(pinOf('Renew passport'))
+    await user.click(within(cardFor('Renew passport')).getByRole('button', { name: 'Complete' }))
+
+    expect(pinOf('Renew passport')).toHaveAttribute('aria-label', pinnedBefore)
+    expect(
+      within(cardFor('Renew passport')).getByRole('button', { name: 'Complete' }),
+    ).toBeVisible()
+    expect(screen.getByText(CARRYING_NOTICE)).toBeVisible()
+  })
+
+  test('clicking a card or adding a Task opens no editor', async () => {
+    renderBoard()
+    const user = await pickUp('Finish Q3 deck')
+
+    await user.click(screen.getByText('Renew passport'))
+    expect(editorIsOpen()).toBe(false)
+
+    await user.click(screen.getByRole('button', { name: '+ New task' }))
+    expect(editorIsOpen()).toBe(false)
+  })
+
+  // Agenda's cards can't be dragged, but switching to it doesn't end a drag begun elsewhere.
+  test('moving overdue Tasks to today waits too', async () => {
+    sessionStorage.removeItem('ma-board-view')
+    const rollForward = vi.fn()
+    const seeded = (title: string, day: string) =>
+      asTask({ ...makeMockTasks()[0], ...NO_RECUR, id: title, title, day })
+    render(
+      <Harness
+        initialView="week"
+        rollForward={rollForward}
+        seed={[seeded('Carried', ymd(new Date())), seeded('Long overdue', '2020-01-06')]}
+      />,
+    )
+    const user = await pickUp('Carried')
+
+    await user.click(screen.getByRole('button', { name: 'Agenda' }))
+    await user.click(screen.getByRole('button', { name: 'Move all to today' }))
+    expect(rollForward).not.toHaveBeenCalled()
+    expect(screen.getByText(CARRYING_NOTICE)).toBeVisible()
+
+    await user.keyboard('{Escape}')
+    await user.click(screen.getByRole('button', { name: 'Move all to today' }))
+    expect(rollForward).toHaveBeenCalledTimes(1)
+  })
+
+  test('a refusal shows over an undo offer without losing it', async () => {
+    renderBoard()
+    const user = userEvent.setup()
+    await user.click(within(cardFor('Renew passport')).getByRole('button', { name: 'Complete' }))
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeVisible()
+
+    await pickUp('Finish Q3 deck', user)
+    await user.click(pinOf('Renew passport'))
+    expect(screen.getByText(CARRYING_NOTICE)).toBeVisible()
+
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeVisible()
+  })
+
+  // Undo writes only rows from before the drag, but a cancel would then put back on screen the
+  // placement it just replaced, so the screen and the server would disagree.
+  test('Undo waits too, and is still there afterwards', async () => {
+    renderBoard()
+    const user = userEvent.setup()
+    const complete = () =>
+      within(cardFor('Renew passport')).queryByRole('button', { name: 'Complete' })
+    await user.click(complete() as HTMLElement)
+
+    await pickUp('Finish Q3 deck', user)
+    await user.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(complete()).toBeNull()
+    expect(screen.getByText(CARRYING_NOTICE)).toBeVisible()
+
+    await user.keyboard('{Escape}')
+    await user.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(complete()).not.toBeNull()
+  })
+
+  test('the notice goes when the drag ends, and the actions work again', async () => {
+    renderBoard()
+    const pinnedBefore = pinOf('Renew passport').getAttribute('aria-label')
+    const user = await pickUp('Finish Q3 deck')
+    await user.click(pinOf('Renew passport'))
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByText(CARRYING_NOTICE)).not.toBeInTheDocument()
+
+    await user.click(pinOf('Renew passport'))
+    expect(pinOf('Renew passport')).not.toHaveAttribute('aria-label', pinnedBefore)
+  })
+})
+
+// The editor has no focus trap, so Shift+Tab reaches the cards behind it. A card picked up there has
+// a preview in state when the editor saves, and a save across a Series writes the rows it touches.
+test('a card behind an open editor cannot be picked up', async () => {
+  const user = userEvent.setup()
+  renderBoard()
+  expect(cardFor('Finish Q3 deck')).not.toHaveAttribute('aria-disabled', 'true')
+
+  await user.click(screen.getByText('Renew passport'))
+
+  expect(screen.getByPlaceholderText('Task title…')).toBeVisible()
+  expect(cardFor('Finish Q3 deck')).toHaveAttribute('aria-disabled', 'true')
 })
 
 test('search hides non-matching tasks live', async () => {

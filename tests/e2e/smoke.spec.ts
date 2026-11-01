@@ -7,26 +7,32 @@ import { testBoardId, testClient } from './fixtures/supabase'
 
 const todaysDay = () => new Date().toISOString().slice(0, 10)
 
-/** One column of a seeded Task's row. A failed query fails the test rather than reading as empty. */
-async function savedColumn(title: string, column: 'day' | 'status') {
+interface SavedRow {
+  day: string | null
+  status: string
+  pinned: boolean
+}
+
+/** A seeded Task's row. A failed query fails the test rather than reading as empty. */
+async function savedRow(title: string): Promise<SavedRow> {
   const client = await testClient()
   const boardId = await testBoardId(client)
   const { data, error } = await client
     .from('tasks')
-    .select(column)
+    .select('day, status, pinned')
     .eq('board_id', boardId)
     .eq('title', title)
     .single()
   if (error) throw new Error(`reading ${title} failed: ${error.message}`)
-  return (data as Record<string, string | null>)[column]
+  return data
 }
 
 /** The Scheduled Day in the database, which an unscheduled Task has none of. */
 async function savedDay(title: string): Promise<string | null> {
-  return savedColumn(title, 'day')
+  return (await savedRow(title)).day
 }
 
-const savedStatus = (title: string) => savedColumn(title, 'status')
+const savedStatus = async (title: string) => (await savedRow(title)).status
 
 test.describe('signed in', () => {
   test('board renders the seeded tasks', async ({ page }) => {
@@ -216,6 +222,58 @@ test.describe('cancelling a drag (#583)', () => {
     await page.keyboard.press('Escape')
     await expect(inbox(page).getByText(UNSCHEDULED)).toBeVisible()
     expect(await savedDay(UNSCHEDULED)).toBeNull()
+  })
+
+  // A keyboard drag leaves the pointer free, and hovering has already put the move in state, so a
+  // write of the carried card's whole row would save the placement a cancel can only take off screen.
+  test.describe('a card button during a keyboard drag (#585)', () => {
+    const carriedCard = (page: Page) => page.getByRole('button', { name: UNSCHEDULED })
+
+    // On Week, because the carried card's buttons have to be clickable. In a Calendar cell they can
+    // be clipped, and on Kanban the drag overlay can sit over them.
+    async function carryOutOfInbox(page: Page) {
+      await open(page, 'week')
+      await inbox(page).getByRole('button', { name: UNSCHEDULED }).focus()
+      await page.keyboard.press('Space')
+      await expect(async () => {
+        await page.keyboard.press('ArrowLeft')
+        await expect(inbox(page).getByText(UNSCHEDULED)).toHaveCount(0, { timeout: 300 })
+      }).toPass({ timeout: 5000 })
+    }
+
+    /** A real click at the button's position. The notice proves it reached the button. */
+    async function pressOnCarried(page: Page, name: 'Pin' | 'Complete') {
+      const button = carriedCard(page).getByRole('button', { name })
+      const at = await centre(button)
+      await page.mouse.click(at.x, at.y)
+      await expect(page.getByText('Finish moving this card first')).toBeVisible()
+    }
+
+    for (const name of ['Pin', 'Complete'] as const) {
+      test(`${name} then Escape leaves no moved Task in the database`, async ({ page }) => {
+        await carryOutOfInbox(page)
+        await pressOnCarried(page, name)
+
+        await page.keyboard.press('Escape')
+        await expect(inbox(page).getByText(UNSCHEDULED)).toBeVisible()
+
+        await page.reload()
+        await expect(inbox(page).getByText(UNSCHEDULED)).toBeVisible()
+        expect(await savedRow(UNSCHEDULED)).toEqual({ day: null, status: 'todo', pinned: false })
+      })
+    }
+
+    test('a drop after pressing one still saves the move, and only the move', async ({ page }) => {
+      await carryOutOfInbox(page)
+      await pressOnCarried(page, 'Pin')
+
+      await page.keyboard.press('Space')
+      await expect.poll(() => savedDay(UNSCHEDULED)).not.toBeNull()
+
+      await page.reload()
+      await expect(inbox(page).getByText(UNSCHEDULED)).toHaveCount(0)
+      expect((await savedRow(UNSCHEDULED)).pinned).toBe(false)
+    })
   })
 
   test('a later drag on the same lane does not save the cancelled move', async ({ page }) => {

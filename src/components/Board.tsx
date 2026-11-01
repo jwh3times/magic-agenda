@@ -119,6 +119,13 @@ const DND_INSTRUCTIONS: ScreenReaderInstructions = {
 export const UNDONE_NOTICE =
   'Undone. Your earlier version is back, replacing any change made to those tasks on another device since.'
 
+/**
+ * Said when a card's action is refused during a drag, which only a keyboard drag leaves a hand free
+ * for. Like `DND_INSTRUCTIONS`, it names keys that `KEYBOARD_CODES` binds, so keep it in step.
+ */
+export const CARRYING_NOTICE =
+  'Finish moving this card first: press space to drop it, or escape to cancel.'
+
 const VIEWS: ViewOption[] = [
   { key: 'calendar', label: 'Calendar' },
   { key: 'week', label: 'Week' },
@@ -286,7 +293,20 @@ export function Board({
     writeBoardView(v)
   }
 
+  // A drag's preview is already in state, and the card actions save whole rows or open an editor on
+  // them. A cancel only takes a move off the screen, so a save during the drag would keep it (#585).
+  // The card keeps its buttons, because taking them away would shift the layout under the drag.
+  const refuseIfCarrying = () => {
+    if (!dnd.dragging) return false
+    setNotice(CARRYING_NOTICE)
+    return true
+  }
+
+  // The notice is about this drag, so it ends with it.
+  if (notice === CARRYING_NOTICE && !dnd.dragging) setNotice(null)
+
   const handleToggle = (id: string) => {
+    if (refuseIfCarrying()) return
     const t = tasks.find((x) => x.id === id)
     if (t && t.status !== 'completed') {
       setPopId(id)
@@ -297,6 +317,7 @@ export function Board({
   }
 
   const handlePin = (id: string) => {
+    if (refuseIfCarrying()) return
     const t = tasks.find((x) => x.id === id)
     if (t) void taskBoard.updateTask({ ...t, pinned: !t.pinned })
   }
@@ -340,6 +361,7 @@ export function Board({
   }
 
   const openTask = (task: Task, options?: OpenOptions) => {
+    if (refuseIfCarrying()) return
     if (!readOnly && (selecting || options?.additive)) {
       setSelecting(true)
       toggleSelected(task.id)
@@ -381,9 +403,15 @@ export function Board({
     })
   }
   const undoLast = () => {
+    // Its write is safe, but a cancel would then put back on screen the placement it replaced.
+    if (refuseIfCarrying()) return
     void Promise.resolve(taskBoard.undo()).then((ok) => {
       if (ok) setNotice(UNDONE_NOTICE)
     })
+  }
+
+  const openNewTask = (task: Task) => {
+    if (!refuseIfCarrying()) setEditing({ task, isNew: true })
   }
 
   const actions: BoardActions = {
@@ -394,11 +422,15 @@ export function Board({
     // <span> when no handler is passed, so this is the existing affordance, not a new one.
     onToggleCompletion: readOnly ? undefined : handleToggle,
     onTogglePin: readOnly ? undefined : handlePin,
-    onAddDay: (dateStr) => setEditing({ task: newTaskTemplate(dateStr, 'todo'), isNew: true }),
-    onAddInbox: () => setEditing({ task: newTaskTemplate('inbox', 'todo'), isNew: true }),
-    onAddStatus: (status) => setEditing({ task: newTaskTemplate('inbox', status), isNew: true }),
+    onAddDay: (dateStr) => openNewTask(newTaskTemplate(dateStr, 'todo')),
+    onAddInbox: () => openNewTask(newTaskTemplate('inbox', 'todo')),
+    onAddStatus: (status) => openNewTask(newTaskTemplate('inbox', status)),
     onRollForward:
-      rollForwardIds.size > 0 ? () => void taskBoard.rollForward(today, rollForwardIds) : undefined,
+      rollForwardIds.size > 0
+        ? () => {
+            if (!refuseIfCarrying()) void taskBoard.rollForward(today, rollForwardIds)
+          }
+        : undefined,
   }
 
   const year = anchor.getFullYear()
@@ -517,7 +549,7 @@ export function Board({
     characterShortcuts: keyboardShortcuts,
     // A keyboard drag counts as blocking too: "t" mid-drag would move the calendar under the card
     // being carried.
-    blocked: editing !== null || paletteOpen || helpOpen || dnd.activeTask !== null,
+    blocked: editing !== null || paletteOpen || helpOpen || dnd.dragging,
     onAction: onShortcut,
   })
 
@@ -580,8 +612,11 @@ export function Board({
           onDragCancel={dnd.onDragCancel}
         >
           {/* Selection claims clicks and Enter, so drag is off while it lasts — via this context,
-              never by changing the sensors array (see docs/agents/drag-and-drop.md). */}
-          <DragDisabledContext.Provider value={filterActive || readOnly || selectionActive}>
+              never by changing the sensors array (see docs/agents/drag-and-drop.md). So is it behind
+              the editor, which has no focus trap: its save mustn't meet a preview (#585). */}
+          <DragDisabledContext.Provider
+            value={filterActive || readOnly || selectionActive || editing !== null}
+          >
             <main
               style={{
                 display: 'flex',
@@ -697,7 +732,8 @@ export function Board({
             onHeightChange={setBarHeight}
           />
         )}
-        {taskBoard.lastUndo ? (
+        {/* The undo offer waits behind a refusal rather than being lost to it. */}
+        {taskBoard.lastUndo && notice !== CARRYING_NOTICE ? (
           // Keyed by the action, so each new undoable action restarts the 6-second window even
           // when its label repeats (completing two tasks with the same title).
           <Toast
