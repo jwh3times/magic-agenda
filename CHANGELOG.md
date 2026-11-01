@@ -12,6 +12,31 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.0] - 2026-10-31
+
+### Added
+
+- **An "Install the app" section in Settings, at every width.** It tells you how to put Magic Agenda
+  on your device, based on what you're using. Where the browser offers its install prompt, there's a
+  real Install button. On iPhone and iPad, illustrated steps walk through Share and Add to Home
+  Screen. Any other browser gets written steps, and the installed app says you're already using it.
+  If you're inside another app's built-in browser, it tells you to open the page in your own browser
+  first. The steps are part of the app, so they work offline.
+
+  **The Install button hasn't been checked on an Android phone**, because none is available. Its logic
+  is tested with a simulated prompt in Chromium, which says nothing about a real device.
+
+### Changed
+
+- **Reminders on iPhone and iPad point to the new section.** The hint in Notifications is now one
+  sentence and a link, rather than its own install instructions.
+
+### Internal
+
+- **One place decides iPhone, installed app and built-in browser.** `src/lib/platform.ts` now holds what
+  the push gateway used to detect for itself, so Push availability and install guidance can't disagree.
+  Push behaves as before.
+
 ## [1.17.61] - 2026-10-31
 
 ### Fixed
@@ -5604,7 +5629,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.17.61...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.0...HEAD
+[1.18.0]: https://github.com/jwh3times/magic-agenda/compare/v1.17.61...v1.18.0
 [1.17.61]: https://github.com/jwh3times/magic-agenda/compare/v1.17.60...v1.17.61
 [1.17.60]: https://github.com/jwh3times/magic-agenda/compare/v1.17.59...v1.17.60
 [1.17.59]: https://github.com/jwh3times/magic-agenda/compare/v1.17.58...v1.17.59

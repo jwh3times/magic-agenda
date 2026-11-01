@@ -41,8 +41,9 @@ step, and never says "PWA".
 
 **What has been checked where.** Chromium never offers a real prompt under test, so `smoke.spec.ts`
 drives the button with a simulated event, which proves its logic and nothing about a real Android
-phone. No Android phone has been available. A person has to check the iPhone steps against what the
-device shows, because the wording depends on the Safari version and layout.
+phone. No Android phone has been available. No test can compare the iPhone steps with what the device
+shows, because the wording depends on the Safari version and layout, so a person checks them on a
+device.
 
 ## Web Push
 

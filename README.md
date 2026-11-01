@@ -96,9 +96,9 @@ of three hand‑built themes.
 - **Works on your phone** — responsive layouts for every view (whole‑month calendar with a day and
   Inbox panel, stacked week with a collapsible inbox, swipeable kanban, bottom‑sheet editor) and
   long‑press touch drag‑and‑drop.
-- **Installable, and readable offline** — add it to your Home Screen for a standalone app; with no
-  network, the last‑synced board renders read‑only from a local snapshot instead of a dead login
-  screen.
+- **Installable, and readable offline** — Settings → Install the app shows how to put it on your
+  device as a standalone app, with your browser's own prompt where it offers one; with no network,
+  the last‑synced board renders read‑only from a local snapshot instead of a dead login screen.
 - **Per-device notifications** — choose an Account reminder lead and subscribe each supported
   browser or installed app independently, and remove any of them from Settings on another
   device. A concrete IANA timezone keeps server delivery aligned with the same Due Moment used for

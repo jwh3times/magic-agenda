@@ -166,10 +166,11 @@ the area it covers; do not rely on this page's summaries for it.
 - [**UI: responsive layout, dates, and theming**](docs/agents/ui.md) — `useIsMobile()` branching
   instead of media queries, the timezone context, the inline-style-object theme model, and the
   reference prototype.
-- [**Installable PWA and offline read**](docs/agents/pwa-offline.md) — the hand-authored service
-  worker, network-first navigation, what is never cached, the CSP in `public/_headers`, the
-  `localStorage` snapshot envelopes, and Web Push: the `send-reminders` reminder sender and its
-  browser-push-service endpoint allow-list.
+- [**Installable PWA and offline read**](docs/agents/pwa-offline.md) — the Settings "Install the
+  app" section and the held `beforeinstallprompt`, the hand-authored service worker, network-first
+  navigation, what is never cached, the CSP in `public/_headers`, the `localStorage` snapshot
+  envelopes, and Web Push: the `send-reminders` reminder sender and its browser-push-service
+  endpoint allow-list.
 - [**Testing layers and lint policy**](docs/agents/testing.md) — the hermetic unit suite, the RLS
   integration project, isolated-stack Playwright E2E plus deployed-preview probes, explicit Data
   API grants, and `.oxlintrc.json`.
