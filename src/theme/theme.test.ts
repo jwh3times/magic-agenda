@@ -11,6 +11,7 @@ import {
 } from './chrome'
 import { rotOf, cardStyles } from './cardStyles'
 import { asTask, NO_RECUR, type Task, type ThemeName, type TaskDraft } from '../types/task'
+import { contrast, mix, parseColor } from '../test/contrast'
 
 const THEMES: ThemeName[] = ['cork', 'brutal', 'glass']
 
@@ -126,6 +127,35 @@ describe('cardStyles', () => {
     expect(String(s.chipStyle.background)).toContain('rgba(224,82,74')
     const plain = cardStyles('cork', task(), 'kanban')
     expect(String(plain.wrap.boxShadow)).not.toContain('#e0524a')
+  })
+})
+
+describe('a card chip stays readable', () => {
+  // #607. axe sees only the seeded colours on cards that aren't overdue. It also fades a chip's text toward
+  // the chip's own tint, where a browser's group opacity fades it toward the paper, so it reads high:
+  // 4.33:1 on cork's yellow at the old 0.9, where a browser paints 4.21:1. Glass papers are
+  // translucent, so their result depends on what's behind them, and they have contrast to spare.
+  // A Completed card is left out on purpose: it fades whole, so its chip depends on the backdrop too.
+  it('clears 4.5:1 on every opaque paper of an open card, overdue or not', () => {
+    for (const theme of THEMES.filter((t) => t !== 'glass')) {
+      for (const color of COLORS) {
+        for (const overdue of [false, true]) {
+          const { opacity, background } = cardStyles(theme, task({ color }), 'kanban', {
+            overdue,
+          }).chipStyle
+          const paper = parseColor(PAPER[theme][color].bg)[0]
+          const [tint, tintAlpha] = parseColor(String(background))
+          const text = mix(parseColor(PAPER[theme][color].ink)[0], Number(opacity), paper)
+          const behind = mix(tint, tintAlpha * Number(opacity), paper)
+          expect({ theme, color, overdue, passesAA: contrast(text, behind) >= 4.5 }).toEqual({
+            theme,
+            color,
+            overdue,
+            passesAA: true,
+          })
+        }
+      }
+    }
   })
 })
 

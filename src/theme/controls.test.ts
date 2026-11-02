@@ -16,46 +16,15 @@ import {
   phoneDayChrome,
   toolbarChrome,
 } from './chrome'
+import { contrast, over, parseColor, type RGB } from '../test/contrast'
 
 const THEMES: ThemeName[] = ['cork', 'brutal', 'glass']
 const VARIANTS: ButtonVariant[] = ['primary', 'secondary', 'danger', 'destructive']
 
-type RGB = [number, number, number]
-
-/** `#rgb`, `#rrggbb`, or `rgba(r,g,b,a)` → [rgb, alpha]. */
-function parse(color: string): [RGB, number] {
-  const rgba = /^rgba?\(([^)]+)\)$/.exec(color)
-  if (rgba) {
-    const [r, g, b, a = '1'] = rgba[1].split(',').map((v) => v.trim())
-    return [[Number(r), Number(g), Number(b)], Number(a)]
-  }
-  let hex = color.replace('#', '')
-  if (hex.length === 3) hex = [...hex].map((c) => c + c).join('')
-  return [[0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16)) as RGB, 1]
-}
-
-/** `color` painted over an opaque `under`. */
-function over(color: string, under: RGB): RGB {
-  const [rgb, a] = parse(color)
-  return rgb.map((c, i) => c * a + under[i] * (1 - a)) as RGB
-}
-
-function contrast(a: RGB, b: RGB): number {
-  const lum = (c: RGB) => {
-    const [r, g, b2] = c.map((v) => {
-      const s = v / 255
-      return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
-    })
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b2
-  }
-  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x)
-  return (hi + 0.05) / (lo + 0.05)
-}
-
 /** A Settings card: the theme's `cellBg` over its page. */
 function cardOf(theme: ThemeName): RGB {
   const conf = themeConf(theme)
-  return over(conf.cellBg, parse(conf.pageBg)[0])
+  return over(conf.cellBg, parseColor(conf.pageBg)[0])
 }
 
 // axe cannot judge the selected day's number in any theme: it reports `elmPartiallyObscured`, so a
@@ -178,7 +147,7 @@ describe('toolbar controls (#483)', () => {
   for (const theme of THEMES) {
     const conf = themeConf(theme)
     const c = toolbarChrome(theme, conf)
-    const toolbar = over(conf.toolbarBg, parse(conf.pageBg)[0])
+    const toolbar = over(conf.toolbarBg, parseColor(conf.pageBg)[0])
     const wash = over(TOOLBAR_CONTROL_FILL, toolbar)
 
     it(`${theme}: Settings, New task, Sign out, Today, and the arrows are one height`, () => {

@@ -206,11 +206,6 @@
   },
   {
     "label": "phone-kanban-cork",
-    "ruleId": "color-contrast",
-    "count": 2
-  },
-  {
-    "label": "phone-kanban-cork",
     "ruleId": "label-content-name-mismatch",
     "count": 2
   },
