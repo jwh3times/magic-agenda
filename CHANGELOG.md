@@ -12,6 +12,22 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.10] - 2026-11-02
+
+### Internal
+
+- **The accessibility suite now scans the rest of the phone layout.** At 390×844, the Week, Agenda and
+  Kanban views, the task editor, Settings and an active filter are scanned in all three themes, and
+  the bulk action bar and both states of Install the app in one. Breaking each phone-only branch on
+  purpose failed all 21 new scans and none of the older ones, so these see what the desktop scans
+  can't. The app does not change.
+- **The baseline now holds pending fixes as well as accepted violations.** The new scans found two
+  defects that aren't specific to phones, because no desktop scan opens those surfaces: the Kanban
+  card's day chip misses contrast in cork (#607), and the bulk action bar sits outside every landmark
+  (#608). Both are recorded at their current counts so the suite stays green, and the spec's header
+  says which entries are which. `docs/agents/testing.md` lists what is scanned at phone width and what
+  isn't.
+
 ## [1.18.9] - 2026-11-01
 
 ### Internal
@@ -5738,7 +5754,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.9...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.10...HEAD
+[1.18.10]: https://github.com/jwh3times/magic-agenda/compare/v1.18.9...v1.18.10
 [1.18.9]: https://github.com/jwh3times/magic-agenda/compare/v1.18.8...v1.18.9
 [1.18.8]: https://github.com/jwh3times/magic-agenda/compare/v1.18.7...v1.18.8
 [1.18.7]: https://github.com/jwh3times/magic-agenda/compare/v1.18.6...v1.18.7
