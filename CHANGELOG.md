@@ -12,6 +12,19 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.13] - 2026-11-02
+
+### Internal
+
+- **The accessibility suite now scans the Week, Agenda and Kanban views at desktop width.** Each is
+  scanned in all three themes, Week with its Inbox open, and the bulk action bar is scanned in one.
+  Before this, those views were scanned only at phone width, and selection mode wasn't scanned at
+  desktop width at all. Breaking each surface's desktop path on purpose failed all 10 new scans and
+  none of the older ones. The app does not change.
+- **The baseline holds one pending fix again.** The first desktop Kanban scan found that "Drop tasks
+  here" in an empty column misses contrast in TASKS//, at 2.81:1 (#615). It's recorded at its current
+  count so the suite stays green, and the spec's header marks it as pending.
+
 ## [1.18.12] - 2026-11-02
 
 ### Fixed
@@ -5773,7 +5786,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.12...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.13...HEAD
+[1.18.13]: https://github.com/jwh3times/magic-agenda/compare/v1.18.12...v1.18.13
 [1.18.12]: https://github.com/jwh3times/magic-agenda/compare/v1.18.11...v1.18.12
 [1.18.11]: https://github.com/jwh3times/magic-agenda/compare/v1.18.10...v1.18.11
 [1.18.10]: https://github.com/jwh3times/magic-agenda/compare/v1.18.9...v1.18.10

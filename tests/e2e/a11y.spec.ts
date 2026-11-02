@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright'
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { seedBoard, SEEDED_TITLES, type Theme, type View } from './fixtures/seedBoard'
@@ -25,7 +25,11 @@ import {
   type Finding,
 } from '../../scripts/a11y-baseline'
 
-// Two families are baselined. Both are ACCEPTED violations, not pending fixes.
+// Two families are baselined as ACCEPTED violations, not pending fixes. One entry is PENDING:
+//
+//   color-contrast in kanban-brutal  #615. "Drop tasks here" is #9a9a9a on white, 2.81:1, in an empty
+//                       column. The phone uses the same style, but its scan doesn't report it. The
+//                       fix removes this entry.
 //
 // nested-interactive (decided 2026-07-31):
 //
@@ -60,20 +64,24 @@ import {
 //                       it. Counted once per board scan, on the seeded Inbox card. The two
 //                       calendar cards pass only because their cell's scrollport, about one title
 //                       tall, clips their Label row and axe does not count clipped text as
-//                       visible; scroll a cell and its card counts too (the editor scan resets
-//                       the scroll its click causes). So the count moves with seed data and with
-//                       card or cell geometry, and a change there that moves it is expected. The
-//                       phone Calendar scans see only today's card in the panel, which counts for
-//                       both families once. The phone Week and Kanban scans see all three cards,
-//                       unclipped, and the two families need not count the same cards there.
+//                       visible; scroll a cell and its card counts too (the editor and bulk scans
+//                       reset the scroll their click causes). So the count moves with seed data
+//                       and with card or cell geometry, and a change there that moves it is
+//                       expected. The phone Calendar scans see only today's card in the panel,
+//                       which counts for both families once. The phone Week and Kanban scans see
+//                       all three cards, unclipped, and the two families need not count the same
+//                       cards there. The desktop Week and Kanban scans count all three for both.
+//                       The Agenda's cards aren't draggable, so neither family counts them at any
+//                       width.
 //
 // color-contrast reached zero in two passes (2026-07-31): near-miss token nudges, then per-theme
 // judgment calls recorded in src/theme/themeConf.ts. The first phone Kanban scan reopened it with a
-// chip's fade, whose call sits in src/theme/cardStyles.ts (#607). New theme colours must clear 4.5:1
-// against every background they sit on. This suite enforces that only where axe can reach a verdict:
-// on the phone Calendar it could judge 41 of 42 day numbers in brutal and none in cork or glass,
-// whose translucent cells over a gradient come back `bgGradient` and whose single digits come back
-// `shortTextContent`, both as incomplete rather than as violations (measured 2026-10-31, #565).
+// chip's fade, whose call sits in src/theme/cardStyles.ts (#607), and the first desktop one with an
+// empty column's placeholder (#615). New theme colours must clear 4.5:1 against every background they sit on. This
+// suite enforces that only where axe can reach a verdict: on the phone Calendar it could judge 41 of
+// 42 day numbers in brutal and none in cork or glass, whose translucent cells over a gradient come
+// back `bgGradient` and whose single digits come back `shortTextContent`, both as incomplete rather
+// than as violations (measured 2026-10-31, #565).
 //
 // The baseline is JSON and takes no comments, which is why this note lives here.
 const BASELINE = path.join('tests', 'e2e', 'a11y-baseline.json')
@@ -168,6 +176,19 @@ async function scanAndAssert(page: Page, label: string): Promise<void> {
   ).toEqual(baselineFor(readBaseline(), label))
 }
 
+/**
+ * Clicking a calendar card scrolls its title into view inside its cell, whose scrollport is about
+ * one title tall, and that can bring the card's Label row out from under the cell's clip. Whether it
+ * does is a pixel or two of theme geometry, and it decides whether this card counts for
+ * label-content-name-mismatch (see the note at the top). Unscrolled, the board is the one the board
+ * scans see.
+ */
+async function unscrollAncestors(card: Locator): Promise<void> {
+  await card.evaluate((el) => {
+    for (let node = el.parentElement; node; node = node.parentElement) node.scrollTop = 0
+  })
+}
+
 test.describe('signed out', () => {
   test.use({ storageState: { cookies: [], origins: [] } })
 
@@ -233,6 +254,56 @@ test.describe('signed in', () => {
       await scanAndAssert(page, `board-${theme}`)
     })
   }
+
+  // The other three views at desktop width (#611). Week and Kanban lay out differently from the
+  // phone scans below. The search bar, shut on a phone until its button opens it, shows the
+  // viewport held. The Calendar shows the same three cards, so each test also waits for something
+  // only its view draws.
+  async function openDesktopBoard(page: Page, theme: Theme, view: View = 'calendar') {
+    await page.clock.setFixedTime(new Date(PINNED_TIME))
+    await seedBoard({ theme, view, anchor: PINNED_DAY })
+    await page.goto('/')
+    await page.getByRole('search').waitFor()
+    for (const title of SEEDED_TITLES) await page.getByText(title).waitFor()
+  }
+
+  for (const theme of ['cork', 'brutal', 'glass'] as Theme[]) {
+    // Week shares its row with the Inbox, which is open at this width.
+    test(`week (${theme}) matches the a11y baseline`, async ({ page }) => {
+      await openDesktopBoard(page, theme, 'week')
+      await page.getByText('Mon 15', { exact: true }).waitFor()
+      await page.getByText('Unscheduled · drag onto a day').waitFor()
+      await settle(page)
+      await scanAndAssert(page, `week-${theme}`)
+    })
+
+    test(`agenda (${theme}) matches the a11y baseline`, async ({ page }) => {
+      await openDesktopBoard(page, theme, 'agenda')
+      await page.getByText('Unscheduled · Inbox').waitFor()
+      await settle(page)
+      await scanAndAssert(page, `agenda-${theme}`)
+    })
+
+    // The seeded Tasks leave Completed empty, and its placeholder appears in no other view.
+    test(`kanban (${theme}) matches the a11y baseline`, async ({ page }) => {
+      await openDesktopBoard(page, theme, 'kanban')
+      await page.getByText('Drop tasks here').waitFor()
+      await settle(page)
+      await scanAndAssert(page, `kanban-${theme}`)
+    })
+  }
+
+  // One theme: the bulk bar is theme-neutral on purpose.
+  test('bulk actions match the a11y baseline', async ({ page }) => {
+    await openDesktopBoard(page, 'cork')
+    await page.getByRole('button', { name: 'Select' }).click()
+    const card = page.getByText(SEEDED_TITLES[0]).first()
+    await card.click()
+    await page.getByRole('toolbar', { name: 'Bulk actions' }).getByText('1 selected').waitFor()
+    await unscrollAncestors(card)
+    await settle(page)
+    await scanAndAssert(page, 'bulk')
+  })
 
   // The phone layout (#570). At 760px or below the Board renders its own header, and the other scans
   // never see it: they run at the desktop viewport. The controls get a scan of their own because the
@@ -413,14 +484,7 @@ test.describe('signed in', () => {
       await card.click()
       // An existing task's editor: Delete appears only there, and it is the last control to paint.
       await page.getByRole('button', { name: 'Delete' }).waitFor()
-      // The click scrolled the title into view inside its calendar cell, whose scrollport is about
-      // one title tall, and that can bring the card's Label row out from under the cell's clip.
-      // Whether it does is a pixel or two of theme geometry, and it decides whether this card counts
-      // for label-content-name-mismatch (see the note at the top). Unscrolled, the board behind the
-      // modal is the one the board scans see.
-      await card.evaluate((el) => {
-        for (let node = el.parentElement; node; node = node.parentElement) node.scrollTop = 0
-      })
+      await unscrollAncestors(card)
       await settle(page)
       await scanAndAssert(page, `editor-${theme}`)
     })

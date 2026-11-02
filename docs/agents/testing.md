@@ -263,6 +263,11 @@ is a deliberate tradeoff worth understanding before it costs one:
   **So is the open Members panel (#494)**: `members-cork`, `members-brutal`, `members-glass`, with
   the invitee joined for the scan so an Owner's per-member controls (role, Name…, Remove…) and the
   unassigned-reminder opt-in are on screen.
+  **So are the other three views at the desktop viewport (#611)**: `week-<theme>`, with the Inbox
+  open, `agenda-<theme>` and `kanban-<theme>`. The bulk action bar is scanned there in cork alone
+  (`bulk`), because it's theme-neutral on purpose. Each waits for the search bar, which is shut on a
+  phone until its button opens it, and each view scan also waits for something only that view draws,
+  because the Calendar shows the same three cards.
   **The phone layouts are scanned at 390×844 (#570, #565, #576)**, because every other scan runs at
   the desktop viewport and nothing that renders only at or below the 760px breakpoint reaches axe
   otherwise. Each waits for something only the phone layout can satisfy, so a lost viewport can't
@@ -282,9 +287,8 @@ is a deliberate tradeoff worth understanding before it costs one:
     delete confirmation; the install banner's Install button state; `BoardSwitcher`'s create form;
     the Members panel; the signed-out pages; and `AdminPage`, which only an admin reaches.
 
-  No desktop scan opens the Week, Agenda or Kanban views or selection mode, so what these find there
-  isn't necessarily phone-only. The header of `tests/e2e/a11y.spec.ts` says why each baselined family
-  is accepted.
+  The header of `tests/e2e/a11y.spec.ts` says why each baselined family is accepted, and names any
+  entry that's pending.
 
   `FREEZE_ANIMATION` is injected before every scan because `page.clock` does not stop
   CSS animations and a drifting glass blob turns a `color-contrast` violation into an `incomplete`.
