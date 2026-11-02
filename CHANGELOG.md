@@ -12,6 +12,14 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.12] - 2026-11-02
+
+### Fixed
+
+- **Screen readers can now jump to the bulk action bar.** The bar that acts on selected tasks sat
+  outside every landmark, so anyone moving through the page by landmark skipped it. It now has one
+  of its own, named "Selected tasks", at every screen width. It looks and behaves as before.
+
 ## [1.18.11] - 2026-11-02
 
 ### Fixed
@@ -5765,7 +5773,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.11...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.12...HEAD
+[1.18.12]: https://github.com/jwh3times/magic-agenda/compare/v1.18.11...v1.18.12
 [1.18.11]: https://github.com/jwh3times/magic-agenda/compare/v1.18.10...v1.18.11
 [1.18.10]: https://github.com/jwh3times/magic-agenda/compare/v1.18.9...v1.18.10
 [1.18.9]: https://github.com/jwh3times/magic-agenda/compare/v1.18.8...v1.18.9

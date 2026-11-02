@@ -283,8 +283,8 @@ is a deliberate tradeoff worth understanding before it costs one:
     the Members panel; the signed-out pages; and `AdminPage`, which only an admin reaches.
 
   No desktop scan opens the Week, Agenda or Kanban views or selection mode, so what these find there
-  isn't necessarily phone-only. The header of `tests/e2e/a11y.spec.ts` says which counts are
-  accepted and which are pending fixes.
+  isn't necessarily phone-only. The header of `tests/e2e/a11y.spec.ts` says why each baselined family
+  is accepted.
 
   `FREEZE_ANIMATION` is injected before every scan because `page.clock` does not stop
   CSS animations and a drifting glass blob turns a `color-contrast` violation into an `incomplete`.

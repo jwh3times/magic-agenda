@@ -722,15 +722,19 @@ export function Board({
             onOpenSettings={onOpenSettings}
           />
         )}
+        {/* Its own landmark rather than inside <main>, whose z-index would trap the bar's. The bar is
+            fixed, so this takes up no room. */}
         {selectionActive && (
-          <BulkActionBar
-            count={selection.size}
-            today={today}
-            onApply={applyBulk}
-            onDelete={deleteSelection}
-            onDone={exitSelection}
-            onHeightChange={setBarHeight}
-          />
+          <section aria-label="Selected tasks">
+            <BulkActionBar
+              count={selection.size}
+              today={today}
+              onApply={applyBulk}
+              onDelete={deleteSelection}
+              onDone={exitSelection}
+              onHeightChange={setBarHeight}
+            />
+          </section>
         )}
         {/* The undo offer waits behind a refusal rather than being lost to it. */}
         {taskBoard.lastUndo && notice !== CARRYING_NOTICE ? (

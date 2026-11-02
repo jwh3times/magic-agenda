@@ -25,8 +25,7 @@ import {
   type Finding,
 } from '../../scripts/a11y-baseline'
 
-// Three families are baselined. Two are ACCEPTED violations, not pending fixes, and one further down
-// is a PENDING fix with an issue of its own.
+// Two families are baselined. Both are ACCEPTED violations, not pending fixes.
 //
 // nested-interactive (decided 2026-07-31):
 //
@@ -67,10 +66,6 @@ import {
 //                       phone Calendar scans see only today's card in the panel, which counts for
 //                       both families once. The phone Week and Kanban scans see all three cards,
 //                       unclipped, and the two families need not count the same cards there.
-//
-// The PENDING fix, whose count should only ever fall:
-//
-//   region          phone-bulk: the bulk action bar sits outside every landmark (#608).
 //
 // color-contrast reached zero in two passes (2026-07-31): near-miss token nudges, then per-theme
 // judgment calls recorded in src/theme/themeConf.ts. The first phone Kanban scan reopened it with a

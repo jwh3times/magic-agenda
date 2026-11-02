@@ -100,11 +100,6 @@
     "count": 1
   },
   {
-    "label": "phone-bulk",
-    "ruleId": "region",
-    "count": 1
-  },
-  {
     "label": "phone-controls-brutal",
     "ruleId": "label-content-name-mismatch",
     "count": 1
