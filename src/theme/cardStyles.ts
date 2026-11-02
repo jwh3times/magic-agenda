@@ -235,6 +235,7 @@ export function cardStyles(
   // theme to hold WCAG AA (4.5:1): every cork paper drops below it under 0.9, and
   // brutal's blue paper has no headroom at all (#fff ink is 4.54:1 at full strength).
   // Glass ink sits on a dark backdrop with contrast to spare and keeps the soft fade.
+  // A chip has a tint under its text as well, so it sets its own opacity below.
   const textFade = (a: number) => (theme === 'glass' ? a : theme === 'cork' ? 0.9 : 1)
 
   const dot: CSSProperties = {
@@ -317,7 +318,9 @@ export function cardStyles(
     borderRadius: '20px',
     background: inkSoft(0.12),
     color: 'inherit',
-    opacity: 0.9,
+    // Full strength outside glass, because the tint already spends the headroom `textFade` leaves:
+    // at 0.9 four of cork's six papers drop below 4.5:1, and so does brutal's blue when overdue (#607).
+    opacity: theme === 'glass' ? 0.9 : 1,
     whiteSpace: 'nowrap',
   }
   if (overdue) Object.assign(chipStyle, { background: 'rgba(224,82,74,.22)', fontWeight: 800 })

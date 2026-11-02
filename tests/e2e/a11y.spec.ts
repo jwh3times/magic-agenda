@@ -25,8 +25,8 @@ import {
   type Finding,
 } from '../../scripts/a11y-baseline'
 
-// Four families are baselined. Two are ACCEPTED violations, not pending fixes, and two further down
-// are PENDING fixes with issues of their own.
+// Three families are baselined. Two are ACCEPTED violations, not pending fixes, and one further down
+// is a PENDING fix with an issue of its own.
 //
 // nested-interactive (decided 2026-07-31):
 //
@@ -68,16 +68,16 @@ import {
 //                       both families once. The phone Week and Kanban scans see all three cards,
 //                       unclipped, and the two families need not count the same cards there.
 //
-// The two PENDING fixes, whose counts should only ever fall:
+// The PENDING fix, whose count should only ever fall:
 //
-//   color-contrast  phone-kanban-cork: the day chip on the yellow and mint cards (#607).
 //   region          phone-bulk: the bulk action bar sits outside every landmark (#608).
 //
-// color-contrast otherwise reached zero in two passes (2026-07-31): near-miss token nudges, then per-theme
-// judgment calls recorded in src/theme/themeConf.ts. New theme colours must clear 4.5:1 against
-// every background they sit on. This suite enforces that only where axe can reach a verdict: on the
-// phone Calendar it could judge 41 of 42 day numbers in brutal and none in cork or glass, whose
-// translucent cells over a gradient come back `bgGradient` and whose single digits come back
+// color-contrast reached zero in two passes (2026-07-31): near-miss token nudges, then per-theme
+// judgment calls recorded in src/theme/themeConf.ts. The first phone Kanban scan reopened it with a
+// chip's fade, whose call sits in src/theme/cardStyles.ts (#607). New theme colours must clear 4.5:1
+// against every background they sit on. This suite enforces that only where axe can reach a verdict:
+// on the phone Calendar it could judge 41 of 42 day numbers in brutal and none in cork or glass,
+// whose translucent cells over a gradient come back `bgGradient` and whose single digits come back
 // `shortTextContent`, both as incomplete rather than as violations (measured 2026-10-31, #565).
 //
 // The baseline is JSON and takes no comments, which is why this note lives here.

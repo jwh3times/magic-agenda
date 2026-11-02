@@ -12,6 +12,17 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.11] - 2026-11-02
+
+### Fixed
+
+- **Card chips are easier to read in the Corkboard and TASKS// themes.** The day, time and assignee
+  chips faded their text on top of their own tint, which took four of Corkboard's six note colours
+  below the 4.5:1 contrast they need, and TASKS//'s blue note when overdue. They now show at full
+  strength, and a computed check holds every note colour, overdue or not, because the accessibility
+  scans see only the seeded ones. Aurora keeps its softer chips, which have contrast to spare.
+  Completed cards still fade as a whole, so their chips and some titles stay below 4.5:1.
+
 ## [1.18.10] - 2026-11-02
 
 ### Internal
@@ -5754,7 +5765,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.10...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.11...HEAD
+[1.18.11]: https://github.com/jwh3times/magic-agenda/compare/v1.18.10...v1.18.11
 [1.18.10]: https://github.com/jwh3times/magic-agenda/compare/v1.18.9...v1.18.10
 [1.18.9]: https://github.com/jwh3times/magic-agenda/compare/v1.18.8...v1.18.9
 [1.18.8]: https://github.com/jwh3times/magic-agenda/compare/v1.18.7...v1.18.8
