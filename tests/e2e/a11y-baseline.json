@@ -30,6 +30,16 @@
     "count": 3
   },
   {
+    "label": "bulk",
+    "ruleId": "label-content-name-mismatch",
+    "count": 1
+  },
+  {
+    "label": "bulk",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
     "label": "editor-brutal",
     "ruleId": "label-content-name-mismatch",
     "count": 1
@@ -56,6 +66,41 @@
   },
   {
     "label": "editor-glass",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "kanban-brutal",
+    "ruleId": "color-contrast",
+    "count": 1
+  },
+  {
+    "label": "kanban-brutal",
+    "ruleId": "label-content-name-mismatch",
+    "count": 3
+  },
+  {
+    "label": "kanban-brutal",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "kanban-cork",
+    "ruleId": "label-content-name-mismatch",
+    "count": 3
+  },
+  {
+    "label": "kanban-cork",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "kanban-glass",
+    "ruleId": "label-content-name-mismatch",
+    "count": 3
+  },
+  {
+    "label": "kanban-glass",
     "ruleId": "nested-interactive",
     "count": 3
   },
@@ -246,6 +291,36 @@
   },
   {
     "label": "phone-week-glass",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "week-brutal",
+    "ruleId": "label-content-name-mismatch",
+    "count": 3
+  },
+  {
+    "label": "week-brutal",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "week-cork",
+    "ruleId": "label-content-name-mismatch",
+    "count": 3
+  },
+  {
+    "label": "week-cork",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "week-glass",
+    "ruleId": "label-content-name-mismatch",
+    "count": 3
+  },
+  {
+    "label": "week-glass",
     "ruleId": "nested-interactive",
     "count": 3
   }

@@ -209,6 +209,22 @@ describe('parseScanCallSites', () => {
     expect(parseScanCallSites(src)).toEqual(['board-cork', 'board-brutal', 'board-glass'])
   })
 
+  it.each(['week', 'agenda', 'kanban'])(
+    'expands the desktop %s template against the theme literals in the same source',
+    (surface) => {
+      const src = `
+        for (const theme of ['cork', 'brutal', 'glass'] as Theme[]) {
+          await scanAndAssert(page, \`${surface}-\${theme}\`)
+        }
+      `
+      expect(parseScanCallSites(src)).toEqual([
+        `${surface}-cork`,
+        `${surface}-brutal`,
+        `${surface}-glass`,
+      ])
+    },
+  )
+
   it.each([
     'board',
     'controls',
