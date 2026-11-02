@@ -209,20 +209,26 @@ describe('parseScanCallSites', () => {
     expect(parseScanCallSites(src)).toEqual(['board-cork', 'board-brutal', 'board-glass'])
   })
 
-  it('expands the phone templates against the theme literals in the same source', () => {
+  it.each([
+    'board',
+    'controls',
+    'empty',
+    'week',
+    'agenda',
+    'kanban',
+    'editor',
+    'settings',
+    'filtered',
+  ])('expands the phone-%s template against the theme literals in the same source', (surface) => {
     const src = `
-      for (const theme of ['cork', 'brutal', 'glass'] as Theme[]) {
-        await scanAndAssert(page, \`phone-board-\${theme}\`)
-        await scanAndAssert(page, \`phone-controls-\${theme}\`)
-      }
-    `
+        for (const theme of ['cork', 'brutal', 'glass'] as Theme[]) {
+          await scanAndAssert(page, \`phone-${surface}-\${theme}\`)
+        }
+      `
     expect(parseScanCallSites(src)).toEqual([
-      'phone-board-cork',
-      'phone-board-brutal',
-      'phone-board-glass',
-      'phone-controls-cork',
-      'phone-controls-brutal',
-      'phone-controls-glass',
+      `phone-${surface}-cork`,
+      `phone-${surface}-brutal`,
+      `phone-${surface}-glass`,
     ])
   })
 

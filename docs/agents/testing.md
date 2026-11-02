@@ -263,13 +263,32 @@ is a deliberate tradeoff worth understanding before it costs one:
   **So is the open Members panel (#494)**: `members-cork`, `members-brutal`, `members-glass`, with
   the invitee joined for the scan so an Owner's per-member controls (role, Name…, Remove…) and the
   unassigned-reminder opt-in are on screen.
-  **The phone Calendar Board is scanned per theme at 390×844 (#570, #565)**: `phone-board-<theme>`
-  with the controls shut, `phone-controls-<theme>` with them open, and `phone-empty-<theme>` on an
-  empty day. Every other scan runs at the desktop viewport, so nothing that renders only at or below
-  the 760px breakpoint reaches axe unless one of these can see it. That leaves the phone Week, Agenda
-  and Kanban views, the editor, and Settings unscanned (#576).
+  **The phone layouts are scanned at 390×844 (#570, #565, #576)**, because every other scan runs at
+  the desktop viewport and nothing that renders only at or below the 760px breakpoint reaches axe
+  otherwise. Each waits for something only the phone layout can satisfy, so a lost viewport can't
+  pass as a desktop scan.
+  - **Per theme:** the Calendar Board with the controls shut (`phone-board-<theme>`) and open
+    (`phone-controls-<theme>`) and on an empty day (`phone-empty-<theme>`); the Week, Agenda and
+    Kanban views, the Week one with the docked Inbox open (`phone-week-<theme>`,
+    `phone-agenda-<theme>`, `phone-kanban-<theme>`); the task editor (`phone-editor-<theme>`);
+    Settings with its Labels section (`phone-settings-<theme>`); and an active filter, with the
+    header's marker and the bar's `Clear` (`phone-filtered-<theme>`).
+  - **One theme, cork:** the bulk action bar (`phone-bulk`), which is theme-neutral on purpose, and
+    Settings' Install the app section in its iPhone steps (`phone-install-ios`) and Install button
+    (`phone-install-prompt`) states, which add no colour pair the Settings scans haven't met. The
+    button state uses a simulated `beforeinstallprompt`.
+  - **Not scanned at phone width:** `CommandPalette` and `ShortcutHelp`, which open only from a
+    keyboard; the phone Calendar's Inbox tab, which shares the day panel's chrome; the bulk bar's
+    delete confirmation; the install banner's Install button state; `BoardSwitcher`'s create form;
+    the Members panel; the signed-out pages; and `AdminPage`, which only an admin reaches.
+
+  No desktop scan opens the Week, Agenda or Kanban views or selection mode, so what these find there
+  isn't necessarily phone-only. The header of `tests/e2e/a11y.spec.ts` says which counts are
+  accepted and which are pending fixes.
+
   `FREEZE_ANIMATION` is injected before every scan because `page.clock` does not stop
   CSS animations and a drifting glass blob turns a `color-contrast` violation into an `incomplete`.
+
 - **The a11y baseline asserts counts by strict equality, in both directions.** A count that rose is
   a regression; a count that FELL means the baseline is stale and the lower number must be
   committed. That second direction is deliberate — tolerating it is what lets a ratchet's ceiling

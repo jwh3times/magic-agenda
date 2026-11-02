@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { seedBoard, SEEDED_TITLES, type Theme } from './fixtures/seedBoard'
+import { seedBoard, SEEDED_TITLES, type Theme, type View } from './fixtures/seedBoard'
 import { landingReady, PINNED_DAY, PINNED_TIME, settle } from './fixtures/determinism'
 import {
   inviteeSession,
@@ -25,7 +25,8 @@ import {
   type Finding,
 } from '../../scripts/a11y-baseline'
 
-// Two families are baselined — both ACCEPTED violations, not pending fixes:
+// Four families are baselined. Two are ACCEPTED violations, not pending fixes, and two further down
+// are PENDING fixes with issues of their own.
 //
 // nested-interactive (decided 2026-07-31):
 //
@@ -63,10 +64,16 @@ import {
 //                       visible; scroll a cell and its card counts too (the editor scan resets
 //                       the scroll its click causes). So the count moves with seed data and with
 //                       card or cell geometry, and a change there that moves it is expected. The
-//                       phone scans see only today's card in the panel, which counts for both
-//                       families once.
+//                       phone Calendar scans see only today's card in the panel, which counts for
+//                       both families once. The phone Week and Kanban scans see all three cards,
+//                       unclipped, and the two families need not count the same cards there.
 //
-// color-contrast reached zero in two passes (2026-07-31): near-miss token nudges, then per-theme
+// The two PENDING fixes, whose counts should only ever fall:
+//
+//   color-contrast  phone-kanban-cork: the day chip on the yellow and mint cards (#607).
+//   region          phone-bulk: the bulk action bar sits outside every landmark (#608).
+//
+// color-contrast otherwise reached zero in two passes (2026-07-31): near-miss token nudges, then per-theme
 // judgment calls recorded in src/theme/themeConf.ts. New theme colours must clear 4.5:1 against
 // every background they sit on. This suite enforces that only where axe can reach a verdict: on the
 // phone Calendar it could judge 41 of 42 day numbers in brutal and none in cork or glass, whose
@@ -238,7 +245,7 @@ test.describe('signed in', () => {
   test.describe('phone width', () => {
     test.use({ viewport: { width: 390, height: 844 } })
 
-    async function openBoard(page: Page, theme: Theme) {
+    async function openCalendar(page: Page, theme: Theme) {
       await page.clock.setFixedTime(new Date(PINNED_TIME))
       await seedBoard({ theme, anchor: PINNED_DAY })
       await page.goto('/')
@@ -254,15 +261,130 @@ test.describe('signed in', () => {
       await page.getByRole('tab', { name: 'Inbox, 1 task' }).waitFor()
     }
 
+    /** The other three views show every seeded Task, the Inbox one included. */
+    async function openView(page: Page, theme: Theme, view: View) {
+      await page.clock.setFixedTime(new Date(PINNED_TIME))
+      await seedBoard({ theme, view, anchor: PINNED_DAY })
+      await page.goto('/')
+      await page.getByRole('button', { name: 'Search and filters' }).waitFor()
+      for (const title of SEEDED_TITLES) await page.getByText(title).waitFor()
+    }
+
+    /**
+     * No section list is the part only a phone can satisfy: every other width renders that nav.
+     * Labels load on their own, and until they do the section holds none of its phone layout.
+     */
+    async function settingsReady(page: Page) {
+      await page.getByRole('heading', { name: 'Settings', level: 1 }).waitFor()
+      await page.getByRole('button', { name: 'Members…' }).waitFor()
+      await page.getByLabel('New label', { exact: true }).waitFor()
+      await expect(page.getByRole('navigation', { name: 'Settings sections' })).toHaveCount(0)
+    }
+
+    async function openSettings(page: Page, theme: Theme) {
+      await page.clock.setFixedTime(new Date(PINNED_TIME))
+      await seedBoard({ theme, anchor: PINNED_DAY })
+      await page.goto('/settings')
+      await settingsReady(page)
+    }
+
+    // One theme each for these three. The bulk bar is theme-neutral on purpose, and the install states
+    // add no colour pair the per-theme Settings scan has not already met.
+    test('phone bulk actions match the a11y baseline', async ({ page }) => {
+      await openCalendar(page, 'cork')
+      await page.getByRole('button', { name: 'Search and filters' }).click()
+      await page.getByRole('button', { name: 'Select' }).click()
+      await page.getByText(SEEDED_TITLES[0]).click()
+      await page.getByRole('toolbar', { name: 'Bulk actions' }).getByText('1 selected').waitFor()
+      await settle(page)
+      await scanAndAssert(page, 'phone-bulk')
+    })
+
+    // Chromium never offers a real prompt, so a simulated one reaches the Install button. It fires on
+    // the Board and Settings opens later without a reload, as it would for real.
+    test('phone install prompt matches the a11y baseline', async ({ page }) => {
+      await openCalendar(page, 'cork')
+      await page.evaluate(() =>
+        window.dispatchEvent(new Event('beforeinstallprompt', { cancelable: true })),
+      )
+      await page.getByRole('button', { name: 'Settings', exact: true }).click()
+      await settingsReady(page)
+      await page
+        .getByRole('region', { name: 'Install the app' })
+        .getByRole('button', { name: 'Install the app' })
+        .waitFor()
+      await settle(page)
+      await scanAndAssert(page, 'phone-install-prompt')
+    })
+
+    test.describe('on an iPhone', () => {
+      test.use({
+        userAgent:
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1',
+      })
+
+      test('phone install steps match the a11y baseline', async ({ page }) => {
+        await openSettings(page, 'cork')
+        await page.getByRole('list', { name: 'Steps to install on iPhone or iPad' }).waitFor()
+        await settle(page)
+        await scanAndAssert(page, 'phone-install-ios')
+      })
+    })
+
     for (const theme of ['cork', 'brutal', 'glass'] as Theme[]) {
+      test(`phone week (${theme}) matches the a11y baseline`, async ({ page }) => {
+        await openView(page, theme, 'week')
+        await settle(page)
+        await scanAndAssert(page, `phone-week-${theme}`)
+      })
+
+      test(`phone agenda (${theme}) matches the a11y baseline`, async ({ page }) => {
+        await openView(page, theme, 'agenda')
+        await settle(page)
+        await scanAndAssert(page, `phone-agenda-${theme}`)
+      })
+
+      test(`phone kanban (${theme}) matches the a11y baseline`, async ({ page }) => {
+        await openView(page, theme, 'kanban')
+        await settle(page)
+        await scanAndAssert(page, `phone-kanban-${theme}`)
+      })
+
+      test(`phone task editor (${theme}) matches the a11y baseline`, async ({ page }) => {
+        await openCalendar(page, theme)
+        await page.getByText(SEEDED_TITLES[0]).click()
+        // An existing task's editor: Delete appears only there, and it is the last control to paint.
+        await page.getByRole('button', { name: 'Delete' }).waitFor()
+        await settle(page)
+        await scanAndAssert(page, `phone-editor-${theme}`)
+      })
+
+      test(`phone settings (${theme}) matches the a11y baseline`, async ({ page }) => {
+        await openSettings(page, theme)
+        await settle(page)
+        await scanAndAssert(page, `phone-settings-${theme}`)
+      })
+
+      // Clear and the marker exist only while a filter is active, and Clear is the accent colour on
+      // the themed control fill.
+      test(`phone filtered (${theme}) matches the a11y baseline`, async ({ page }) => {
+        await openCalendar(page, theme)
+        await page.getByRole('button', { name: 'Search and filters' }).click()
+        await page.getByLabel('Search tasks').fill(SEEDED_TITLES[0])
+        await page.getByRole('button', { name: 'Clear' }).waitFor()
+        await page.getByRole('banner').getByTestId('filter-marker').waitFor()
+        await settle(page)
+        await scanAndAssert(page, `phone-filtered-${theme}`)
+      })
+
       test(`phone board (${theme}) matches the a11y baseline`, async ({ page }) => {
-        await openBoard(page, theme)
+        await openCalendar(page, theme)
         await settle(page)
         await scanAndAssert(page, `phone-board-${theme}`)
       })
 
       test(`phone controls (${theme}) match the a11y baseline`, async ({ page }) => {
-        await openBoard(page, theme)
+        await openCalendar(page, theme)
         await page.getByRole('button', { name: 'Search and filters' }).click()
         await page.getByRole('search').waitFor()
         await settle(page)
@@ -272,7 +394,7 @@ test.describe('signed in', () => {
       // An empty day's message and add button appear nowhere else, and they sit in the panel's
       // secondary colours.
       test(`phone empty day (${theme}) matches the a11y baseline`, async ({ page }) => {
-        await openBoard(page, theme)
+        await openCalendar(page, theme)
         await page
           .getByRole('button', { name: /, no tasks$/ })
           .first()
