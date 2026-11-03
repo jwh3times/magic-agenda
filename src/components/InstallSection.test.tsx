@@ -65,6 +65,17 @@ describe('on iPhone or iPad', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
+  // The app needs this switch on to open in its own window. Only some iOS versions show it and its
+  // default isn't known, so the words can't assume it's there, or that it's already on.
+  test('says to make sure Open as Web App is on if it is there, before tapping Add', () => {
+    showing({ kind: 'ios', inAppBrowser: false })
+
+    const steps = within(screen.getByRole('list', { name: /steps/i })).getAllByRole('listitem')
+    expect(steps.map((step) => step.textContent)).toContain(
+      "If you see Open as Web App, make sure it's on. Then tap Add.",
+    )
+  })
+
   test('the pictures are decoration, because the words already name each button', () => {
     const { container } = showing({ kind: 'ios', inAppBrowser: false })
 
@@ -135,6 +146,14 @@ describe('the words', () => {
     (guidance) => {
       const { container } = showing(guidance)
       expect(container.textContent).not.toMatch(/add to home screen/i)
+    },
+  )
+
+  test.each(everyGuidance.filter((guidance) => guidance.kind !== 'ios'))(
+    'keep "Open as Web App" for the iPhone step: %o',
+    (guidance) => {
+      const { container } = showing(guidance)
+      expect(container.textContent).not.toMatch(/open as web app/i)
     },
   )
 })

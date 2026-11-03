@@ -52,8 +52,12 @@ otherwise suggest it again. The Settings section still falls back to the written
 The phone visual canaries and the `phone-width board` tests set the key, so they measure the Board
 alone; the phone accessibility scans leave the banner showing, so they cover it.
 
-**The words:** the UI says "Install the app", uses "Add to Home Screen" only as the literal iPhone
-step, and never says "PWA".
+**The words:** the UI says "Install the app", uses "Add to Home Screen" and "Open as Web App" only as
+literal iPhone steps, and never says "PWA". The second is a switch on Safari's Add to Home Screen
+sheet, seen on iOS 27.2 (#617). With it on, the installed app opens in its own window; with it off,
+the sheet suggests a plain bookmark that opens in Safari, though nobody has tried that. The steps say
+to make sure it's on if it's there, because they can't assume every iOS version has it, and its
+default wasn't recorded.
 
 **What has been checked where.** Chromium never offers a real prompt under test, so `smoke.spec.ts`
 drives the button with a simulated event, which proves its logic and nothing about a real Android

@@ -12,6 +12,15 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.14] - 2026-11-02
+
+### Fixed
+
+- **The iPhone install steps now mention Safari's Open as Web App switch.** The Add to Home Screen
+  sheet on iOS 27.2 has this switch, and the steps went straight to tapping Add without naming it. The
+  installed app needs it on to open in its own window, so the step now says to make sure it's on if
+  you see it. Older iOS versions don't all have the switch, and the wording allows for that.
+
 ## [1.18.13] - 2026-11-02
 
 ### Internal
@@ -5786,7 +5795,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.13...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.14...HEAD
+[1.18.14]: https://github.com/jwh3times/magic-agenda/compare/v1.18.13...v1.18.14
 [1.18.13]: https://github.com/jwh3times/magic-agenda/compare/v1.18.12...v1.18.13
 [1.18.12]: https://github.com/jwh3times/magic-agenda/compare/v1.18.11...v1.18.12
 [1.18.11]: https://github.com/jwh3times/magic-agenda/compare/v1.18.10...v1.18.11
