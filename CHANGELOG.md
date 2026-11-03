@@ -12,6 +12,22 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.16] - 2026-11-02
+
+### Internal
+
+- **Agent skills:** `end-session` now closes every session with the same report: what it did, the
+  docs it searched and updated, open PRs and security alert counts, and the human steps owed before
+  the next session.
+
+## [1.18.15] - 2026-11-02
+
+### Internal
+
+- Dependabot: bumped the `npm-minor-and-patch` group (#609) — `react-router` 8.5.0 → 8.5.1, and
+  `@types/node` 26.6.5 → 26.6.6, a development dependency. Backfilled by v1.18.16, per the changelog
+  guard's Dependabot exemption.
+
 ## [1.18.14] - 2026-11-02
 
 ### Fixed
@@ -5795,7 +5811,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.14...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.16...HEAD
+[1.18.16]: https://github.com/jwh3times/magic-agenda/compare/v1.18.15...v1.18.16
+[1.18.15]: https://github.com/jwh3times/magic-agenda/compare/v1.18.14...v1.18.15
 [1.18.14]: https://github.com/jwh3times/magic-agenda/compare/v1.18.13...v1.18.14
 [1.18.13]: https://github.com/jwh3times/magic-agenda/compare/v1.18.12...v1.18.13
 [1.18.12]: https://github.com/jwh3times/magic-agenda/compare/v1.18.11...v1.18.12
