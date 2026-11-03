@@ -26,6 +26,16 @@ export const EXPECTED_LABELS = [
   'board-cork',
   'board-brutal',
   'board-glass',
+  'week-cork',
+  'week-brutal',
+  'week-glass',
+  'agenda-cork',
+  'agenda-brutal',
+  'agenda-glass',
+  'kanban-cork',
+  'kanban-brutal',
+  'kanban-glass',
+  'bulk',
   'editor-cork',
   'editor-brutal',
   'editor-glass',
@@ -41,6 +51,27 @@ export const EXPECTED_LABELS = [
   'phone-empty-cork',
   'phone-empty-brutal',
   'phone-empty-glass',
+  'phone-week-cork',
+  'phone-week-brutal',
+  'phone-week-glass',
+  'phone-agenda-cork',
+  'phone-agenda-brutal',
+  'phone-agenda-glass',
+  'phone-kanban-cork',
+  'phone-kanban-brutal',
+  'phone-kanban-glass',
+  'phone-editor-cork',
+  'phone-editor-brutal',
+  'phone-editor-glass',
+  'phone-settings-cork',
+  'phone-settings-brutal',
+  'phone-settings-glass',
+  'phone-filtered-cork',
+  'phone-filtered-brutal',
+  'phone-filtered-glass',
+  'phone-bulk',
+  'phone-install-ios',
+  'phone-install-prompt',
 ] as const
 
 export interface Finding {
@@ -240,7 +271,7 @@ export function parseScanCallSites(specSource: string): string[] {
     const literal = /^'([^']+)'$/.exec(arg)
     if (literal) return [literal[1]]
     const perTheme =
-      /^`(board|settings|editor|members|phone-board|phone-controls|phone-empty)-\$\{theme\}`$/.exec(
+      /^`(board|week|agenda|kanban|settings|editor|members|phone-board|phone-controls|phone-empty|phone-week|phone-agenda|phone-kanban|phone-editor|phone-settings|phone-filtered)-\$\{theme\}`$/.exec(
         arg,
       )
     if (perTheme) {

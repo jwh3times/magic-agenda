@@ -30,6 +30,16 @@
     "count": 3
   },
   {
+    "label": "bulk",
+    "ruleId": "label-content-name-mismatch",
+    "count": 1
+  },
+  {
+    "label": "bulk",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
     "label": "editor-brutal",
     "ruleId": "label-content-name-mismatch",
     "count": 1
@@ -56,6 +66,41 @@
   },
   {
     "label": "editor-glass",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "kanban-brutal",
+    "ruleId": "color-contrast",
+    "count": 1
+  },
+  {
+    "label": "kanban-brutal",
+    "ruleId": "label-content-name-mismatch",
+    "count": 3
+  },
+  {
+    "label": "kanban-brutal",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "kanban-cork",
+    "ruleId": "label-content-name-mismatch",
+    "count": 3
+  },
+  {
+    "label": "kanban-cork",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "kanban-glass",
+    "ruleId": "label-content-name-mismatch",
+    "count": 3
+  },
+  {
+    "label": "kanban-glass",
     "ruleId": "nested-interactive",
     "count": 3
   },
@@ -90,6 +135,16 @@
     "count": 1
   },
   {
+    "label": "phone-bulk",
+    "ruleId": "label-content-name-mismatch",
+    "count": 1
+  },
+  {
+    "label": "phone-bulk",
+    "ruleId": "nested-interactive",
+    "count": 1
+  },
+  {
     "label": "phone-controls-brutal",
     "ruleId": "label-content-name-mismatch",
     "count": 1
@@ -118,5 +173,155 @@
     "label": "phone-controls-glass",
     "ruleId": "nested-interactive",
     "count": 1
+  },
+  {
+    "label": "phone-editor-brutal",
+    "ruleId": "label-content-name-mismatch",
+    "count": 1
+  },
+  {
+    "label": "phone-editor-brutal",
+    "ruleId": "nested-interactive",
+    "count": 1
+  },
+  {
+    "label": "phone-editor-cork",
+    "ruleId": "label-content-name-mismatch",
+    "count": 1
+  },
+  {
+    "label": "phone-editor-cork",
+    "ruleId": "nested-interactive",
+    "count": 1
+  },
+  {
+    "label": "phone-editor-glass",
+    "ruleId": "label-content-name-mismatch",
+    "count": 1
+  },
+  {
+    "label": "phone-editor-glass",
+    "ruleId": "nested-interactive",
+    "count": 1
+  },
+  {
+    "label": "phone-filtered-brutal",
+    "ruleId": "label-content-name-mismatch",
+    "count": 1
+  },
+  {
+    "label": "phone-filtered-brutal",
+    "ruleId": "nested-interactive",
+    "count": 1
+  },
+  {
+    "label": "phone-filtered-cork",
+    "ruleId": "label-content-name-mismatch",
+    "count": 1
+  },
+  {
+    "label": "phone-filtered-cork",
+    "ruleId": "nested-interactive",
+    "count": 1
+  },
+  {
+    "label": "phone-filtered-glass",
+    "ruleId": "label-content-name-mismatch",
+    "count": 1
+  },
+  {
+    "label": "phone-filtered-glass",
+    "ruleId": "nested-interactive",
+    "count": 1
+  },
+  {
+    "label": "phone-kanban-brutal",
+    "ruleId": "label-content-name-mismatch",
+    "count": 2
+  },
+  {
+    "label": "phone-kanban-brutal",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "phone-kanban-cork",
+    "ruleId": "label-content-name-mismatch",
+    "count": 2
+  },
+  {
+    "label": "phone-kanban-cork",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "phone-kanban-glass",
+    "ruleId": "label-content-name-mismatch",
+    "count": 2
+  },
+  {
+    "label": "phone-kanban-glass",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "phone-week-brutal",
+    "ruleId": "label-content-name-mismatch",
+    "count": 2
+  },
+  {
+    "label": "phone-week-brutal",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "phone-week-cork",
+    "ruleId": "label-content-name-mismatch",
+    "count": 2
+  },
+  {
+    "label": "phone-week-cork",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "phone-week-glass",
+    "ruleId": "label-content-name-mismatch",
+    "count": 2
+  },
+  {
+    "label": "phone-week-glass",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "week-brutal",
+    "ruleId": "label-content-name-mismatch",
+    "count": 3
+  },
+  {
+    "label": "week-brutal",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "week-cork",
+    "ruleId": "label-content-name-mismatch",
+    "count": 3
+  },
+  {
+    "label": "week-cork",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "week-glass",
+    "ruleId": "label-content-name-mismatch",
+    "count": 3
+  },
+  {
+    "label": "week-glass",
+    "ruleId": "nested-interactive",
+    "count": 3
   }
 ]

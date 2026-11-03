@@ -12,6 +12,63 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.14] - 2026-11-02
+
+### Fixed
+
+- **The iPhone install steps now mention Safari's Open as Web App switch.** The Add to Home Screen
+  sheet on iOS 27.2 has this switch, and the steps went straight to tapping Add without naming it. The
+  installed app needs it on to open in its own window, so the step now says to make sure it's on if
+  you see it. Older iOS versions don't all have the switch, and the wording allows for that.
+
+## [1.18.13] - 2026-11-02
+
+### Internal
+
+- **The accessibility suite now scans the Week, Agenda and Kanban views at desktop width.** Each is
+  scanned in all three themes, Week with its Inbox open, and the bulk action bar is scanned in one.
+  Before this, those views were scanned only at phone width, and selection mode wasn't scanned at
+  desktop width at all. Breaking each surface's desktop path on purpose failed all 10 new scans and
+  none of the older ones. The app does not change.
+- **The baseline holds one pending fix again.** The first desktop Kanban scan found that "Drop tasks
+  here" in an empty column misses contrast in TASKS//, at 2.81:1 (#615). It's recorded at its current
+  count so the suite stays green, and the spec's header marks it as pending.
+
+## [1.18.12] - 2026-11-02
+
+### Fixed
+
+- **Screen readers can now jump to the bulk action bar.** The bar that acts on selected tasks sat
+  outside every landmark, so anyone moving through the page by landmark skipped it. It now has one
+  of its own, named "Selected tasks", at every screen width. It looks and behaves as before.
+
+## [1.18.11] - 2026-11-02
+
+### Fixed
+
+- **Card chips are easier to read in the Corkboard and TASKS// themes.** The day, time and assignee
+  chips faded their text on top of their own tint, which took four of Corkboard's six note colours
+  below the 4.5:1 contrast they need, and TASKS//'s blue note when overdue. They now show at full
+  strength, and a computed check holds every note colour, overdue or not, because the accessibility
+  scans see only the seeded ones. Aurora keeps its softer chips, which have contrast to spare.
+  Completed cards still fade as a whole, so their chips and some titles stay below 4.5:1.
+
+## [1.18.10] - 2026-11-02
+
+### Internal
+
+- **The accessibility suite now scans the rest of the phone layout.** At 390×844, the Week, Agenda and
+  Kanban views, the task editor, Settings and an active filter are scanned in all three themes, and
+  the bulk action bar and both states of Install the app in one. Breaking each phone-only branch on
+  purpose failed all 21 new scans and none of the older ones, so these see what the desktop scans
+  can't. The app does not change.
+- **The baseline now holds pending fixes as well as accepted violations.** The new scans found two
+  defects that aren't specific to phones, because no desktop scan opens those surfaces: the Kanban
+  card's day chip misses contrast in cork (#607), and the bulk action bar sits outside every landmark
+  (#608). Both are recorded at their current counts so the suite stays green, and the spec's header
+  says which entries are which. `docs/agents/testing.md` lists what is scanned at phone width and what
+  isn't.
+
 ## [1.18.9] - 2026-11-01
 
 ### Internal
@@ -5738,7 +5795,12 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.9...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.14...HEAD
+[1.18.14]: https://github.com/jwh3times/magic-agenda/compare/v1.18.13...v1.18.14
+[1.18.13]: https://github.com/jwh3times/magic-agenda/compare/v1.18.12...v1.18.13
+[1.18.12]: https://github.com/jwh3times/magic-agenda/compare/v1.18.11...v1.18.12
+[1.18.11]: https://github.com/jwh3times/magic-agenda/compare/v1.18.10...v1.18.11
+[1.18.10]: https://github.com/jwh3times/magic-agenda/compare/v1.18.9...v1.18.10
 [1.18.9]: https://github.com/jwh3times/magic-agenda/compare/v1.18.8...v1.18.9
 [1.18.8]: https://github.com/jwh3times/magic-agenda/compare/v1.18.7...v1.18.8
 [1.18.7]: https://github.com/jwh3times/magic-agenda/compare/v1.18.6...v1.18.7

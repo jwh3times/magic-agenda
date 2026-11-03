@@ -1296,6 +1296,15 @@ describe('keyboard shortcuts and the command palette (#269)', () => {
 describe('selection mode', () => {
   const toolbar = () => screen.getByRole('toolbar', { name: 'Bulk actions' })
 
+  test('the action bar sits in a named landmark, so a screen reader can jump to it', async () => {
+    const user = userEvent.setup()
+    renderBoard()
+
+    await user.click(screen.getByRole('button', { name: '☑ Select' }))
+
+    expect(screen.getByRole('region', { name: 'Selected tasks' })).toContainElement(toolbar())
+  })
+
   test('Ctrl-click selects a card instead of opening it, and enters selection mode', async () => {
     const user = userEvent.setup()
     renderBoard()

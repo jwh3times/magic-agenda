@@ -50,7 +50,8 @@ function IosSteps() {
         <strong>More</strong> to find it.
       </li>
       <li>
-        Tap <strong>Add</strong>.
+        If you see <strong>Open as Web App</strong>, make sure it's on. Then tap{' '}
+        <strong>Add</strong>.
       </li>
       <li>Open Magic Agenda from your Home Screen.</li>
     </ol>
