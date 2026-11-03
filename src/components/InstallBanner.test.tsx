@@ -64,6 +64,13 @@ test.each<[string, InstallGuidance]>([
   )
 })
 
+test('leaves the iPhone steps to Settings, including Open as Web App', () => {
+  showing({ kind: 'ios', inAppBrowser: false })
+
+  expect(banner()).toBeInTheDocument()
+  expect(banner()).not.toHaveTextContent(/open as web app/i)
+})
+
 test.each<[string, InstallGuidance]>([
   ['the installed app', { kind: 'in-installed-app' }],
   ['an install that just finished', { kind: 'just-installed' }],
