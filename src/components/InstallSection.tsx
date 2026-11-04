@@ -1,8 +1,9 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { useInstallGuidance } from '../install/useInstallGuidance'
 import { Button } from './controls'
+import { useThemeOrDefault } from '../theme/ThemeProvider'
 
-const hint: CSSProperties = { margin: 0, fontSize: 13, opacity: 0.7, lineHeight: 1.45 }
+const hintBase: CSSProperties = { margin: 0, fontSize: 13, lineHeight: 1.45 }
 const text: CSSProperties = { margin: 0, lineHeight: 1.45 }
 const column: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 10 }
 
@@ -67,14 +68,15 @@ function LeaveInAppBrowser({ browser }: { browser: string }) {
   )
 }
 
-const INTRO = (
-  <p style={hint}>
-    Installing puts Magic Agenda on your device, so it opens in its own window like any other app.
-  </p>
-)
-
 export function InstallSection() {
   const { guidance, install } = useInstallGuidance()
+  const { conf } = useThemeOrDefault()
+  const hint = { ...hintBase, color: conf.mutedFg }
+  const intro = (
+    <p style={hint}>
+      Installing puts Magic Agenda on your device, so it opens in its own window like any other app.
+    </p>
+  )
 
   switch (guidance.kind) {
     case 'in-installed-app':
@@ -89,7 +91,7 @@ export function InstallSection() {
     case 'prompt':
       return (
         <div style={{ ...column, alignItems: 'flex-start' }}>
-          {INTRO}
+          {intro}
           <Button variant="primary" onClick={() => void install()}>
             Install the app
           </Button>
@@ -99,7 +101,7 @@ export function InstallSection() {
     case 'ios':
       return (
         <div style={column}>
-          {INTRO}
+          {intro}
           {guidance.inAppBrowser && <LeaveInAppBrowser browser="Safari" />}
           <IosSteps />
         </div>
@@ -107,7 +109,7 @@ export function InstallSection() {
     case 'steps':
       return (
         <div style={column}>
-          {INTRO}
+          {intro}
           {guidance.inAppBrowser && <LeaveInAppBrowser browser="your usual browser" />}
           <p style={text}>
             Open your browser's menu and choose <strong>Install app</strong>, or the option that

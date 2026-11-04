@@ -6,7 +6,7 @@ import { useThemeOrDefault } from '../theme/ThemeProvider'
 import { Button, TextInput } from './controls'
 import { rowListStyle } from '../theme/controls'
 
-const hint: CSSProperties = { fontSize: 12, opacity: 0.7 }
+const hintBase: CSSProperties = { fontSize: 12 }
 const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }
 const CODE_LENGTH = 6
 
@@ -28,6 +28,7 @@ const CODE_LENGTH = 6
 export function TwoFactorSection() {
   const { listTotpFactors, enrollTotp, verifyTotp, unenrollFactor } = useAuth()
   const { conf } = useThemeOrDefault()
+  const hint = { ...hintBase, color: conf.mutedFg }
   const [factors, setFactors] = useState<TotpFactor[] | null>(null)
   const [enrollment, setEnrollment] = useState<TotpEnrollment | null>(null)
   const [code, setCode] = useState('')

@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, test, vi } from 'vitest'
+import { dimmedText } from '../test/dimmedText'
 
 const h = vi.hoisted(() => ({
   list: vi.fn(),
@@ -130,4 +131,11 @@ test('rereads the pending list when the members change', async () => {
   await waitFor(() => expect(h.list).toHaveBeenCalledTimes(1))
   rerender(<InvitationsSection boardId="b1" boardName="Team" members={[owner('a1', 'Me')]} />)
   await waitFor(() => expect(h.list).toHaveBeenCalledTimes(2))
+})
+
+// Its hints are drawn in the theme's `mutedFg`, never dimmed with opacity (#624).
+test('no text in the section is dimmed with opacity', async () => {
+  render(<InvitationsSection boardId="b1" boardName="Team" />)
+  await screen.findByText('bo@example.test')
+  expect(dimmedText(document.body)).toEqual([])
 })

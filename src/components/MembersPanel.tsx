@@ -17,7 +17,7 @@ import { Button, Checkbox, Select, TextInput } from './controls'
 import { rowListStyle } from '../theme/controls'
 import { InvitationsSection } from './InvitationsSection'
 
-const hint: CSSProperties = { fontSize: 12, opacity: 0.7 }
+const hintBase: CSSProperties = { fontSize: 12 }
 const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }
 
 /**
@@ -46,6 +46,7 @@ export function MembersPanel({
 }) {
   const can = capabilitiesFor(board.role)
   const { conf } = useThemeOrDefault()
+  const hint = { ...hintBase, color: conf.mutedFg }
   const [members, setMembers] = useState<BoardMember[] | null>(null)
   // The last member read failed: `members` is then stale or null, which is not "still loading".
   const [membersFailed, setMembersFailed] = useState(false)

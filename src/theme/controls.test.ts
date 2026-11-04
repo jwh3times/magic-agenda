@@ -111,6 +111,27 @@ describe('control colours clear WCAG AA on a Settings card, in every theme', () 
       expect(contrast(over(conf.dangerFg, card), card)).toBeGreaterThanOrEqual(4.5)
     })
 
+    // axe returns most of cork's Settings text as incomplete (`bgGradient`, its card is translucent
+    // over the dotted page), and the success notice only appears after an export or import, so no
+    // scan judges either colour (#624). These are what hold them.
+    it(`${theme}: muted and success text read on the bare card`, () => {
+      for (const [token, color] of Object.entries({
+        mutedFg: conf.mutedFg,
+        successFg: conf.successFg,
+      })) {
+        const ratio = contrast(over(color, card), card)
+        expect({ token, passesAA: ratio >= 4.5, ratio: ratio.toFixed(2) }).toMatchObject({
+          token,
+          passesAA: true,
+        })
+      }
+    })
+
+    it(`${theme}: muted text reads on the bare page, where Settings' footer sits`, () => {
+      const page = parseColor(conf.pageBg)[0]
+      expect(contrast(over(conf.mutedFg, page), page)).toBeGreaterThanOrEqual(4.5)
+    })
+
     it(`${theme}: a chart mark stands out from the card (3:1, WCAG 1.4.11)`, () => {
       expect(contrast(over(conf.chartMark, card), card)).toBeGreaterThanOrEqual(3)
     })

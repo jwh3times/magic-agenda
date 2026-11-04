@@ -10,8 +10,8 @@ import {
 import { useThemeOrDefault } from '../theme/ThemeProvider'
 import { Button, TextInput } from './controls'
 
-const hint: CSSProperties = { fontSize: 12.5, opacity: 0.75, margin: 0 }
-const label: CSSProperties = { fontSize: 13, opacity: 0.7 }
+const hintBase: CSSProperties = { fontSize: 12.5, margin: 0 }
+const labelBase: CSSProperties = { fontSize: 13 }
 
 /**
  * The Account's Display Name (#475). Until this existed nothing in the app could set one, so every
@@ -22,6 +22,8 @@ const label: CSSProperties = { fontSize: 13, opacity: 0.7 }
  */
 export function ProfileSection() {
   const { conf } = useThemeOrDefault()
+  const hint = { ...hintBase, color: conf.mutedFg }
+  const label = { ...labelBase, color: conf.mutedFg }
   const { user, signOut } = useAuth()
   const accountId = user?.id ?? null
   // `saved` is null until the stored name has loaded; the field stays disabled until then so a

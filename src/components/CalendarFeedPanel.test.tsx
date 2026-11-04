@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, test, vi } from 'vitest'
 import { fakeBoardSummary } from '../board/fakeBoardDirectory'
 import type { BoardOutcome } from '../board/outcome'
+import { dimmedText } from '../test/dimmedText'
 import { CalendarFeedPanel } from './CalendarFeedPanel'
 
 const readCalendarFeedToken = vi.fn<(boardId: string) => Promise<BoardOutcome<string>>>()
@@ -129,4 +130,12 @@ test('closing hands control back to the owner of the panel', async () => {
 
   await user.click(screen.getByRole('button', { name: /^hide$/i }))
   expect(onClose).toHaveBeenCalledOnce()
+})
+
+// Its hints are drawn in the theme's `mutedFg`, never dimmed with opacity (#624). Settings never
+// renders it open, so the page's own guard cannot see it.
+test('no text in the panel is dimmed with opacity', async () => {
+  render(<CalendarFeedPanel board={BOARD} onClose={() => {}} />)
+  await screen.findByDisplayValue(new RegExp(OLD))
+  expect(dimmedText(document.body)).toEqual([])
 })

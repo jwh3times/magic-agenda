@@ -307,10 +307,16 @@ is a deliberate tradeoff worth understanding before it costs one:
   unasserted because it moves with seed data and layout. A colour that lands on a translucent
   surface, or as a single character, needs a numeric test in `src/theme/controls.test.ts`, which
   composites it over the theme's page with `src/test/contrast.ts`. The day numbers in every cell
-  state, and the phone's selected day, have one; Task and Inbox text in cork and glass may share the
-  same blind spot and haven't been measured. Those tests use the page's base colour and leave out
-  cork's grain dots and glass's blobs, so they check a representative background, not the worst
-  one.
+  state, and the phone's selected day, have one. So do Settings' secondary and success text
+  (#624), which cork's translucent card hid the same way: 67–90 `bgGradient` nodes on each cork
+  Settings, Members and Install scan, against 0–4 in the other themes. Its hints, dimmed with
+  `opacity`, read 3.6:1 there. They are now drawn in the theme's `mutedFg` and the notice in its
+  `successFg`, both held to 4.5:1. `dimmedText()` (`src/test/dimmedText.ts`) fails the Settings,
+  Members, Invitations and calendar-feed render tests if text slips back to opacity, because an opacity's contrast
+  depends on where it is used, so no token check can hold it. The board and editor surfaces still
+  carry 35–60 unidentified `bgGradient` nodes in cork and glass (#625). Those tests use the page's
+  base colour and leave out cork's grain dots and glass's blobs, so they check a representative
+  background, not the worst one.
 
 - **The a11y baseline asserts counts by strict equality, in both directions.** A count that rose is
   a regression; a count that FELL means the baseline is stale and the lower number must be
