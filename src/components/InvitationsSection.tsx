@@ -14,7 +14,7 @@ import { useThemeOrDefault } from '../theme/ThemeProvider'
 import { Button, Select, TextInput } from './controls'
 import { rowListStyle } from '../theme/controls'
 
-const hint: CSSProperties = { fontSize: 12, opacity: 0.7 }
+const hintBase: CSSProperties = { fontSize: 12 }
 const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }
 const ROLES: readonly InvitationRole[] = ['editor', 'viewer']
 
@@ -45,6 +45,7 @@ export function InvitationsSection({
   selfAccountId?: string | null
 }) {
   const { conf } = useThemeOrDefault()
+  const hint = { ...hintBase, color: conf.mutedFg }
   const [pending, setPending] = useState<PendingInvitation[]>([])
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<InvitationRole>('editor')

@@ -4,6 +4,7 @@ import { MemoryRouter, useLocation } from 'react-router'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { fakeBoardDirectory, fakeBoardSession } from '../board/fakeBoardDirectory'
 import { fakeLabelDirectory } from '../labels/fakeLabelDirectory'
+import { dimmedText } from '../test/dimmedText'
 
 const h = vi.hoisted(() => {
   const upsert = vi.fn(() => ({
@@ -238,4 +239,13 @@ test('on a phone, there is no section nav: the sections stay one column', async 
   await screen.findByRole('heading', { name: 'Settings' })
   expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
   expect(screen.getByRole('heading', { level: 2, name: 'Danger zone' })).toBeInTheDocument()
+})
+
+// Secondary text is drawn in the theme's `mutedFg`, never dimmed with opacity: cork's card cannot
+// afford the dimming, and axe cannot judge text there to notice (#624).
+test('no text on the page is dimmed with opacity', async () => {
+  renderPage()
+  await screen.findByRole('heading', { name: 'Install the app' })
+  await waitFor(() => expect(h.auth.listTotpFactors).toHaveBeenCalled())
+  expect(dimmedText(document.body)).toEqual([])
 })

@@ -274,7 +274,7 @@ export function DataSection() {
               }}
             >
               <legend style={{ fontWeight: 700 }}>Map Labels</legend>
-              <div style={{ lineHeight: 1.4, opacity: 0.8 }}>
+              <div style={{ lineHeight: 1.4, color: conf.mutedFg }}>
                 Choose an existing destination Label or Unlabeled for each source Label. Labels are
                 never created or matched automatically by name.
               </div>
@@ -353,7 +353,7 @@ export function DataSection() {
           </div>
         </div>
       )}
-      {notice && <div style={{ color: '#3f9d63', fontSize: 13 }}>{notice}</div>}
+      {notice && <div style={{ color: conf.successFg, fontSize: 13 }}>{notice}</div>}
       {error && <div style={{ color: conf.dangerFg, fontSize: 13 }}>{error}</div>}
     </div>
   )

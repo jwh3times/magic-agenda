@@ -233,7 +233,7 @@ function SettingsShell({ defaultView, onChangeView }: SectionContext) {
           </div>
         )}
 
-        <footer style={{ fontSize: 13, opacity: 0.7, display: 'flex', gap: 14 }}>
+        <footer style={{ fontSize: 13, color: conf.mutedFg, display: 'flex', gap: 14 }}>
           <Link to="/privacy" style={{ color: 'inherit' }}>
             Privacy
           </Link>
@@ -311,17 +311,18 @@ function useActiveSection(ids: string[], enabled: boolean) {
 }
 
 function AppearanceSection({ defaultView, onChangeView }: SectionContext) {
+  const { conf } = useTheme()
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
-        <div style={{ fontSize: 13, opacity: 0.7, marginBottom: 6 }}>Theme</div>
+        <div style={{ fontSize: 13, color: conf.mutedFg, marginBottom: 6 }}>Theme</div>
         {/* A flex row, so the switcher's pill hugs its three buttons instead of stretching. */}
         <div style={{ display: 'flex' }}>
           <ThemeSwitcher />
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <label htmlFor="settings-default-view" style={{ fontSize: 13, opacity: 0.7 }}>
+        <label htmlFor="settings-default-view" style={{ fontSize: 13, color: conf.mutedFg }}>
           Default view
         </label>
         <Select

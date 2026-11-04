@@ -12,6 +12,29 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.20] - 2026-11-04
+
+### Fixed
+
+- **Settings' smaller text is easier to read in the Corkboard theme (#624).** Field labels, hints
+  and status lines across Settings, the Members panel, invitations, the calendar feed panel and
+  Install the app were faded to below the 4.5:1 contrast text needs: as low as 2.95:1, and 3.6:1
+  for most hints. Corkboard now draws them in a darker brown, at 5.3:1. They look the same as
+  before in TASKS// and Aurora. The page footer is held to the same minimum.
+- **The success message after an export or import is readable in Corkboard and TASKS// (#624).**
+  Its green was 1.6:1 in Corkboard and 3.4:1 in TASKS//. Each theme now has its own darker green
+  (5.2:1 and 5.4:1); Aurora's is unchanged.
+- An archived task in Settings → History now shows its title in the muted colour instead of fading
+  the whole row, so its badge and buttons stay at full strength. The offline Label form's "New
+  label" text no longer fades with its disabled controls.
+
+### Internal
+
+- Each theme has a muted and a success text colour, and a computed check holds both to 4.5:1 on
+  its Settings card. The Settings, Members, invitations and calendar-feed render tests now fail if
+  any text is faded with opacity. The testing guide records that this text, like the day numbers,
+  is text the accessibility scans can't judge.
+
 ## [1.18.19] - 2026-11-04
 
 ### Fixed
@@ -5849,7 +5872,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.19...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.20...HEAD
+[1.18.20]: https://github.com/jwh3times/magic-agenda/compare/v1.18.19...v1.18.20
 [1.18.19]: https://github.com/jwh3times/magic-agenda/compare/v1.18.18...v1.18.19
 [1.18.18]: https://github.com/jwh3times/magic-agenda/compare/v1.18.17...v1.18.18
 [1.18.17]: https://github.com/jwh3times/magic-agenda/compare/v1.18.16...v1.18.17

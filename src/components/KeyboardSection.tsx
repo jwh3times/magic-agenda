@@ -1,8 +1,9 @@
 import type { CSSProperties } from 'react'
 import { useSettingsContext } from '../data/SettingsProvider'
 import { Checkbox } from './controls'
+import { useThemeOrDefault } from '../theme/ThemeProvider'
 
-const hint: CSSProperties = { margin: 0, fontSize: 13, opacity: 0.7, lineHeight: 1.45 }
+const hintBase: CSSProperties = { margin: 0, fontSize: 13, lineHeight: 1.45 }
 
 /**
  * Settings → Keyboard shortcuts: the account's switch for the board's single-letter shortcuts
@@ -12,6 +13,7 @@ const hint: CSSProperties = { margin: 0, fontSize: 13, opacity: 0.7, lineHeight:
  */
 export function KeyboardSection() {
   const { settings, saveKeyboardShortcuts } = useSettingsContext()
+  const { conf } = useThemeOrDefault()
   if (!settings) return null
 
   return (
@@ -23,7 +25,7 @@ export function KeyboardSection() {
         />
         Single-letter shortcuts on the board
       </label>
-      <p style={hint}>
+      <p style={{ ...hintBase, color: conf.mutedFg }}>
         n new task · t today · 1–4 views · / search · ? all shortcuts. Turn these off if they clash
         with a screen reader or voice control. Ctrl+K (⌘K on a Mac) always opens the command
         palette.

@@ -78,6 +78,23 @@ export interface ThemeConf {
    */
   dangerFg: string
   /**
+   * Secondary text on a Settings card, and on the bare page beside it: field labels, hints, the
+   * footer (#624). A colour of its own, not `numFg` dimmed with `opacity`, because cork cannot
+   * afford the dimming: `numFg` at the `.7` the hints used was 3.6:1 on cork's translucent card,
+   * where brutal's was 7.1:1 and glass's 6.2:1. brutal and glass keep the look they had (their
+   * `numFg` at .7 and its equivalent); cork is the same ink at `.88`, the strength #579 gave its
+   * out-of-month day numbers, at 5.3:1 on the card and 4.9:1 on the page. axe judges almost none
+   * of this in cork, so `controls.test.ts` holds all three.
+   */
+  mutedFg: string
+  /**
+   * Success text on a Settings card, the counterpart of `dangerFg` (#624). The one green the app
+   * used, `#3f9d63`, reads 5.3:1 on glass's dark card but 3.4:1 on brutal's white one and 1.6:1 on
+   * cork's, so brutal and cork darken it (5.4:1 and 5.2:1). Every value clears 4.5:1 on its own
+   * theme's card; `controls.test.ts` holds them.
+   */
+  successFg: string
+  /**
    * The fill of a data mark — a bar in Admin's 30-day history (#468) — on a card. A mark is a
    * graphic, so it needs 3:1 against the card (WCAG 1.4.11), not text's 4.5:1. brutal and glass
    * reuse their `accent`, at 4.8:1 and 3.7:1; cork's `#b8472e` is only 2.5:1 on its translucent
@@ -121,6 +138,8 @@ const CORK: ThemeConf = {
   focusRing: '#2f1d0c',
   focusRingInset: 3,
   dangerFg: '#7f1a10',
+  mutedFg: 'rgba(58,38,17,.88)',
+  successFg: '#174424',
   chartMark: '#8f3520',
 }
 
@@ -160,6 +179,8 @@ const BRUTAL: ThemeConf = {
   focusRing: '#111111',
   focusRingInset: 8,
   dangerFg: '#b42318',
+  mutedFg: 'rgba(17,17,17,.7)',
+  successFg: '#1e7a3e',
   chartMark: '#CD4128',
 }
 
@@ -198,6 +219,8 @@ const GLASS: ThemeConf = {
   focusRing: '#eaf0ff',
   focusRingInset: 4,
   dangerFg: '#ff8f85',
+  mutedFg: 'rgba(234,240,255,.6)',
+  successFg: '#3f9d63',
   chartMark: '#7452ff',
 }
 

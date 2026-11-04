@@ -9,7 +9,7 @@ import type { BoardSummary } from '../board/selection'
 import { useThemeOrDefault } from '../theme/ThemeProvider'
 import { AnchorButton, Button, TextInput } from './controls'
 
-const hint: CSSProperties = { fontSize: 12, opacity: 0.7 }
+const hintBase: CSSProperties = { fontSize: 12 }
 const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }
 
 /**
@@ -32,6 +32,7 @@ export function CalendarFeedPanel({
   onClose: () => void
 }) {
   const { conf } = useThemeOrDefault()
+  const hint = { ...hintBase, color: conf.mutedFg }
   const [token, setToken] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirming, setConfirming] = useState(false)
