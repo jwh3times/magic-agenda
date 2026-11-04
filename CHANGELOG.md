@@ -12,6 +12,26 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.19] - 2026-11-04
+
+### Fixed
+
+- **Calendar day numbers are easier to read in the Corkboard and Aurora themes (#579).** Three
+  day-number colours were below the 4.5:1 contrast text needs, and the accessibility scans never
+  caught them, because axe can't judge text on those themes' see-through day cells and returns it
+  as undecided rather than as a failure. Corkboard's today number keeps its rust colour on a cream
+  tag instead of a faint rust tint (2.4:1 → 4.7:1). Corkboard's days outside the month are a
+  stronger brown (1.7:1 → 4.5:1), and Aurora's are brighter (2.5:1 → 4.7:1); the darker cell
+  behind them still sets them apart. This applies to the month grid on desktop and phone, the Week
+  view, and the landing page's preview.
+
+### Internal
+
+- A computed check now holds every day number in every theme, in-month, weekend, today and
+  outside the month, over each theme's page. The accessibility scan's log reports, for every
+  surface, how many text colours axe couldn't decide on and why, and the testing guide says what
+  the scans can and can't judge.
+
 ## [1.18.18] - 2026-11-03
 
 ### Internal
@@ -5829,7 +5849,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.18...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.19...HEAD
+[1.18.19]: https://github.com/jwh3times/magic-agenda/compare/v1.18.18...v1.18.19
 [1.18.18]: https://github.com/jwh3times/magic-agenda/compare/v1.18.17...v1.18.18
 [1.18.17]: https://github.com/jwh3times/magic-agenda/compare/v1.18.16...v1.18.17
 [1.18.16]: https://github.com/jwh3times/magic-agenda/compare/v1.18.15...v1.18.16

@@ -13,6 +13,7 @@ import {
   TOOLBAR_CONTROL_FILL,
   TOOLBAR_CONTROL_FILL_ACTIVE,
   TOOLBAR_CONTROL_HEIGHT,
+  cellChrome,
   phoneDayChrome,
   toolbarChrome,
 } from './chrome'
@@ -26,6 +27,47 @@ function cardOf(theme: ThemeName): RGB {
   const conf = themeConf(theme)
   return over(conf.cellBg, parseColor(conf.pageBg)[0])
 }
+
+// axe cannot judge most day numbers in cork or glass: their cells are translucent over the page, so
+// they come back `bgGradient`, and days 1 to 9 come back `shortTextContent`, both as incomplete
+// rather than as violations (#579). These hold every number to 4.5:1 instead. The backdrop is the
+// page's base colour, and the board's own fill over it where it has one (glass); cork's grain dots
+// and glass's drifting blobs are left out, so this is the representative case, not the worst.
+describe('the Calendar’s day numbers stay readable on their own cell', () => {
+  const day = (inMonth: boolean, isToday: boolean, isWeekend: boolean) => ({
+    dateStr: '2026-03-17',
+    dayNum: 17,
+    dow: isWeekend ? 6 : 2,
+    inMonth,
+    isToday,
+    isWeekend,
+  })
+  const KINDS = {
+    'in-month': day(true, false, false),
+    weekend: day(true, false, true),
+    today: day(true, true, false),
+    'out-of-month': day(false, false, false),
+  }
+  for (const theme of THEMES) {
+    const conf = themeConf(theme)
+    const page = parseColor(conf.pageBg)[0]
+    const backdrops = { page, board: over(conf.boardBg, page) }
+    for (const [kind, meta] of Object.entries(KINDS)) {
+      it(`${theme}: the ${kind} number clears 4.5:1`, () => {
+        // The desktop cell and the phone day share these colours (`phoneDayChrome` spreads them).
+        const { cell, numStyle } = cellChrome(theme, conf, meta)
+        for (const [backdrop, under] of Object.entries(backdrops)) {
+          const behind = over(String(numStyle.background), over(String(cell.background), under))
+          const ratio = contrast(over(String(numStyle.color), behind), behind)
+          expect({ backdrop, passesAA: ratio >= 4.5, ratio: ratio.toFixed(2) }).toMatchObject({
+            backdrop,
+            passesAA: true,
+          })
+        }
+      })
+    }
+  }
+})
 
 // axe cannot judge the selected day's number in any theme: it reports `elmPartiallyObscured`, so a
 // failing colour here still scans clean (measured by making it fail, #565). This is what holds it.

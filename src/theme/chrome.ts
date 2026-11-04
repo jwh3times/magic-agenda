@@ -380,16 +380,23 @@ export function cellChrome(theme: ThemeName, conf: ThemeConf, meta: CellMeta) {
         ? isToday
           ? conf.numTodayFg
           : conf.numFg
-        : glass
-          ? 'rgba(234,240,255,.3)'
+        : // Each out-of-month colour is the faintest that clears 4.5:1 on its own out-of-month
+          // cell over the page (#579): the cell's background carries most of the difference.
+          glass
+          ? // .5, not .3: .3 was 2.5:1 and no check had ever judged it, because axe can't.
+            'rgba(234,240,255,.5)'
           : brutal
             ? // Neutral black, not cork's warm brown: on brutal's opaque #EDE9DA out-of-month
               // cells the brown maxes out near 3.6:1 at any workable alpha; .55 black is 4.52:1.
               'rgba(0,0,0,.55)'
-            : 'rgba(90,70,40,.45)',
+            : // Cork's own ink at .88 (4.52:1), not the old faded rgba(90,70,40,.45) at 1.7:1. Even
+              // full ink is only 5.5:1 on this cell, so there is no fainter brown that passes.
+              'rgba(58,38,17,.88)',
       padding: cork ? '1px 5px' : '0',
       borderRadius: cork ? '10px' : '0',
-      background: cork && isToday ? 'rgba(184,71,46,.14)' : 'transparent',
+      // Cork's today is a cream tag pinned to the board, so its rust number keeps its colour: on the
+      // old faint rust tint over the cork the number was 2.4:1, and on this it is 4.7:1 (#579).
+      background: cork && isToday ? 'rgba(255,250,240,.85)' : 'transparent',
     },
     addStyle: {
       width: '18px',

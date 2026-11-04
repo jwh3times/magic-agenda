@@ -31,7 +31,10 @@ export interface ThemeConf {
    * Today's day number. A separate token from `accent` because the accent doubles as a BACKGROUND
    * under white text, and the two roles pull in opposite contrast directions: brutal's number needs
    * a brighter red than its button bg, glass's needs a LIGHTER purple than its accent (light text
-   * on a dark cell). Every value here clears 4.5:1 on its theme's today-cell colour.
+   * on a dark cell). Every value here clears 4.5:1 on what sits behind it on today's cell. Cork's
+   * rust doesn't on the cell itself (2.4:1 over the cork), so cork draws the number on a cream pill
+   * (`cellChrome`'s `numStyle`, #579). `controls.test.ts` holds every day number, because axe can
+   * judge almost none of them in cork or glass.
    */
   numTodayFg: string
   weekendBg: string
