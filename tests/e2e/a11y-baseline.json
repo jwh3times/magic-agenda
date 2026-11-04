@@ -40,6 +40,36 @@
     "count": 3
   },
   {
+    "label": "completed-brutal",
+    "ruleId": "label-content-name-mismatch",
+    "count": 3
+  },
+  {
+    "label": "completed-brutal",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "completed-cork",
+    "ruleId": "label-content-name-mismatch",
+    "count": 3
+  },
+  {
+    "label": "completed-cork",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "completed-glass",
+    "ruleId": "label-content-name-mismatch",
+    "count": 3
+  },
+  {
+    "label": "completed-glass",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
     "label": "editor-brutal",
     "ruleId": "label-content-name-mismatch",
     "count": 1

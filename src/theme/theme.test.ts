@@ -11,7 +11,7 @@ import {
 } from './chrome'
 import { rotOf, cardStyles } from './cardStyles'
 import { asTask, NO_RECUR, type Task, type ThemeName, type TaskDraft } from '../types/task'
-import { contrast, mix, parseColor } from '../test/contrast'
+import { contrast, mix, parseColor, type RGB } from '../test/contrast'
 
 const THEMES: ThemeName[] = ['cork', 'brutal', 'glass']
 
@@ -121,6 +121,15 @@ describe('cardStyles', () => {
     expect('textDecoration' in s.titleStyle).toBe(false)
   })
 
+  it('a Completed card is opaque in cork and brutal, and still fades in glass', () => {
+    const done = task({ status: 'completed' })
+    expect(cardStyles('cork', done, 'cell').wrap.opacity).toBe(1)
+    expect(cardStyles('brutal', done, 'cell').wrap.opacity).toBe(1)
+    expect(cardStyles('glass', done, 'cell').wrap.opacity).toBe(0.82)
+    // Dragging still fades it, in every theme.
+    expect(cardStyles('cork', done, 'cell', { dragging: true }).wrap.opacity).toBe(0.18)
+  })
+
   it('overdue cards carry the red inset accent and tinted chip', () => {
     const s = cardStyles('cork', task({ day: '2020-01-01' }), 'kanban', { overdue: true })
     expect(String(s.wrap.boxShadow)).toContain('#e0524a')
@@ -130,12 +139,11 @@ describe('cardStyles', () => {
   })
 })
 
-describe('a card chip stays readable', () => {
+describe('a card’s text stays readable', () => {
   // #607. axe sees only the seeded colours on cards that aren't overdue. It also fades a chip's text toward
   // the chip's own tint, where a browser's group opacity fades it toward the paper, so it reads high:
   // 4.33:1 on cork's yellow at the old 0.9, where a browser paints 4.21:1. Glass papers are
   // translucent, so their result depends on what's behind them, and they have contrast to spare.
-  // A Completed card is left out on purpose: it fades whole, so its chip depends on the backdrop too.
   it('clears 4.5:1 on every opaque paper of an open card, overdue or not', () => {
     for (const theme of THEMES.filter((t) => t !== 'glass')) {
       for (const color of COLORS) {
@@ -155,6 +163,55 @@ describe('a card chip stays readable', () => {
           })
         }
       }
+    }
+  })
+
+  // #613. A Completed card used to fade whole, to 0.82, which took its chips below 4.5:1 on every
+  // cork paper and four brutal ones. The seed completes nothing, so axe never saw it. The card's own
+  // fade is composited over the theme's page here, so a fade that came back fails this rather than
+  // passing on the paper alone. Glass keeps its fade, on translucent papers with contrast to spare.
+  it('clears 4.5:1 for the chip and title of a Completed card on every opaque paper', () => {
+    for (const theme of THEMES.filter((t) => t !== 'glass')) {
+      const page = parseColor(themeConf(theme).pageBg)[0]
+      for (const color of COLORS) {
+        for (const overdue of [false, true]) {
+          const s = cardStyles(theme, task({ color, status: 'completed' }), 'kanban', { overdue })
+          const card = Number(s.wrap.opacity ?? 1)
+          const paper = parseColor(PAPER[theme][color].bg)[0]
+          const ink = parseColor(PAPER[theme][color].ink)[0]
+          // Each pair as the card paints it, then the whole card over the page.
+          const onPage = (c: RGB) => mix(c, card, page)
+          const title = mix(ink, Number(s.titleStyle.opacity ?? 1), paper)
+          const chipOpacity = Number(s.chipStyle.opacity ?? 1)
+          const [tint, tintAlpha] = parseColor(String(s.chipStyle.background))
+          const chip = mix(tint, tintAlpha * chipOpacity, paper)
+          const chipText = mix(ink, chipOpacity, paper)
+          const titleRatio = contrast(onPage(title), onPage(paper))
+          const chipRatio = contrast(onPage(chipText), onPage(chip))
+          expect({
+            theme,
+            color,
+            overdue,
+            title: titleRatio.toFixed(2),
+            chip: chipRatio.toFixed(2),
+            passesAA: titleRatio >= 4.5 && chipRatio >= 4.5,
+          }).toMatchObject({ theme, color, overdue, passesAA: true })
+        }
+      }
+    }
+  })
+
+  // The stamp is the one text a Completed cork card adds, and it sits on the paper, translucent.
+  it('cork’s COMPLETED stamp clears 4.5:1 on every paper', () => {
+    for (const color of COLORS) {
+      const { stampStyle } = cardStyles('cork', task({ color, status: 'completed' }), 'kanban')
+      const paper = parseColor(PAPER.cork[color].bg)[0]
+      const [ink, alpha] = parseColor(String(stampStyle.color))
+      const ratio = contrast(mix(ink, alpha, paper), paper)
+      expect({ color, passesAA: ratio >= 4.5, ratio: ratio.toFixed(2) }).toMatchObject({
+        color,
+        passesAA: true,
+      })
     }
   })
 })

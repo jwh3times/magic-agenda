@@ -72,7 +72,10 @@ export function cardStyles(
     cursor: 'grab',
     userSelect: 'none',
     transition: 'box-shadow .15s, transform .12s',
-    opacity: completed ? 0.82 : 1,
+    // Only glass fades a Completed card. In cork and brutal the fade took its chips below 4.5:1 on
+    // every cork paper and four brutal ones (#613); the strike-through, and cork's stamp, say
+    // Completed there instead. Glass's translucent papers have contrast to spare.
+    opacity: completed && theme === 'glass' ? 0.82 : 1,
   }
   let titleStyle: CSSProperties
   const meta: CSSProperties = {
@@ -129,8 +132,10 @@ export function cardStyles(
         top: '40%',
         left: '50%',
         transform: 'translate(-50%,-50%) rotate(-14deg)',
-        color: 'rgba(176,42,28,.62)',
-        border: '2.5px solid rgba(176,42,28,.55)',
+        // A deeper brick red, still a little see-through: the old rgba(176,42,28,.62) read 2.3–2.8:1
+        // on the six papers, and this reads 4.8–6.2:1 (#613). theme.test.ts holds it.
+        color: 'rgba(120,28,18,.85)',
+        border: '2.5px solid rgba(120,28,18,.75)',
         borderRadius: '5px',
         padding: '1px 7px',
         fontFamily: C.title,

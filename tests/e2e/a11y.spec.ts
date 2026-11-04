@@ -268,9 +268,14 @@ test.describe('signed in', () => {
   // phone scans below. The search bar, shut on a phone until its button opens it, shows the
   // viewport held. The Calendar shows the same three cards, so each test also waits for something
   // only its view draws.
-  async function openDesktopBoard(page: Page, theme: Theme, view: View = 'calendar') {
+  async function openDesktopBoard(
+    page: Page,
+    theme: Theme,
+    view: View = 'calendar',
+    seed: { completed?: boolean } = {},
+  ) {
     await page.clock.setFixedTime(new Date(PINNED_TIME))
-    await seedBoard({ theme, view, anchor: PINNED_DAY })
+    await seedBoard({ theme, view, anchor: PINNED_DAY, ...seed })
     await page.goto('/')
     await page.getByRole('search').waitFor()
     for (const title of SEEDED_TITLES) await page.getByText(title).waitFor()
@@ -299,6 +304,17 @@ test.describe('signed in', () => {
       await page.getByText('Drop tasks here').waitFor()
       await settle(page)
       await scanAndAssert(page, `kanban-${theme}`)
+    })
+
+    // A Completed card (#613). The shared seed completes nothing, so no other scan renders one,
+    // and its whole-card fade had taken cork's and brutal's chips below 4.5:1 unseen. Seeding the
+    // first card Completed puts it in Kanban's Completed column, and leaves no column empty, so
+    // no placeholder joins this scan.
+    test(`completed card (${theme}) matches the a11y baseline`, async ({ page }) => {
+      await openDesktopBoard(page, theme, 'kanban', { completed: true })
+      await expect(page.getByText('Drop tasks here')).toHaveCount(0)
+      await settle(page)
+      await scanAndAssert(page, `completed-${theme}`)
     })
   }
 

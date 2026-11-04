@@ -35,6 +35,9 @@ export const EXPECTED_LABELS = [
   'kanban-cork',
   'kanban-brutal',
   'kanban-glass',
+  'completed-cork',
+  'completed-brutal',
+  'completed-glass',
   'bulk',
   'editor-cork',
   'editor-brutal',
@@ -306,7 +309,7 @@ export function parseScanCallSites(specSource: string): string[] {
     const literal = /^'([^']+)'$/.exec(arg)
     if (literal) return [literal[1]]
     const perTheme =
-      /^`(board|week|agenda|kanban|settings|editor|members|phone-board|phone-controls|phone-empty|phone-week|phone-agenda|phone-kanban|phone-editor|phone-settings|phone-filtered)-\$\{theme\}`$/.exec(
+      /^`(board|week|agenda|kanban|completed|settings|editor|members|phone-board|phone-controls|phone-empty|phone-week|phone-agenda|phone-kanban|phone-editor|phone-settings|phone-filtered)-\$\{theme\}`$/.exec(
         arg,
       )
     if (perTheme) {
