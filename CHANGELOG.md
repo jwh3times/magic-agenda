@@ -12,6 +12,24 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.18] - 2026-11-03
+
+### Internal
+
+- **Triage keeps a record of rejected requests in `.out-of-scope/`.** Its first two entries are the
+  phone Calendar staying on the 1st when the date rolls into a new month (#581), and the install
+  prompt stopping the browser's own banner on every route (#590). Each says why the request was
+  turned down and what would reopen it, so `/triage` can surface the decision when the same request
+  comes back instead of arguing it again. The issue-tracker guide now lists the directory among the
+  places lasting reasoning lives, and the docs map marks it frozen for `docs-updater`.
+
+## [1.18.17] - 2026-11-03
+
+### Internal
+
+- Dependabot: bumped the `actions-minor-and-patch` group (#620) — `supabase/setup-cli` 3.0.1 →
+  3.1.0 in five workflows. Backfilled by v1.18.18, per the changelog guard's Dependabot exemption.
+
 ## [1.18.16] - 2026-11-02
 
 ### Internal
@@ -5811,7 +5829,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.16...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.18...HEAD
+[1.18.18]: https://github.com/jwh3times/magic-agenda/compare/v1.18.17...v1.18.18
+[1.18.17]: https://github.com/jwh3times/magic-agenda/compare/v1.18.16...v1.18.17
 [1.18.16]: https://github.com/jwh3times/magic-agenda/compare/v1.18.15...v1.18.16
 [1.18.15]: https://github.com/jwh3times/magic-agenda/compare/v1.18.14...v1.18.15
 [1.18.14]: https://github.com/jwh3times/magic-agenda/compare/v1.18.13...v1.18.14
