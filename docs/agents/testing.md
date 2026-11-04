@@ -273,7 +273,7 @@ is a deliberate tradeoff worth understanding before it costs one:
   shared seed completes nothing, and must keep completing nothing, because every other scan's and
   canary's counts are measured against it. That is how a Completed card's whole-card fade took cork's
   and brutal's chips below 4.5:1 without any scan seeing it. `theme.test.ts` holds a Completed
-  card's chips and title on every opaque paper too, compositing the card's own fade over the page,
+  card's chips and title on every opaque paper too, compositing any fade it carries over the page,
   and cork's `COMPLETED` stamp, whose translucent red had read 2.3–2.8:1 on every paper.
   **The phone layouts are scanned at 390×844 (#570, #565, #576)**, because every other scan runs at
   the desktop viewport and nothing that renders only at or below the 760px breakpoint reaches axe

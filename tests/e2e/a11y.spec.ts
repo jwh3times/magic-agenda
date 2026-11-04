@@ -71,7 +71,8 @@ import {
 //                       expected. The phone Calendar scans see only today's card in the panel,
 //                       which counts for both families once. The phone Week and Kanban scans see
 //                       all three cards, unclipped, and the two families need not count the same
-//                       cards there. The desktop Week and Kanban scans count all three for both.
+//                       cards there. The desktop Week, Kanban and Completed-card scans count all
+//                       three for both.
 //                       The Agenda's cards aren't draggable, so neither family counts them at any
 //                       width.
 //
