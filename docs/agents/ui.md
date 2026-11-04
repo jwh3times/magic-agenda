@@ -167,8 +167,9 @@ can't reach them: "What the scans can't judge" in [Testing layers and lint polic
 `opacity` (#624).** Field labels, hints, status lines and the footer all use these. Opacity
 multiplies whatever ink is under it, so its contrast depends on where it's used rather than on the
 theme. Cork's translucent card is where that failed: hints at `.7` read 3.6:1. Both tokens are held
-to 4.5:1 by `controls.test.ts`. `dimmedText()` fails the Settings, Members, Invitations and calendar-feed render
-tests on any text faded with opacity. A disabled control may still fade, since WCAG exempts it.
+to 4.5:1 by `controls.test.ts`. `dimmedText()` fails the Settings, Members, Invitations and
+calendar-feed render tests on any text faded with opacity. A disabled control may still fade, since
+WCAG exempts it. `AdminPage` still dims its secondary text with opacity, and no guard covers it.
 
 **`focusRing` (#281) is a per-theme token, not a reuse of `accent`, and the reason is the same as
 `numTodayFg` not being `accent`: the ring sits on a card, so the six paper colours are the only

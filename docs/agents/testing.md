@@ -312,11 +312,11 @@ is a deliberate tradeoff worth understanding before it costs one:
   Settings, Members and Install scan, against 0–4 in the other themes. Its hints, dimmed with
   `opacity`, read 3.6:1 there. They are now drawn in the theme's `mutedFg` and the notice in its
   `successFg`, both held to 4.5:1. `dimmedText()` (`src/test/dimmedText.ts`) fails the Settings,
-  Members, Invitations and calendar-feed render tests if text slips back to opacity, because an opacity's contrast
-  depends on where it is used, so no token check can hold it. The board and editor surfaces still
-  carry 35–60 unidentified `bgGradient` nodes in cork and glass (#625). Those tests use the page's
-  base colour and leave out cork's grain dots and glass's blobs, so they check a representative
-  background, not the worst one.
+  Members, Invitations and calendar-feed render tests if text slips back to opacity, because an
+  opacity's contrast depends on where it is used, so no token check can hold it. The board and
+  editor surfaces still carry 35–60 unidentified `bgGradient` nodes in cork and glass (#625). Those
+  tests use the page's base colour and leave out cork's grain dots and glass's blobs, so they check
+  a representative background, not the worst one.
 
 - **The a11y baseline asserts counts by strict equality, in both directions.** A count that rose is
   a regression; a count that FELL means the baseline is stale and the lower number must be
