@@ -155,6 +155,14 @@ do not try to make the `index.css` rules theme-aware: pseudo-elements cannot rea
 and reaching for CSS variables to bridge that is the refactor the paragraph above forbids.
 `theme.test.ts` asserts every container in `chrome.ts` that sets `overflow: auto` also carries it.
 
+**Day-number colours live in one place, `cellChrome`'s `numStyle`, and a number holds them to AA,
+not axe (#579).** `DayCell` (the desktop month grid and the Week view), `phoneDayChrome` (the phone
+Calendar) and the landing `BoardPreview` all draw them from there. axe can't judge most of them in
+cork or glass, so `src/theme/controls.test.ts` holds every cell state — in-month, weekend, today,
+out-of-month — to 4.5:1 over the theme's page and board fill; change a colour there, not by eye.
+That is why cork draws today's rust number on a cream pill rather than straight on the cork. Why axe
+can't reach them: "What the scans can't judge" in [Testing layers and lint policy](testing.md).
+
 **`focusRing` (#281) is a per-theme token, not a reuse of `accent`, and the reason is the same as
 `numTodayFg` not being `accent`: the ring sits on a card, so the six paper colours are the only
 backgrounds it ever has to beat.** Cork and brutal papers are light, so their rings are near-black
