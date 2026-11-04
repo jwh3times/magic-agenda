@@ -33,7 +33,7 @@ function cardOf(theme: ThemeName): RGB {
 // rather than as violations (#579). These hold every number to 4.5:1 instead. The backdrop is the
 // page's base colour, and the board's own fill over it where it has one (glass); cork's grain dots
 // and glass's drifting blobs are left out, so this is the representative case, not the worst.
-describe('Calendar day numbers stay readable on their own cell', () => {
+describe('the Calendar’s day numbers stay readable on their own cell', () => {
   const day = (inMonth: boolean, isToday: boolean, isWeekend: boolean) => ({
     dateStr: '2026-03-17',
     dayNum: 17,
@@ -54,9 +54,9 @@ describe('Calendar day numbers stay readable on their own cell', () => {
     const backdrops = { page, board: over(conf.boardBg, page) }
     for (const [kind, meta] of Object.entries(KINDS)) {
       it(`${theme}: the ${kind} number clears 4.5:1`, () => {
+        // The desktop cell and the phone day share these colours (`phoneDayChrome` spreads them).
+        const { cell, numStyle } = cellChrome(theme, conf, meta)
         for (const [backdrop, under] of Object.entries(backdrops)) {
-          // The desktop cell and the phone day share these colours (`phoneDayChrome` spreads them).
-          const { cell, numStyle } = cellChrome(theme, conf, meta)
           const behind = over(String(numStyle.background), over(String(cell.background), under))
           const ratio = contrast(over(String(numStyle.color), behind), behind)
           expect({ backdrop, passesAA: ratio >= 4.5, ratio: ratio.toFixed(2) }).toMatchObject({

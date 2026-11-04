@@ -238,6 +238,7 @@ export interface IncompleteNode {
  * The numeric tests in src/theme/controls.test.ts hold the colours axe cannot reach.
  */
 export function formatIncompleteContrast(nodes: readonly IncompleteNode[]): string {
+  if (!nodes.length) return 'color-contrast incomplete: 0'
   const reasons = new Map<string, number>()
   for (const node of nodes) {
     const data = node.any.find((check) => check.id === 'color-contrast')?.data
@@ -250,7 +251,6 @@ export function formatIncompleteContrast(nodes: readonly IncompleteNode[]): stri
         : 'unknown'
     reasons.set(key, (reasons.get(key) ?? 0) + 1)
   }
-  if (!nodes.length) return 'color-contrast incomplete: 0'
   const breakdown = [...reasons]
     .sort(([a, x], [b, y]) => y - x || a.localeCompare(b))
     .map(([reason, count]) => `${reason} ${count}`)

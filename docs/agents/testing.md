@@ -232,8 +232,8 @@ is a deliberate tradeoff worth understanding before it costs one:
   per rendered card, so an unpinned clock could place a seeded task on a day the fixed 42-cell grid
   doesn't carry that month, silently dropping it from the count. (`color-contrast` no longer needs
   this: its counts are zero in every cell state axe can judge, and the states it can't are held by
-  numeric tests instead; see "What the scans can't judge" below.) The two must move together, because the clock
-  moves only the browser while `seedBoard` runs in the test process in real time.
+  numeric tests instead; see "What the scans can't judge" below.) The two must move together,
+  because the clock moves only the browser while `seedBoard` runs in the test process in real time.
 - **`document.fonts.check()` cannot detect the CSP regression.** It returns true for a family with no
   `FontFace` registered at all, which is exactly the broken state. The font assertion iterates
   `document.fonts` instead. (There is also no font named `Inter` in this app.)
