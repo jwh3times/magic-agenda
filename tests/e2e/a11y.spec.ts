@@ -17,6 +17,7 @@ import {
   EXPECTED_LABELS,
   formatContrast,
   formatFindings,
+  formatIncompleteContrast,
   parseBaseline,
   tally,
   toBaseline,
@@ -81,7 +82,9 @@ import {
 // suite enforces that only where axe can reach a verdict: on the phone Calendar it could judge 41 of
 // 42 day numbers in brutal and none in cork or glass, whose translucent cells over a gradient come
 // back `bgGradient` and whose single digits come back `shortTextContent`, both as incomplete rather
-// than as violations (measured 2026-10-31, #565).
+// than as violations (measured 2026-10-31, #565). scan() logs each surface's incomplete count and
+// reasons, unasserted, so the gap stays visible in CI. The day numbers' colours are held by numeric
+// tests in src/theme/controls.test.ts instead, which found three below AA and fixed them (#579).
 //
 // The baseline is JSON and takes no comments, which is why this note lives here.
 const BASELINE = path.join('tests', 'e2e', 'a11y-baseline.json')
@@ -127,7 +130,13 @@ async function scan(page: Page, label: string): Promise<Finding[]> {
   )
   // Unconditional, and BEFORE the assertion. Logging after the assert would skip every surface
   // that fails and cost another full browser run to discover the complete replacement baseline.
-  console.log(`[a11y] ${label} ${JSON.stringify(tally(found))}\n${formatFindings(found)}`)
+  // Logged, never asserted: what axe could NOT judge, which a clean tally says nothing about (#579).
+  const undecided = formatIncompleteContrast(
+    results.incomplete.find((result) => result.id === 'color-contrast')?.nodes ?? [],
+  )
+  console.log(
+    `[a11y] ${label} ${JSON.stringify(tally(found))}\n${formatFindings(found)}\n  ${undecided}`,
+  )
   return found
 }
 

@@ -223,6 +223,41 @@ export function formatContrast(data: ContrastData | undefined): string | undefin
   return `${data.fgColor} on ${data.bgColor} — ${ratio}${needs}`
 }
 
+/** As much of an axe result node as formatIncompleteContrast() reads. */
+export interface IncompleteNode {
+  any: readonly { id: string; data?: unknown }[]
+}
+
+/**
+ * `color-contrast incomplete: 42 (bgGradient 23, shortTextContent 18, elmPartiallyObscured 1)`.
+ *
+ * axe returns a text node it cannot decide on as INCOMPLETE, never as a violation, so a real
+ * contrast failure on such a node scans clean (#579): translucent cells over a gradient come back
+ * `bgGradient`, and single characters `shortTextContent`. Logged per surface, never asserted —
+ * counts move with seed data and layout — so the CI log shows how much each scan actually judged.
+ * The numeric tests in src/theme/controls.test.ts hold the colours axe cannot reach.
+ */
+export function formatIncompleteContrast(nodes: readonly IncompleteNode[]): string {
+  const reasons = new Map<string, number>()
+  for (const node of nodes) {
+    const data = node.any.find((check) => check.id === 'color-contrast')?.data
+    const key =
+      data &&
+      typeof data === 'object' &&
+      'messageKey' in data &&
+      typeof data.messageKey === 'string'
+        ? data.messageKey
+        : 'unknown'
+    reasons.set(key, (reasons.get(key) ?? 0) + 1)
+  }
+  if (!nodes.length) return 'color-contrast incomplete: 0'
+  const breakdown = [...reasons]
+    .sort(([a, x], [b, y]) => y - x || a.localeCompare(b))
+    .map(([reason, count]) => `${reason} ${count}`)
+    .join(', ')
+  return `color-contrast incomplete: ${nodes.length} (${breakdown})`
+}
+
 /**
  * Counts alone do not say WHICH node regressed. This goes into the assertion's message argument and
  * into the unconditional log line, so the precision the count format drops is still on screen.

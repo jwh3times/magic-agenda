@@ -231,8 +231,8 @@ is a deliberate tradeoff worth understanding before it costs one:
   and the seed anchor pinned to match — for a different reason: `nested-interactive` is counted one
   per rendered card, so an unpinned clock could place a seeded task on a day the fixed 42-cell grid
   doesn't carry that month, silently dropping it from the count. (`color-contrast` no longer needs
-  this: it reached zero across every cell state — including brutal's out-of-month day numbers — in
-  the pass recorded in `src/theme/themeConf.ts`.) The two must move together, because the clock
+  this: its counts are zero in every cell state axe can judge, and the states it can't are held by
+  numeric tests instead; see "What the scans can't judge" below.) The two must move together, because the clock
   moves only the browser while `seedBoard` runs in the test process in real time.
 - **`document.fonts.check()` cannot detect the CSP regression.** It returns true for a family with no
   `FontFace` registered at all, which is exactly the broken state. The font assertion iterates
@@ -292,6 +292,25 @@ is a deliberate tradeoff worth understanding before it costs one:
 
   `FREEZE_ANIMATION` is injected before every scan because `page.clock` does not stop
   CSS animations and a drifting glass blob turns a `color-contrast` violation into an `incomplete`.
+
+  **What the scans can't judge (#579).** A zero `color-contrast` count means no violation among the
+  nodes axe could decide on, not that every colour passes. axe returns a node it can't decide on as
+  `incomplete`, which the baseline ignores. Measured at `PINNED_DAY` on the month grid, it judged
+  every day number in brutal but 1 of 43 in cork and 14 of 43 in glass on the desktop, and none of 42
+  in either on the phone. Two reasons account for nearly all of them: `bgGradient`, a translucent
+  cell over cork's dotted page or glass's blobs, and `shortTextContent`, any single character, so
+  days 1 to 9 everywhere outside brutal. The out-of-month numbers in both themes and cork's today
+  number were all below 4.5:1, and no check had ever judged them. Anything off screen when a scan
+  runs can go unjudged too, such as the phone Kanban's columns other than the first (#615).
+
+  So `scan()` logs a `color-contrast incomplete: N (reason count, …)` line for every surface,
+  unasserted because it moves with seed data and layout. A colour that lands on a translucent
+  surface, or as a single character, needs a numeric test in `src/theme/controls.test.ts`, which
+  composites it over the theme's page with `src/test/contrast.ts`. The day numbers in every cell
+  state, and the phone's selected day, have one; Task and Inbox text in cork and glass may share the
+  same blind spot and haven't been measured. Those tests use the page's base colour and leave out
+  cork's grain dots and glass's blobs, so they check a representative background, not the worst
+  one.
 
 - **The a11y baseline asserts counts by strict equality, in both directions.** A count that rose is
   a regression; a count that FELL means the baseline is stale and the lower number must be

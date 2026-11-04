@@ -6,6 +6,7 @@ import {
   EXPECTED_LABELS,
   formatContrast,
   formatFindings,
+  formatIncompleteContrast,
   parseBaseline,
   parseScanCallSites,
   tally,
@@ -155,6 +156,35 @@ describe('formatContrast', () => {
   it('degrades gracefully when the ratio or threshold is missing', () => {
     expect(formatContrast({ fgColor: '#000', bgColor: '#fff' })).toBe(
       '#000 on #fff — unknown ratio',
+    )
+  })
+})
+
+describe('formatIncompleteContrast', () => {
+  const node = (messageKey?: string) => ({
+    any: [{ id: 'color-contrast', data: messageKey ? { messageKey } : null }],
+  })
+
+  // axe's own reason codes, most frequent first, so the log says WHY a surface went unjudged.
+  it('counts the nodes axe could not decide on, by reason', () => {
+    const nodes = [
+      node('shortTextContent'),
+      node('bgGradient'),
+      node('bgGradient'),
+      node('elmPartiallyObscured'),
+    ]
+    expect(formatIncompleteContrast(nodes)).toBe(
+      'color-contrast incomplete: 4 (bgGradient 2, elmPartiallyObscured 1, shortTextContent 1)',
+    )
+  })
+
+  it('says so when axe judged every node, which is the line a clean surface should print', () => {
+    expect(formatIncompleteContrast([])).toBe('color-contrast incomplete: 0')
+  })
+
+  it('names a node with no reason rather than dropping it from the count', () => {
+    expect(formatIncompleteContrast([node(), node('bgGradient')])).toBe(
+      'color-contrast incomplete: 2 (bgGradient 1, unknown 1)',
     )
   })
 })

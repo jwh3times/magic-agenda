@@ -1,7 +1,8 @@
 export type RGB = [number, number, number]
 
-/** `#rgb`, `#rrggbb`, or `rgba(r,g,b,a)` → [rgb, alpha]. */
+/** `#rgb`, `#rrggbb`, `rgba(r,g,b,a)`, or `transparent` → [rgb, alpha]. */
 export function parseColor(color: string): [RGB, number] {
+  if (color === 'transparent') return [[0, 0, 0], 0]
   const rgba = /^rgba?\(([^)]+)\)$/.exec(color)
   if (rgba) {
     const [r, g, b, a = '1'] = rgba[1].split(',').map((v) => v.trim())
