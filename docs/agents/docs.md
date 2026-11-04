@@ -53,6 +53,8 @@ Settings the shared `docs-updater`, `end-session` and `ship` skills read (instal
 - `CONTEXT.md` — the domain glossary, maintained through `domain-modeling` (`docs/agents/domain.md`).
   `frozen` for this skill: report a term the code contradicts instead of editing it.
 - `docs/adr/*.md` — accepted decisions, superseded only by another ADR. `frozen`.
+- `.out-of-scope/*.md` — rejected enhancement requests, one file per concept, kept by `/triage`
+  (`.agents/skills/triage/OUT-OF-SCOPE.md`). `frozen` for this skill.
 - `docs/plans/`, `docs/specs/`, `docs/superpowers/` — dated historical records. `frozen`.
 - `docs/research/*.md` — dated investigations, superseded by later work. `amend-only`.
 - `design/` — the reference-only prototype. `frozen`.

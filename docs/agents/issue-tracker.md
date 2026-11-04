@@ -80,10 +80,12 @@ quiet — nothing errors — so whoever files an item sets its fields and, for a
 The dividing line is worth stating because it is what stopped the old file drifting: **state goes in
 GitHub, reasoning stays in files.** An issue has a closed state and a dependency graph; a Markdown
 checkbox has neither. Things that are never "done" — the domain glossary, an architecture decision,
-an accepted risk with a revisit trigger, an operational procedure — stay in `CONTEXT.md`,
-`docs/adr/`, `docs/runbooks/`, and (for confidential ones) the private companion. Do not reintroduce
-a status list, a shipped-items list, or a build-order table into any Markdown file; each is a second
-copy of something GitHub already answers authoritatively, and each drifted before.
+an accepted risk with a revisit trigger, an operational procedure, a rejected enhancement request
+— stay in `CONTEXT.md`, `docs/adr/`, `docs/runbooks/`, `.out-of-scope/` (one file per concept,
+written by `/triage` when it closes a request as `wontfix`), and (for confidential ones) the
+private companion. Do not reintroduce a status list, a shipped-items list, or a build-order table
+into any Markdown file; each is a second copy of something GitHub already answers authoritatively,
+and each drifted before.
 
 Work whose **issue body itself** would disclose something the public code does not — an undefended
 surface, an unclosable production weakness, provider or credential metadata — goes in the private
