@@ -12,6 +12,24 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.21] - 2026-11-04
+
+### Fixed
+
+- **Completed cards are easier to read in the Corkboard and TASKS// themes (#613).** A Completed
+  card faded as a whole, which took the small labels on its date, time and assignee below the 4.5:1
+  contrast text needs on every Corkboard paper colour and four TASKS// ones, and some coloured
+  titles with them. In those two themes a Completed card now stays at full strength, and the
+  strike-through (and, in Corkboard, the COMPLETED stamp) shows it is done. Aurora keeps its fade.
+- **Corkboard's COMPLETED stamp is a deeper brick red (#613).** Its translucent red read only
+  2.3–2.8:1 on the paper; the new one is still a little see-through and reads 4.8–6.2:1.
+
+### Internal
+
+- A computed check holds a Completed card's labels and title on every Corkboard and TASKS// paper,
+  overdue or not, and the stamp on every Corkboard paper. A new accessibility scan shows a Completed
+  card in each theme, through a test-data option that leaves the shared seed unchanged.
+
 ## [1.18.20] - 2026-11-04
 
 ### Fixed
@@ -5872,7 +5890,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.20...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.21...HEAD
+[1.18.21]: https://github.com/jwh3times/magic-agenda/compare/v1.18.20...v1.18.21
 [1.18.20]: https://github.com/jwh3times/magic-agenda/compare/v1.18.19...v1.18.20
 [1.18.19]: https://github.com/jwh3times/magic-agenda/compare/v1.18.18...v1.18.19
 [1.18.18]: https://github.com/jwh3times/magic-agenda/compare/v1.18.17...v1.18.18

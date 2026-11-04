@@ -131,8 +131,8 @@ Sat/Sun and never rotates.
 
 Ported verbatim from the prototype. `theme/constants.ts` (COLORS/STATUS/PAPER), `theme/themeConf.ts`
 (~28 tokens per theme), `theme/cardStyles.ts` (the style half of the prototype's `noteView`, incl.
-`rotOf`, pin, DONE stamp), and `theme/chrome.ts` (board/cell/inbox/column/toolbar styles) all return
-plain style objects with per-theme branching (rotation, pins, hard vs. soft shadows, blur). Three
+`rotOf`, pin, COMPLETED stamp), and `theme/chrome.ts` (board/cell/inbox/column/toolbar styles) all
+return plain style objects with per-theme branching (rotation, pins, hard vs. soft shadows, blur). Three
 themes: `cork` / `brutal` / `glass`. **Do not refactor this to CSS variables**: the look depends on the
 branching that CSS vars cannot express cleanly.
 
@@ -170,6 +170,12 @@ theme. Cork's translucent card is where that failed: hints at `.7` read 3.6:1. B
 to 4.5:1 by `controls.test.ts`. `dimmedText()` fails the Settings, Members, Invitations and
 calendar-feed render tests on any text faded with opacity. A disabled control may still fade, since
 WCAG exempts it. `AdminPage` still dims its secondary text with opacity, and no guard covers it.
+
+**Only glass fades a Completed card (#613).** In cork and brutal the card stays opaque, and the
+title's strike-through (plus cork's `COMPLETED` stamp) carries the signal, because the old
+whole-card fade took their chips below 4.5:1. Glass's translucent papers have contrast to spare.
+`theme.test.ts` holds a Completed card's chips and title on every opaque paper, and the stamp on
+every cork paper, so a fade or a lighter stamp that came back fails there.
 
 **`focusRing` (#281) is a per-theme token, not a reuse of `accent`, and the reason is the same as
 `numTodayFg` not being `accent`: the ring sits on a card, so the six paper colours are the only

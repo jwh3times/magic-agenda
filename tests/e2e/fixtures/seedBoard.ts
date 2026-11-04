@@ -64,6 +64,12 @@ export interface SeedOptions {
    * board's month while this fixture still runs in real time.
    */
   anchor?: string
+  /**
+   * Seeds the first row Completed (#613). Off by default, because the shared seed completes nothing
+   * and every other scan's and canary's counts are measured against that; a scan that needs a
+   * Completed card asks for one.
+   */
+  completed?: boolean
 }
 
 const utcToday = (): string => new Date().toISOString().slice(0, 10)
@@ -92,7 +98,7 @@ async function seedSession(): Promise<{ client: SupabaseClient; userId: string; 
 }
 
 export async function seedBoard(options: SeedOptions = {}): Promise<void> {
-  const { theme = 'cork', view = 'calendar', anchor = utcToday() } = options
+  const { theme = 'cork', view = 'calendar', anchor = utcToday(), completed = false } = options
   const { client, userId, boardId } = await seedSession()
 
   const { error: deleteError } = await client.from('tasks').delete().eq('board_id', boardId)
@@ -105,7 +111,8 @@ export async function seedBoard(options: SeedOptions = {}): Promise<void> {
       title: SEEDED_TITLES[0],
       day: anchor,
       order_index: 0,
-      status: 'todo',
+      // The database's token for Completed is `done`; the app translates it at the seam.
+      status: completed ? 'done' : 'todo',
       color: 'yellow',
     },
     {
