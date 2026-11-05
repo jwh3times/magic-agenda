@@ -12,6 +12,25 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.24] - 2026-11-04
+
+### Fixed
+
+- **If your boards fail to load, the app now says so and offers Retry, instead of "No boards yet"
+  (#629).** This happened when the request for your Board list failed and the device had no saved
+  copy to show, most likely on a first visit from a new device or straight after signing in. The
+  page said you had no boards and offered only to create one, which read as data loss and, if
+  taken, left a duplicate empty board beside your real ones. It now shows "Couldn’t load your
+  board" with Retry, the same screen a failed task or label load already gets. An account that
+  really has no boards still sees "No boards yet", and a device with a saved copy still shows it
+  read-only as before.
+
+### Internal
+
+- End-to-end global setup also stops at once on that error screen and quotes it, instead of
+  waiting out its full minute. "No boards yet" on an account that does have Boards now points at a
+  grant or policy, since a failed load no longer produces it.
+
 ## [1.18.23] - 2026-11-04
 
 ### Internal
@@ -5917,7 +5936,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.23...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.24...HEAD
+[1.18.24]: https://github.com/jwh3times/magic-agenda/compare/v1.18.23...v1.18.24
 [1.18.23]: https://github.com/jwh3times/magic-agenda/compare/v1.18.22...v1.18.23
 [1.18.22]: https://github.com/jwh3times/magic-agenda/compare/v1.18.21...v1.18.22
 [1.18.21]: https://github.com/jwh3times/magic-agenda/compare/v1.18.20...v1.18.21
