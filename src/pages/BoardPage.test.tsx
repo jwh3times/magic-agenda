@@ -26,6 +26,8 @@ const h = vi.hoisted<{
   boards: unknown[] | null
   /** A Board lost while open (#439). */
   lostAccess: string | null
+  /** Extra directory fields for the zero-Board state: a failed load's `error`, `offline`, `reload`. */
+  directory: Record<string, unknown>
 }>(() => ({
   auth: {
     user: null as { id: string } | null,
@@ -39,6 +41,7 @@ const h = vi.hoisted<{
   role: 'owner',
   boards: null,
   lostAccess: null,
+  directory: {},
 }))
 
 const tasks = fakeUseTasks()
@@ -54,6 +57,7 @@ vi.mock('../board/BoardDirectoryProvider', () => ({
           boards: h.boards as never,
           selectedBoardId: null,
           lostAccess: h.lostAccess,
+          ...h.directory,
         }),
   useBoardSession: () => fakeBoardSession(fakeBoardSummary({ role: h.role })),
 }))
@@ -66,6 +70,9 @@ afterEach(() => {
   h.auth.user = null
   h.settings.loading = false
   h.role = 'owner'
+  h.boards = null
+  h.lostAccess = null
+  h.directory = {}
   Object.assign(tasks, fakeUseTasks())
   Object.assign(labels, fakeLabelDirectory())
 })
@@ -188,4 +195,30 @@ test('a Board lost while open is named without saying whether it was removed or 
     h.lostAccess = null
     h.auth.user = null
   }
+})
+
+// #629: a failed directory load with no snapshot leaves `boards` empty, so the selection is null —
+// the same shape as an Account with no Boards. Telling them apart is the directory's `error`.
+test('a failed Board list load offers a retry instead of saying there are no boards (#629)', async () => {
+  const reload = vi.fn(async () => {})
+  h.boards = []
+  h.directory = { error: 'Failed to fetch', reload }
+  h.auth.user = { id: 'u1' }
+  renderPage()
+  expect(screen.queryByRole('heading', { name: /No boards yet/i })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Create board' })).toBeNull()
+  expect(screen.getByText('Failed to fetch')).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
+  expect(reload).toHaveBeenCalledTimes(1)
+})
+
+test('a Board list shown from a snapshot keeps the zero-Board screen despite the load error (#629)', () => {
+  // The offline fallback is unchanged: a snapshot was shown, so the error is the reason it is
+  // stale, not the absence of a list.
+  h.boards = []
+  h.directory = { error: 'Failed to fetch', offline: true, fallbackReason: 'request-error' }
+  h.auth.user = { id: 'u1' }
+  renderPage()
+  expect(screen.getByRole('heading', { name: /No boards yet/i })).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
 })

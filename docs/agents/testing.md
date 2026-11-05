@@ -160,9 +160,10 @@ all passed on 2026-11-04, and the account kept its Board throughout. The failure
 never reproduced. If the signed-in page ever
 says "No boards yet", global setup stops at once rather than spending its minute on the toolbar,
 and counts the account's active Memberships to say which case it hit. None means stack state, and
-the message names the reset and setup commands above. Some means the app failed to load a Board
-list that exists and rendered the empty state instead of an error (#629), which a reset does not
-fix.
+the message names the reset and setup commands above. Some means the app read a Board list that
+exists and got no rows, which points at a grant or policy, and a reset does not fix it. A failed
+load is a third case: since #629 it shows the "Couldn’t load your board" error screen with Retry
+rather than the empty state, and global setup stops on that too, quoting what the screen said.
 
 **The Content-Security-Policy is asserted at two layers, and neither replaces the other (#407).**
 `scripts/csp-headers.test.ts` parses the policy as written in `public/_headers` and asserts, case

@@ -1,4 +1,4 @@
-import { chromium } from '@playwright/test'
+import { chromium, type Locator } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { activeMembershipCount, testClient } from './fixtures/supabase'
@@ -53,11 +53,15 @@ export default async function globalSetup(): Promise<void> {
       // Separate "the session took" from "the cold Board finished loading". A failure now says
       // which boundary stalled instead of spending one opaque timeout on the toolbar.
       await page.waitForURL((url) => url.pathname !== '/login', { timeout: 30_000 })
-      // Either the Board loaded or the page says there is none. Waiting on the toolbar alone spent
-      // the full minute on a "No boards yet" page that was never going to change (#572).
+      // Either the Board loaded, the page says there is none, or a load failed and the page offers
+      // a retry. Waiting on the toolbar alone spent the full minute on a page that was never going
+      // to change (#572); a failed Board list load shows the error screen rather than "No boards
+      // yet" since #629, so that has to end the wait too.
       const toolbar = page.getByRole('button', { name: '+ New task' })
       const noBoards = page.getByRole('heading', { name: 'No boards yet' })
-      await toolbar.or(noBoards).first().waitFor({ timeout: 60_000 })
+      const loadError = page.getByText('Couldn’t load your board')
+      await toolbar.or(noBoards).or(loadError).first().waitFor({ timeout: 60_000 })
+      if (await loadError.isVisible()) throw new Error(await explainLoadError(loadError))
       if (await noBoards.isVisible()) throw new Error(await explainNoBoards())
       await context.storageState({ path: STORAGE_STATE })
 
@@ -80,7 +84,8 @@ export default async function globalSetup(): Promise<void> {
  *
  * The two causes need opposite fixes, and the page looks the same for both: an account that really
  * is on no Board is stack state, put right by a reset, while one that is on a Board means the app
- * failed to load its Board list and showed the empty state instead of an error (#629).
+ * read its Board list and got no rows. A failed read no longer lands here: since #629 it shows the
+ * error screen, which `explainLoadError` reports.
  */
 async function explainNoBoards(): Promise<string> {
   let count: number
@@ -104,7 +109,27 @@ async function explainNoBoards(): Promise<string> {
   }
   return (
     `The Board page says "No boards yet", but the E2E account is a member of ${count} Board(s).\n` +
-    'The app failed to load its Board list and showed the empty state instead of an error (#629).\n' +
-    'A reset will not help; rerun, and read the trace for the failed board_memberships request.'
+    'A failed Board list load shows the error screen since #629, so the app read the list and got\n' +
+    'no rows: suspect a grant or policy on board_memberships or boards, not a transient failure.\n' +
+    'A reset will not help; read the trace for the board_memberships request.'
+  )
+}
+
+/**
+ * What the error screen said, for a failure message that needs no trace to read.
+ *
+ * The screen is shared by the Board list, Label, and Task loads, so its message is what says which
+ * request failed. Counting Memberships would prove nothing here: the account's Boards are not in
+ * doubt, a request is.
+ */
+async function explainLoadError(title: Locator): Promise<string> {
+  const shown = await title
+    .locator('..')
+    .innerText()
+    .catch(() => 'Couldn’t load your board')
+  return (
+    'The Board page could not load and shows its error screen with Retry. It said:\n' +
+    `  ${shown.replace(/\s*\n\s*/g, ' | ')}\n` +
+    'That is a failed request, not stack state; a reset will not help. Rerun, and read the trace.'
   )
 }
