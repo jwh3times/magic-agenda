@@ -43,7 +43,7 @@ jobs:
       # Derived from the exact `supabase` devDependency so a CLI bump needs no workflow edit (#338).
       - id: cli
         run: echo "version=$(node -p "require('./package.json').devDependencies.supabase")" >> "$GITHUB_OUTPUT"
-      - uses: supabase/setup-cli@d239d1052f6f024a8d746d7e5aeddead63b9cb53 # v3
+      - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3
         with:
           version: ${{ steps.cli.outputs.version }}
       - run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
