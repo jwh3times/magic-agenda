@@ -12,6 +12,20 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.22] - 2026-11-04
+
+### Fixed
+
+- **"Drop tasks here" in an empty Kanban column is readable in the TASKS// theme (#615).** Its grey
+  was 2.81:1 on the white column, below the 4.5:1 text needs; it is now the darker grey the empty
+  Inbox already uses (4.54:1). This shows on desktop and on a phone when you swipe to an empty
+  column.
+
+### Internal
+
+- A computed check holds the placeholder's colour, and the accessibility baseline drops the one
+  entry it was holding for this fix, so it now lists only accepted findings.
+
 ## [1.18.21] - 2026-11-04
 
 ### Fixed
@@ -5890,7 +5904,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.21...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.22...HEAD
+[1.18.22]: https://github.com/jwh3times/magic-agenda/compare/v1.18.21...v1.18.22
 [1.18.21]: https://github.com/jwh3times/magic-agenda/compare/v1.18.20...v1.18.21
 [1.18.20]: https://github.com/jwh3times/magic-agenda/compare/v1.18.19...v1.18.20
 [1.18.19]: https://github.com/jwh3times/magic-agenda/compare/v1.18.18...v1.18.19
