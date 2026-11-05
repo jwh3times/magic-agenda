@@ -1,6 +1,7 @@
 import { chromium } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
+import { activeMembershipCount, testClient } from './fixtures/supabase'
 
 export const STORAGE_STATE = path.join('tests', 'e2e', '.auth', 'user.json')
 const SETUP_RESULTS = path.join('test-results', 'global-setup')
@@ -12,6 +13,8 @@ const SETUP_TRACE = path.join(SETUP_RESULTS, 'trace.zip')
  *
  * Not per-test, for two reasons: it is slow, and `supabase/config.toml` limits sign-ins to 30 per
  * 5 minutes per IP. Re-authenticating every test against one local GoTrue is a self-inflicted flake.
+ * The one exception is a failure: on "No boards yet" it signs in once more through the Data API to
+ * count the account's Memberships (`explainNoBoards`).
  */
 export default async function globalSetup(): Promise<void> {
   const baseURL = process.env.E2E_BASE_URL
@@ -50,7 +53,12 @@ export default async function globalSetup(): Promise<void> {
       // Separate "the session took" from "the cold Board finished loading". A failure now says
       // which boundary stalled instead of spending one opaque timeout on the toolbar.
       await page.waitForURL((url) => url.pathname !== '/login', { timeout: 30_000 })
-      await page.getByRole('button', { name: '+ New task' }).waitFor({ timeout: 60_000 })
+      // Either the Board loaded or the page says there is none. Waiting on the toolbar alone spent
+      // the full minute on a "No boards yet" page that was never going to change (#572).
+      const toolbar = page.getByRole('button', { name: '+ New task' })
+      const noBoards = page.getByRole('heading', { name: 'No boards yet' })
+      await toolbar.or(noBoards).first().waitFor({ timeout: 60_000 })
+      if (await noBoards.isVisible()) throw new Error(await explainNoBoards())
       await context.storageState({ path: STORAGE_STATE })
 
       // Successful setup needs no artifact. Failure artifacts are retained below and encrypted by
@@ -65,4 +73,38 @@ export default async function globalSetup(): Promise<void> {
   } finally {
     await browser.close()
   }
+}
+
+/**
+ * Why the signed-in page said "No boards yet", asked of the server rather than the page.
+ *
+ * The two causes need opposite fixes, and the page looks the same for both: an account that really
+ * is on no Board is stack state, put right by a reset, while one that is on a Board means the app
+ * failed to load its Board list and showed the empty state instead of an error (#629).
+ */
+async function explainNoBoards(): Promise<string> {
+  let count: number
+  try {
+    count = await activeMembershipCount(await testClient())
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+    return (
+      `The Board page says "No boards yet", and the account's Memberships could not be checked: ${reason}
+` + 'If the account really has no Board, see "Running E2E locally" in docs/agents/testing.md.'
+    )
+  }
+  if (count === 0) {
+    return (
+      'The E2E account is a member of no Board, so the Board page says "No boards yet". That is\n' +
+      'stack state, not a regression. Reset the local stack and provision the accounts again:\n' +
+      '  npx supabase db reset --local\n' +
+      '  GITHUB_ENV=<file> npx tsx scripts/e2e-local-setup.ts\n' +
+      'See "Running E2E locally" in docs/agents/testing.md.'
+    )
+  }
+  return (
+    `The Board page says "No boards yet", but the E2E account is a member of ${count} Board(s).\n` +
+    'The app failed to load its Board list and showed the empty state instead of an error (#629).\n' +
+    'A reset will not help; rerun, and read the trace for the failed board_memberships request.'
+  )
 }

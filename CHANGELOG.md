@@ -12,6 +12,19 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.23] - 2026-11-04
+
+### Internal
+
+- **A local end-to-end run that meets "No boards yet" now stops in seconds and says why (#572).**
+  Global setup used to wait a full minute for the toolbar on a page that was never going to show
+  it. It now counts the test account's Board memberships. With none, the message names the reset
+  and setup commands. With some, it points at #629: the app failed to load a Board list that
+  exists, and a reset will not help.
+- The suite proved repeatable on one local stack. Three consecutive full runs passed with no reset
+  between them, and the test account kept its Board, so the "a run leaves the account with no
+  Boards" belief behind #572 did not hold. `docs/agents/testing.md` now gives the local-run steps.
+
 ## [1.18.22] - 2026-11-04
 
 ### Fixed
@@ -5904,7 +5917,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.22...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.23...HEAD
+[1.18.23]: https://github.com/jwh3times/magic-agenda/compare/v1.18.22...v1.18.23
 [1.18.22]: https://github.com/jwh3times/magic-agenda/compare/v1.18.21...v1.18.22
 [1.18.21]: https://github.com/jwh3times/magic-agenda/compare/v1.18.20...v1.18.21
 [1.18.20]: https://github.com/jwh3times/magic-agenda/compare/v1.18.19...v1.18.20
