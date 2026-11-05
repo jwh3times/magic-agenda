@@ -470,8 +470,9 @@ export function Board({
     setNotice(`Added “${parsed.title}” to ${whenLabel(parsed.day)}`)
   }
 
-  // Synchronously, because the input does not exist on a phone until the bar opens, and iOS Safari
-  // raises the keyboard only for a focus() made during the tap that asked for it.
+  // Synchronously, because the input does not exist on a phone until the bar opens: the open has to
+  // commit before focus() runs, and an effect would run too late. Only a keyboard opens a path here;
+  // docs/agents/ui.md has which ones (#573).
   const focusSearch = () => {
     flushSync(() => setControlsOpen(true))
     searchRef.current?.focus()
