@@ -12,6 +12,28 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.26] - 2026-11-05
+
+### Internal
+
+- **The backup verification tests now pass on Windows (#571).** They failed 20 of 34 on every
+  local run with Git Bash while Linux CI stayed green, so `npm test` was never green on a Windows
+  machine. The cause was the test harness, not the backup job: it handed the workflow's verify step
+  to bash as a `bash -c` argument, and that argument is rewritten as it crosses a Windows command
+  line. Node quotes it one way and Git Bash's runtime reads it back another, so `"\\.` arrived as
+  `"\.` and the script was cut off at line 141. The test now writes the step to a file and runs it,
+  which is how GitHub Actions runs it too. Real backups were never affected: the job runs on Linux
+  and from a file. Its cases also get a 30-second timeout, because under the full suite's load on
+  Windows they ran past the 5-second default. No assertion changed.
+
+## [1.18.25] - 2026-11-04
+
+### Internal
+
+- Dependabot: bumped the `npm-minor-and-patch` group (#623) — `@dnd-kit/collision`, `@dnd-kit/dom`,
+  `@dnd-kit/helpers` and `@dnd-kit/react` 0.5.1 → 0.5.3, development dependencies. Backfilled by
+  v1.18.26, per the changelog guard's Dependabot exemption.
+
 ## [1.18.24] - 2026-11-04
 
 ### Fixed
@@ -5936,7 +5958,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.24...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.26...HEAD
+[1.18.26]: https://github.com/jwh3times/magic-agenda/compare/v1.18.25...v1.18.26
+[1.18.25]: https://github.com/jwh3times/magic-agenda/compare/v1.18.24...v1.18.25
 [1.18.24]: https://github.com/jwh3times/magic-agenda/compare/v1.18.23...v1.18.24
 [1.18.23]: https://github.com/jwh3times/magic-agenda/compare/v1.18.22...v1.18.23
 [1.18.22]: https://github.com/jwh3times/magic-agenda/compare/v1.18.21...v1.18.22

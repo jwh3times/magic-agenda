@@ -3,7 +3,11 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
-import { expect, test } from 'vitest'
+import { expect, test, vi } from 'vitest'
+
+// Each case runs the step in a fresh bash, which forks a few hundred processes. Under Git Bash that
+// takes up to ~2s alone and past the 5s default under the full suite's parallel load (#571).
+vi.setConfig({ testTimeout: 30_000 })
 
 const workflow = readFileSync(new URL('../.github/workflows/backup.yml', import.meta.url), 'utf8')
 const step = workflow.split('      - name: Verify the dumps contain what a restore needs\n')[1]
@@ -82,7 +86,12 @@ function check(
       ].join('\n'),
     )
     writeFileSync(join(dir, 'backup', 'storage.sql'), storage)
-    return spawnSync('bash', ['-e', '-o', 'pipefail', '-c', verify], { cwd: dir, encoding: 'utf8' })
+    // From a file, as Actions runs a `run:` step, never as `-c`. On Windows an argument crosses a
+    // command line that Node quotes by MSVCRT rules and Git Bash's MSYS2 runtime parses by its own:
+    // `"\\.` arrived as `"\.`, and this script arrived cut off at line 141 (#571). (`pipefail` is
+    // stricter than the job, which sets no `shell:` and so runs `bash -e {0}`.)
+    writeFileSync(join(dir, 'verify.sh'), verify)
+    return spawnSync('bash', ['-e', '-o', 'pipefail', 'verify.sh'], { cwd: dir, encoding: 'utf8' })
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
