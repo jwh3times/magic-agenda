@@ -6,6 +6,7 @@ import { makeMockTasks } from '../data/mockTasks'
 import { fakeUseTasks } from '../data/fakeUseTasks'
 import { fakeBoardDirectory, fakeBoardSession, fakeBoardSummary } from '../board/fakeBoardDirectory'
 import { useTasks } from '../data/useTasks'
+import type { UseBoardDirectory } from '../board/useBoardDirectory'
 import { LabelDirectoryContext } from '../labels/labelDirectoryContext'
 import { fakeLabelDirectory } from '../labels/fakeLabelDirectory'
 
@@ -27,7 +28,7 @@ const h = vi.hoisted<{
   /** A Board lost while open (#439). */
   lostAccess: string | null
   /** Extra directory fields for the zero-Board state: a failed load's `error`, `offline`, `reload`. */
-  directory: Record<string, unknown>
+  directory: Partial<UseBoardDirectory>
 }>(() => ({
   auth: {
     user: null as { id: string } | null,

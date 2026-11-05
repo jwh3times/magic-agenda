@@ -73,14 +73,6 @@ export function BoardPage() {
   ].filter((value): value is number => value !== null)
   const savedAt = offlineSavedAt.length > 0 ? Math.min(...offlineSavedAt) : null
 
-  // No selected Board has two causes, and they must not render alike (#629). Zero Boards is a
-  // legitimate state, reachable by deleting or leaving your last one. A failed directory load with
-  // no snapshot to fall back on also leaves the list empty, and saying "No boards yet" then reads as
-  // data loss and invites creating a duplicate Board — so a load error with no snapshot shown gets
-  // the same ErrorScreen and Retry as the label and task loads. Both have to be handled HERE rather
-  // than below: `useTasks` was given an empty board id, so it loaded nothing and reports no error —
-  // which renders as a board with no tasks, indistinguishable from a real empty board. Same class of
-  // mistake as rendering before `boardsLoading` resolves, one state further along.
   // A Board that disappeared while open (#439). Worded so it says neither "removed" nor "deleted":
   // the server does not tell a former member which, and guessing would leak or mislead.
   const lostAccessNotice = lostAccess && (
@@ -92,6 +84,15 @@ export function BoardPage() {
     />
   )
 
+  // No selected Board has two causes, and they must not render alike (#629). Zero Boards is a
+  // legitimate state, reachable by deleting or leaving your last one. A failed directory load with
+  // no snapshot to fall back on also leaves the list empty, and saying "No boards yet" then reads as
+  // data loss and invites creating a duplicate Board — so a load error with no snapshot shown gets
+  // the same ErrorScreen and Retry as the label and task loads. It needs no emptiness check like
+  // theirs below: a null selection already means the list is empty. Both have to be handled HERE
+  // rather than below: `useTasks` was given an empty board id, so it loaded nothing and reports no
+  // error — which renders as a board with no tasks, indistinguishable from a real empty board. Same
+  // class of mistake as rendering before `boardsLoading` resolves, one state further along.
   if (selectedBoardId === null) {
     return (
       <ThemeProvider initial={settings.theme} onThemeChange={(theme) => void saveTheme(theme)}>

@@ -7,7 +7,7 @@ const h = vi.hoisted(() => {
   const waitForURL = vi.fn((_predicate: (url: URL) => boolean, _options: { timeout: number }) =>
     Promise.resolve(),
   )
-  const waitForBoardOrEmpty = vi.fn((_options: { timeout: number }) => Promise.resolve())
+  const waitForSignedInPage = vi.fn((_options: { timeout: number }) => Promise.resolve())
   const noBoardsVisible = vi.fn(() => Promise.resolve(false))
   const loadErrorVisible = vi.fn(() => Promise.resolve(false))
   const loadErrorText = vi.fn(() =>
@@ -45,7 +45,7 @@ const h = vi.hoisted(() => {
         first: () => ({
           waitFor:
             paired.includes(noBoardsVisible) && paired.includes(loadErrorVisible)
-              ? waitForBoardOrEmpty
+              ? waitForSignedInPage
               : () =>
                   Promise.reject(
                     new Error('the toolbar was not paired with No boards yet and the error screen'),
@@ -71,7 +71,7 @@ const h = vi.hoisted(() => {
     fillPassword,
     clickSignIn,
     waitForURL,
-    waitForBoardOrEmpty,
+    waitForSignedInPage,
     noBoardsVisible,
     loadErrorVisible,
     loadErrorText,
@@ -106,7 +106,7 @@ describe('E2E global setup diagnostics', () => {
   })
 
   it('captures diagnostics when a cold board load times out', async () => {
-    h.waitForBoardOrEmpty.mockRejectedValueOnce(new Error('toolbar timed out'))
+    h.waitForSignedInPage.mockRejectedValueOnce(new Error('toolbar timed out'))
 
     await expect(globalSetup()).rejects.toThrow('toolbar timed out')
 
@@ -119,7 +119,7 @@ describe('E2E global setup diagnostics', () => {
     if (!leftLogin) throw new Error('globalSetup did not install a navigation predicate')
     expect(leftLogin(new URL('https://example.test/login'))).toBe(false)
     expect(leftLogin(new URL('https://example.test/board'))).toBe(true)
-    expect(h.waitForBoardOrEmpty).toHaveBeenCalledWith({ timeout: 60_000 })
+    expect(h.waitForSignedInPage).toHaveBeenCalledWith({ timeout: 60_000 })
     expect(h.startTracing).toHaveBeenCalledWith({
       screenshots: true,
       snapshots: true,
