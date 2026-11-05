@@ -776,7 +776,8 @@ export function columnChrome(theme: ThemeName, conf: ThemeConf, col: WorkflowSta
       fontFamily: conf.ui,
       fontSize: '12.5px',
       lineHeight: 1.5,
-      color: brutal ? '#9a9a9a' : conf.toolbarSub,
+      // #767676, as inboxEmpty uses: brutal's #9a9a9a was 2.81:1 on the white panel (#615).
+      color: brutal ? '#767676' : conf.toolbarSub,
       textAlign: 'center',
       padding: '26px 12px',
       border: `1.5px dashed ${brutal ? '#ccc' : glass ? 'rgba(255,255,255,.16)' : 'rgba(0,0,0,.16)'}`,

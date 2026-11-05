@@ -101,11 +101,6 @@
   },
   {
     "label": "kanban-brutal",
-    "ruleId": "color-contrast",
-    "count": 1
-  },
-  {
-    "label": "kanban-brutal",
     "ruleId": "label-content-name-mismatch",
     "count": 3
   },

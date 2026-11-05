@@ -26,11 +26,7 @@ import {
   type Finding,
 } from '../../scripts/a11y-baseline'
 
-// Two families are baselined as ACCEPTED violations, not pending fixes. One entry is PENDING:
-//
-//   color-contrast in kanban-brutal  #615. "Drop tasks here" is #9a9a9a on white, 2.81:1, in an empty
-//                       column. The phone uses the same style, but its scan doesn't report it. The
-//                       fix removes this entry.
+// Two families are baselined as ACCEPTED violations, not pending fixes. Nothing is pending.
 //
 // nested-interactive (decided 2026-07-31):
 //
@@ -79,7 +75,8 @@ import {
 // color-contrast reached zero in two passes (2026-07-31): near-miss token nudges, then per-theme
 // judgment calls recorded in src/theme/themeConf.ts. The first phone Kanban scan reopened it with a
 // chip's fade, whose call sits in src/theme/cardStyles.ts (#607), and the first desktop one with an
-// empty column's placeholder (#615). New theme colours must clear 4.5:1 against every background they sit on. This
+// empty column's placeholder in brutal (#615), fixed and held in src/theme/controls.test.ts.
+// New theme colours must clear 4.5:1 against every background they sit on. This
 // suite enforces that only where axe can reach a verdict: on the phone Calendar it could judge 41 of
 // 42 day numbers in brutal and none in cork or glass, whose translucent cells over a gradient come
 // back `bgGradient` and whose single digits come back `shortTextContent`, both as incomplete rather
