@@ -970,6 +970,8 @@ describe('mobile layout', () => {
 
     expect(controlsButton()).toHaveAttribute('aria-expanded', 'true')
     expect(searchBox()).toBeInTheDocument()
+    // Opening the bar leaves the keyboard down, so it does not cover the filters below (#573).
+    expect(searchBox()).not.toHaveFocus()
     expect(screen.getByRole('combobox', { name: 'Filter by label' })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Filter by status' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Show pinned only' })).toBeInTheDocument()

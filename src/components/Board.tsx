@@ -470,8 +470,11 @@ export function Board({
     setNotice(`Added “${parsed.title}” to ${whenLabel(parsed.day)}`)
   }
 
-  // Synchronously, because the input does not exist on a phone until the bar opens, and iOS Safari
-  // raises the keyboard only for a focus() made during the tap that asked for it.
+  // Synchronously, because the input does not exist on a phone until the bar opens: the open has to
+  // commit before focus() runs, and an effect would run too late. Only `/` and the palette's Search
+  // tasks reach this, and both need a hardware keyboard; the phone's Search and filters button just
+  // toggles the bar (#573). If a tap ever called this, iOS Safari would raise the keyboard only for a
+  // focus() made during that tap, which this synchronous path would also satisfy.
   const focusSearch = () => {
     flushSync(() => setControlsOpen(true))
     searchRef.current?.focus()

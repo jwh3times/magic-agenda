@@ -27,8 +27,10 @@ board down, so it is not a modal. Five things are easy to break:
   as an empty one. The button's accessible name gains ", filters active", and the dot is
   `aria-hidden` because the name already says so.
 - **The search shortcut and the palette's search action must open the bar first.** `focusSearch`
-  uses `flushSync`, because the input does not exist until the bar renders and iOS Safari raises the
-  keyboard only for a `focus()` made during the tap that asked for it. An effect would run too late.
+  uses `flushSync`, because the input does not exist until the bar renders, so the open has to commit
+  before `focus()` runs. An effect would run too late. No phone tap reaches `focusSearch`: `/` and
+  the palette's Search tasks both need a hardware keyboard, and the "Search and filters" button only
+  toggles the bar, deliberately leaving the keyboard down so it does not cover the filters (#573).
 - **Selection belongs to the action bar, not to the controls.** Select toggles it while the bar is
   open, but shutting the bar leaves selection running, and `BulkActionBar`'s Done ends it.
 - **The two rows are measured, not assumed.** Row one holds the logo's tile, `ViewSwitcher` with its
