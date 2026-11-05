@@ -150,6 +150,19 @@ workflow is the supported orchestration and `scripts/e2e-local-setup.ts` deliber
 `GITHUB_ENV`; mirror those workflow steps only when diagnosing the authenticated adapter locally.
 The preview command above is independently runnable and needs no account credentials.
 
+**Running E2E locally.** Start the stack (`node scripts/rls-up.mjs`), apply this branch's migrations
+(`npx supabase db reset --local`; the restored backup does not), then provision the accounts with
+`GITHUB_ENV=<file> npx tsx scripts/e2e-local-setup.ts` and load that file into the shell. Build
+with those values, serve with `npx vite preview --host 127.0.0.1 --port 4173` (plain `vite preview`
+binds IPv6 localhost only), and run `npx playwright test --project=chromium`. **The suite is
+repeatable on one stack and needs no reset between runs:** two consecutive full `chromium` runs
+both passed on 2026-11-04, and the account kept its Board throughout. If the signed-in page ever
+says "No boards yet", global setup stops at once rather than spending its minute on the toolbar,
+and counts the account's active Memberships to say which case it hit. None means stack state, and
+the message names the reset and setup commands above. Some means the app failed to load a Board
+list that exists and rendered the empty state instead of an error (#629), which a reset does not
+fix (#572).
+
 **The Content-Security-Policy is asserted at two layers, and neither replaces the other (#407).**
 `scripts/csp-headers.test.ts` parses the policy as written in `public/_headers` and asserts, case
 by case, the directives individual features depend on — it names the feature rather than the
