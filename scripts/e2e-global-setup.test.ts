@@ -7,8 +7,12 @@ const h = vi.hoisted(() => {
   const waitForURL = vi.fn((_predicate: (url: URL) => boolean, _options: { timeout: number }) =>
     Promise.resolve(),
   )
-  const waitForBoardOrEmpty = vi.fn((_options: { timeout: number }) => Promise.resolve())
+  const waitForSignedInPage = vi.fn((_options: { timeout: number }) => Promise.resolve())
   const noBoardsVisible = vi.fn(() => Promise.resolve(false))
+  const loadErrorVisible = vi.fn(() => Promise.resolve(false))
+  const loadErrorText = vi.fn(() =>
+    Promise.resolve('Couldn’t load your board\nFailed to fetch\nRetry'),
+  )
   const activeMemberships = vi.fn(() => Promise.resolve(1))
   const storageState = vi.fn((_options: { path: string }) => Promise.resolve())
   const startTracing = vi.fn(
@@ -30,19 +34,30 @@ const h = vi.hoisted(() => {
     getByRole: vi.fn((_role: string, options: { name: string }) => {
       if (options.name === 'Sign in') return { click: clickSignIn }
       if (options.name === 'No boards yet') return { isVisible: noBoardsVisible }
-      // The toolbar, waited on together with the empty state: the wait exists only when `or` is
-      // handed the "No boards yet" heading, so a setup that waits on anything else fails here.
-      return {
-        or: (other: { isVisible?: unknown }) => ({
-          first: () => ({
-            waitFor:
-              other.isVisible === noBoardsVisible
-                ? waitForBoardOrEmpty
-                : () => Promise.reject(new Error('the toolbar was not paired with No boards yet')),
-          }),
+      // The toolbar, waited on together with the empty state and the load-error screen: the wait
+      // exists only when `or` has been handed both, so a setup that waits on anything else fails.
+      const paired: unknown[] = []
+      const chain = {
+        or: (other: { isVisible?: unknown }) => {
+          paired.push(other.isVisible)
+          return chain
+        },
+        first: () => ({
+          waitFor:
+            paired.includes(noBoardsVisible) && paired.includes(loadErrorVisible)
+              ? waitForSignedInPage
+              : () =>
+                  Promise.reject(
+                    new Error('the toolbar was not paired with No boards yet and the error screen'),
+                  ),
         }),
       }
+      return chain
     }),
+    getByText: vi.fn((_text: string) => ({
+      isVisible: loadErrorVisible,
+      locator: vi.fn((_selector: string) => ({ innerText: loadErrorText })),
+    })),
     waitForURL,
     context: vi.fn(() => context),
     screenshot,
@@ -56,8 +71,10 @@ const h = vi.hoisted(() => {
     fillPassword,
     clickSignIn,
     waitForURL,
-    waitForBoardOrEmpty,
+    waitForSignedInPage,
     noBoardsVisible,
+    loadErrorVisible,
+    loadErrorText,
     activeMemberships,
     storageState,
     startTracing,
@@ -89,7 +106,7 @@ describe('E2E global setup diagnostics', () => {
   })
 
   it('captures diagnostics when a cold board load times out', async () => {
-    h.waitForBoardOrEmpty.mockRejectedValueOnce(new Error('toolbar timed out'))
+    h.waitForSignedInPage.mockRejectedValueOnce(new Error('toolbar timed out'))
 
     await expect(globalSetup()).rejects.toThrow('toolbar timed out')
 
@@ -102,7 +119,7 @@ describe('E2E global setup diagnostics', () => {
     if (!leftLogin) throw new Error('globalSetup did not install a navigation predicate')
     expect(leftLogin(new URL('https://example.test/login'))).toBe(false)
     expect(leftLogin(new URL('https://example.test/board'))).toBe(true)
-    expect(h.waitForBoardOrEmpty).toHaveBeenCalledWith({ timeout: 60_000 })
+    expect(h.waitForSignedInPage).toHaveBeenCalledWith({ timeout: 60_000 })
     expect(h.startTracing).toHaveBeenCalledWith({
       screenshots: true,
       snapshots: true,
@@ -140,6 +157,19 @@ describe('E2E global setup diagnostics', () => {
     await expect(failure).rejects.toThrow('#629')
     await expect(failure).rejects.not.toThrow('db reset')
     expect(h.storageState).not.toHaveBeenCalled()
+  })
+
+  it('stops at once on the load-error screen and quotes it, without counting Memberships (#629)', async () => {
+    h.loadErrorVisible.mockResolvedValueOnce(true)
+
+    const failure = globalSetup()
+
+    await expect(failure).rejects.toThrow(/could not load/)
+    await expect(failure).rejects.toThrow('Failed to fetch')
+    await expect(failure).rejects.not.toThrow('db reset')
+    expect(h.activeMemberships).not.toHaveBeenCalled()
+    expect(h.storageState).not.toHaveBeenCalled()
+    expect(h.screenshot).toHaveBeenCalledOnce()
   })
 
   it('still fails with the reason when the Memberships cannot be counted', async () => {
