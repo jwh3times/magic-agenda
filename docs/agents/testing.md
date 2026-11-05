@@ -154,14 +154,15 @@ The preview command above is independently runnable and needs no account credent
 (`npx supabase db reset --local`; the restored backup does not), then provision the accounts with
 `GITHUB_ENV=<file> npx tsx scripts/e2e-local-setup.ts` and load that file into the shell. Build
 with those values, serve with `npx vite preview --host 127.0.0.1 --port 4173` (plain `vite preview`
-binds IPv6 localhost only), and run `npx playwright test --project=chromium`. **The suite is
-repeatable on one stack and needs no reset between runs:** two consecutive full `chromium` runs
-both passed on 2026-11-04, and the account kept its Board throughout. If the signed-in page ever
+binds IPv6 localhost only), and run `npx playwright test --project=chromium`. **No reset was
+needed between runs when measured (#572):** three consecutive full `chromium` runs on one stack
+all passed on 2026-11-04, and the account kept its Board throughout. The failure #572 reported was
+never reproduced. If the signed-in page ever
 says "No boards yet", global setup stops at once rather than spending its minute on the toolbar,
 and counts the account's active Memberships to say which case it hit. None means stack state, and
 the message names the reset and setup commands above. Some means the app failed to load a Board
 list that exists and rendered the empty state instead of an error (#629), which a reset does not
-fix (#572).
+fix.
 
 **The Content-Security-Policy is asserted at two layers, and neither replaces the other (#407).**
 `scripts/csp-headers.test.ts` parses the policy as written in `public/_headers` and asserts, case

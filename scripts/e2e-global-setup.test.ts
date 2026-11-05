@@ -7,8 +7,7 @@ const h = vi.hoisted(() => {
   const waitForURL = vi.fn((_predicate: (url: URL) => boolean, _options: { timeout: number }) =>
     Promise.resolve(),
   )
-  // Waits for the toolbar OR the "No boards yet" heading, whichever renders first.
-  const waitForToolbar = vi.fn((_options: { timeout: number }) => Promise.resolve())
+  const waitForBoardOrEmpty = vi.fn((_options: { timeout: number }) => Promise.resolve())
   const noBoardsVisible = vi.fn(() => Promise.resolve(false))
   const activeMemberships = vi.fn(() => Promise.resolve(1))
   const storageState = vi.fn((_options: { path: string }) => Promise.resolve())
@@ -31,7 +30,18 @@ const h = vi.hoisted(() => {
     getByRole: vi.fn((_role: string, options: { name: string }) => {
       if (options.name === 'Sign in') return { click: clickSignIn }
       if (options.name === 'No boards yet') return { isVisible: noBoardsVisible }
-      return { or: () => ({ first: () => ({ waitFor: waitForToolbar }) }) }
+      // The toolbar, waited on together with the empty state: the wait exists only when `or` is
+      // handed the "No boards yet" heading, so a setup that waits on anything else fails here.
+      return {
+        or: (other: { isVisible?: unknown }) => ({
+          first: () => ({
+            waitFor:
+              other.isVisible === noBoardsVisible
+                ? waitForBoardOrEmpty
+                : () => Promise.reject(new Error('the toolbar was not paired with No boards yet')),
+          }),
+        }),
+      }
     }),
     waitForURL,
     context: vi.fn(() => context),
@@ -46,7 +56,7 @@ const h = vi.hoisted(() => {
     fillPassword,
     clickSignIn,
     waitForURL,
-    waitForToolbar,
+    waitForBoardOrEmpty,
     noBoardsVisible,
     activeMemberships,
     storageState,
@@ -79,7 +89,7 @@ describe('E2E global setup diagnostics', () => {
   })
 
   it('captures diagnostics when a cold board load times out', async () => {
-    h.waitForToolbar.mockRejectedValueOnce(new Error('toolbar timed out'))
+    h.waitForBoardOrEmpty.mockRejectedValueOnce(new Error('toolbar timed out'))
 
     await expect(globalSetup()).rejects.toThrow('toolbar timed out')
 
@@ -92,7 +102,7 @@ describe('E2E global setup diagnostics', () => {
     if (!leftLogin) throw new Error('globalSetup did not install a navigation predicate')
     expect(leftLogin(new URL('https://example.test/login'))).toBe(false)
     expect(leftLogin(new URL('https://example.test/board'))).toBe(true)
-    expect(h.waitForToolbar).toHaveBeenCalledWith({ timeout: 60_000 })
+    expect(h.waitForBoardOrEmpty).toHaveBeenCalledWith({ timeout: 60_000 })
     expect(h.startTracing).toHaveBeenCalledWith({
       screenshots: true,
       snapshots: true,

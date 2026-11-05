@@ -55,7 +55,9 @@ export async function activeMembershipCount(client: SupabaseClient): Promise<num
     .eq('account_id', userId)
     .is('ended_at', null)
   if (error || count === null) {
-    throw new Error(`could not count the test account's Boards: ${error?.message}`)
+    throw new Error(
+      `could not count the test account's Boards: ${error?.message ?? 'no count returned'}`,
+    )
   }
   return count
 }

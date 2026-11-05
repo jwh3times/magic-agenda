@@ -13,6 +13,8 @@ const SETUP_TRACE = path.join(SETUP_RESULTS, 'trace.zip')
  *
  * Not per-test, for two reasons: it is slow, and `supabase/config.toml` limits sign-ins to 30 per
  * 5 minutes per IP. Re-authenticating every test against one local GoTrue is a self-inflicted flake.
+ * The one exception is a failure: on "No boards yet" it signs in once more through the Data API to
+ * count the account's Memberships (`explainNoBoards`).
  */
 export default async function globalSetup(): Promise<void> {
   const baseURL = process.env.E2E_BASE_URL
@@ -86,7 +88,10 @@ async function explainNoBoards(): Promise<string> {
     count = await activeMembershipCount(await testClient())
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
-    return `The Board page says "No boards yet", and the account's Memberships could not be checked: ${reason}`
+    return (
+      `The Board page says "No boards yet", and the account's Memberships could not be checked: ${reason}
+` + 'If the account really has no Board, see "Running E2E locally" in docs/agents/testing.md.'
+    )
   }
   if (count === 0) {
     return (
