@@ -12,6 +12,7 @@ import { chipLabel, formatWeekRange, parseDay } from '../lib/dates'
 import { isTemplate, type Task } from '../types/task'
 import { Button } from './controls'
 import { rowListStyle } from '../theme/controls'
+import { useThemeOrDefault } from '../theme/ThemeProvider'
 
 type Action = 'archive' | 'unarchive' | 'reopen'
 
@@ -32,6 +33,8 @@ export function HistorySection() {
   const { can } = useBoardSession()
   const { settings } = useSettingsContext()
   const today = useToday()
+  const { conf } = useThemeOrDefault()
+  const muted = { ...mutedBase, color: conf.mutedFg }
   const boardId = selectedBoardId ?? ''
   const timezone = settings?.timezone ?? null
   const weekStart = settings?.weekStart ?? 0
@@ -226,6 +229,7 @@ function HistoryRow({
   onAction: (action: Action) => void
 }) {
   const { task, archived, day } = entry
+  const { conf } = useThemeOrDefault()
   return (
     <li
       style={{
@@ -233,11 +237,14 @@ function HistoryRow({
         flexWrap: 'wrap',
         alignItems: 'center',
         gap: 8,
-        opacity: archived ? 0.75 : 1,
       }}
     >
-      <span style={{ flex: '1 1 160px', fontWeight: 600 }}>{task.title || 'Untitled task'}</span>
-      <span style={{ fontSize: 12, opacity: 0.7 }}>{chipLabel(day)}</span>
+      <span
+        style={{ flex: '1 1 160px', fontWeight: 600, color: archived ? conf.mutedFg : undefined }}
+      >
+        {task.title || 'Untitled task'}
+      </span>
+      <span style={{ fontSize: 12, color: conf.mutedFg }}>{chipLabel(day)}</span>
       {/* Status is text, not colour alone, so Archived vs active Completed survives any theme. */}
       <span style={badge}>{archived ? 'Archived' : 'Completed'}</span>
       {!readOnly && (
@@ -264,7 +271,7 @@ function HistoryRow({
   )
 }
 
-const muted: CSSProperties = { margin: 0, fontSize: 13, opacity: 0.7 }
+const mutedBase: CSSProperties = { margin: 0, fontSize: 13 }
 
 const badge: CSSProperties = {
   fontSize: 11,

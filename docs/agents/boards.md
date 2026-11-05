@@ -149,9 +149,13 @@ Deleting your **last** Board is allowed: zero Boards is a legitimate domain stat
 `resolveSelection` already returns null for, and `BoardPage` renders `NoBoards` for it. That branch
 is load-bearing rather than defensive — `useTasks` receives an empty board id, loads nothing, and
 reports no error, so without it the screen is a board with no tasks, which is indistinguishable from
-real data loss. Deletion is deliberately **not** guarded against a Board other people are members
-of, unlike `handle_account_deletion`: there the account is leaving and destroying other members'
-content is not its call, whereas here the caller is the Owner and that is what Ownership means.
+real data loss. A failed directory load with no snapshot also leaves the selection null, so that
+branch checks the directory's `error` first and shows `ErrorScreen` with Retry instead (#629):
+"No boards yet" there would read as data loss and invite a duplicate Board.
+
+Deletion is deliberately **not** guarded against a Board other people are members of, unlike
+`handle_account_deletion`: there the account is leaving and destroying other members' content is
+not its call, whereas here the caller is the Owner and that is what Ownership means.
 
 Practical consequence for fixtures: a test that reaches for the service client to create a Board
 gets a permission error; seed through direct SQL or `create_board`, never by widening the grant.

@@ -40,6 +40,36 @@
     "count": 3
   },
   {
+    "label": "completed-brutal",
+    "ruleId": "label-content-name-mismatch",
+    "count": 3
+  },
+  {
+    "label": "completed-brutal",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "completed-cork",
+    "ruleId": "label-content-name-mismatch",
+    "count": 3
+  },
+  {
+    "label": "completed-cork",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
+    "label": "completed-glass",
+    "ruleId": "label-content-name-mismatch",
+    "count": 3
+  },
+  {
+    "label": "completed-glass",
+    "ruleId": "nested-interactive",
+    "count": 3
+  },
+  {
     "label": "editor-brutal",
     "ruleId": "label-content-name-mismatch",
     "count": 1
@@ -68,11 +98,6 @@
     "label": "editor-glass",
     "ruleId": "nested-interactive",
     "count": 3
-  },
-  {
-    "label": "kanban-brutal",
-    "ruleId": "color-contrast",
-    "count": 1
   },
   {
     "label": "kanban-brutal",

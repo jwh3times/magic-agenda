@@ -9,7 +9,7 @@ import { CalendarFeedPanel } from './CalendarFeedPanel'
 import { Button, TextInput } from './controls'
 import { MembersPanel } from './MembersPanel'
 
-const hint: CSSProperties = { fontSize: 12, opacity: 0.7 }
+const hintBase: CSSProperties = { fontSize: 12 }
 const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }
 
 /**
@@ -35,6 +35,7 @@ const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flex
 export function BoardsSection({ boardSharing = false }: { boardSharing?: boolean }) {
   const { boards, selectedBoardId, deleteBoard, renameBoard, reload } = useBoardDirectoryContext()
   const { theme, conf } = useThemeOrDefault()
+  const hint = { ...hintBase, color: conf.mutedFg }
   const [pending, setPending] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [feedOpen, setFeedOpen] = useState<string | null>(null)

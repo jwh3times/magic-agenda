@@ -41,6 +41,28 @@ export async function testUserId(client: SupabaseClient): Promise<string> {
 }
 
 /**
+ * How many Boards this account is a current member of, counted on the server.
+ *
+ * Global setup asks this when the page says "No boards yet", to tell an account that really has
+ * none (stack state) from a Board list the app failed to load (#629). Filtered to the caller's own
+ * account because RLS also shows the co-members of every Board it is on.
+ */
+export async function activeMembershipCount(client: SupabaseClient): Promise<number> {
+  const userId = await testUserId(client)
+  const { count, error } = await client
+    .from('board_memberships')
+    .select('id', { count: 'exact', head: true })
+    .eq('account_id', userId)
+    .is('ended_at', null)
+  if (error || count === null) {
+    throw new Error(
+      `could not count the test account's Boards: ${error?.message ?? 'no count returned'}`,
+    )
+  }
+  return count
+}
+
+/**
  * The Board this account's tasks belong to.
  *
  * Required since Board creation dropped `tasks_infer_board_id`: a task insert that omits

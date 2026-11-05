@@ -4,11 +4,12 @@ import { useSettingsContext } from '../data/SettingsProvider'
 import { goToSection, sectionId } from '../lib/settingsSections'
 import { browserPushGateway, type PushDevice, type PushState } from '../notifications/pushGateway'
 import { rowListStyle } from '../theme/controls'
+import { useThemeOrDefault } from '../theme/ThemeProvider'
 import { Button, Select } from './controls'
 
 const LEADS = [0, 5, 10, 15, 30, 60, 120, 1440]
 const select: CSSProperties = { maxWidth: 320 }
-const hint: CSSProperties = { margin: 0, fontSize: 13, opacity: 0.7, lineHeight: 1.45 }
+const hintBase: CSSProperties = { margin: 0, fontSize: 13, lineHeight: 1.45 }
 const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }
 
 function leadLabel(minutes: number): string {
@@ -22,6 +23,8 @@ function leadLabel(minutes: number): string {
 export function NotificationsSection() {
   const { user } = useAuth()
   const { settings, saveReminderLeadMinutes } = useSettingsContext()
+  const { conf } = useThemeOrDefault()
+  const hint = { ...hintBase, color: conf.mutedFg }
   // Kept with the Account it was read for, like the device list below.
   const [pushRead, setPushRead] = useState<{ accountId: string | null; state: PushState } | null>(
     null,
@@ -117,7 +120,7 @@ export function NotificationsSection() {
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <label htmlFor="settings-reminder-lead" style={{ fontSize: 13, opacity: 0.7 }}>
+        <label htmlFor="settings-reminder-lead" style={{ fontSize: 13, color: conf.mutedFg }}>
           Reminder timing
         </label>
         <Select
@@ -183,7 +186,7 @@ export function NotificationsSection() {
         </div>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <span style={{ fontSize: 13, opacity: 0.7 }}>Your devices</span>
+        <span style={{ fontSize: 13, color: conf.mutedFg }}>Your devices</span>
         {devices === 'failed' && <p style={hint}>Could not load your devices.</p>}
         {Array.isArray(devices) && devices.length === 0 && (
           <p style={hint}>No devices receive reminders.</p>
@@ -224,7 +227,7 @@ export function NotificationsSection() {
       </div>
 
       {error && (
-        <p role="alert" style={{ ...hint, opacity: 1 }}>
+        <p role="alert" style={hintBase}>
           {error}
         </p>
       )}

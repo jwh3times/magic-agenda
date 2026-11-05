@@ -2,6 +2,7 @@ import { useMemo, type CSSProperties } from 'react'
 import { useSettingsContext } from '../data/SettingsProvider'
 import { browserTimezone, supportedTimezones, WEEKDAYS_LONG } from '../lib/dates'
 import { Select } from './controls'
+import { useThemeOrDefault } from '../theme/ThemeProvider'
 
 // The three week starts that exist in practice: Sunday (US/Canada/Japan), Monday (ISO 8601),
 // Saturday (much of the Middle East). The column accepts 0–6; this is only what we offer.
@@ -29,7 +30,7 @@ function groupZones(zones: string[]): { region: string; zones: string[] }[] {
 }
 
 const select: CSSProperties = { maxWidth: 280 }
-const label: CSSProperties = { fontSize: 13, opacity: 0.7 }
+const labelBase: CSSProperties = { fontSize: 13 }
 const field: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6 }
 
 /** Week start + timezone. Reads the settings context directly, like DataSection and DangerZone. */
@@ -37,6 +38,8 @@ export function DatesSection() {
   const { settings, saveWeekStart, saveTimezone } = useSettingsContext()
   const groups = useMemo(() => groupZones(supportedTimezones()), [])
   const auto = browserTimezone()
+  const { conf } = useThemeOrDefault()
+  const label = { ...labelBase, color: conf.mutedFg }
 
   if (!settings) return null
 
@@ -81,7 +84,7 @@ export function DatesSection() {
             </optgroup>
           ))}
         </Select>
-        <div style={{ fontSize: 12, opacity: 0.6 }}>
+        <div style={{ fontSize: 12, color: conf.mutedFg }}>
           Sets which day counts as “today” for the board and for overdue tasks.
         </div>
       </div>

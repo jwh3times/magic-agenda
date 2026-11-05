@@ -150,6 +150,21 @@ workflow is the supported orchestration and `scripts/e2e-local-setup.ts` deliber
 `GITHUB_ENV`; mirror those workflow steps only when diagnosing the authenticated adapter locally.
 The preview command above is independently runnable and needs no account credentials.
 
+**Running E2E locally.** Start the stack (`node scripts/rls-up.mjs`), apply this branch's migrations
+(`npx supabase db reset --local`; the restored backup does not), then provision the accounts with
+`GITHUB_ENV=<file> npx tsx scripts/e2e-local-setup.ts` and load that file into the shell. Build
+with those values, serve with `npx vite preview --host 127.0.0.1 --port 4173` (plain `vite preview`
+binds IPv6 localhost only), and run `npx playwright test --project=chromium`. **No reset was
+needed between runs when measured (#572):** three consecutive full `chromium` runs on one stack
+all passed on 2026-11-04, and the account kept its Board throughout. The failure #572 reported was
+never reproduced. If the signed-in page ever
+says "No boards yet", global setup stops at once rather than spending its minute on the toolbar,
+and counts the account's active Memberships to say which case it hit. None means stack state, and
+the message names the reset and setup commands above. Some means the app read a Board list that
+exists and got no rows, which points at a grant or policy, and a reset does not fix it. A failed
+load is a third case: since #629 it shows the "Couldn’t load your board" error screen with Retry
+rather than the empty state, and global setup stops on that too, quoting what the screen said.
+
 **The Content-Security-Policy is asserted at two layers, and neither replaces the other (#407).**
 `scripts/csp-headers.test.ts` parses the policy as written in `public/_headers` and asserts, case
 by case, the directives individual features depend on — it names the feature rather than the
@@ -268,6 +283,13 @@ is a deliberate tradeoff worth understanding before it costs one:
   (`bulk`), because it's theme-neutral on purpose. Each waits for the search bar, which is shut on a
   phone until its button opens it, and each view scan also waits for something only that view draws,
   because the Calendar shows the same three cards.
+  **So is a Completed card (#613)**: `completed-<theme>` seeds the first card Completed
+  (`seedBoard({ completed: true })`) and opens Kanban, where every column then holds a card. The
+  shared seed completes nothing, and must keep completing nothing, because every other scan's and
+  canary's counts are measured against it. That is how a Completed card's whole-card fade took cork's
+  and brutal's chips below 4.5:1 without any scan seeing it. `theme.test.ts` holds a Completed
+  card's chips and title on every opaque paper too, compositing any fade it carries over the page,
+  and cork's `COMPLETED` stamp, whose translucent red had read 2.3–2.8:1 on every paper.
   **The phone layouts are scanned at 390×844 (#570, #565, #576)**, because every other scan runs at
   the desktop viewport and nothing that renders only at or below the 760px breakpoint reaches axe
   otherwise. Each waits for something only the phone layout can satisfy, so a lost viewport can't
@@ -307,10 +329,16 @@ is a deliberate tradeoff worth understanding before it costs one:
   unasserted because it moves with seed data and layout. A colour that lands on a translucent
   surface, or as a single character, needs a numeric test in `src/theme/controls.test.ts`, which
   composites it over the theme's page with `src/test/contrast.ts`. The day numbers in every cell
-  state, and the phone's selected day, have one; Task and Inbox text in cork and glass may share the
-  same blind spot and haven't been measured. Those tests use the page's base colour and leave out
-  cork's grain dots and glass's blobs, so they check a representative background, not the worst
-  one.
+  state, and the phone's selected day, have one. So do Settings' secondary and success text
+  (#624), which cork's translucent card hid the same way: 67–90 `bgGradient` nodes on each cork
+  Settings, Members and Install scan, against 0–4 in the other themes. Its hints, dimmed with
+  `opacity`, read 3.6:1 there. They are now drawn in the theme's `mutedFg` and the notice in its
+  `successFg`, both held to 4.5:1. `dimmedText()` (`src/test/dimmedText.ts`) fails the Settings,
+  Members, Invitations and calendar-feed render tests if text slips back to opacity, because an
+  opacity's contrast depends on where it is used, so no token check can hold it. The board and
+  editor surfaces still carry 35–60 unidentified `bgGradient` nodes in cork and glass (#625). Those
+  tests use the page's base colour and leave out cork's grain dots and glass's blobs, so they check
+  a representative background, not the worst one.
 
 - **The a11y baseline asserts counts by strict equality, in both directions.** A count that rose is
   a regression; a count that FELL means the baseline is stale and the lower number must be

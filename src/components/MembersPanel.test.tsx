@@ -4,6 +4,7 @@ import { beforeEach, expect, test, vi } from 'vitest'
 import type { BoardMember } from '../board/boardMembers'
 import { fakeBoardSummary } from '../board/fakeBoardDirectory'
 import { boardFailed, type BoardOutcome } from '../board/outcome'
+import { dimmedText } from '../test/dimmedText'
 
 const h = vi.hoisted(() => ({
   members: [] as BoardMember[],
@@ -264,4 +265,12 @@ test('pending invitations still load when the member list cannot', async () => {
   h.list.mockResolvedValue(boardFailed('membership-ended'))
   renderPanel('owner')
   await waitFor(() => expect(h.pending).toHaveBeenCalled())
+})
+
+// Its hints are drawn in the theme's `mutedFg`, never dimmed with opacity (#624).
+test('no text in the panel is dimmed with opacity', async () => {
+  renderPanel('owner')
+  await screen.findByText('Bo')
+  await waitFor(() => expect(h.pending).toHaveBeenCalled())
+  expect(dimmedText(document.body)).toEqual([])
 })

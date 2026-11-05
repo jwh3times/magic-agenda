@@ -12,6 +12,93 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.24] - 2026-11-04
+
+### Fixed
+
+- **If your boards fail to load, the app now says so and offers Retry, instead of "No boards yet"
+  (#629).** This happened when the request for your Board list failed and the device had no saved
+  copy to show, most likely on a first visit from a new device or straight after signing in. The
+  page said you had no boards and offered only to create one, which read as data loss and, if
+  taken, left a duplicate empty board beside your real ones. It now shows "Couldn’t load your
+  board" with Retry, the same screen a failed task or label load already gets. An account that
+  really has no boards still sees "No boards yet", and a device with a saved copy still shows it
+  read-only as before.
+
+### Internal
+
+- End-to-end global setup also stops at once on that error screen and quotes it, instead of
+  waiting out its full minute. "No boards yet" on an account that does have Boards now points at a
+  grant or policy, since a failed load no longer produces it.
+
+## [1.18.23] - 2026-11-04
+
+### Internal
+
+- **A local end-to-end run that meets "No boards yet" now stops in seconds and says why (#572).**
+  Global setup used to wait a full minute for the toolbar on a page that was never going to show
+  it. It now counts the test account's Board memberships. With none, the message names the reset
+  and setup commands. With some, it points at #629: the app failed to load a Board list that
+  exists, and a reset will not help.
+- The suite proved repeatable on one local stack. Three consecutive full runs passed with no reset
+  between them, and the test account kept its Board, so the "a run leaves the account with no
+  Boards" belief behind #572 did not hold. `docs/agents/testing.md` now gives the local-run steps.
+
+## [1.18.22] - 2026-11-04
+
+### Fixed
+
+- **"Drop tasks here" in an empty Kanban column is readable in the TASKS// theme (#615).** Its grey
+  was 2.81:1 on the white column, below the 4.5:1 text needs; it is now the darker grey the empty
+  Inbox already uses (4.54:1). This shows on desktop and on a phone when you swipe to an empty
+  column.
+
+### Internal
+
+- A computed check holds the placeholder's colour, and the accessibility baseline drops the one
+  entry it was holding for this fix, so it now lists only accepted findings.
+
+## [1.18.21] - 2026-11-04
+
+### Fixed
+
+- **Completed cards are easier to read in the Corkboard and TASKS// themes (#613).** A Completed
+  card faded as a whole, which took the small labels on its date, time and assignee below the 4.5:1
+  contrast text needs on every Corkboard paper colour and four TASKS// ones, and some coloured
+  titles with them. In those two themes a Completed card now stays at full strength, and the
+  strike-through (and, in Corkboard, the COMPLETED stamp) shows it is done. Aurora keeps its fade.
+- **Corkboard's COMPLETED stamp is a deeper brick red (#613).** Its translucent red read only
+  2.3–2.8:1 on the paper; the new one is still a little see-through and reads 4.8–6.2:1.
+
+### Internal
+
+- A computed check holds a Completed card's labels and title on every Corkboard and TASKS// paper,
+  overdue or not, and the stamp on every Corkboard paper. A new accessibility scan shows a Completed
+  card in each theme, through a test-data option that leaves the shared seed unchanged.
+
+## [1.18.20] - 2026-11-04
+
+### Fixed
+
+- **Settings' smaller text is easier to read in the Corkboard theme (#624).** Field labels, hints
+  and status lines across Settings, the Members panel, invitations, the calendar feed panel and
+  Install the app were faded to below the 4.5:1 contrast text needs: as low as 2.95:1, and 3.6:1
+  for most hints. Corkboard now draws them in a darker brown, at 5.3:1. They look the same as
+  before in TASKS// and Aurora. The page footer is held to the same minimum.
+- **The success message after an export or import is readable in Corkboard and TASKS// (#624).**
+  Its green was 1.6:1 in Corkboard and 3.4:1 in TASKS//. Each theme now has its own darker green
+  (5.2:1 and 5.4:1); Aurora's is unchanged.
+- An archived task in Settings → History now shows its title in the muted colour instead of fading
+  the whole row, so its badge and buttons stay at full strength. The offline Label form's "New
+  label" text no longer fades with its disabled controls.
+
+### Internal
+
+- Each theme has a muted and a success text colour, and a computed check holds both to 4.5:1 on
+  its Settings card. The Settings, Members, invitations and calendar-feed render tests now fail if
+  any text is faded with opacity. The testing guide records that this text, like the day numbers,
+  is text the accessibility scans can't judge.
+
 ## [1.18.19] - 2026-11-04
 
 ### Fixed
@@ -5849,7 +5936,12 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.19...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.24...HEAD
+[1.18.24]: https://github.com/jwh3times/magic-agenda/compare/v1.18.23...v1.18.24
+[1.18.23]: https://github.com/jwh3times/magic-agenda/compare/v1.18.22...v1.18.23
+[1.18.22]: https://github.com/jwh3times/magic-agenda/compare/v1.18.21...v1.18.22
+[1.18.21]: https://github.com/jwh3times/magic-agenda/compare/v1.18.20...v1.18.21
+[1.18.20]: https://github.com/jwh3times/magic-agenda/compare/v1.18.19...v1.18.20
 [1.18.19]: https://github.com/jwh3times/magic-agenda/compare/v1.18.18...v1.18.19
 [1.18.18]: https://github.com/jwh3times/magic-agenda/compare/v1.18.17...v1.18.18
 [1.18.17]: https://github.com/jwh3times/magic-agenda/compare/v1.18.16...v1.18.17

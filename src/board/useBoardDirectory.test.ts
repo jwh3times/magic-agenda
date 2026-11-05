@@ -160,6 +160,26 @@ test('an authentication failure keeps the directory snapshot without calling it 
   expect(result.current.error).toBe('JWT expired')
 })
 
+test('a failed first load reports its error, and reload brings the Boards back (#629)', async () => {
+  // No snapshot yet — a first visit on a new device. `BoardPage` tells this apart from an Account
+  // with no Boards by `error` without `offline`, and its Retry is this `reload`.
+  h.capture.selectError = { message: 'Service Unavailable' }
+  h.capture.status = 503
+  const { result } = renderHook(() => useBoardDirectory('u1', true))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  expect(result.current.error).toBe('Service Unavailable')
+  expect(result.current.offline).toBe(false)
+  expect(result.current.selectedBoardId).toBeNull()
+
+  h.capture.selectError = null
+  h.capture.status = 200
+  await act(() => result.current.reload())
+
+  expect(result.current.error).toBeNull()
+  expect(result.current.selectedBoardId).toBe('b1')
+})
+
 test('setDefaultView writes only the membership’s default_view', async () => {
   const { result } = renderHook(() => useBoardDirectory('u1', true))
   await waitFor(() => expect(result.current.loading).toBe(false))

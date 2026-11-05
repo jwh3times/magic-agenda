@@ -11,7 +11,7 @@ import { rowListStyle } from '../theme/controls'
 const DEFAULT_NEW_COLOR = '#2563eb'
 
 const textInput: CSSProperties = { flex: 1 }
-const hint: CSSProperties = { fontSize: 12, opacity: 0.7 }
+const hintBase: CSSProperties = { fontSize: 12 }
 const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8 }
 
 /**
@@ -25,6 +25,7 @@ const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8 }
  */
 export function LabelsSection() {
   const { conf } = useTheme()
+  const hint = { ...hintBase, color: conf.mutedFg }
   const isMobile = useIsMobile()
   const { can } = useBoardSession()
   const {
@@ -185,7 +186,6 @@ export function LabelsSection() {
             gap: 8,
             borderTop: `1px solid ${conf.cellBorder ? 'currentColor' : 'transparent'}`,
             paddingTop: 12,
-            opacity: offline ? 0.6 : 1,
           }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>

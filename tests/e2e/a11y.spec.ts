@@ -26,11 +26,7 @@ import {
   type Finding,
 } from '../../scripts/a11y-baseline'
 
-// Two families are baselined as ACCEPTED violations, not pending fixes. One entry is PENDING:
-//
-//   color-contrast in kanban-brutal  #615. "Drop tasks here" is #9a9a9a on white, 2.81:1, in an empty
-//                       column. The phone uses the same style, but its scan doesn't report it. The
-//                       fix removes this entry.
+// Two families are baselined as ACCEPTED violations, not pending fixes. Nothing is pending.
 //
 // nested-interactive (decided 2026-07-31):
 //
@@ -71,14 +67,16 @@ import {
 //                       expected. The phone Calendar scans see only today's card in the panel,
 //                       which counts for both families once. The phone Week and Kanban scans see
 //                       all three cards, unclipped, and the two families need not count the same
-//                       cards there. The desktop Week and Kanban scans count all three for both.
+//                       cards there. The desktop Week, Kanban and Completed-card scans count all
+//                       three for both.
 //                       The Agenda's cards aren't draggable, so neither family counts them at any
 //                       width.
 //
 // color-contrast reached zero in two passes (2026-07-31): near-miss token nudges, then per-theme
 // judgment calls recorded in src/theme/themeConf.ts. The first phone Kanban scan reopened it with a
 // chip's fade, whose call sits in src/theme/cardStyles.ts (#607), and the first desktop one with an
-// empty column's placeholder (#615). New theme colours must clear 4.5:1 against every background they sit on. This
+// empty column's placeholder in brutal (#615), fixed and held in src/theme/controls.test.ts.
+// New theme colours must clear 4.5:1 against every background they sit on. This
 // suite enforces that only where axe can reach a verdict: on the phone Calendar it could judge 41 of
 // 42 day numbers in brutal and none in cork or glass, whose translucent cells over a gradient come
 // back `bgGradient` and whose single digits come back `shortTextContent`, both as incomplete rather
@@ -268,9 +266,14 @@ test.describe('signed in', () => {
   // phone scans below. The search bar, shut on a phone until its button opens it, shows the
   // viewport held. The Calendar shows the same three cards, so each test also waits for something
   // only its view draws.
-  async function openDesktopBoard(page: Page, theme: Theme, view: View = 'calendar') {
+  async function openDesktopBoard(
+    page: Page,
+    theme: Theme,
+    view: View = 'calendar',
+    seed: { completed?: boolean } = {},
+  ) {
     await page.clock.setFixedTime(new Date(PINNED_TIME))
-    await seedBoard({ theme, view, anchor: PINNED_DAY })
+    await seedBoard({ theme, view, anchor: PINNED_DAY, ...seed })
     await page.goto('/')
     await page.getByRole('search').waitFor()
     for (const title of SEEDED_TITLES) await page.getByText(title).waitFor()
@@ -299,6 +302,17 @@ test.describe('signed in', () => {
       await page.getByText('Drop tasks here').waitFor()
       await settle(page)
       await scanAndAssert(page, `kanban-${theme}`)
+    })
+
+    // A Completed card (#613). The shared seed completes nothing, so no other scan renders one,
+    // and its whole-card fade had taken cork's and brutal's chips below 4.5:1 unseen. Seeding the
+    // first card Completed puts it in Kanban's Completed column, and leaves no column empty, so
+    // no placeholder joins this scan.
+    test(`completed card (${theme}) matches the a11y baseline`, async ({ page }) => {
+      await openDesktopBoard(page, theme, 'kanban', { completed: true })
+      await expect(page.getByText('Drop tasks here')).toHaveCount(0)
+      await settle(page)
+      await scanAndAssert(page, `completed-${theme}`)
     })
   }
 
