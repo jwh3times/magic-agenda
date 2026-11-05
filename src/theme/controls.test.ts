@@ -9,11 +9,13 @@ import {
   type ButtonVariant,
 } from './controls'
 import { themeConf } from './themeConf'
+import { STATUS } from './constants'
 import {
   TOOLBAR_CONTROL_FILL,
   TOOLBAR_CONTROL_FILL_ACTIVE,
   TOOLBAR_CONTROL_HEIGHT,
   cellChrome,
+  columnChrome,
   phoneDayChrome,
   toolbarChrome,
 } from './chrome'
@@ -202,6 +204,19 @@ describe('navItemStyle', () => {
       expect(navItemStyle(theme, conf, true).background).not.toBe('transparent')
       expect(navItemStyle(theme, conf, true).fontWeight).toBe(700)
     }
+  })
+})
+
+// An empty Kanban column's "Drop tasks here" (#615). brutal's was #9a9a9a on its white panel,
+// 2.81:1. The desktop scan reported it; the phone shows one column at a time and never scanned it.
+// Only brutal is held here: cork's panel is translucent over the cork, where its placeholder
+// measures 2.68:1 and its column label 4.08:1, and that surface is #625's.
+describe('an empty Kanban column’s placeholder', () => {
+  it('brutal: reads at AA on its white panel', () => {
+    const conf = themeConf('brutal')
+    const c = columnChrome('brutal', conf, STATUS[0])
+    const panel = parseColor(String(c.col.background))[0]
+    expect(contrast(over(String(c.emptyStyle.color), panel), panel)).toBeGreaterThanOrEqual(4.5)
   })
 })
 
