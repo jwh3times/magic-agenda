@@ -12,6 +12,21 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.27] - 2026-11-05
+
+### Internal
+
+- **The reason given for opening the phone search controls synchronously is now the true one
+  (#573).** The code comment on `focusSearch` and the UI area guide said it used `flushSync`
+  because iOS Safari raises the keyboard only for a focus made during the tap that asked for it.
+  But the phone's Search and filters button only opens the bar; `focusSearch` runs from `/` and
+  from the command palette's Search tasks, and only a keyboard opens either. The reason that holds
+  is that the search box is not mounted until the bar opens, so the bar has to open before the box
+  can take focus. The guide now says which paths reach it, and that a tapped palette row would
+  meet iOS Safari's rule but has not been checked on a real iPhone. Triage chose to keep the
+  button as a plain toggle, so the keyboard does not cover the filters, and a test now pins it: the
+  button opens the bar without focusing search. Nothing a user sees changed.
+
 ## [1.18.26] - 2026-11-05
 
 ### Internal
@@ -5958,7 +5973,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.26...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.27...HEAD
+[1.18.27]: https://github.com/jwh3times/magic-agenda/compare/v1.18.26...v1.18.27
 [1.18.26]: https://github.com/jwh3times/magic-agenda/compare/v1.18.25...v1.18.26
 [1.18.25]: https://github.com/jwh3times/magic-agenda/compare/v1.18.24...v1.18.25
 [1.18.24]: https://github.com/jwh3times/magic-agenda/compare/v1.18.23...v1.18.24
