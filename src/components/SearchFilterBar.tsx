@@ -6,6 +6,7 @@ import { EMPTY_FILTER, isFilterActive, type FilterQuery } from '../data/filters'
 import type { WorkflowStatus } from '../types/task'
 import { isShared, useBoardMembers } from '../board/boardMembersContext'
 import { chevronSelect } from '../theme/selectChevron'
+import { filterBarChrome } from '../theme/chrome'
 import { useLabelDirectoryContext } from '../labels/LabelDirectoryProvider'
 
 export interface SearchFilterBarProps {
@@ -33,19 +34,14 @@ export function SearchFilterBar({
   const boardMembers = useBoardMembers()
   const mine = isShared(boardMembers) ? boardMembers.me : null
   const isMobile = useIsMobile()
-  const dark = theme === 'glass'
-  const fg = dark ? '#eaf0ff' : '#241c12'
-  const bg = dark ? 'rgba(255,255,255,.06)' : 'rgba(255,255,255,.78)'
-  const border = dark ? 'rgba(255,255,255,.14)' : 'rgba(0,0,0,.16)'
+  const chrome = filterBarChrome(theme, conf)
+  const { background: bg, color: fg } = chrome.control
   const control: CSSProperties = {
+    ...chrome.control,
     padding: '8px 11px',
     borderRadius: 8,
-    border: `1px solid ${border}`,
-    background: bg,
-    color: fg,
     fontFamily: conf.ui,
     fontSize: isMobile ? 16 : 13, // <16px makes iOS Safari zoom in on focus
-    colorScheme: dark ? 'dark' : 'light',
   }
   const active = isFilterActive(query)
 
@@ -113,7 +109,7 @@ export function SearchFilterBar({
           ...control,
           cursor: 'pointer',
           fontWeight: 700,
-          ...(query.pinned ? { color: conf.accent, borderColor: conf.accent } : {}),
+          ...(query.pinned ? chrome.toggledOn : {}),
         }}
       >
         📌 Pinned
@@ -130,7 +126,7 @@ export function SearchFilterBar({
             ...control,
             cursor: 'pointer',
             fontWeight: 700,
-            ...(query.assignedTo !== null ? { color: conf.accent, borderColor: conf.accent } : {}),
+            ...(query.assignedTo !== null ? chrome.toggledOn : {}),
           }}
         >
           👤 Assigned to me
@@ -145,7 +141,7 @@ export function SearchFilterBar({
             ...control,
             cursor: 'pointer',
             fontWeight: 700,
-            ...(selecting ? { color: conf.accent, borderColor: conf.accent } : {}),
+            ...(selecting ? chrome.toggledOn : {}),
           }}
         >
           ☑ Select
@@ -159,8 +155,7 @@ export function SearchFilterBar({
             ...control,
             cursor: 'pointer',
             fontWeight: 700,
-            color: conf.accent,
-            borderColor: conf.accent,
+            ...chrome.toggledOn,
           }}
         >
           Clear

@@ -435,7 +435,7 @@ export function inboxChrome(theme: ThemeName, conf: ThemeConf) {
       flex: 'none',
       display: 'flex',
       flexDirection: 'column',
-      background: cork ? 'rgba(58,38,17,.42)' : brutal ? '#fff' : 'rgba(255,255,255,.04)',
+      background: conf.panelBg,
       border: brutal
         ? '3px solid #111'
         : glass
@@ -474,7 +474,7 @@ export function inboxChrome(theme: ThemeName, conf: ThemeConf) {
       padding: '0 16px 10px',
       fontFamily: conf.ui,
       fontSize: '11.5px',
-      color: brutal ? '#767676' : conf.toolbarSub,
+      color: conf.panelSubFg,
       fontWeight: 500,
     },
     inboxList: {
@@ -491,9 +491,9 @@ export function inboxChrome(theme: ThemeName, conf: ThemeConf) {
       fontFamily: conf.ui,
       fontSize: '12.5px',
       lineHeight: 1.5,
-      // #767676 like inboxHint, or an empty inbox would put #999 on white at 2.85:1. The desktop
+      // panelSubFg like inboxHint, or an empty inbox would put #999 on white at 2.85:1. The desktop
       // scans never see this node, because the seeded inbox is never empty; `phone-empty-brutal` does.
-      color: brutal ? '#767676' : conf.toolbarSub,
+      color: conf.panelSubFg,
       textAlign: 'center',
       padding: '24px 10px',
     },
@@ -510,6 +510,15 @@ export function inboxChrome(theme: ThemeName, conf: ThemeConf) {
       fontWeight: 700,
       background: 'transparent',
       color: brutal ? '#111' : conf.toolbarFg,
+    },
+    // The Privacy and Terms links at the Inbox's foot. They were `numFg` at `.6` opacity, which put
+    // cork's dark ink on its dark panel (#625); brutal's and glass's look barely moves.
+    inboxLegal: {
+      margin: '0 16px 14px',
+      display: 'flex',
+      gap: 12,
+      fontSize: 11,
+      color: conf.panelSubFg,
     },
   } satisfies Record<string, CSSProperties>
 }
@@ -635,6 +644,25 @@ export function dayMarkerStyle(
   return { ...base, background: labelColor, borderRadius: '50%' }
 }
 
+/**
+ * The search and filter bar's controls, and the look of one switched on (#625). glass draws them
+ * dark and translucent, the others light; both sit over the page, so axe can't judge their text.
+ */
+export function filterBarChrome(theme: ThemeName, conf: ThemeConf) {
+  const dark = theme === 'glass'
+  const fg = dark ? '#eaf0ff' : '#241c12'
+  const bg = dark ? 'rgba(255,255,255,.06)' : 'rgba(255,255,255,.78)'
+  return {
+    control: {
+      border: `1px solid ${dark ? 'rgba(255,255,255,.14)' : 'rgba(0,0,0,.16)'}`,
+      background: bg,
+      color: fg,
+      colorScheme: dark ? 'dark' : 'light',
+    },
+    toggledOn: { color: conf.toggledOnFg, borderColor: conf.accent },
+  } satisfies Record<string, CSSProperties>
+}
+
 /** The phone Calendar's panel, which is the Inbox's surface with tabs for a header. */
 export function phonePanelChrome(theme: ThemeName, conf: ThemeConf) {
   const c = inboxChrome(theme, conf)
@@ -687,10 +715,8 @@ export function phonePanelChrome(theme: ThemeName, conf: ThemeConf) {
 }
 
 export function columnChrome(theme: ThemeName, conf: ThemeConf, col: WorkflowStatusDef) {
-  const cork = theme === 'cork'
   const brutal = theme === 'brutal'
   const glass = theme === 'glass'
-  const panelBg = cork ? 'rgba(58,38,17,.40)' : brutal ? '#fff' : 'rgba(255,255,255,.04)'
   const headFg = brutal ? '#111' : conf.toolbarFg
   return {
     col: {
@@ -699,7 +725,7 @@ export function columnChrome(theme: ThemeName, conf: ThemeConf, col: WorkflowSta
       minHeight: 0,
       display: 'flex',
       flexDirection: 'column',
-      background: panelBg,
+      background: conf.panelBg,
       border: brutal
         ? '3px solid #111'
         : glass
@@ -776,8 +802,8 @@ export function columnChrome(theme: ThemeName, conf: ThemeConf, col: WorkflowSta
       fontFamily: conf.ui,
       fontSize: '12.5px',
       lineHeight: 1.5,
-      // #767676, as inboxEmpty uses: brutal's #9a9a9a was 2.81:1 on the white panel (#615).
-      color: brutal ? '#767676' : conf.toolbarSub,
+      // brutal's #9a9a9a was 2.81:1 on the white panel (#615), cork's toolbarSub 2.68:1 (#625).
+      color: conf.panelSubFg,
       textAlign: 'center',
       padding: '26px 12px',
       border: `1.5px dashed ${brutal ? '#ccc' : glass ? 'rgba(255,255,255,.16)' : 'rgba(0,0,0,.16)'}`,

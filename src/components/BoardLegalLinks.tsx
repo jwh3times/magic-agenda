@@ -1,27 +1,17 @@
 import { Link } from 'react-router'
 import { useTheme } from '../theme/ThemeProvider'
+import { inboxChrome } from '../theme/chrome'
 
 /**
  * ROADMAP 5.3 — the legal pages reachable from the board itself, not only from /settings and the
  * login screen. The roadmap suggested "the mobile toolbar overflow", but no overflow menu exists; the
  * Inbox's foot is a surface every view with an Inbox shows, and it costs neither board nor toolbar
- * space.
+ * space. Its colour is the panel's secondary text (`inboxLegal`, #625).
  */
 export function BoardLegalLinks() {
-  const { conf } = useTheme()
+  const { theme, conf } = useTheme()
   return (
-    <div
-      style={{
-        margin: '0 16px 14px',
-        display: 'flex',
-        gap: 12,
-        fontSize: 11,
-        // 0.6, not 0.55: brutal's white inbox puts these at 4.17:1 at 0.55 — an AA near-miss
-        // flagged by the E2E a11y ratchet. Imperceptible; do not round back down.
-        opacity: 0.6,
-        color: conf.numFg,
-      }}
-    >
+    <div style={inboxChrome(theme, conf).inboxLegal}>
       <Link to="/privacy" style={{ color: 'inherit' }}>
         Privacy
       </Link>
