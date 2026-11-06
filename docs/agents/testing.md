@@ -335,14 +335,18 @@ is a deliberate tradeoff worth understanding before it costs one:
   `opacity`, read 3.6:1 there. They are now drawn in the theme's `mutedFg` and the notice in its
   `successFg`, both held to 4.5:1. `dimmedText()` (`src/test/dimmedText.ts`) fails the Settings,
   Members, Invitations and calendar-feed render tests if text slips back to opacity, because an
-  opacity's contrast depends on where it is used, so no token check can hold it. The board and editor surfaces' 20–68 unjudged nodes in cork and glass were listed in #625 by
-  compositing each node's ancestor fills in the browser. Below 4.5:1 were cork's board panels (the
-  Inbox, the phone panel and a Kanban column: 2.68–4.23:1, the legal links lower) and the search
-  bar's switched-on toggles (glass 3.49:1, cork 4.46:1). Those are now held by panel and filter-bar
-  tests. What stayed unjudged after the fix all clears AA. The rest is either solid ink on light
-  fills, or the ✓ in a checkbox, a state graphic that needs 3:1 and reads 3.74–3.87:1. Those
+  opacity's contrast depends on where it is used, so no token check can hold it. These numeric
   tests use the page's base colour and leave out cork's grain dots and glass's blobs, so they check
   a representative background, not the worst one.
+
+  The board, editor and bulk scans left 20–68 unjudged nodes each in cork and glass. #625 listed
+  them by compositing each node's ancestor fills in the browser, from a temporary dump in `scan()`
+  that was not kept. Below 4.5:1 were cork's board panels (the Inbox, the phone panel and a Kanban
+  column: 2.68–4.23:1, the legal links lower) and the search bar's toggled-on controls (glass
+  3.49:1, cork 4.46:1). Panel, weekday-header and filter-bar tests now hold them. When the dump was
+  rerun after the fix, the only board text left under 4.5:1 was the ✓ in a checkbox. That's a
+  state graphic, which needs 3:1, and it reads 3.74–3.87:1. That last result comes from that one
+  measurement, and no test holds it.
 
 - **The a11y baseline asserts counts by strict equality, in both directions.** A count that rose is
   a regression; a count that FELL means the baseline is stale and the lower number must be

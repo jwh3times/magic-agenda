@@ -1,6 +1,6 @@
 import type { ThemeName } from '../types/task'
 
-/** ~26 style tokens per theme. Ported verbatim from prototype `themeConf()`. */
+/** ~37 style tokens per theme. The first ~26 were ported verbatim from prototype `themeConf()`. */
 export interface ThemeConf {
   appName: string
   ui: string
@@ -106,7 +106,8 @@ export interface ThemeConf {
    * Kanban column (#625). Their primary text is `toolbarFg` (brutal: `#111`), their secondary text
    * `panelSubFg`. Cork's was `rgba(58,38,17,.40)` and `.42`, a mid-brown over the cork where even
    * pure white reached only about 4.6:1, so its column label read 4.08:1 and its Inbox title 4.23:1.
-   * Cork now deepens it to `.60` (primary text 5.96:1) rather than changing its look. axe judges
+   * Cork now deepens it to `.60` (primary text 5.96:1) rather than changing its look. Primary text
+   * reads 18.88:1 on brutal's white panel and 14.27:1 on glass's (over its board fill). axe judges
    * none of this text in cork or glass, because the panel is translucent over the page, so
    * `controls.test.ts` holds it.
    */
@@ -117,17 +118,18 @@ export interface ThemeConf {
    * `toolbarSub` served here before, and cork's (cream at `.65`, tuned for the toolbar's buttons) was
    * 2.75:1 on the panel; the legal links drew cork's dark `numFg` there at 3.07:1 before their
    * `.6` opacity. brutal keeps the `#767676` its panels already used (4.54:1 on white), glass its
-   * `toolbarSub`; cork is the same cream at `.85`, 4.84:1 on the deepened panel.
+   * `toolbarSub` (4.59:1 over its board fill, 4.72:1 on the page); cork is the same cream at `.85`,
+   * 4.84:1 on the deepened panel.
    */
   panelSubFg: string
   /**
-   * Text on a control that is switched on: the search and filter bar's active toggles and its
-   * Clear button (#625). Its own token for the reason `numTodayFg` is: `accent` doubles as a fill
+   * Text on a control that is toggled on (not CSS `:active`, which means pressed): the search and
+   * filter bar's switched-on toggles and its Clear button (#625). Its own token for the reason `numTodayFg` is: `accent` doubles as a fill
    * under white text, and as text on the bar's translucent control it read 3.49:1 in glass and
    * 4.46:1 in cork. brutal keeps its accent (4.64:1); cork darkens the same rust (5.18:1) and glass
    * lightens its purple (5.74:1). The control's border keeps `accent`.
    */
-  activeFg: string
+  toggledOnFg: string
 }
 
 const CORK: ThemeConf = {
@@ -170,7 +172,7 @@ const CORK: ThemeConf = {
   chartMark: '#8f3520',
   panelBg: 'rgba(58,38,17,.60)',
   panelSubFg: 'rgba(251,243,230,.85)',
-  activeFg: '#a8402a',
+  toggledOnFg: '#a8402a',
 }
 
 const BRUTAL: ThemeConf = {
@@ -214,7 +216,7 @@ const BRUTAL: ThemeConf = {
   chartMark: '#CD4128',
   panelBg: '#fff',
   panelSubFg: '#767676',
-  activeFg: '#CD4128',
+  toggledOnFg: '#CD4128',
 }
 
 const GLASS: ThemeConf = {
@@ -257,7 +259,7 @@ const GLASS: ThemeConf = {
   chartMark: '#7452ff',
   panelBg: 'rgba(255,255,255,.04)',
   panelSubFg: 'rgba(234,240,255,.5)',
-  activeFg: '#9d85ff',
+  toggledOnFg: '#9d85ff',
 }
 
 const CONF: Record<ThemeName, ThemeConf> = { cork: CORK, brutal: BRUTAL, glass: GLASS }

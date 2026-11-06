@@ -109,7 +109,7 @@ export function SearchFilterBar({
           ...control,
           cursor: 'pointer',
           fontWeight: 700,
-          ...(query.pinned ? chrome.on : {}),
+          ...(query.pinned ? chrome.toggledOn : {}),
         }}
       >
         📌 Pinned
@@ -126,7 +126,7 @@ export function SearchFilterBar({
             ...control,
             cursor: 'pointer',
             fontWeight: 700,
-            ...(query.assignedTo !== null ? chrome.on : {}),
+            ...(query.assignedTo !== null ? chrome.toggledOn : {}),
           }}
         >
           👤 Assigned to me
@@ -141,7 +141,7 @@ export function SearchFilterBar({
             ...control,
             cursor: 'pointer',
             fontWeight: 700,
-            ...(selecting ? chrome.on : {}),
+            ...(selecting ? chrome.toggledOn : {}),
           }}
         >
           ☑ Select
@@ -155,7 +155,7 @@ export function SearchFilterBar({
             ...control,
             cursor: 'pointer',
             fontWeight: 700,
-            ...chrome.on,
+            ...chrome.toggledOn,
           }}
         >
           Clear

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { CSSProperties } from 'react'
 import type { ThemeName } from '../types/task'
 import {
   buttonStyle,
@@ -14,6 +15,7 @@ import {
   TOOLBAR_CONTROL_FILL,
   TOOLBAR_CONTROL_FILL_ACTIVE,
   TOOLBAR_CONTROL_HEIGHT,
+  boardChrome,
   cellChrome,
   columnChrome,
   filterBarChrome,
@@ -21,6 +23,7 @@ import {
   phoneDayChrome,
   phonePanelChrome,
   toolbarChrome,
+  weekdayStyle,
 } from './chrome'
 import { contrast, over, parseColor, type RGB } from '../test/contrast'
 
@@ -211,7 +214,7 @@ describe('navItemStyle', () => {
 })
 
 /**
- * What the Inbox, the phone Calendar's panel and a Kanban column sit on: the page's base colour,
+ * What the board's panels, its weekday headers and the search bar sit on: the page's base colour,
  * and glass's board fill over it. As with the day numbers, cork's grain and glass's blobs are left
  * out, so this is the representative case.
  */
@@ -221,10 +224,17 @@ function backdropsOf(theme: ThemeName): Record<string, RGB> {
   return { page, board: over(conf.boardBg, page) }
 }
 
-/** Every `[name, text colour, fills under it from the outermost in]` reads at AA on each backdrop. */
-function expectReadable(theme: ThemeName, texts: [string, unknown, unknown[]][]) {
+/** One piece of text: its colour, and the fills under it from the outermost in. */
+interface Text {
+  name: string
+  color: CSSProperties['color']
+  fills: CSSProperties['background'][]
+}
+
+/** Every text reads at AA on each backdrop. */
+function expectReadable(theme: ThemeName, texts: Text[]) {
   for (const [backdrop, under] of Object.entries(backdropsOf(theme))) {
-    for (const [name, color, fills] of texts) {
+    for (const { name, color, fills } of texts) {
       const behind = fills.reduce<RGB>((below, fill) => over(String(fill), below), under)
       const ratio = contrast(over(String(color), behind), behind)
       expect({ backdrop, name, passesAA: ratio >= 4.5, ratio: ratio.toFixed(2) }).toMatchObject({
@@ -240,7 +250,22 @@ function expectReadable(theme: ThemeName, texts: [string, unknown, unknown[]][])
 // comes back `bgGradient` (#625). brutal's "Drop tasks here" was #9a9a9a on its white panel, 2.81:1
 // (#615). cork's panel was `rgba(58,38,17,.40)`, where the placeholder read 2.68:1 and the label
 // 4.08:1; even white reaches only about 4.6 on it, so the panel was deepened rather than the text.
-// The Inbox and the phone Calendar's panel share the column's surface, and had the same gap: cork's
+describe('a Kanban column’s text stays readable on its panel', () => {
+  for (const theme of THEMES) {
+    it(`${theme}: label, count, add button and empty placeholder clear 4.5:1`, () => {
+      const c = columnChrome(theme, themeConf(theme), STATUS[0])
+      const panel = c.col.background
+      expectReadable(theme, [
+        { name: 'label', color: c.labelStyle.color, fills: [panel] },
+        { name: 'count', color: c.countStyle.color, fills: [panel, c.countStyle.background] },
+        { name: 'add', color: c.addStyle.color, fills: [panel, c.addStyle.background] },
+        { name: 'empty placeholder', color: c.emptyStyle.color, fills: [panel] },
+      ])
+    })
+  }
+})
+
+// The Inbox and the phone Calendar's panel share the column's fill, and had the same gap: cork's
 // `.42` panel put its title at 4.23:1, its hint, empty note and inactive tab at 2.75:1, and the
 // legal links (dark `numFg` at `.6` opacity) lower still (#625).
 describe('the Inbox’s text stays readable on its panel', () => {
@@ -249,12 +274,12 @@ describe('the Inbox’s text stays readable on its panel', () => {
       const c = inboxChrome(theme, themeConf(theme))
       const panel = c.inbox.background
       expectReadable(theme, [
-        ['title', c.inboxHead.color, [panel]],
-        ['count', c.inboxCount.color, [panel, c.inboxCount.background]],
-        ['hint', c.inboxHint.color, [panel]],
-        ['empty note', c.inboxEmpty.color, [panel]],
-        ['add button', c.inboxAdd.color, [panel, c.inboxAdd.background]],
-        ['legal links', c.inboxLegal.color, [panel]],
+        { name: 'title', color: c.inboxHead.color, fills: [panel] },
+        { name: 'count', color: c.inboxCount.color, fills: [panel, c.inboxCount.background] },
+        { name: 'hint', color: c.inboxHint.color, fills: [panel] },
+        { name: 'empty note', color: c.inboxEmpty.color, fills: [panel] },
+        { name: 'add button', color: c.inboxAdd.color, fills: [panel, c.inboxAdd.background] },
+        { name: 'legal links', color: c.inboxLegal.color, fills: [panel] },
       ])
     })
 
@@ -262,11 +287,29 @@ describe('the Inbox’s text stays readable on its panel', () => {
       const p = phonePanelChrome(theme, themeConf(theme))
       const panel = p.panel.background
       expectReadable(theme, [
-        ['inactive tab', p.tab.color, [panel]],
-        ['active tab', p.tabActive.color, [panel]],
-        ['count', p.count.color, [panel, p.count.background]],
-        ['add', p.add.color, [panel, p.add.background]],
-        ['empty note', p.empty.color, [panel]],
+        { name: 'inactive tab', color: p.tab.color, fills: [panel] },
+        { name: 'active tab', color: p.tabActive.color, fills: [panel] },
+        { name: 'count', color: p.count.color, fills: [panel, p.count.background] },
+        { name: 'add', color: p.add.color, fills: [panel, p.add.background] },
+        { name: 'empty note', color: p.empty.color, fills: [panel] },
+      ])
+    })
+  }
+})
+
+// The weekday headers sit straight on the board in cork and glass, so axe returns them `bgGradient`
+// (#625). They passed when measured (cork 4.71:1, glass 5.49:1); this keeps them there.
+describe('the weekday headers stay readable', () => {
+  for (const theme of THEMES) {
+    it(`${theme}: clear 4.5:1 on their row`, () => {
+      const conf = themeConf(theme)
+      const b = boardChrome(theme, conf)
+      expectReadable(theme, [
+        {
+          name: 'weekday',
+          color: weekdayStyle(theme, conf).color,
+          fills: [b.boardWrap.background, b.weekRow.background],
+        },
       ])
     })
   }
@@ -277,26 +320,11 @@ describe('the Inbox’s text stays readable on its panel', () => {
 // glass, whose accent is a fill colour meant for white text, and 4.46:1 in cork.
 describe('the search and filter bar stays readable', () => {
   for (const theme of THEMES) {
-    it(`${theme}: a control's text, and a switched-on toggle's, clear 4.5:1`, () => {
+    it(`${theme}: a control's text, and a toggled-on control's, clear 4.5:1`, () => {
       const c = filterBarChrome(theme, themeConf(theme))
       expectReadable(theme, [
-        ['control', c.control.color, [c.control.background]],
-        ['switched on', c.on.color, [c.control.background]],
-      ])
-    })
-  }
-})
-
-describe('a Kanban column’s text stays readable on its panel', () => {
-  for (const theme of THEMES) {
-    it(`${theme}: label, count, add button and empty placeholder clear 4.5:1`, () => {
-      const c = columnChrome(theme, themeConf(theme), STATUS[0])
-      const panel = c.col.background
-      expectReadable(theme, [
-        ['label', c.labelStyle.color, [panel]],
-        ['count', c.countStyle.color, [panel, c.countStyle.background]],
-        ['add', c.addStyle.color, [panel, c.addStyle.background]],
-        ['empty placeholder', c.emptyStyle.color, [panel]],
+        { name: 'control', color: c.control.color, fills: [c.control.background] },
+        { name: 'toggled on', color: c.toggledOn.color, fills: [c.control.background] },
       ])
     })
   }

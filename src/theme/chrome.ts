@@ -659,7 +659,7 @@ export function filterBarChrome(theme: ThemeName, conf: ThemeConf) {
       color: fg,
       colorScheme: dark ? 'dark' : 'light',
     },
-    on: { color: conf.activeFg, borderColor: conf.accent },
+    toggledOn: { color: conf.toggledOnFg, borderColor: conf.accent },
   } satisfies Record<string, CSSProperties>
 }
 
@@ -717,7 +717,6 @@ export function phonePanelChrome(theme: ThemeName, conf: ThemeConf) {
 export function columnChrome(theme: ThemeName, conf: ThemeConf, col: WorkflowStatusDef) {
   const brutal = theme === 'brutal'
   const glass = theme === 'glass'
-  const panelBg = conf.panelBg
   const headFg = brutal ? '#111' : conf.toolbarFg
   return {
     col: {
@@ -726,7 +725,7 @@ export function columnChrome(theme: ThemeName, conf: ThemeConf, col: WorkflowSta
       minHeight: 0,
       display: 'flex',
       flexDirection: 'column',
-      background: panelBg,
+      background: conf.panelBg,
       border: brutal
         ? '3px solid #111'
         : glass
