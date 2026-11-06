@@ -40,8 +40,12 @@ to reach by accident.
 - **Never run:**
   - `npx supabase config push` — it deploys straight to production; the `Config` CI job previews it
     and the `Deploy Auth Config` workflow applies it on merge.
-  - `npx supabase db reset --linked`, or any `--linked` write outside a documented runbook.
-  - Any Supabase CLI command fed an empty stdin to "accept" prompts: they default to **yes** on EOF.
+  - `npx supabase db reset --remote`, or any `--remote` write (or its deprecated `--linked` /
+    `--project-ref` form) outside a documented runbook. Since Supabase CLI v3 a bare command targets
+    the local stack, so `--remote` is what reaches production.
+  - Any Supabase CLI command with `--yes` (or `SUPABASE_YES` exported) against a hosted target:
+    v3 asks before every hosted change and defaults to **no**, and `--yes` is the only thing that
+    skips that question.
 
 ## Generated-config check
 

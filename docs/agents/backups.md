@@ -21,6 +21,11 @@ counting rests on it, and refuses a dump that ends inside either. Keep any new a
 `data.sql` on `tables()` rather than a fresh `grep`. Older encrypted bundles
 still contain the auth state captured when they were made; this change does not rewrite them.
 
+**Both dumps pass `--remote`.** Since Supabase CLI v3, `supabase db dump` with no target reads the
+local stack (#640). The runner has none, so a missing flag fails the dump; and a dump of an empty
+local database is refused by the same `has_table` checks, because the CLI's default INSERT form
+writes no statement for an empty table (`scripts/backup.test.ts` covers that case).
+
 **`storage.sql` is the third file, and it exists because `schema.sql` covers `public` only
 (#401).** Two things the attachments feature added were in no backup at all: the `storage.buckets`
 row for `attachments` — its `public = false`, size limit, and MIME allow-list — and its

@@ -44,8 +44,9 @@ npm run dev
    ```
 
    There is deliberately **no local equivalent of the `Config` check**. It previews
-   `supabase config push` against the production project, and the Supabase CLI has no `--dry-run` —
-   running it locally would apply your changes to production. Let CI preview it in the PR.
+   `supabase config push` against the production project with `supabase config diff`, which needs
+   the production access token; running `config push` itself would apply your changes to
+   production. Let CI preview it in the PR.
 
    `npm test` is deliberately hermetic — it mocks Supabase and never needs Docker, a database, or a
    network, so it says nothing about whether Row-Level Security itself still holds. If you touched
@@ -152,7 +153,8 @@ missing, edited, or left over from a deleted source. See
   (it's in `.prettierignore`).
 - **Schema changes** go through a new file in `supabase/migrations/` (CLI‑managed) and **auto‑apply to
   production on merge** via the `Deploy Migrations` workflow; regenerate `src/types/database.types.ts`
-  with `npx supabase gen types` once the schema is applied.
+  with `npx supabase gen types typescript --remote` once the schema is applied (bare `gen types`
+  reads the local stack since Supabase CLI v3).
 
 ## Edge functions
 

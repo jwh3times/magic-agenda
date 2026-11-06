@@ -207,6 +207,17 @@ test('refuses a dump whose string literals it cannot follow', () => {
   expect(open.stdout).toContain('ends inside a string literal')
 })
 
+// Since Supabase CLI v3, `db dump` without `--remote` reads the LOCAL stack (#640). A local
+// database with the schema but no rows dumps, in the CLI's default INSERT form, to the preamble
+// alone: an empty table writes no statement. That must never verify as a backup of production.
+test('refuses the data dump of a database with no rows', () => {
+  const result = check([], 'INSERT INTO', healthyStorage, `${preamble}\nSET row_security = off;\n`)
+  // Refused either way: this harness's `pipefail` stops at the empty table listing, while the job
+  // (`bash -e`, no pipefail) goes on to the `has_table public.tasks` failure.
+  expect(result.status).not.toBe(0)
+  expect(result.stdout).not.toMatch(/^public\.tasks$/m)
+})
+
 // ——— attachments storage metadata (#401) ———
 // The object side of the authorization boundary is in no other file: `schema.sql` covers `public`
 // only. Each case below restores something that fails SILENTLY rather than loudly, which is why the

@@ -105,7 +105,7 @@ posture assertion above is made against a _freshly migrated local stack_, which 
 database CI can reach — and that is a weaker claim than it looks. Production carries legacy
 `pg_default_acl` entries a fresh stack does not, which is how seven functions drifted while the
 required `RLS` check stayed green. Two dependency-free scripts run in `Deploy Migrations`, after
-`supabase db push`, reading production read-only through the Management API:
+`supabase db push --remote --yes`, reading production read-only through the Management API:
 `scripts/verify-function-grants.mjs` for function posture against `supabase/reviewed-functions.json`,
 and `scripts/verify-schema-posture.mjs` for RLS being enabled with a policy behind it, policy role
 targeting and hoisted `auth.*()` calls, and every foreign key having a covering index.
@@ -151,7 +151,8 @@ workflow is the supported orchestration and `scripts/e2e-local-setup.ts` deliber
 The preview command above is independently runnable and needs no account credentials.
 
 **Running E2E locally.** Start the stack (`node scripts/rls-up.mjs`), apply this branch's migrations
-(`npx supabase db reset --local`; the restored backup does not), then provision the accounts with
+(`npx supabase db reset`, which targets the local stack by default since Supabase CLI v3; the
+restored backup does not), then provision the accounts with
 `GITHUB_ENV=<file> npx tsx scripts/e2e-local-setup.ts` and load that file into the shell. Build
 with those values, serve with `npx vite preview --host 127.0.0.1 --port 4173` (plain `vite preview`
 binds IPv6 localhost only), and run `npx playwright test --project=chromium`. **No reset was

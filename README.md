@@ -136,11 +136,13 @@ Apply it to your Supabase project with the [Supabase CLI](https://supabase.com/d
 
 ```bash
 npx supabase login
-npx supabase link --project-ref <your-project-ref>
-npx supabase db push
+npx supabase link <your-project-ref>
+npx supabase db push --remote
 ```
 
-> `<your-project-ref>` is the subdomain of your project URL: `https://<ref>.supabase.co`.
+> `<your-project-ref>` is the subdomain of your project URL: `https://<ref>.supabase.co`. Keep
+> `--remote`: the Supabase CLI (v3) pushes to its local stack without it, and asks before it writes
+> to your hosted project.
 
 ### 3. Configure environment
 
@@ -284,9 +286,9 @@ no automated backups of its own. To restore, follow
 [docs/runbooks/restore-from-backup.md](./docs/runbooks/restore-from-backup.md).
 
 Database migrations apply to production automatically: merging a change under `supabase/migrations/` to
-`main` triggers the **Deploy Migrations** workflow (`supabase db push`). Supabase configuration does
+`main` triggers the **Deploy Migrations** workflow (`supabase db push --remote --yes`). Supabase configuration does
 the same: merging a change to `supabase/config.toml` or `supabase/templates/` triggers **Deploy Auth
-Config** (`supabase config push`), so database TLS enforcement, Data API defaults, the auth redirect
+Config** (`supabase config push --yes`), so database TLS enforcement, Data API defaults, the auth redirect
 allow‑list and password policy, and the two auth email templates all live in the repo rather than
 the dashboard.
 

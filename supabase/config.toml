@@ -47,10 +47,14 @@ port = 54329
 # Specifies when a server connection can be reused by other clients.
 # Configure one of the supported pooler modes: `transaction`, `session`.
 pool_mode = "transaction"
+# The two sizes below are PRODUCTION's values, not local tuning: Supabase CLI v3's `config push`
+# pushes them to the hosted pooler, which v2 never did. They were the `supabase init` defaults
+# (20 / 100) until #640's `config diff` showed production running 15 / 200; keeping the defaults
+# would have cut production's client-connection limit in half on merge.
 # How many server connections to allow per user/database pair.
-default_pool_size = 20
+default_pool_size = 15
 # Maximum number of client connections allowed.
-max_client_conn = 100
+max_client_conn = 200
 
 # [db.vault]
 # secret_key = "env(SECRET_VALUE)"
@@ -250,8 +254,9 @@ provider = "turnstile"
 secret = "env(TURNSTILE_SECRET_KEY)"
 
 [auth.email]
-# Allow/disallow new user signups via email to your project.
-enable_signup = true
+# Enable/disable the email provider. Supabase CLI v3 renamed this from `enable_signup`, which it
+# deprecates (#640); the value it sets is unchanged.
+enabled = true
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
@@ -295,10 +300,12 @@ content_path = "./supabase/templates/recovery.html"
 # content_path = "./templates/password_changed_notification.html"
 
 [auth.sms]
-# Allow/disallow new user signups via SMS to your project.
-enable_signup = false
+# Enable/disable the phone provider. Supabase CLI v3 renamed this from `enable_signup`, which it
+# deprecates (#640); the value it sets is unchanged.
+enabled = false
 # If enabled, users need to confirm their phone number before signing in.
-enable_confirmations = false
+# Production's value (#640's `config diff`): v3 pushes it, and the phone provider is off either way.
+enable_confirmations = true
 # Template for sending OTP to users
 template = "Your code is {{ .Code }}"
 # Controls the minimum amount of time that must pass before sending another sms otp.

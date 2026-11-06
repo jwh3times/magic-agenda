@@ -47,6 +47,9 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+      # Supabase CLI v3 (#640): keeps a `.env.development` file, should one ever be committed,
+      # from feeding values into the CLI.
+      SUPABASE_ENV: production
       # config.toml carries env() references and the CLI parses it on every command, so these must
       # be present even though a backup never touches auth config.
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
@@ -72,7 +75,7 @@ jobs:
           fi
 
       - name: Link project
-        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
+        run: supabase link "$SUPABASE_PROJECT_ID"
 
       # Two dumps:
       #  - schema: DDL for `public`. Redundant with supabase/migrations/ but makes the bundle
@@ -100,11 +103,17 @@ jobs:
       # pg_dump warns here about a circular foreign key on `tasks` — that is `recur_parent_id`
       # referencing `tasks(id)` (the recurrence template link, init.sql:42), and it is expected.
       # It matters on RESTORE, not on dump; see the runbook.
+      #
+      # `--remote` is load-bearing since Supabase CLI v3 (#640): `db dump` with no target reads the
+      # LOCAL stack. This runner has none, so a missing flag fails the dump outright; and were a
+      # local stack ever started here, its data dump would hold no `public.tasks` or `auth.users`
+      # rows, and the default INSERT form writes no statement for an empty table, so the verify
+      # step's `has_table` checks below refuse it before anything is encrypted or uploaded.
       - name: Dump schema and data
         run: |
           mkdir -p backup
-          supabase db dump --linked -f backup/schema.sql
-          supabase db dump --linked --data-only -f backup/data.sql \
+          supabase db dump --remote -f backup/schema.sql
+          supabase db dump --remote --data-only -f backup/data.sql \
             -x auth.sessions \
             -x auth.refresh_tokens \
             -x auth.mfa_amr_claims \
@@ -213,9 +222,12 @@ jobs:
           # Table names only — never row values.
           echo "Tables captured in data.sql:"; tables backup/data.sql | head -30
 
-          # Note the limit of this check: pg_dump emits a COPY statement even for an empty table, so
-          # this proves the table was captured, not that it holds rows. Row counts are verified on
-          # restore (see the runbook), which is the only place they can be checked meaningfully.
+          # Note the limit of this check. The dump above uses the CLI's default INSERT form
+          # (`--use-copy` is opt-in), where an empty table writes no statement, so a match means the
+          # table had rows — which is also what refuses a dump of an empty local stack (#640). Under
+          # `--use-copy` a COPY header appears even for an empty table, and this would prove only
+          # that the table was captured. Row counts are verified on restore (see the runbook), which
+          # is the only place they can be checked meaningfully.
           has_table backup/data.sql public.tasks \
             || fail "data.sql does not contain public.tasks — no board data was captured"
           # This one is load-bearing: it is the only thing standing between us and a backup that

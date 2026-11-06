@@ -37,9 +37,10 @@ npm run sync:main      # move public + private repos to main and fast-forward or
 npx vitest run src/dnd/reorder.test.ts
 npx vitest run -t "persists a cross-lane move"
 
-# Database (Supabase CLI; project is linked):
-npx supabase db push                                              # apply supabase/migrations/*
-npx supabase gen types typescript --linked > src/types/database.types.ts
+# Database (Supabase CLI v3; project is linked). Bare commands target the LOCAL stack;
+# --remote targets the linked (production) project:
+npx supabase db push                                              # apply supabase/migrations/* locally
+npx supabase gen types typescript --remote > src/types/database.types.ts
 ```
 
 Tests are hermetic: `vite.config.ts` injects dummy `VITE_SUPABASE_*` and a placeholder
@@ -254,10 +255,11 @@ transactional snapshot: simultaneous edits with unchanged row counts can still r
 
 Add a new file under `supabase/migrations/`. Migrations **auto-apply to production on merge to `main`**
 via the `Deploy Migrations` workflow (`.github/workflows/deploy-migrations.yml`, which runs
-`npx supabase db push`); run `npx supabase db push` yourself only to apply to a local/branch DB or to
-get the schema in place before regenerating types. Regenerate `src/types/database.types.ts` with
-`supabase gen types` once the schema is applied (`gen types --linked` reads the remote DB). Keep the
-`mappers.ts` conventions above intact.
+`supabase db push --remote --yes`); run `npx supabase db push` yourself only to apply to the local
+stack (bare `db push` targets it since Supabase CLI v3, #640) or to get the schema in place before
+regenerating types. Regenerate `src/types/database.types.ts` with `supabase gen types` once the
+schema is applied (`gen types --remote` reads the linked project; bare `gen types` reads the local
+stack). Keep the `mappers.ts` conventions above intact.
 Prefer test-first for pure logic in `src/data` and `src/dnd` (these have thorough unit tests).
 
 **A new function migration must revoke EXECUTE from `anon` and `service_role` explicitly, never
