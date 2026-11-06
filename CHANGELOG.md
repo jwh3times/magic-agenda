@@ -12,6 +12,32 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.32] - 2026-11-06
+
+### Internal
+
+- **A new `blocked` label marks issues that can't progress, and the board's manual order is now its
+  priority order.** A board refresh found every open issue blocked, and the only work anyone could
+  start was sitting in board drafts that no label query reaches. Until then, only the board's
+  private `Gate` column said what was blocked, and `gh issue list` can't read it.
+  - `docs/agents/triage-labels.md` defines `blocked` and says how it differs from `deferred`. It
+    sits beside `deferred`, `needs-info` or `ready-for-human`, never beside `ready-for-agent`, and
+    it is set and cleared together with the `Gate`. The guide also gives the query for work that can
+    be picked up now.
+  - `AGENTS.md` and `docs/agents/dev-flow.md` summarise the same rule.
+  - `docs/agents/issue-tracker.md` separates dependency order (blocked-by links) from priority order
+    (the board's manual order, re-ranked whenever an item is added). It also says work is never
+    parked as a board draft.
+
+  Nothing a user sees changed.
+
+## [1.18.31] - 2026-11-06
+
+### Internal
+
+- Bumped the `npm-minor-and-patch` group (#638): `vitest` 5.0.5 → 5.1.0, a development dependency.
+  Backfilled by v1.18.32.
+
 ## [1.18.30] - 2026-11-06
 
 ### Fixed
@@ -6011,7 +6037,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.30...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.32...HEAD
+[1.18.32]: https://github.com/jwh3times/magic-agenda/compare/v1.18.31...v1.18.32
+[1.18.31]: https://github.com/jwh3times/magic-agenda/compare/v1.18.30...v1.18.31
 [1.18.30]: https://github.com/jwh3times/magic-agenda/compare/v1.18.29...v1.18.30
 [1.18.29]: https://github.com/jwh3times/magic-agenda/compare/v1.18.28...v1.18.29
 [1.18.28]: https://github.com/jwh3times/magic-agenda/compare/v1.18.27...v1.18.28
