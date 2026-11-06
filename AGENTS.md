@@ -404,9 +404,12 @@ Issues and specs live in GitHub Issues for jwh3times/magic-agenda. See `docs/age
 ### Triage labels
 
 The default five-role vocabulary (needs-triage, needs-info, ready-for-agent, ready-for-human,
-wontfix) **plus a sixth of our own, `deferred`** — decided and deliberately not now, a state the five
-cannot express and that this project reaches often. `deferred` replaces `ready-for-agent` or
-`ready-for-human` rather than joining them. See `docs/agents/triage-labels.md`.
+wontfix) **plus two of our own**. **`deferred`**: decided, and deliberately not now. This project
+reaches that state often, and the five can't express it. It replaces `ready-for-agent` or
+`ready-for-human` rather than joining them. **`blocked`**: the issue can't progress until the
+condition it names is met. It sits beside `deferred`, `needs-info` or `ready-for-human`, never beside
+`ready-for-agent`, and it moves together with the board's `Gate`. What can be picked up now is
+`ready-for-agent` without `blocked`. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
