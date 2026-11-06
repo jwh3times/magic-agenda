@@ -105,7 +105,7 @@ posture assertion above is made against a _freshly migrated local stack_, which 
 database CI can reach — and that is a weaker claim than it looks. Production carries legacy
 `pg_default_acl` entries a fresh stack does not, which is how seven functions drifted while the
 required `RLS` check stayed green. Two dependency-free scripts run in `Deploy Migrations`, after
-`supabase db push`, reading production read-only through the Management API:
+`supabase db push --remote --yes`, reading production read-only through the Management API:
 `scripts/verify-function-grants.mjs` for function posture against `supabase/reviewed-functions.json`,
 and `scripts/verify-schema-posture.mjs` for RLS being enabled with a policy behind it, policy role
 targeting and hoisted `auth.*()` calls, and every foreign key having a covering index.

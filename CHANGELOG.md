@@ -12,6 +12,39 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.33] - 2026-11-06
+
+### Internal
+
+- **The deploy workflows, the nightly backup and the `Config` check run on Supabase CLI 3.0 (#640).**
+  The `supabase` devDependency goes from 2.122.0 to 3.0.0, superseding Dependabot's #639. That bump
+  alone would have broken the next production deploy, because every workflow installs the CLI
+  version `package.json` pins, and v3 changed what the commands do:
+  - Bare `db push` and `db dump` now target the **local** stack. Deploy Migrations runs
+    `db push --remote --yes`, and Backup dumps with `--remote`.
+  - Every unattended change to a hosted project fails without `--yes`. Deploy Functions runs
+    `functions deploy --remote=<ref> --yes`.
+  - `--project-ref` and `--linked` are deprecated. Every workflow links with `supabase link <ref>`.
+  - Every job that loads `supabase/config.toml` sets `SUPABASE_ENV=production`, since v3 lets
+    `SUPABASE_*` variables and project env files override the file.
+- **The `Config` check previews with the read-only `supabase config diff --exit-code`.** v3 ignores
+  answers piped on stdin, so the old preview, which declined `config push` prompts with `yes n`,
+  could no longer run. Exit 0 means production matches the file and exit 2 means the printed diff is
+  pending. Failures and timeouts are still retried and still turn the check red (#429). The diff
+  shows secret fields masked.
+- **`supabase/config.toml` uses v3's key names.** `[auth.email]` and `[auth.sms]` `enable_signup`
+  are now `enabled`. They set the same two production settings (the email and phone providers), and
+  v3's deprecation warnings are gone.
+- **A backup dump of a database with no rows is refused.** If `--remote` were ever dropped, a dump
+  of a local stack would hold no rows. The CLI's default INSERT form writes nothing for an empty
+  table, so the verify step's table checks refuse it before anything is encrypted or uploaded. A new
+  `backup.test.ts` case covers it. A comment that claimed an empty table still writes a COPY
+  statement is corrected.
+- **Documented commands use the v3 forms**: `AGENTS.md`, `README.md`, `CONTRIBUTING.md`,
+  `docs/agents/` and the restore runbook. That includes `gen types --remote`, `db push --remote`,
+  and a bare `db reset` for the local stack, since `--local` now only warns. The E2E "No boards
+  yet" hint prints the bare `db reset`.
+
 ## [1.18.32] - 2026-11-06
 
 ### Internal
@@ -6037,7 +6070,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.32...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.33...HEAD
+[1.18.33]: https://github.com/jwh3times/magic-agenda/compare/v1.18.32...v1.18.33
 [1.18.32]: https://github.com/jwh3times/magic-agenda/compare/v1.18.31...v1.18.32
 [1.18.31]: https://github.com/jwh3times/magic-agenda/compare/v1.18.30...v1.18.31
 [1.18.30]: https://github.com/jwh3times/magic-agenda/compare/v1.18.29...v1.18.30
