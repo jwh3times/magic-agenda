@@ -102,7 +102,7 @@ async function explainNoBoards(): Promise<string> {
     return (
       'The E2E account is a member of no Board, so the Board page says "No boards yet". That is\n' +
       'stack state, not a regression. Reset the local stack and provision the accounts again:\n' +
-      '  npx supabase db reset --local\n' +
+      '  npx supabase db reset\n' +
       '  GITHUB_ENV=<file> npx tsx scripts/e2e-local-setup.ts\n' +
       'See "Running E2E locally" in docs/agents/testing.md.'
     )

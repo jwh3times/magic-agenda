@@ -151,7 +151,8 @@ workflow is the supported orchestration and `scripts/e2e-local-setup.ts` deliber
 The preview command above is independently runnable and needs no account credentials.
 
 **Running E2E locally.** Start the stack (`node scripts/rls-up.mjs`), apply this branch's migrations
-(`npx supabase db reset --local`; the restored backup does not), then provision the accounts with
+(`npx supabase db reset`, which targets the local stack by default since Supabase CLI v3; the
+restored backup does not), then provision the accounts with
 `GITHUB_ENV=<file> npx tsx scripts/e2e-local-setup.ts` and load that file into the shell. Build
 with those values, serve with `npx vite preview --host 127.0.0.1 --port 4173` (plain `vite preview`
 binds IPv6 localhost only), and run `npx playwright test --project=chromium`. **No reset was

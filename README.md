@@ -136,11 +136,13 @@ Apply it to your Supabase project with the [Supabase CLI](https://supabase.com/d
 
 ```bash
 npx supabase login
-npx supabase link --project-ref <your-project-ref>
-npx supabase db push
+npx supabase link <your-project-ref>
+npx supabase db push --remote
 ```
 
-> `<your-project-ref>` is the subdomain of your project URL: `https://<ref>.supabase.co`.
+> `<your-project-ref>` is the subdomain of your project URL: `https://<ref>.supabase.co`. Keep
+> `--remote`: the Supabase CLI (v3) pushes to its local stack without it, and asks before it writes
+> to your hosted project.
 
 ### 3. Configure environment
 

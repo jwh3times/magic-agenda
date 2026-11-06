@@ -140,7 +140,8 @@ describe('E2E global setup diagnostics', () => {
     const failure = globalSetup()
 
     await expect(failure).rejects.toThrow(/is a member of no Board/)
-    await expect(failure).rejects.toThrow('npx supabase db reset --local')
+    // Bare: Supabase CLI v3 resets the local stack by default and `--local` only warns (#640).
+    await expect(failure).rejects.toThrow('  npx supabase db reset\n')
     await expect(failure).rejects.toThrow('scripts/e2e-local-setup.ts')
     expect(h.storageState).not.toHaveBeenCalled()
     expect(h.screenshot).toHaveBeenCalledOnce()

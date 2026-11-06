@@ -196,10 +196,12 @@ transaction pooler multiplexes statements across backends and breaks both.
 
 ### 3.1 Schema — and the three triggers the bundle cannot carry
 
-**Preferred: apply the migrations.** `supabase db push` builds the schema from
+**Preferred: apply the migrations.** `supabase link <new-project-ref>` then
+`supabase db push --remote` builds the schema from
 `supabase/migrations/`, which includes `on_auth_user_created`, `on_auth_user_deleted`, and `on_auth_user_first_confirmed`, so
 the result is correct by construction. It is also the right choice whenever the backup predates the
-newest migration.
+newest migration. Keep `--remote`: since Supabase CLI v3 a bare `db push` targets the local stack,
+and the push asks for confirmation before it writes to the hosted project (#640).
 
 **Alternative: load `schema.sql`.** Self-contained, but it is a **`public`-schema dump**, and all
 three triggers live on `auth.users` — so **none is in the bundle at all**:

@@ -127,18 +127,14 @@ jobs:
           fi
           node scripts/check-changelog.mjs
 
-  # Previews what `supabase config push` would change, WITHOUT applying it. The CLI
-  # has no --dry-run, and running it non-interactively with closed stdin is NOT safe:
-  # its confirmation prompts default to YES on EOF (verified against the CLI source
-  # and its integration tests). `yes n |` streams a decline to every prompt, so this
-  # job can never apply config. The prompt lines in the output ARE the preview: no
-  # prompts + exit 0 = remote already matches the file; each "Do you want to push…?"
-  # line names a service with pending changes. The real push happens in
-  # deploy-auth-config.yml on merge (--yes). This job always reports a status (a
-  # required check that skips wedges the PR — see AGENTS.md), exiting early when the
+  # Previews what `supabase config push` would change, WITHOUT applying it, using the
+  # read-only `supabase config diff --exit-code` (Supabase CLI v3, #640): exit 0 = the
+  # remote already matches the file, exit 2 = the printed diff is pending. Until v3 this
+  # declined `config push` prompts with `yes n |`; v3 ignores piped answers and fails
+  # unattended pushes without `--yes`, so that preview no longer works. The real push
+  # happens in deploy-auth-config.yml on merge (--yes). This job always reports a status
+  # (a required check that skips wedges the PR — see AGENTS.md), exiting early when the
   # PR doesn't touch config paths, and for Dependabot PRs (which get no secrets).
-  # NOTE: output patterns below were written before the first real run; PR 1 of the
-  # config-as-code plan is the calibration run — adjust there if wording differs.
   Config:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -150,6 +146,8 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+      # The same value Deploy Auth Config sets, so the diff resolves config as the push will.
+      SUPABASE_ENV: production
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
       TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
@@ -185,11 +183,10 @@ jobs:
           version: ${{ steps.cli.outputs.version }}
       - name: Link project
         if: steps.paths.outputs.changed == 'true'
-        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
-      - name: Preview config push (declines every prompt — never applies)
+        run: supabase link "$SUPABASE_PROJECT_ID"
+      - name: Preview config push (read-only config diff — never applies)
         if: steps.paths.outputs.changed == 'true'
-        # Bounded per attempt, retried only as the same non-applying preview, and red on timeout
-        # (#429). Never add `shell: bash` here: that turns on pipefail; see the script's header.
+        # Bounded per attempt, retried only as the same read-only diff, and red on timeout (#429).
         run: bash scripts/config-preview.sh
 
   RLS:

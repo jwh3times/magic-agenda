@@ -22,24 +22,38 @@ Every edit is a production change, not local scaffolding. Changes to
 `supabase/config.toml` or `supabase/templates/**` **auto-apply to production on merge to `main`**
 via the `Deploy Auth Config` workflow (`.github/workflows/deploy-auth-config.yml`, which runs
 `supabase config push --yes`). The `Config` CI job previews the pending push on PRs that touch
-those paths using `yes n | SUPABASE_YES=false supabase config push --agent no --output-format text`
-to decline confirmation prompts. Keep the explicit text mode: machine-readable output skips prompts
-and accepts their defaults even with `yes n` on stdin. The CLI has no `--dry-run`, and prompts also
-default to **yes** on EOF. **The preview is bounded and retried (#429)** in
-`scripts/config-preview.sh`, because a hung push once held this required check for GitHub's
-six-hour default:
+those paths with the read-only `supabase config diff --exit-code` (exit 0: the remote matches the
+file; exit 2: the printed diff is pending). Until Supabase CLI v3 it declined `config push` prompts
+with `yes n |`; v3 ignores answers piped on stdin and fails an unattended push without `--yes`
+(`HostedMutationConsentRequiredError`), so that preview stopped working (#640). **The preview is
+bounded and retried (#429)** in `scripts/config-preview.sh`, because a hung CLI once held this
+required check for GitHub's six-hour default:
 
-- Each attempt runs under `timeout --kill-after` (3 minutes), and the job carries
+- Each attempt runs under `timeout --kill-after` (3 minutes) with stdin closed, and the job carries
   `timeout-minutes: 15`.
-- An attempt that fails before reaching any prompt (the rate-limit case) is retried up to three
-  times, with backoff, as the same non-applying preview.
-- A timeout always fails the check, even when some prompts were already declined, because a hung
-  preview did not reach every service.
-- `scripts/config-preview.test.ts` covers each outcome with fake commands. Secrets referenced via `env(...)` in the file (`RESEND_API_KEY`,
-  `GOOGLE_OAUTH_CLIENT_SECRET`, `TURNSTILE_SECRET_KEY`) exist only as repository secrets, used by both the `Config` and
-  `Deploy Auth Config` jobs; `deploy-migrations.yml` and `deploy-functions.yml` also carry them so
-  the CLI's config.toml parsing on every command can't fail on a missing var. **Never run
-  `supabase config push` locally** — it deploys straight to production, bypassing the PR preview.
+- A failed attempt (the rate-limit case) is retried up to three times, with backoff, as the same
+  read-only diff.
+- A timeout always fails the check.
+- `scripts/config-preview.test.ts` covers each outcome with fake commands.
+
+**Since v3, `SUPABASE_*` environment variables override `config.toml`, and `config push` pushes
+them** (resolution order: flag > shell env > project env files > `config.toml`). The `Config` and
+`Deploy Auth Config` jobs set only credentials and the target (`SUPABASE_ACCESS_TOKEN`,
+`SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_ID`) plus `SUPABASE_ENV=production`, which keeps a
+`.env.development` file, should one ever be committed, from applying. Every deploy workflow and the
+backup set the same `SUPABASE_ENV`. Adding another `SUPABASE_*` variable to either job is a
+production config change: `config diff` labels values an env var supplies, so the preview shows it.
+
+**Hosted targets are explicit since v3.** `db push`, `db dump` and `gen types` target the local
+stack unless given `--remote`; `functions deploy` and `config push` are remote-only but, like
+`db push`, fail unattended without `--yes`. The deploy workflows run `supabase link <ref>` then
+`db push --remote --yes`, `functions deploy --remote=<ref> --yes` and `config push --yes`; the
+backup runs `db dump --remote`. The deprecated `--linked` / `--project-ref` forms still work but
+warn, and are not used here. Secrets referenced via `env(...)` in the file (`RESEND_API_KEY`,
+`GOOGLE_OAUTH_CLIENT_SECRET`, `TURNSTILE_SECRET_KEY`) exist only as repository secrets, used by both the `Config` and
+`Deploy Auth Config` jobs; `deploy-migrations.yml` and `deploy-functions.yml` also carry them so
+the CLI's config.toml parsing on every command can't fail on a missing var. **Never run
+`supabase config push` locally** — it deploys straight to production, bypassing the PR preview.
 
 Turnstile has two distinct deployment inputs. `TURNSTILE_SECRET_KEY` is an Actions repository
 secret used only while Supabase CLI parses and deploys `[auth.captcha]`; every workflow that parses
@@ -55,7 +69,7 @@ does not prune, and a directory that is gone is simply one it no longer has a so
 removing a function here leaves the last-deployed copy live and serving, on whatever `verify_jwt`
 it was deployed with, and with no source in the repository to review it against. Retiring one is
 therefore two acts, and the second is not something a merge can do: a
-`supabase functions delete <name> --project-ref <ref>` run by someone holding the access token,
+`supabase functions delete <name> --remote=<ref>` run by someone holding the access token,
 which lives only as a repository secret. Plan both halves together — the merge on its own is the
 half that looks finished.
 The two auth email templates the app sends (confirm-signup, reset-password) live in
