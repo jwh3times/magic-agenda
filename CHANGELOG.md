@@ -35,6 +35,13 @@ No unreleased changes.
 - **`supabase/config.toml` uses v3's key names.** `[auth.email]` and `[auth.sms]` `enable_signup`
   are now `enabled`. They set the same two production settings (the email and phone providers), and
   v3's deprecation warnings are gone.
+- **`supabase/config.toml` now records production's pooler sizes and SMS confirmation setting.**
+  v3's `config push` covers settings v2 never pushed. The first real `config diff` showed that this
+  merge would have moved production's pooler from 15 to 20 per pool and from 200 to 100 client
+  connections, and turned SMS confirmations off. The file held `supabase init` defaults for these.
+  It now holds production's values (15, 200, `true`), so the merge pushes no change. The pooler
+  block is disabled for the local stack, so local development is unaffected. One remote-only
+  setting, image transformations, stays undeclared. A push leaves undeclared settings as they are.
 - **A backup dump of a database with no rows is refused.** If `--remote` were ever dropped, a dump
   of a local stack would hold no rows. The CLI's default INSERT form writes nothing for an empty
   table, so the verify step's table checks refuse it before anything is encrypted or uploaded. A new
