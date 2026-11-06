@@ -12,11 +12,14 @@ name: Deploy Auth Config
 # re-runs are safe. The PR-side preview of the same push lives in ci.yml (Config job).
 #
 # Supabase CLI v3 (#640) resolves every value as flag > shell env > project env files >
-# config.toml, and `config push` pushes the `SUPABASE_*` variables it sees. The three this job sets
-# are credentials and the target (access token, database password, project ref), not config.toml
-# settings; the `Config` preview's `config diff` labels any value an env var supplies, so a new
-# one would show there first. `SUPABASE_ENV=production` keeps a `.env.development` file, should one
-# ever be committed, from applying.
+# config.toml, and `config push` pushes the `SUPABASE_*` variables it sees. Besides `SUPABASE_ENV`
+# (below), the three this job sets are credentials and the target (access token, database
+# password, project ref). Only the ref also
+# names a config.toml key, `project_id`, which is local container naming and not a pushed setting;
+# the `Config` preview's `config diff` labels any value an env var supplies, so a new one would show
+# there first. `SUPABASE_ENV=production` keeps a `.env.development` file, should one ever be
+# committed, from applying; a committed `.env` or `.env.local` would still load, and none is
+# tracked (only `.env.example`).
 
 on:
   push:

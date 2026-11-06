@@ -153,7 +153,8 @@ missing, edited, or left over from a deleted source. See
   (it's in `.prettierignore`).
 - **Schema changes** go through a new file in `supabase/migrations/` (CLI‑managed) and **auto‑apply to
   production on merge** via the `Deploy Migrations` workflow; regenerate `src/types/database.types.ts`
-  with `npx supabase gen types` once the schema is applied.
+  with `npx supabase gen types typescript --remote` once the schema is applied (bare `gen types`
+  reads the local stack since Supabase CLI v3).
 
 ## Edge functions
 

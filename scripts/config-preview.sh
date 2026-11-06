@@ -14,6 +14,11 @@
 # outcome an exit status instead of output to count. Its stdin is closed all the same, so nothing
 # could ever be answered on its behalf.
 #
+# The output goes to the job log and summary, which are public. The secret fields `config.toml`
+# fills from `env()` (SMTP password, OAuth client secret, captcha secret) are marked secret in the
+# CLI's config mapping and rendered masked (present/absent, or a hash), never as values — and
+# GitHub masks repository secrets in logs besides. Never add a flag that unmasks them.
+#
 # Why bounded: #429 measured the CLI hanging indefinitely after `supabase link` succeeded, which let
 # this required check hold a runner for GitHub's six-hour default while branch protection blocked
 # the merge. Each attempt runs under `timeout --kill-after`, and the job carries its own

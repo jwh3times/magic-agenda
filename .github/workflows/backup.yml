@@ -222,9 +222,12 @@ jobs:
           # Table names only — never row values.
           echo "Tables captured in data.sql:"; tables backup/data.sql | head -30
 
-          # Note the limit of this check: pg_dump emits a COPY statement even for an empty table, so
-          # this proves the table was captured, not that it holds rows. Row counts are verified on
-          # restore (see the runbook), which is the only place they can be checked meaningfully.
+          # Note the limit of this check. The dump above uses the CLI's default INSERT form
+          # (`--use-copy` is opt-in), where an empty table writes no statement, so a match means the
+          # table had rows — which is also what refuses a dump of an empty local stack (#640). Under
+          # `--use-copy` a COPY header appears even for an empty table, and this would prove only
+          # that the table was captured. Row counts are verified on restore (see the runbook), which
+          # is the only place they can be checked meaningfully.
           has_table backup/data.sql public.tasks \
             || fail "data.sql does not contain public.tasks — no board data was captured"
           # This one is load-bearing: it is the only thing standing between us and a backup that

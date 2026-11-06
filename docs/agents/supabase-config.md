@@ -39,9 +39,11 @@ required check for GitHub's six-hour default:
 **Since v3, `SUPABASE_*` environment variables override `config.toml`, and `config push` pushes
 them** (resolution order: flag > shell env > project env files > `config.toml`). The `Config` and
 `Deploy Auth Config` jobs set only credentials and the target (`SUPABASE_ACCESS_TOKEN`,
-`SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_ID`) plus `SUPABASE_ENV=production`, which keeps a
-`.env.development` file, should one ever be committed, from applying. Every deploy workflow and the
-backup set the same `SUPABASE_ENV`. Adding another `SUPABASE_*` variable to either job is a
+`SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_ID`; the ref also overrides `config.toml`'s
+`project_id`, which only names local containers and is not pushed) plus `SUPABASE_ENV=production`,
+which keeps a `.env.development` file, should one ever be committed, from applying. A committed
+`.env` or `.env.local` would load whatever `SUPABASE_ENV` says, so none may be tracked (today only
+`.env.example` is). Every deploy workflow and the backup set the same `SUPABASE_ENV`. Adding another `SUPABASE_*` variable to either job is a
 production config change: `config diff` labels values an env var supplies, so the preview shows it.
 
 **Hosted targets are explicit since v3.** `db push`, `db dump` and `gen types` target the local
