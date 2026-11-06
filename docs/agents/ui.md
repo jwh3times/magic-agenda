@@ -175,6 +175,15 @@ to 4.5:1 by `controls.test.ts`. `dimmedText()` fails the Settings, Members, Invi
 calendar-feed render tests on any text faded with opacity. A disabled control may still fade, since
 WCAG exempts it. `AdminPage` still dims its secondary text with opacity, and no guard covers it.
 
+**The board's panels draw from `panelBg`, their secondary text from `panelSubFg`, and a
+switched-on filter toggle from `activeFg` (#625).** The Inbox, the phone Calendar's panel and a
+Kanban column share one fill. Cork's was too pale a brown for cream text, so it was deepened to
+`.60` rather than given dark ink, and the legal links at the Inbox's foot moved from faded `numFg`
+to `panelSubFg`. `filterBarChrome` owns the search bar's control colours. `activeFg` exists
+because `accent` is a fill colour meant for white text. `controls.test.ts` holds all of these to
+4.5:1. axe can't judge them in cork or glass, because the panels and controls are translucent over
+the page.
+
 **Only glass fades a Completed card (#613).** In cork and brutal the card stays opaque, and the
 title's strike-through (plus cork's `COMPLETED` stamp) carries the signal, because the old
 whole-card fade took their chips below 4.5:1. Glass's translucent papers have contrast to spare.

@@ -16,7 +16,10 @@ import {
   TOOLBAR_CONTROL_HEIGHT,
   cellChrome,
   columnChrome,
+  filterBarChrome,
+  inboxChrome,
   phoneDayChrome,
+  phonePanelChrome,
   toolbarChrome,
 } from './chrome'
 import { contrast, over, parseColor, type RGB } from '../test/contrast'
@@ -207,17 +210,96 @@ describe('navItemStyle', () => {
   })
 })
 
-// An empty Kanban column's "Drop tasks here" (#615). brutal's was #9a9a9a on its white panel,
-// 2.81:1. The desktop scan reported it; the phone shows one column at a time and never scanned it.
-// Only brutal is held here: cork's panel is translucent over the cork, where its placeholder
-// measures 2.68:1 and its column label 4.08:1, and that surface is #625's.
-describe('an empty Kanban column’s placeholder', () => {
-  it('brutal: reads at AA on its white panel', () => {
-    const conf = themeConf('brutal')
-    const c = columnChrome('brutal', conf, STATUS[0])
-    const panel = parseColor(String(c.col.background))[0]
-    expect(contrast(over(String(c.emptyStyle.color), panel), panel)).toBeGreaterThanOrEqual(4.5)
-  })
+/**
+ * What the Inbox, the phone Calendar's panel and a Kanban column sit on: the page's base colour,
+ * and glass's board fill over it. As with the day numbers, cork's grain and glass's blobs are left
+ * out, so this is the representative case.
+ */
+function backdropsOf(theme: ThemeName): Record<string, RGB> {
+  const conf = themeConf(theme)
+  const page = parseColor(conf.pageBg)[0]
+  return { page, board: over(conf.boardBg, page) }
+}
+
+/** Every `[name, text colour, fills under it from the outermost in]` reads at AA on each backdrop. */
+function expectReadable(theme: ThemeName, texts: [string, unknown, unknown[]][]) {
+  for (const [backdrop, under] of Object.entries(backdropsOf(theme))) {
+    for (const [name, color, fills] of texts) {
+      const behind = fills.reduce<RGB>((below, fill) => over(String(fill), below), under)
+      const ratio = contrast(over(String(color), behind), behind)
+      expect({ backdrop, name, passesAA: ratio >= 4.5, ratio: ratio.toFixed(2) }).toMatchObject({
+        backdrop,
+        name,
+        passesAA: true,
+      })
+    }
+  }
+}
+
+// axe judges none of a cork or glass column's text: the panel is translucent over the page, so it
+// comes back `bgGradient` (#625). brutal's "Drop tasks here" was #9a9a9a on its white panel, 2.81:1
+// (#615). cork's panel was `rgba(58,38,17,.40)`, where the placeholder read 2.68:1 and the label
+// 4.08:1; even white reaches only about 4.6 on it, so the panel was deepened rather than the text.
+// The Inbox and the phone Calendar's panel share the column's surface, and had the same gap: cork's
+// `.42` panel put its title at 4.23:1, its hint, empty note and inactive tab at 2.75:1, and the
+// legal links (dark `numFg` at `.6` opacity) lower still (#625).
+describe('the Inbox’s text stays readable on its panel', () => {
+  for (const theme of THEMES) {
+    it(`${theme}: title, count, hint, empty note, add button and legal links clear 4.5:1`, () => {
+      const c = inboxChrome(theme, themeConf(theme))
+      const panel = c.inbox.background
+      expectReadable(theme, [
+        ['title', c.inboxHead.color, [panel]],
+        ['count', c.inboxCount.color, [panel, c.inboxCount.background]],
+        ['hint', c.inboxHint.color, [panel]],
+        ['empty note', c.inboxEmpty.color, [panel]],
+        ['add button', c.inboxAdd.color, [panel, c.inboxAdd.background]],
+        ['legal links', c.inboxLegal.color, [panel]],
+      ])
+    })
+
+    it(`${theme}: the phone panel's tabs and buttons clear 4.5:1`, () => {
+      const p = phonePanelChrome(theme, themeConf(theme))
+      const panel = p.panel.background
+      expectReadable(theme, [
+        ['inactive tab', p.tab.color, [panel]],
+        ['active tab', p.tabActive.color, [panel]],
+        ['count', p.count.color, [panel, p.count.background]],
+        ['add', p.add.color, [panel, p.add.background]],
+        ['empty note', p.empty.color, [panel]],
+      ])
+    })
+  }
+})
+
+// The search and filter bar's controls are translucent over the page, so axe judges none of their
+// text in cork or glass (#625). Switched on, a toggle and Clear drew `accent` as text: 3.49:1 in
+// glass, whose accent is a fill colour meant for white text, and 4.46:1 in cork.
+describe('the search and filter bar stays readable', () => {
+  for (const theme of THEMES) {
+    it(`${theme}: a control's text, and a switched-on toggle's, clear 4.5:1`, () => {
+      const c = filterBarChrome(theme, themeConf(theme))
+      expectReadable(theme, [
+        ['control', c.control.color, [c.control.background]],
+        ['switched on', c.on.color, [c.control.background]],
+      ])
+    })
+  }
+})
+
+describe('a Kanban column’s text stays readable on its panel', () => {
+  for (const theme of THEMES) {
+    it(`${theme}: label, count, add button and empty placeholder clear 4.5:1`, () => {
+      const c = columnChrome(theme, themeConf(theme), STATUS[0])
+      const panel = c.col.background
+      expectReadable(theme, [
+        ['label', c.labelStyle.color, [panel]],
+        ['count', c.countStyle.color, [panel, c.countStyle.background]],
+        ['add', c.addStyle.color, [panel, c.addStyle.background]],
+        ['empty placeholder', c.emptyStyle.color, [panel]],
+      ])
+    })
+  }
 })
 
 // The toolbar is not a card: every theme draws it dark, and glass's is translucent over its page.

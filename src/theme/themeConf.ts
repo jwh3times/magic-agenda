@@ -101,6 +101,33 @@ export interface ThemeConf {
    * card, so cork darkens the same rust to `#8f3520` (3.7:1). `controls.test.ts` holds all three.
    */
   chartMark: string
+  /**
+   * The fill of the board's panels: the Inbox, the phone Calendar's day and Inbox panel, and a
+   * Kanban column (#625). Their primary text is `toolbarFg` (brutal: `#111`), their secondary text
+   * `panelSubFg`. Cork's was `rgba(58,38,17,.40)` and `.42`, a mid-brown over the cork where even
+   * pure white reached only about 4.6:1, so its column label read 4.08:1 and its Inbox title 4.23:1.
+   * Cork now deepens it to `.60` (primary text 5.96:1) rather than changing its look. axe judges
+   * none of this text in cork or glass, because the panel is translucent over the page, so
+   * `controls.test.ts` holds it.
+   */
+  panelBg: string
+  /**
+   * Secondary text on a board panel (`panelBg`): the Inbox's hint and empty note, an empty
+   * column's "Drop tasks here", the phone panel's inactive tab, and the legal links (#625).
+   * `toolbarSub` served here before, and cork's (cream at `.65`, tuned for the toolbar's buttons) was
+   * 2.75:1 on the panel; the legal links drew cork's dark `numFg` there at 3.07:1 before their
+   * `.6` opacity. brutal keeps the `#767676` its panels already used (4.54:1 on white), glass its
+   * `toolbarSub`; cork is the same cream at `.85`, 4.84:1 on the deepened panel.
+   */
+  panelSubFg: string
+  /**
+   * Text on a control that is switched on: the search and filter bar's active toggles and its
+   * Clear button (#625). Its own token for the reason `numTodayFg` is: `accent` doubles as a fill
+   * under white text, and as text on the bar's translucent control it read 3.49:1 in glass and
+   * 4.46:1 in cork. brutal keeps its accent (4.64:1); cork darkens the same rust (5.18:1) and glass
+   * lightens its purple (5.74:1). The control's border keeps `accent`.
+   */
+  activeFg: string
 }
 
 const CORK: ThemeConf = {
@@ -141,6 +168,9 @@ const CORK: ThemeConf = {
   mutedFg: 'rgba(58,38,17,.88)',
   successFg: '#174424',
   chartMark: '#8f3520',
+  panelBg: 'rgba(58,38,17,.60)',
+  panelSubFg: 'rgba(251,243,230,.85)',
+  activeFg: '#a8402a',
 }
 
 const BRUTAL: ThemeConf = {
@@ -182,6 +212,9 @@ const BRUTAL: ThemeConf = {
   mutedFg: 'rgba(17,17,17,.7)',
   successFg: '#1e7a3e',
   chartMark: '#CD4128',
+  panelBg: '#fff',
+  panelSubFg: '#767676',
+  activeFg: '#CD4128',
 }
 
 const GLASS: ThemeConf = {
@@ -222,6 +255,9 @@ const GLASS: ThemeConf = {
   mutedFg: 'rgba(234,240,255,.6)',
   successFg: '#3f9d63',
   chartMark: '#7452ff',
+  panelBg: 'rgba(255,255,255,.04)',
+  panelSubFg: 'rgba(234,240,255,.5)',
+  activeFg: '#9d85ff',
 }
 
 const CONF: Record<ThemeName, ThemeConf> = { cork: CORK, brutal: BRUTAL, glass: GLASS }
