@@ -5,6 +5,8 @@ The labels and what they mean are in `.agents/skills/ship/settings/triage-labels
 ## Extra labels
 
 - `deferred`: decided, and deliberately not now. It replaces `ready-for-agent` or `ready-for-human`.
+- `blocked`: cannot progress until a condition outside the issue is met. It sits beside `deferred`,
+  `needs-info` or `ready-for-human`, and never beside `ready-for-agent`.
 
 ## `deferred`, and why the five were not enough
 
@@ -29,3 +31,33 @@ both of those mean "someone can pick this up now", which is the claim being with
 reason and the reopen conditions in the issue body or a dated comment, set the board `Gate`, and add
 a real dependency edge when another item unblocks it. Remove `deferred` when it becomes startable;
 nothing prunes it automatically.
+
+## `blocked`, and how it differs from `deferred`
+
+Added 2026-11-06, at the maintainer's request, during a refresh of the board. Before it, the only
+record of which issues could not move was the board's `Gate` column. The board is private, and
+`gh issue list` can't see it. The refresh found that **every open issue was blocked**, and that the
+only work anyone could start sat in board drafts, which no label query reaches either.
+
+The labels answer different questions. `deferred` records a decision: not now. `needs-info` records
+missing evidence. `ready-for-human` says who does the work. `blocked` says the issue **cannot
+progress** until a condition is met, whoever that condition belongs to: a purchase, an upstream
+release, a piece of hardware, a report from real use. In practice every `deferred` issue is also
+`blocked`. The label adds the `needs-info` and `ready-for-human` issues that are waiting too, and it
+gives all of them one query.
+
+**Applying it:**
+
+- Add `blocked` whenever the board `Gate` is anything other than `Nothing — ready to work`, and
+  remove it in the same pass that clears the Gate. The two say the same thing in two places, so they
+  must move together.
+- Name the condition in the issue body or a dated comment, as **Unblocks when:**.
+- Beside `ready-for-human`, it means the human step is defined but its precondition is missing, such
+  as a device nobody has yet. The [human follow-up workflow](human-follow-up.md) still requires
+  `ready-for-human` on such an issue.
+- Never put it beside `ready-for-agent`. That label promises the issue can be picked up now. If a
+  ready issue becomes blocked, swap `ready-for-agent` for `deferred` or `needs-info`.
+
+**What can be picked up now** is `ready-for-agent` without `blocked`:
+`gh issue list --label ready-for-agent --search "-label:blocked"`. Run it in both repositories, since
+the private companion carries the same labels.

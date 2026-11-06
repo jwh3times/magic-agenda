@@ -25,5 +25,6 @@ last (`fix/card-accessible-name-337`); new branches lead with it.
 
 ## Outside this flow
 
-`deferred` means not ready for an agent ([Triage labels](triage-labels.md)). `private/` is a separate
+`deferred` and `blocked` both mean not ready for an agent, even when an issue body reads like a spec
+([Triage labels](triage-labels.md)). `private/` is a separate
 repository and outside this flow.

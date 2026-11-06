@@ -63,7 +63,7 @@ Used by `/wayfinder`. The **map** is a single issue with **child** issues as tic
 backlog to consult alongside it — `ROADMAP.md` is a pointer, and the per-item implementation
 sketches that used to live there are now issue bodies. The
 [project board](https://github.com/users/jwh3times/projects/5) carries the `Board fields` below, and
-ordering is expressed with GitHub's native **blocked-by** dependency
+dependency order is expressed with GitHub's native **blocked-by** dependency
 edges rather than prose, so a blocked item shows its open blockers in the UI. The board is private
 because it also holds maintainer-only items; the public issues on it stay public regardless, since
 a private project cannot make a public issue's body private.
@@ -76,6 +76,12 @@ filed issue sits on the board unfielded until someone sets them. And a **private
 never auto-added at all: auto-add is per-repository, GitHub Free permits exactly one workflow, and
 that one is spent on the public repo. Adding it is a manual `gh project item-add`. Both gaps are
 quiet — nothing errors — so whoever files an item sets its fields and, for a private issue, adds it.
+
+**Never park work as a board draft.** A draft item has no number, no labels and no dependency
+edges. No `gh issue list` query finds it, and only someone reading the board itself will see it. The
+2026-11-06 refresh found three drafts holding the only work anyone could start, while every open
+issue was blocked. File an issue instead. A draft found during an audit becomes an issue, and the
+draft is deleted.
 
 The dividing line is worth stating because it is what stopped the old file drifting: **state goes in
 GitHub, reasoning stays in files.** An issue has a closed state and a dependency graph; a Markdown
@@ -118,9 +124,22 @@ jwh3times 5 — private, and holds both repositories' issues. A public issue is 
 - `Gate`: `Nothing — ready to work` / `Owner decision` / `Operator action` / `Upstream capability` /
   `Depends on another item` / `Evidence needed` / `Prerequisite of scheduled work`.
 
-No workflow sets `Phase`, `Priority`, `Size` or `Gate`: set them on every new item. Ordering and
-blocking are GitHub's native `blocked_by` dependencies (see Wayfinding operations), with `Gate`
-`Depends on another item`.
+No workflow sets `Phase`, `Priority`, `Size` or `Gate`: set them on every new item.
+
+Two kinds of order are kept apart:
+
+- **Dependency order** is GitHub's native `blocked_by` dependencies (see Wayfinding operations),
+  with `Gate` `Depends on another item`.
+- **Priority order** is the board's manual order, highest first. It ranks items by importance
+  regardless of `Gate`, so a blocked item can sit above a startable one. `Priority` gives the band:
+  `P1` only for correctness, security or data loss that is live. The board README defines the other
+  bands. When you add an item, re-rank the board in one pass instead of leaving the new item at the
+  bottom. Set the position with the GraphQL `updateProjectV2ItemPosition` mutation; leaving out
+  `afterId` puts the item at the top. Read the order with `items(first: N)`. `items(last: N)` reads
+  from the bottom, so it misses whatever was just moved to the top.
+
+Any `Gate` other than `Nothing — ready to work` goes with the `blocked` label
+([Triage labels](triage-labels.md)). Set and clear the two together.
 
 ## Security findings
 
