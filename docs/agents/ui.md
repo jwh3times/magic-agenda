@@ -134,7 +134,7 @@ Sat/Sun and never rotates.
 ## Theming is an inline-style-object model, not CSS
 
 Ported verbatim from the prototype. `theme/constants.ts` (COLORS/STATUS/PAPER), `theme/themeConf.ts`
-(~28 tokens per theme), `theme/cardStyles.ts` (the style half of the prototype's `noteView`, incl.
+(~37 tokens per theme), `theme/cardStyles.ts` (the style half of the prototype's `noteView`, incl.
 `rotOf`, pin, COMPLETED stamp), and `theme/chrome.ts` (board/cell/inbox/column/toolbar styles) all
 return plain style objects with per-theme branching (rotation, pins, hard vs. soft shadows, blur). Three
 themes: `cork` / `brutal` / `glass`. **Do not refactor this to CSS variables**: the look depends on the
@@ -174,6 +174,15 @@ theme. Cork's translucent card is where that failed: hints at `.7` read 3.6:1. B
 to 4.5:1 by `controls.test.ts`. `dimmedText()` fails the Settings, Members, Invitations and
 calendar-feed render tests on any text faded with opacity. A disabled control may still fade, since
 WCAG exempts it. `AdminPage` still dims its secondary text with opacity, and no guard covers it.
+
+**The board's panels draw from `panelBg`, their secondary text from `panelSubFg`, and a
+toggled-on filter control from `toggledOnFg` (#625).** The Inbox, the phone Calendar's panel and a
+Kanban column share one fill. Cork's was too pale a brown for cream text, so it was deepened to
+`.60` rather than given dark ink, and the legal links at the Inbox's foot moved from faded `numFg`
+to `panelSubFg`. `filterBarChrome` owns the search bar's control colours. `toggledOnFg` exists
+because `accent` is a fill colour meant for white text. `controls.test.ts` holds all of these to
+4.5:1. axe can't judge them in cork or glass, because the panels and controls are translucent over
+the page.
 
 **Only glass fades a Completed card (#613).** In cork and brutal the card stays opaque, and the
 title's strike-through (plus cork's `COMPLETED` stamp) carries the signal, because the old
