@@ -12,6 +12,44 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.30] - 2026-11-06
+
+### Fixed
+
+- **Corkboard's board panels and the search bar's switched-on controls are readable now (#625).**
+  Most text on the board in Corkboard and Aurora sits on a translucent panel or control over the
+  page, so the accessibility scans couldn't judge it and a failing colour passed them unnoticed.
+  Listing that text with its real background found several failures:
+  - In Corkboard, the Inbox, the phone Calendar's panel and each Kanban column were a pale brown on
+    which cream text read 2.68–4.23:1. The Privacy and Terms links at the Inbox's foot drew dark
+    ink on that same brown. All three panels now share one deeper brown, with the cream look kept:
+    titles and labels read 5.96:1 on it, and secondary text such as "Drop tasks here" and the
+    Inbox hint 4.84:1. The legal links use that secondary colour instead of a faded dark one.
+  - The search bar's switched-on Pinned, Assigned to me and Select toggles, and its Clear button,
+    drew the theme's accent as text: 3.49:1 in Aurora and 4.46:1 in Corkboard. They now use a
+    lighter purple in Aurora (5.74:1) and a darker rust in Corkboard (5.18:1). The border keeps
+    the accent.
+
+  TASKS// is unchanged apart from its legal links, which move from a faded near-black to the
+  `#767676` its Inbox hint already used (4.54:1). The weekday headers, and every text on these
+  panels and the bar, are now held to 4.5:1 by numeric tests in every theme. The ✓ in a checkbox,
+  at 3.74–3.87:1, is a state graphic that needs 3:1, so it was left as it is.
+
+## [1.18.29] - 2026-11-05
+
+### Internal
+
+- Bumped the `actions-minor-and-patch` group (#634): `supabase/setup-cli` 3.1.0 → 3.2.0 in the
+  backup, CI and three deploy workflows. The Supabase CLI version they install is pinned
+  separately and did not change. Backfilled by v1.18.30.
+
+## [1.18.28] - 2026-11-05
+
+### Internal
+
+- Bumped the `npm-minor-and-patch` group (#635): `@vitejs/plugin-react` 6.1.2 → 6.2.1, a
+  development dependency. Backfilled by v1.18.30.
+
 ## [1.18.27] - 2026-11-05
 
 ### Internal
@@ -5973,7 +6011,10 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.27...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.30...HEAD
+[1.18.30]: https://github.com/jwh3times/magic-agenda/compare/v1.18.29...v1.18.30
+[1.18.29]: https://github.com/jwh3times/magic-agenda/compare/v1.18.28...v1.18.29
+[1.18.28]: https://github.com/jwh3times/magic-agenda/compare/v1.18.27...v1.18.28
 [1.18.27]: https://github.com/jwh3times/magic-agenda/compare/v1.18.26...v1.18.27
 [1.18.26]: https://github.com/jwh3times/magic-agenda/compare/v1.18.25...v1.18.26
 [1.18.25]: https://github.com/jwh3times/magic-agenda/compare/v1.18.24...v1.18.25
