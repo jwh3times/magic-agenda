@@ -6,6 +6,7 @@ import {
   checkboxStyle,
   DESTRUCTIVE_FILL,
   fieldStyle,
+  insetPanelStyle,
   navItemStyle,
   type ButtonVariant,
 } from './controls'
@@ -138,6 +139,13 @@ describe('control colours clear WCAG AA on a Settings card, in every theme', () 
     it(`${theme}: muted text reads on the bare page, where Settings' footer sits`, () => {
       const page = parseColor(conf.pageBg)[0]
       expect(contrast(over(conf.mutedFg, page), page)).toBeGreaterThanOrEqual(4.5)
+    })
+
+    // Admin's phone account list labels each field in muted ink on an inset panel inside the card,
+    // and no scan reaches that page (#642).
+    it(`${theme}: muted text reads on an inset panel`, () => {
+      const inset = over(String(insetPanelStyle(theme).background), card)
+      expect(contrast(over(conf.mutedFg, inset), inset)).toBeGreaterThanOrEqual(4.5)
     })
 
     it(`${theme}: a chart mark stands out from the card (3:1, WCAG 1.4.11)`, () => {

@@ -111,7 +111,7 @@ function AdminShell() {
           </LinkButton>
           <h1 style={{ fontFamily: conf.title, fontSize: isMobile ? 26 : 34, margin: 0 }}>Admin</h1>
         </header>
-        <p style={{ margin: 0, fontSize: 13, opacity: 0.75 }}>
+        <p style={{ margin: 0, fontSize: 13, color: conf.mutedFg }}>
           Counts only. This page never shows what anyone has written in their Tasks.
         </p>
         {forbidden && (
@@ -152,8 +152,9 @@ function reportForbidden<T>(result: AdminResult<T>, onForbidden: () => void): Ad
  * section only points at it; any other failure is this section's alone and says so here.
  */
 function Refusal({ result }: { result: Extract<AdminResult<unknown>, { ok: false }> }) {
+  const { conf } = useTheme()
   if (result.reason === 'forbidden') {
-    return <p style={{ margin: 0, opacity: 0.75 }}>Unavailable — see the notice above.</p>
+    return <p style={{ margin: 0, color: conf.mutedFg }}>Unavailable — see the notice above.</p>
   }
   return (
     <p role="alert" style={{ margin: 0 }}>
@@ -167,6 +168,7 @@ const numeric: CSSProperties = { ...cell, textAlign: 'right', fontVariantNumeric
 
 function StatsSection({ onForbidden }: { onForbidden: () => void }) {
   const isMobile = useIsMobile()
+  const { conf } = useTheme()
   const [result, setResult] = useState<AdminResult<AdminStats> | null>(null)
   useEffect(() => {
     let cancelled = false
@@ -202,7 +204,7 @@ function StatsSection({ onForbidden }: { onForbidden: () => void }) {
       >
         {tiles.map(([label, value]) => (
           <div key={label}>
-            <dt style={{ fontSize: 13, opacity: 0.7 }}>{label}</dt>
+            <dt style={{ fontSize: 13, color: conf.mutedFg }}>{label}</dt>
             <dd style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>{value}</dd>
           </div>
         ))}
@@ -223,7 +225,7 @@ function StatsSection({ onForbidden }: { onForbidden: () => void }) {
           points={stats.daily.map((d) => ({ day: d.day, count: d.newTasks }))}
         />
       </div>
-      <p style={{ margin: 0, fontSize: 12, opacity: 0.7 }}>
+      <p style={{ margin: 0, fontSize: 12, color: conf.mutedFg }}>
         Last 30 days, by UTC day. Point at a bar for its count.
       </p>
       <details>
@@ -455,8 +457,8 @@ function AccountTable({ users, timezone }: AccountsProps) {
  * account is a stacked entry instead, with the email as its heading.
  */
 function AccountList({ users, timezone }: AccountsProps) {
-  const { theme } = useTheme()
-  const term: CSSProperties = { opacity: 0.7 }
+  const { theme, conf } = useTheme()
+  const term: CSSProperties = { color: conf.mutedFg }
   const value: CSSProperties = { margin: 0, fontVariantNumeric: 'tabular-nums' }
   return (
     <ul style={rowListStyle(10)}>

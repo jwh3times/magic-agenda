@@ -11,8 +11,6 @@ export interface DailyPoint {
 const PLOT_HEIGHT = 120
 const BAR_MAX_WIDTH = 24
 
-const muted: CSSProperties = { fontSize: 12, opacity: 0.7, fontVariantNumeric: 'tabular-nums' }
-
 /**
  * One count per UTC day as a column chart (#468), for Admin's 30-day history.
  *
@@ -28,6 +26,13 @@ const muted: CSSProperties = { fontSize: 12, opacity: 0.7, fontVariantNumeric: '
 export function DailyChart({ title, points }: { title: string; points: readonly DailyPoint[] }) {
   const { conf } = useThemeOrDefault()
   const [hovered, setHovered] = useState<number | null>(null)
+  // Secondary text takes the theme's muted ink, never opacity: faded ink on cork's card read 3.6:1
+  // (#642). The hairlines and the bars below still fade, because they are not text.
+  const muted: CSSProperties = {
+    fontSize: 12,
+    color: conf.mutedFg,
+    fontVariantNumeric: 'tabular-nums',
+  }
 
   const total = points.reduce((sum, p) => sum + p.count, 0)
   const peak = points.reduce<DailyPoint | null>(

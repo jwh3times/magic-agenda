@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, expect, test, vi } from 'vitest'
 import type { AdminResult, AdminStats, AdminUserPage } from '../admin/adminApi'
+import { dimmedText } from '../test/dimmedText'
 
 const h = vi.hoisted(() => ({
   role: { isAdmin: true, loading: false },
@@ -198,6 +199,34 @@ test('a section that fails for another reason keeps its own error and raises no 
   await within(accounts).findByText('first@example.test')
   expect(screen.getAllByRole('alert')).toHaveLength(1)
   expect(screen.queryByText(/two-factor session/)).not.toBeInTheDocument()
+})
+
+// Secondary text is drawn in the theme's `mutedFg`, never dimmed with opacity: on cork's card the
+// dimmed text read 3.6:1, and no accessibility scan reaches this page to notice (#642).
+test('no text on the page is dimmed with opacity', async () => {
+  renderAdmin()
+  const accounts = await screen.findByRole('region', { name: 'Accounts' })
+  await within(accounts).findByText('first@example.test')
+  await screen.findByText('900')
+  expect(dimmedText(document.body)).toEqual([])
+})
+
+test('on a phone, account entries label their fields without dimming them', async () => {
+  h.mobile = true
+  renderAdmin()
+  const accounts = await screen.findByRole('region', { name: 'Accounts' })
+  await within(accounts).findByText('first@example.test')
+  await screen.findByText('900')
+  expect(dimmedText(document.body)).toEqual([])
+})
+
+test('a refused section points at the page notice without dimming it', async () => {
+  const refused = { ok: false, reason: 'forbidden', message: 'refused' } as const
+  h.stats.mockResolvedValue(refused)
+  h.users.mockResolvedValue(refused)
+  renderAdmin()
+  await waitFor(() => expect(screen.getAllByText(/see the notice above/)).toHaveLength(2))
+  expect(dimmedText(document.body)).toEqual([])
 })
 
 test('every control is themed rather than a browser default (#467)', async () => {
