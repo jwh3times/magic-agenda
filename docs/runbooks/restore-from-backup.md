@@ -511,8 +511,9 @@ The project ref changes, so:
 2. Update the `SUPABASE_PROJECT_ID`, `SUPABASE_DB_PASSWORD`, and `SUPABASE_ACCESS_TOKEN` repository
    secrets.
 3. Re-apply auth configuration: merge any change touching `supabase/config.toml` (or run the
-   **Deploy Auth Config** workflow manually) so the redirect allow-list, password policy, SMTP, and
-   the email templates land on the new project. A restored database does **not** carry these.
+   **Deploy Auth Config** workflow manually) so the redirect allow-list, password policy, SMTP, the
+   connection pooler's mode and sizes, and the email templates land on the new project. A restored
+   database does **not** carry these.
 4. Recreate the Google OAuth client's redirect URI for the new `<ref>.supabase.co` host.
 
 ## 6. Delete the plaintext
