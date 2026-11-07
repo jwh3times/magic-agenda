@@ -17,13 +17,42 @@ through Dependabot’s `github-actions` ecosystem; this changed the `version:` i
 `supabase/config.toml`'s `[auth]` tree describes **production** exactly (site URL, redirect
 allow-list, password policy, OTP settings, rate limits, the Resend SMTP block, the Google OAuth
 block, Turnstile, TOTP MFA), `[api].auto_expose_new_tables = false` keeps automatic Data API grants off,
-and `[db.ssl_enforcement].enabled = true` requires TLS for database and pooler connections.
-Every edit is a production change, not local scaffolding. Changes to
-`supabase/config.toml` or `supabase/templates/**` **auto-apply to production on merge to `main`**
-via the `Deploy Auth Config` workflow (`.github/workflows/deploy-auth-config.yml`, which runs
-`supabase config push --yes`). The `Config` CI job previews the pending push on PRs that touch
+`[db.ssl_enforcement].enabled = true` requires TLS for database and pooler connections, and
+`[db.pooler]`'s `pool_mode`, `default_pool_size` and `max_client_conn` are production's pooler
+settings. **Supabase CLI v3's `config push` pushes those three pooler keys, which v2 never did**;
+the block's `enabled` and `port` still configure only the local stack (checked against the v3
+CLI's push mapping, #647). The two sizes were the `supabase init` defaults (20 / 100) until #640's
+first `config diff` showed production running 15 / 200 — merging the defaults would have halved
+production's client-connection limit. Every edit is a production change, not local scaffolding.
+
+Changes to `supabase/config.toml` or `supabase/templates/**` **auto-apply to production on merge to
+`main`** via the `Deploy Auth Config` workflow (`.github/workflows/deploy-auth-config.yml`, which
+runs `supabase config push --yes`). The `Config` CI job previews the pending push on PRs that touch
 those paths with the read-only `supabase config diff --exit-code` (exit 0: the remote matches the
-file; exit 2: the printed diff is pending). Until Supabase CLI v3 it declined `config push` prompts
+file; exit 2: the printed diff is pending).
+
+Production also has one setting the file leaves undeclared on purpose:
+`storage.image_transformation.enabled = true` (a Pro-plan feature). `config push` pushes only
+declared settings that differ (`update`) or that production lacks (`local-only`), never a
+`remote-only` one, so leaving it out keeps it as it is. Declaring it would cost either way: `true`
+turns image transformation on for a full local `supabase start` too, and `false` would turn it off
+in production on merge. Every `config diff` lists it as the one `remote-only` line, and that line
+is expected.
+
+**A green `Config` check means the diff ran, not that nothing is pending.**
+`scripts/config-preview.sh` passes on exit 2 as well as on exit 0, because the printed diff is the
+preview; #646's first `Config` run was green and listed three production changes. So on a PR that
+changes `supabase/config.toml`, `supabase/templates/**` or the Supabase CLI's major version, read
+the diff in the job log or summary before merging: each `update` and `local-only` line is what the
+merge will push, and only the `storage.image_transformation` line above should be `remote-only`.
+The job diffs only when the PR touches the config paths and is not Dependabot's (Dependabot PRs get
+no secrets), and `Deploy Auth Config` deploys only on the same paths. So a CLI bump that touches
+neither is green without any diff, and its first push comes with the next config merge. Carry a
+CLI-major bump on a branch of your own that also changes `config.toml`, even a comment, as #646
+did, so its `Config` check shows what the new CLI would push; a Dependabot PR for it gets no diff
+whatever it touches.
+
+Until Supabase CLI v3 the `Config` job declined `config push` prompts
 with `yes n |`; v3 ignores answers piped on stdin and fails an unattended push without `--yes`
 (`HostedMutationConsentRequiredError`), so that preview stopped working (#640). **The preview is
 bounded and retried (#429)** in `scripts/config-preview.sh`, because a hung CLI once held this

@@ -46,7 +46,9 @@ npm run dev
    There is deliberately **no local equivalent of the `Config` check**. It previews
    `supabase config push` against the production project with `supabase config diff`, which needs
    the production access token; running `config push` itself would apply your changes to
-   production. Let CI preview it in the PR.
+   production. Let CI preview it in the PR, and read the diff in the job log: the check is green
+   whenever the diff ran, even when it lists pending production changes (see
+   [When changing Supabase config](docs/agents/supabase-config.md)).
 
    `npm test` is deliberately hermetic — it mocks Supabase and never needs Docker, a database, or a
    network, so it says nothing about whether Row-Level Security itself still holds. If you touched
