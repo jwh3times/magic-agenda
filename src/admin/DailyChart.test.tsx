@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { expect, test } from 'vitest'
+import { dimmedText } from '../test/dimmedText'
 import { DailyChart, type DailyPoint } from './DailyChart'
 
 /** Thirty consecutive UTC days ending 2026-09-30, with the given counts (missing ones are 0). */
@@ -52,6 +53,16 @@ test('pointing at a day shows its date and count, and leaving restores the total
   fireEvent.pointerLeave(screen.getByTestId('daily-plot'))
   expect(screen.getByText('15 in 30 days')).toBeInTheDocument()
   expect(bars()[0].style.opacity).toBe('1')
+})
+
+// Its readout and axis labels are drawn in the theme's `mutedFg`, never dimmed with opacity (#642).
+// Only the bars fade while another is pointed at, and they are not text.
+test('no label is dimmed with opacity, even while a bar is pointed at', () => {
+  const { container } = render(<DailyChart title="New Tasks" points={month({ 14: 15 })} />)
+  expect(dimmedText(container)).toEqual([])
+  fireEvent.pointerEnter(screen.getAllByTestId('daily-column')[14])
+  expect(screen.getByText('Sep 15: 15')).toBeInTheDocument()
+  expect(dimmedText(container)).toEqual([])
 })
 
 test('an empty series renders without day labels or a crash', () => {

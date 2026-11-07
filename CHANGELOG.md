@@ -12,6 +12,25 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.34] - 2026-11-06
+
+### Fixed
+
+- **The Admin page's smaller text is easier to read in the Corkboard theme (#642).** The intro
+  line, the statistic labels, the 30-day hint, the "Unavailable" note on a refused section, the
+  field names in the phone account list, and the charts' running total and axis labels were faded
+  to as low as 3.6:1, below the 4.5:1 that text needs. They now use the same muted colour as
+  Settings, which reads 4.9:1 to 6.7:1 in Corkboard. The chart's gridlines, and the fade on the
+  bars you are not pointing at, are unchanged.
+
+### Internal
+
+- The Admin page and chart render tests now fail if any text is faded with opacity. The page needs
+  an admin on a two-factor session, so no accessibility scan reaches it and these tests are its only
+  guard. The computed contrast check also holds the muted colour to 4.5:1 on the inset panel the
+  phone account list sits on. The UI and testing guides no longer list the Admin page as an
+  exception.
+
 ## [1.18.33] - 2026-11-06
 
 ### Internal
@@ -6077,7 +6096,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.33...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.34...HEAD
+[1.18.34]: https://github.com/jwh3times/magic-agenda/compare/v1.18.33...v1.18.34
 [1.18.33]: https://github.com/jwh3times/magic-agenda/compare/v1.18.32...v1.18.33
 [1.18.32]: https://github.com/jwh3times/magic-agenda/compare/v1.18.31...v1.18.32
 [1.18.31]: https://github.com/jwh3times/magic-agenda/compare/v1.18.30...v1.18.31

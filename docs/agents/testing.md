@@ -334,9 +334,11 @@ is a deliberate tradeoff worth understanding before it costs one:
   (#624), which cork's translucent card hid the same way: 67–90 `bgGradient` nodes on each cork
   Settings, Members and Install scan, against 0–4 in the other themes. Its hints, dimmed with
   `opacity`, read 3.6:1 there. They are now drawn in the theme's `mutedFg` and the notice in its
-  `successFg`, both held to 4.5:1. `dimmedText()` (`src/test/dimmedText.ts`) fails the Settings,
-  Members, Invitations and calendar-feed render tests if text slips back to opacity, because an
-  opacity's contrast depends on where it is used, so no token check can hold it. These numeric
+  `successFg`, both held to 4.5:1, and `mutedFg` also on the inset panel Admin's phone account list
+  sits on (#642). `dimmedText()` (`src/test/dimmedText.ts`) fails the Settings, Members,
+  Invitations, calendar-feed, Admin and `DailyChart` render tests if text slips back to opacity,
+  because an opacity's contrast depends on where it is used, so no token check can hold it. On
+  Admin those render tests are the only guard, since no scan reaches that page. These numeric
   tests use the page's base colour and leave out cork's grain dots and glass's blobs, so they check
   a representative background, not the worst one.
 

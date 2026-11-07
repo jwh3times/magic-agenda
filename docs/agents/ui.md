@@ -167,13 +167,16 @@ out-of-month — to 4.5:1 over the theme's page and board fill; change a colour 
 That is why cork draws today's rust number on a cream pill rather than straight on the cork. Why axe
 can't reach them: "What the scans can't judge" in [Testing layers and lint policy](testing.md).
 
-**Secondary text on Settings uses `mutedFg`, and success text uses `successFg`. Never dim text with
-`opacity` (#624).** Field labels, hints, status lines and the footer all use these. Opacity
-multiplies whatever ink is under it, so its contrast depends on where it's used rather than on the
-theme. Cork's translucent card is where that failed: hints at `.7` read 3.6:1. Both tokens are held
-to 4.5:1 by `controls.test.ts`. `dimmedText()` fails the Settings, Members, Invitations and
-calendar-feed render tests on any text faded with opacity. A disabled control may still fade, since
-WCAG exempts it. `AdminPage` still dims its secondary text with opacity, and no guard covers it.
+**Secondary text on Settings and Admin uses `mutedFg`, and success text uses `successFg`. Never dim
+text with `opacity` (#624, #642).** Field labels, hints, status lines, the footer, and Admin's tile
+labels and chart labels all use these. Opacity multiplies whatever ink is under it, so its contrast
+depends on where it's used rather than on the theme. Cork's translucent card is where that failed:
+hints at `.7` read 3.6:1. `controls.test.ts` holds both tokens to 4.5:1 on the card, and `mutedFg`
+also on the bare page and on an `insetPanelStyle()` panel, where Admin's phone account list sits.
+`dimmedText()` fails the Settings, Members, Invitations, calendar-feed, Admin and `DailyChart` render
+tests on any text faded with opacity. No scan reaches Admin, which needs an admin on an `aal2`
+session, so those render tests are its only guard. A disabled control may still fade, since WCAG
+exempts it, and so may a graphic that is not text, such as the chart's hairlines and its bars.
 
 **The board's panels draw from `panelBg`, their secondary text from `panelSubFg`, and a
 toggled-on filter control from `toggledOnFg` (#625).** The Inbox, the phone Calendar's panel and a
