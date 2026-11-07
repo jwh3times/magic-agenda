@@ -12,6 +12,18 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.36] - 2026-11-07
+
+### Docs
+
+- **The testing guide no longer implies that a passing visual canary rules out a colour change
+  (#643).** Playwright's per-pixel threshold, left at its default of 0.2, lets small deliberate
+  colour changes through as well as rendering noise. #624 redrew Corkboard's Settings hints and the
+  Settings canary did not change. #579 brightened Aurora's out-of-month day numbers from 2.5:1 to
+  4.7:1 and neither Aurora calendar canary changed. The guide now sends colour changes to a numeric
+  contrast test or a by-eye before-and-after screenshot comparison. The comments in
+  `playwright.config.ts` and `tests/e2e/visual.spec.ts` say the same.
+
 ## [1.18.35] - 2026-11-07
 
 ### Docs
@@ -6119,7 +6131,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.35...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.36...HEAD
+[1.18.36]: https://github.com/jwh3times/magic-agenda/compare/v1.18.35...v1.18.36
 [1.18.35]: https://github.com/jwh3times/magic-agenda/compare/v1.18.34...v1.18.35
 [1.18.34]: https://github.com/jwh3times/magic-agenda/compare/v1.18.33...v1.18.34
 [1.18.33]: https://github.com/jwh3times/magic-agenda/compare/v1.18.32...v1.18.33
