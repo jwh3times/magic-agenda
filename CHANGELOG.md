@@ -12,6 +12,29 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.35] - 2026-11-07
+
+### Docs
+
+- **The Supabase config guide now says what Supabase CLI 3.0's `config push` actually sends to
+  production (#647).** `[db.pooler]`'s `pool_mode`, `default_pool_size` and `max_client_conn` are
+  production's values, and v3 pushes all three, which v2 never did; `enabled` and `port` stay
+  local. The guide also explains why production's image transformation setting stays undeclared in
+  `config.toml`: push never sends a setting only production has, so every `config diff` shows it as
+  the one expected `remote-only` line.
+- **A green `Config` check means the diff ran, not that nothing is pending.** The check passes
+  whenever `config diff` ran, even when it lists production changes, so the guide, `AGENTS.md`,
+  the release guide and `CONTRIBUTING.md` now say to read the diff before merging. The check never
+  diffs a Dependabot PR or one that leaves the config paths alone, so a Supabase CLI major bump
+  belongs on a branch of your own with a `config.toml` change. The restore runbook and `README.md`
+  now list the pooler among the settings that live in the repository.
+
+### Internal
+
+- `supabase/config.toml` comments now say `pool_mode` is production's too and why image
+  transformation stays undeclared. A `ci.yml` comment that cited `config.toml` by line number now
+  names the `[storage]` section. Both edits are comments only.
+
 ## [1.18.34] - 2026-11-06
 
 ### Fixed
@@ -6096,7 +6119,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.34...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.35...HEAD
+[1.18.35]: https://github.com/jwh3times/magic-agenda/compare/v1.18.34...v1.18.35
 [1.18.34]: https://github.com/jwh3times/magic-agenda/compare/v1.18.33...v1.18.34
 [1.18.33]: https://github.com/jwh3times/magic-agenda/compare/v1.18.32...v1.18.33
 [1.18.32]: https://github.com/jwh3times/magic-agenda/compare/v1.18.31...v1.18.32

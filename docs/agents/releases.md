@@ -10,7 +10,9 @@ resolved before merge (0 approvals required, so you can self-merge once green). 
 [active ruleset](https://github.com/jwh3times/magic-agenda/rules/18273908) is authoritative for all
 merge requirements and scanning thresholds.
 `Config` previews the pending `supabase config push` on PRs touching `supabase/config.toml` or
-`supabase/templates/**` and no-ops elsewhere — it is required, so it reports on every PR. Branch names must not start
+`supabase/templates/**` and no-ops elsewhere — it is required, so it reports on every PR. It is
+green whenever the diff ran, pending changes included, so read that diff before merging
+([When changing Supabase config](supabase-config.md)). Branch names must not start
 with `release/` — a ruleset protects that namespace and rejects the push; use `chore/release-vX.Y.Z`. Cloudflare Pages builds & deploys `main`
 (`npm run build` -> `dist`), so production only ships after a checks-passing merge. Database migrations
 are applied to production on the same merge by the `Deploy Migrations` workflow (triggered by changes

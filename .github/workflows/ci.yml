@@ -215,7 +215,7 @@ jobs:
         # local GoTrue holding the real key could send real email from a test run. The rest are
         # cheap insurance: the Config job passes today with only those two set, so the CLI does
         # tolerate unresolved env() at parse time, but this job actually STARTS storage
-        # (config.toml:147-149) rather than only parsing the file.
+        # (config.toml's `[storage]`) rather than only parsing the file.
         run: npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy
         env:
           RESEND_API_KEY: dummy-not-a-real-key

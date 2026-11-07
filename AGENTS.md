@@ -331,11 +331,13 @@ assert: [Testing layers and lint policy](docs/agents/testing.md).
 `supabase/config.toml` and `supabase/templates/**` describe **production**, and merging to `main`
 pushes them (`Deploy Auth Config`). Every edit there is a production change, not local scaffolding.
 **Never run `supabase config push` locally** — it deploys straight to production, bypassing the PR
-preview.
+preview. **A green `Config` check means the diff ran, not that nothing is pending**: read the diff
+before merging.
 
-The `Config` preview job's exact invocation, the CLI-version and auth-secret wiring, Turnstile, the
-email templates' constraints, and why deleting an Edge Function directory does not delete the
-function:
+The `Config` preview job's exact invocation and when it skips, which `[db.pooler]` keys reach
+production and the one setting left undeclared on purpose, the CLI-version and auth-secret wiring,
+Turnstile, the email templates' constraints, and why deleting an Edge Function directory does not
+delete the function:
 [When changing Supabase config](docs/agents/supabase-config.md).
 
 ## Agents and docs automation
