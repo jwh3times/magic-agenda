@@ -25,8 +25,9 @@ export default defineConfig({
     // too loose to be a check: a seeded card changing its tilt between runs moved under 1% of a
     // calendar page and passed, while the larger kanban cards crossed it (14,936 px) and failed. A
     // tolerance that forgives a whole card rotating also forgives a real regression on a small
-    // element. Per-pixel colour noise is still absorbed by Playwright's default `threshold` (0.2);
-    // this cap only bounds how many pixels may exceed it.
+    // element. This cap only bounds how many pixels may exceed Playwright's default per-pixel
+    // `threshold` (0.2), and that threshold absorbs small deliberate colour changes as well as
+    // noise, so a green canary is no evidence about a colour change (docs/agents/testing.md, #643).
     toHaveScreenshot: { maxDiffPixels: 50, animations: 'disabled', caret: 'hide' },
   },
 
