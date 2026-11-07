@@ -364,8 +364,10 @@ is a deliberate tradeoff worth understanding before it costs one:
 
 `tests/e2e/visual.spec.ts` (#280) screenshots fifteen surfaces: landing on desktop and mobile, the calendar in each of the three themes, week and kanban in `cork`, the task editor, settings, the phone Calendar in each of the three themes (#565), and (#359) a keyboard-focused card in each theme. The visual layer is an inline-style-object model with per-theme branching, so there
 is no stylesheet to review and no CSS tooling that applies — these screenshots are the only
-mechanical check that a token change did not wreck a theme. These things about them are
-load-bearing:
+mechanical check that a token change did not wreck a theme. They are no check on a subtle colour
+change, which passes them (see the tolerance below); the numeric contrast tests above hold specific
+colours to 4.5:1.
+These things about them are load-bearing:
 
 - **They are part of the required `E2E` merge gate, and they do not get a job of their own.**
   `playwright.config.ts` splits the local suite into two projects over the same browser: `chromium`
@@ -426,9 +428,16 @@ load-bearing:
   on one run and differed by 14,936 pixels on the next. The other cork/brutal canaries drifted too
   and passed only because the first cut's `maxDiffPixelRatio: 0.01` (≈9,200 px on a 1280×720 page)
   forgave a small card rotating — which means it would have forgiven a real regression of the same
-  size. The cap is now `maxDiffPixels: 50`, with Playwright's per-pixel `threshold` still absorbing
-  colour noise. **One matching run proves nothing about stability**; a new or reseeded canary needs
-  two consecutive matching runs before it is trusted.
+  size. The cap is now `maxDiffPixels: 50`, which bounds how many pixels may differ by more than
+  Playwright's per-pixel `threshold`, left at its default of 0.2. **That threshold absorbs small,
+  deliberate colour changes as well as rendering noise, so a green canary is no evidence either way
+  about a colour change.** #624 redrew cork's Settings hints in a darker brown and `settings-cork`
+  did not change. #579 brightened glass's out-of-month day numbers from 2.5:1 to 4.7:1 and neither
+  glass calendar canary changed, while its bigger cork changes tripped four cork canaries and both
+  `landing-*` ones. Check a colour change with a numeric contrast test (see "What the scans can't
+  judge" above) or by comparing before and after screenshots yourself. **One matching run proves
+  nothing about stability**; a new or reseeded canary needs two consecutive matching runs before it
+  is trusted.
 - **`@playwright/test` is pinned to an exact version and ignored by Dependabot.** A Playwright bump
   changes the bundled Chromium, which invalidates every baseline, and a bot cannot refresh
   baselines: a Dependabot bump would sit red until someone did it by hand anyway. Upgrade it by

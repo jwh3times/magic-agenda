@@ -8,7 +8,8 @@ import { landingReady, PINNED_DAY, PINNED_TIME, settle } from './fixtures/determ
  * The visual layer is an inline-style-object model with per-theme branching, deliberately not CSS
  * (see docs/agents/ui.md), so there is no stylesheet to review and no CSS regression tooling that
  * applies. These screenshots are the only mechanical check that a token change did not wreck a
- * theme.
+ * theme. They are no check on a subtle colour change: Playwright's per-pixel threshold passes small
+ * deliberate ones (#643); see docs/agents/testing.md for what checks colour instead.
  *
  * **This is a merge gate.** CI runs this file as its own `visual` project in the required `E2E`
  * job. A mismatch blocks the merge while always-running diagnostic steps warn and upload the new
