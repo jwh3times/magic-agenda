@@ -41,7 +41,8 @@ export default defineConfig({
   // The platform is in the name so a baseline generated on the Linux CI runner cannot be mistaken
   // for one on another OS: a local non-Linux run reports "missing" instead of a false mismatch.
   snapshotPathTemplate: '{testDir}/__screenshots__/{arg}-{platform}{ext}',
-  reporter: process.env.CI ? [['github'], ['list']] : [['list']],
+  // The last CI reporter turns a drag test's hover retry into a warning on the run (#644).
+  reporter: process.env.CI ? [['github'], ['list'], ['./scripts/hover-retry.ts']] : [['list']],
 
   use: {
     baseURL: process.env.E2E_BASE_URL,

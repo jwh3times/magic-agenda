@@ -31,6 +31,8 @@
     "vitest.rls.config.ts",
     "scripts/a11y-baseline.ts",
     "scripts/a11y-baseline.test.ts",
+    "scripts/hover-retry.ts",
+    "scripts/hover-retry.test.ts",
     "scripts/auth-token-bootstrap.test.ts",
     "scripts/e2e-local-setup.ts",
     "scripts/e2e-local-setup.test.ts",
