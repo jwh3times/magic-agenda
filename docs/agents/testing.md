@@ -166,6 +166,18 @@ exists and got no rows, which points at a grant or policy, and a reset does not 
 load is a third case: since #629 it shows the "Couldn’t load your board" error screen with Retry
 rather than the empty state, and global setup stops on that too, quoting what the screen said.
 
+**The drag tests' hover retry warns when it fires (#644).** The `cancelling a drag (#583)` tests in
+`smoke.spec.ts` carry the Inbox card with `hoverOutOfInbox`, which hovers again if the first hover
+leaves the card in the Inbox. That keeps them steady, and it would also hide what #586 is waiting
+for: a hover that did nothing during a drag. So when the retry fires, the test records a
+`hover-retry` annotation, and CI's `scripts/hover-retry.ts` reporter shows it as a **"Hover retry
+(#586)" warning** in the run's annotations, naming the test, the lane and the attempt count. A run
+where every hover worked first time shows none. Look for it in the run summary or the `E2E` job's
+annotations, never in an artifact: the warning carries nothing from the page, and traces stay
+encrypted (below). When one turns up, take it to #586. The reporter is listed in
+`playwright.config.ts` only for CI, so a local run shows no warning; its pure part is tested in
+`scripts/hover-retry.test.ts`.
+
 **The Content-Security-Policy is asserted at two layers, and neither replaces the other (#407).**
 `scripts/csp-headers.test.ts` parses the policy as written in `public/_headers` and asserts, case
 by case, the directives individual features depend on — it names the feature rather than the

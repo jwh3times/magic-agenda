@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { seedBoard, SEEDED_TITLES } from './fixtures/seedBoard'
 import { testBoardId, testClient } from './fixtures/supabase'
+import { hoverRetry } from '../../scripts/hover-retry'
 
 // No fake clock in this file, deliberately. `page.clock` can invalidate Supabase's JWT expiry
 // checks because the token was issued in real time.
@@ -161,24 +162,32 @@ test.describe('cancelling a drag (#583)', () => {
    * Carries the Inbox card over `onto` until it has moved out of the Inbox on screen. Its row can be
    * replaced during the hover, by a late realtime event from seeding for one, which sends it back.
    * dnd-kit doesn't report the same target twice, so that takes going back and hovering again.
+   *
+   * That retry would also hide a hover that really did nothing (#586), so when it fires the test
+   * records it, and CI shows it as a warning on the run (scripts/hover-retry.ts, #644).
    */
-  async function hoverOutOfInbox(page: Page, onto: Locator) {
+  async function hoverOutOfInbox(page: Page, onto: Locator, lane: string) {
     const from = await centre(inbox(page).getByText(UNSCHEDULED, { exact: true }))
     const to = await centre(onto)
     await page.mouse.move(from.x, from.y)
     await page.mouse.down()
     await page.mouse.move(from.x + 10, from.y + 10, { steps: 3 })
+    let attempts = 0
     await expect(async () => {
+      attempts++
       await page.mouse.move(from.x, from.y, { steps: 2 })
       await page.mouse.move(to.x, to.y, { steps: 12 })
       await expect(inbox(page).getByText(UNSCHEDULED)).toHaveCount(0, { timeout: 1000 })
     }).toPass({ timeout: 10000 })
+    if (attempts > 1) test.info().annotations.push(hoverRetry(lane, attempts))
   }
+
+  const TODAYS_LANE_NAME = { calendar: "today's Calendar cell", week: "today's Week column" }
 
   for (const view of ['calendar', 'week'] as const) {
     test(`Escape after a hover move puts the Task back (${view})`, async ({ page }) => {
       await open(page, view)
-      await hoverOutOfInbox(page, page.getByText(FIRST, { exact: true }))
+      await hoverOutOfInbox(page, page.getByText(FIRST, { exact: true }), TODAYS_LANE_NAME[view])
 
       await page.keyboard.press('Escape')
       await page.mouse.up()
@@ -278,7 +287,7 @@ test.describe('cancelling a drag (#583)', () => {
 
   test('a later drag on the same lane does not save the cancelled move', async ({ page }) => {
     await open(page, 'calendar')
-    await hoverOutOfInbox(page, page.getByText(FIRST, { exact: true }))
+    await hoverOutOfInbox(page, page.getByText(FIRST, { exact: true }), TODAYS_LANE_NAME.calendar)
     await page.keyboard.press('Escape')
     await page.mouse.up()
     // Once the drag overlay's copy of the card has gone. It flies back to the Inbox, and a press on
