@@ -12,6 +12,18 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.37] - 2026-11-07
+
+### Internal
+
+- **A drag test that needs a second hover now says so on the CI run (#644).** The tests that cancel
+  a drag carry the Inbox card onto today's lane and hover again if the first hover leaves it in the
+  Inbox. That kept them steady but hid any hover that did nothing, which is the evidence #586 is
+  waiting for. When the retry fires, the run now shows a "Hover retry (#586)" warning naming the
+  test, the lane and the attempt count, and nothing from the page. A run where every hover worked
+  first time shows no warning. A small CI-only Playwright reporter, `scripts/hover-retry.ts`, prints
+  it.
+
 ## [1.18.36] - 2026-11-07
 
 ### Docs
@@ -6131,7 +6143,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.36...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.37...HEAD
+[1.18.37]: https://github.com/jwh3times/magic-agenda/compare/v1.18.36...v1.18.37
 [1.18.36]: https://github.com/jwh3times/magic-agenda/compare/v1.18.35...v1.18.36
 [1.18.35]: https://github.com/jwh3times/magic-agenda/compare/v1.18.34...v1.18.35
 [1.18.34]: https://github.com/jwh3times/magic-agenda/compare/v1.18.33...v1.18.34
