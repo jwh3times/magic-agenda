@@ -307,13 +307,15 @@ function AccountsSection({ onForbidden }: { onForbidden: () => void }) {
   }, [searchDraft, search])
 
   useEffect(() => {
-    let cancelled = false
+    // A field, not a reassigned `let`: oxlint 1.91's react/immutability rejects the latter (#654).
+    const request = { cancelled: false }
     const query = { search, sortKey: sort.sortKey, sortDesc: sort.sortDesc }
     void loadAdminUsers(page, ADMIN_PAGE_SIZE, query).then((result) => {
-      if (!cancelled) setLoaded({ key: queryKey, result: reportForbidden(result, onForbidden) })
+      if (!request.cancelled)
+        setLoaded({ key: queryKey, result: reportForbidden(result, onForbidden) })
     })
     return () => {
-      cancelled = true
+      request.cancelled = true
     }
   }, [queryKey, page, search, sort.sortKey, sort.sortDesc, onForbidden])
 

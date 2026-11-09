@@ -12,6 +12,29 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.39] - 2026-11-09
+
+### Internal
+
+- **Five effect-local flags rewritten so oxlint 1.91 can land (#654).** oxlint 1.91's
+  `react/immutability` rule rejects code that reassigns an effect- or callback-local `let` from the
+  closures it creates, so the required `Format` check failed and blocked the Dependabot group in
+  #652. The sites are the accounts-load cancellation in Admin, the Settings section tracker's
+  pending animation frame, the realtime channel's `disposed` flag in `useSyncedTable`, and the
+  attachment capture in `deleteTask` and `bulkDelete`. Each now mutates a field of a `const`
+  object, which behaves the same and lints clean on 1.90 and 1.91 without a suppression comment.
+  React's documented `let ignore` cleanup still lints clean on its own. The rule fires only when
+  the callback also passes a function prop into another call, so this looks like an over-cautious
+  rule rather than a bug at these sites. No visible change.
+
+## [1.18.38] - 2026-11-09
+
+### Internal
+
+- Bumped `jsdom` 30.1.3 → 31.0.0, a development dependency (#653). jsdom 31 serializes a unitless
+  zero length as `0px`, as browsers do, so two Admin grid assertions now expect
+  `minmax(0px, 1fr)`. Backfilled by v1.18.39.
+
 ## [1.18.37] - 2026-11-07
 
 ### Internal
@@ -6143,7 +6166,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.37...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.39...HEAD
+[1.18.39]: https://github.com/jwh3times/magic-agenda/compare/v1.18.38...v1.18.39
+[1.18.38]: https://github.com/jwh3times/magic-agenda/compare/v1.18.37...v1.18.38
 [1.18.37]: https://github.com/jwh3times/magic-agenda/compare/v1.18.36...v1.18.37
 [1.18.36]: https://github.com/jwh3times/magic-agenda/compare/v1.18.35...v1.18.36
 [1.18.35]: https://github.com/jwh3times/magic-agenda/compare/v1.18.34...v1.18.35

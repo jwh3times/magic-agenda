@@ -558,6 +558,12 @@ Since 1.86, `react/purity` treats a zero-argument `new Date()` as impure (#495).
 clock once in a lazy `useState` initializer. A handler passed bare through a custom component's
 prop (`onAction={…}`, not a DOM `onClick`) also counts as render-time code, so wrap it in
 `useCallback` rather than suppressing the rule.
+
+Since 1.91, `react/immutability` can reject an effect- or callback-local `let` that a closure
+reassigns later: a cleanup's `cancelled = true`, a handler's pending frame id, an async capture
+(#654). It fires when the same callback also passes a function prop into another call. Hold the
+value in a field of a `const` object (`const request = { cancelled: false }`) rather than
+suppressing the rule. The behavior is identical, and the field form lints clean.
 `options.reportUnusedDisableDirectives` makes stale inline suppressions errors, so every exception
 remains tied to a diagnostic it actually covers. A small explicit React correctness set covers
 invalid keys, props, and DOM children, while a test-file-only Vitest override rejects focused or
