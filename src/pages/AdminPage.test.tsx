@@ -159,7 +159,7 @@ test('on a phone each account is a stacked entry, not a table row (#469)', async
   expect(within(first).getByText('Last sign-in').nextSibling).toHaveTextContent('Never')
   expect(within(first).getByText('Two-factor').nextSibling).toHaveTextContent('On')
   expect(within(first).getByText('Tasks').nextSibling).toHaveTextContent('7')
-  expect(within(accounts).getByRole('list').style.gridTemplateColumns).toBe('minmax(0, 1fr)')
+  expect(within(accounts).getByRole('list').style.gridTemplateColumns).toBe('minmax(0px, 1fr)')
 })
 
 test('a database refusal explains the two-factor requirement once for the page (#470)', async () => {
@@ -244,7 +244,7 @@ test('every control is themed rather than a browser default (#467)', async () =>
   for (const control of controls) expect(control).toHaveAttribute('style')
   // The flag list's column must be able to shrink below a text field's min-content (#464).
   const list = within(screen.getByRole('region', { name: 'Feature flags' })).getByRole('list')
-  expect(list.style.gridTemplateColumns).toBe('minmax(0, 1fr)')
+  expect(list.style.gridTemplateColumns).toBe('minmax(0px, 1fr)')
 })
 
 test('toggles a flag and saves its description, then refreshes the flag list', async () => {
