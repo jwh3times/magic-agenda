@@ -1157,13 +1157,14 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       const op = resolveDelete(task, scope)
       // Filled in by the capture below, which runs inside the write and therefore cannot return
       // its result: the row read has to sit between the optimistic removal and the DELETE (#404).
-      let attachments: Attachment[] = []
+      // A field, not a reassigned `let`, which oxlint 1.91 react/immutability rejects (#654).
+      const captured: { attachments: Attachment[] } = { attachments: [] }
       if (op.kind === 'delete-plain') {
         const capture = async () => {
-          attachments = await captureTaskAttachments([op.id])
+          captured.attachments = await captureTaskAttachments([op.id])
         }
         if (await removeTask(op.id, capture))
-          offerUndo(generation, `Deleted ${quoted(task)}`, before, [op.id], attachments)
+          offerUndo(generation, `Deleted ${quoted(task)}`, before, [op.id], captured.attachments)
         return
       }
       // Deleting this and every later Occurrence is a Series-level operation: not undoable (#271).
@@ -1174,10 +1175,10 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       }
       const plan = planDeleteOccurrence(before, op.instance)
       const capture = async () => {
-        attachments = await captureTaskAttachments(plan.markIds)
+        captured.attachments = await captureTaskAttachments(plan.markIds)
       }
       if (await runPlan(plan, capture))
-        offerUndo(generation, `Deleted ${quoted(task)}`, before, plan.markIds, attachments)
+        offerUndo(generation, `Deleted ${quoted(task)}`, before, plan.markIds, captured.attachments)
     },
     [removeTask, runPlan, seriesState, forgetUndo, offerUndo],
   )
@@ -1197,12 +1198,18 @@ export function useTasks(userId: string, boardId: string, hasSession: boolean): 
       // Every id the entry covers, not only the ones being deleted: a selection that retires a
       // Series also records rows it merely updated. Capturing an attachment whose Task survives
       // is harmless — `restoreAttachments` puts back only what is missing (#404).
-      let attachments: Attachment[] = []
+      const captured: { attachments: Attachment[] } = { attachments: [] }
       const capture = async () => {
-        attachments = await captureTaskAttachments(plan.markIds)
+        captured.attachments = await captureTaskAttachments(plan.markIds)
       }
       const offer = () =>
-        offerUndo(generation, `Deleted ${countTasks(deleted)}`, before, plan.markIds, attachments)
+        offerUndo(
+          generation,
+          `Deleted ${countTasks(deleted)}`,
+          before,
+          plan.markIds,
+          captured.attachments,
+        )
       const touchesSeries =
         plan.upserts.length > 0 || plan.deletions.some((deletion) => deletion.target.by !== 'ids')
       if (touchesSeries) {

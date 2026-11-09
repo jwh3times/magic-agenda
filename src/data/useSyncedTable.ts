@@ -271,12 +271,13 @@ export function useSyncedTable({
 
   useEffect(() => {
     if (!userId || !filterValue) return
-    let disposed = false
+    // A field, not a reassigned `let`: oxlint 1.91's react/immutability rejects the latter (#654).
+    const life = { disposed: false }
     // A payload the registry held back is delivered later, when the write it was waiting on
     // settles — possibly after this channel is gone. Deliver nothing to a torn-down channel: a
     // Board switch replaces it, and the late payload would land on the other Board's state.
     const deliverLate = (payload: ChangePayload) => {
-      if (!disposed) onChange(payload)
+      if (!life.disposed) onChange(payload)
     }
     const channel = supabase
       // Scoped by the filter value, not the user: two boards must not share one channel topic, or
@@ -292,8 +293,8 @@ export function useSyncedTable({
         },
       )
       .subscribe((status) => {
-        // `disposed` matters because the backoff timer outlives the channel it was scheduled by.
-        if (disposed) return
+        // `life.disposed` matters: the backoff timer outlives the channel it was scheduled by.
+        if (life.disposed) return
         if (status === REALTIME_SUBSCRIBE_STATES.SUBSCRIBED) {
           retries.current = 0
           return
@@ -306,12 +307,12 @@ export function useSyncedTable({
           const delay = backoffDelay(retries.current++)
           void reload()
           window.setTimeout(() => {
-            if (!disposed) setEpoch((e) => e + 1)
+            if (!life.disposed) setEpoch((e) => e + 1)
           }, delay)
         }
       })
     return () => {
-      disposed = true
+      life.disposed = true
       void supabase.removeChannel(channel)
     }
     // `epoch` is an explicit reconnect trigger; the effect body does not otherwise read it.

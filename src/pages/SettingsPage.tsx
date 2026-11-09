@@ -276,9 +276,11 @@ function useActiveSection(ids: string[], enabled: boolean) {
 
   useEffect(() => {
     if (!enabled) return
-    let frame = 0
+    // The pending animation frame, held in a field: oxlint 1.91's react/immutability rejects
+    // reassigning an effect-local `let` from the handlers it creates (#654).
+    const pending = { frame: 0 }
     const measure = () => {
-      frame = 0
+      pending.frame = 0
       const root = document.documentElement
       const tops = ids.map(
         (id) => document.getElementById(sectionId(id))?.getBoundingClientRect().top ?? null,
@@ -288,12 +290,12 @@ function useActiveSection(ids: string[], enabled: boolean) {
     }
     const onScroll = () => {
       if (jumpTimer.current !== null) holdJump()
-      else if (!frame) frame = requestAnimationFrame(measure)
+      else if (!pending.frame) pending.frame = requestAnimationFrame(measure)
     }
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => {
       window.removeEventListener('scroll', onScroll)
-      if (frame) cancelAnimationFrame(frame)
+      if (pending.frame) cancelAnimationFrame(pending.frame)
       if (jumpTimer.current !== null) window.clearTimeout(jumpTimer.current)
       jumpTimer.current = null
     }
