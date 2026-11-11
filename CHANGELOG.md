@@ -12,6 +12,26 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.41] - 2026-11-10
+
+### Internal
+
+- **The installed-skills check reads the lock `skills` CLI 1.8.0 writes (#656).** CLI 1.8.0 writes
+  `skills-lock.json` as version 2, whose hashes no longer depend on line endings, and the copy of
+  `scripts/check-skills.mjs` here read only version 1. It now reads both (jwh3times/skills#42), so
+  the shared skills install with the current CLI instead of a pinned 1.7.4. Both install commands
+  re-ran in full with 1.8.0; the lock is now version 2, and no skill's content changed. No visible
+  change.
+
+## [1.18.40] - 2026-11-09
+
+### Internal
+
+- Dependabot: bumped the `npm-minor-and-patch` group (#652) — `@supabase/supabase-js` 2.118.0 →
+  2.119.0, and the development dependencies `oxlint` 1.90.0 → 1.92.0, `oxlint-tsgolint`
+  7.0.2005 → 7.0.2006 and `vite` 8.3.5 → 8.3.6. Backfilled by v1.18.41, per the changelog guard's
+  Dependabot exemption.
+
 ## [1.18.39] - 2026-11-09
 
 ### Internal
@@ -6166,7 +6186,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.39...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.41...HEAD
+[1.18.41]: https://github.com/jwh3times/magic-agenda/compare/v1.18.40...v1.18.41
+[1.18.40]: https://github.com/jwh3times/magic-agenda/compare/v1.18.39...v1.18.40
 [1.18.39]: https://github.com/jwh3times/magic-agenda/compare/v1.18.38...v1.18.39
 [1.18.38]: https://github.com/jwh3times/magic-agenda/compare/v1.18.37...v1.18.38
 [1.18.37]: https://github.com/jwh3times/magic-agenda/compare/v1.18.36...v1.18.37
