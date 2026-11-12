@@ -12,6 +12,23 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.44] - 2026-11-12
+
+### Internal
+
+- **`/what-next` reports what to work on next.** A shared skill from `jwh3times/skills`: it reads the
+  open issues, open PRs and the board, and ranks the work by `Priority` and then the board's manual
+  order, per the new `Priority order` setting in `docs/agents/issue-tracker.md`. It names one item and
+  the command that takes it, and changes nothing on GitHub. The development flow's routing points at
+  it when nothing is chosen yet.
+
+## [1.18.43] - 2026-11-12
+
+### Internal
+
+- Dependabot: bumped the development dependency `@vitejs/plugin-react` 6.2.1 → 6.3.0 (#659).
+  Backfilled by v1.18.44, per the changelog guard's Dependabot exemption.
+
 ## [1.18.42] - 2026-11-11
 
 ### Internal
@@ -6200,7 +6217,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.42...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.44...HEAD
+[1.18.44]: https://github.com/jwh3times/magic-agenda/compare/v1.18.43...v1.18.44
+[1.18.43]: https://github.com/jwh3times/magic-agenda/compare/v1.18.42...v1.18.43
 [1.18.42]: https://github.com/jwh3times/magic-agenda/compare/v1.18.41...v1.18.42
 [1.18.41]: https://github.com/jwh3times/magic-agenda/compare/v1.18.40...v1.18.41
 [1.18.40]: https://github.com/jwh3times/magic-agenda/compare/v1.18.39...v1.18.40
