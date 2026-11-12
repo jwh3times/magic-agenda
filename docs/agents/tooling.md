@@ -1,7 +1,7 @@
 # Agents, skills, and docs automation
 
 Which documents and agent-facing trees a change has to keep aligned, and which of them are
-generated. Read before editing anything under `.claude/`, `.agents/`, or `.codex/`.
+generated. Read before editing `.mcp.json` or anything under `.claude/`, `.agents/`, or `.codex/`.
 
 `AGENTS.md` is the **canonical agent guide**; `CLAUDE.md` is only an `@AGENTS.md` import so Claude Code
 loads the same content. Edit `AGENTS.md` — never duplicate content into `CLAUDE.md`.
@@ -105,7 +105,7 @@ Rules for this pipeline:
   skill directory (`references/*.md`, `scripts/*.sh`, `agents/*.yaml`, …) is copied byte-for-byte.
 - **Run `npm run format` before `npm run sync:agents`, never after.** The formatter's globs reached
   `**/*.md` in v1.4.4, which is the situation this bullet used to describe hypothetically. Neither
-  _generated_ tree is formatted — `.codex/` and `.claude/skills/` are both `.prettierignore`'d, so a
+  _generated_ tree is formatted — `.codex/agents/` and `.claude/skills/` are both `.prettierignore`'d, so a
   generated file is never rewritten out from under the script — but `.claude/agents/<n>.md` **is**
   formatted and is the source for `.codex/agents/<n>.toml`. Sync first and the TOML embeds the
   pre-format body, so the next format pass makes it stale and the `Agents` job fails. Landing the
