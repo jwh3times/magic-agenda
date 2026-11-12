@@ -1,0 +1,7 @@
+# The shared MCP servers for Codex. `.mcp.json` declares the same set for Claude Code: keep the two
+# in step. Authored, not generated: scripts/sync-agents.mjs owns only `.codex/agents/`.
+# Codex loads this file only once the project is trusted in your user config.
+# What belongs here, and what deliberately does not: docs/agents/tooling.md#mcp-servers
+
+[mcp_servers.context7]
+url = "https://mcp.context7.com/mcp"

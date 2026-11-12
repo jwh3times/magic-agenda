@@ -133,3 +133,55 @@ Completed implementation plans are archived under `docs/plans/` and `docs/specs/
 `docs/README.md`) — they are dated historical records of shipped work, not living documentation;
 do not update them to match current code. `docs/runbooks/` is the exception: those are **living**
 operational procedures and must be updated in the same PR as whatever they describe.
+
+## MCP servers
+
+Everyone working here uses the same MCP servers, declared twice because the two tools read
+different files. `.mcp.json` is Claude Code's project file: it asks each user to approve a project
+server on first use. `.codex/config.toml` is Codex's project layer, which Codex ignores until the
+project is marked `trusted` in the user's `~/.codex/config.toml`. Both files are authored —
+`sync-agents.mjs` owns only `.codex/agents/` — so a change to one is made to the other in the same
+PR.
+
+| Server                                            | Scope                              | Use it for                                                                                    |
+| ------------------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------- |
+| Context7 (`https://mcp.context7.com/mcp`)         | committed, both tools              | current docs for Supabase, dnd-kit, Vite, Vitest, Playwright, oxlint, the Supabase CLI, Codex |
+| Cloudflare API (`https://mcp.cloudflare.com/mcp`) | maintainer, user scope, both tools | reading Pages deployments, project settings and Bulk Redirects                                |
+| The harness's own browser                         | per tool, nothing to configure     | checking a change in a real browser (Claude in Chrome, or Codex's browser)                    |
+
+Context7 needs no account or key. The Cloudflare server signs in with the maintainer's Cloudflare
+account through OAuth, so it is not committed. To set it up:
+
+```bash
+claude mcp add --transport http --scope user cloudflare-api https://mcp.cloudflare.com/mcp
+# then sign in from /mcp inside Claude Code
+
+# Codex: add to ~/.codex/config.toml, then run `codex mcp login cloudflare-api`
+# [mcp_servers.cloudflare-api]
+# url = "https://mcp.cloudflare.com/mcp"
+```
+
+A claude.ai account may already provide Context7 as a connector. The committed server then
+duplicates it, which only costs tool-list space. Turn one of them off for this project in `/mcp` if
+you want a shorter list.
+
+**Deliberately not used**, and why:
+
+- **A 1Password MCP server.** It returns resolved secret values into the model's context and so
+  into the transcript, which is what keeping `op://` references and resolving them with `op run` /
+  `op inject` exists to prevent. One ran from an unpinned `npx -y` community package with vault
+  access, and was removed.
+- **A Supabase MCP server.** Its SQL and management tools act on the hosted project outside
+  migrations, the `Config` preview, and the production posture checks (`AGENTS.md`, "When changing
+  the schema"). Read production state through those scripts, never by querying it from a session.
+- **Git and GitHub MCP servers** (GitKraken, GitHub MCP). Plain `git` and the `gh` CLI are what the
+  docs, the skills, and the recorded `gh` workarounds assume. The shared skills accept GitHub MCP
+  only as a fallback when `gh` is unavailable. The GitKraken server also exposes checkout and stash
+  tools, and those operations have destroyed uncommitted work here before.
+- **Personal account connectors** (mail, calendar, drive). They are not project tooling, and
+  nothing here should depend on them.
+
+**Adding a server** means a PR that adds it to both files, explains its use in the table above, and
+satisfies the two rules in `AGENTS.md`: no secret values and no production changes. A server that
+needs credentials is maintainer scope and stays out of both files; never commit a token, even as an
+environment-variable default.

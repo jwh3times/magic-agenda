@@ -349,8 +349,29 @@ area detail in `docs/agents/` rather than growing this page. Keep `AGENTS.md`, `
 notes.
 
 The `code-reviewer` subagent; the [shared skills](#shared-skills); and the two authored trees whose
-generated mirrors (`.codex/`, `.claude/skills/`) must never be hand-edited:
+generated mirrors (`.codex/agents/`, `.claude/skills/`) must never be hand-edited:
 [Agents, skills, and docs automation](docs/agents/tooling.md).
+
+### MCP servers
+
+The shared set is committed, so every contributor works with the same servers: `.mcp.json` (Claude
+Code) and `.codex/config.toml` (Codex, once you trust the project) both declare **Context7**, for
+current library docs, and nothing else. Change the two files together. GitHub goes through the `gh`
+CLI rather than an MCP server, and a browser check uses whichever browser your harness provides.
+The maintainer also runs the **Cloudflare API** server at user scope in both tools; it needs their
+Cloudflare account, so it is not committed.
+
+Two rules hold for every server, committed or personal:
+
+- **No MCP server that returns secret values.** Credentials stay behind `op://` references resolved
+  by `op run` / `op inject`, so the agent never sees a value. A 1Password MCP server was removed for
+  exactly this reason.
+- **No production change through an MCP server.** The database changes through migrations, Supabase
+  config through `config.toml` and its deploy, and edge settings through their runbooks. The
+  Cloudflare server is for reading; no Supabase MCP server is used.
+
+Setup, and the servers deliberately left out:
+[Agents, skills, and docs automation](docs/agents/tooling.md#mcp-servers).
 
 ## Backups
 
