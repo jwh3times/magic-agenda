@@ -12,15 +12,16 @@ Settings the shared `docs-updater`, `end-session` and `ship` skills read (instal
   ("When changing the schema", "App / DB boundary conventions"); `src/data/mappers.ts` or
   `src/types/task.ts` changes a boundary convention; a page, view or major component lands under
   `src/pages/` or `src/components/` ("What this is"); an area guide is added or renamed (Area
-  guides); a skill is added, removed or replaced ("Agent skills", "Agents and docs automation").
+  guides); a skill is added, removed or replaced ("Agent skills", "Agents and docs automation"); an
+  MCP server is added to or removed from `.mcp.json` or `.codex/config.toml` ("MCP servers").
 - `docs/agents/*.md` area guides — each the canonical account of one area: `auth`, `boards`,
   `labels`, `state-and-sync`, `recurrence`, `completion`, `drag-and-drop`, `ui`, `pwa-offline`,
   `testing`, `supabase-config`, `tooling`, `dev-flow`, `backups`, and the prose of `releases`.
   **When:** the area changes, in the same PR — a migration's policies, grants or lifecycle
   functions: `boards.md`; `src/data/recurrence.ts` or `src/data/series.ts`: `recurrence.md`;
   `src/dnd/`: `drag-and-drop.md`; `src/theme/`: `ui.md`; a workflow or required check:
-  `releases.md` and `testing.md`; `.agents/`, `.claude/`, `.codex/` or `scripts/sync-agents.mjs`:
-  `tooling.md`.
+  `releases.md` and `testing.md`; `.agents/`, `.claude/`, `.codex/`, `.mcp.json` or
+  `scripts/sync-agents.mjs`: `tooling.md`.
 - `docs/agents/` settings and conventions (`workspace`, `issue-tracker`, `human-follow-up`, `docs`,
   `releases`, `ship`, `handoffs`, `triage-labels`, `domain`) — what the skills read. **When:** a
   convention, route or setting changes.

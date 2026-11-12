@@ -12,6 +12,20 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.42] - 2026-11-11
+
+### Internal
+
+- **Every contributor's coding agent now gets the same MCP servers.** Until now each machine
+  configured its own, and Claude Code and Codex had drifted apart. `.mcp.json` (Claude Code) and
+  `.codex/config.toml` (Codex, loaded once the project is trusted) commit the shared set: Context7,
+  for current library docs. `AGENTS.md` gains an "MCP servers" section with two rules for any
+  server, committed or personal: none may return secret values, and none may make a production
+  change. `docs/agents/tooling.md` covers the setup, the maintainer-only Cloudflare API server, and
+  the servers deliberately left out (1Password, Supabase, git and GitHub servers, personal
+  connectors), each with its reason. `CONTRIBUTING.md` points contributors to the two files. No
+  visible change.
+
 ## [1.18.41] - 2026-11-10
 
 ### Internal
@@ -6186,7 +6200,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.41...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.42...HEAD
+[1.18.42]: https://github.com/jwh3times/magic-agenda/compare/v1.18.41...v1.18.42
 [1.18.41]: https://github.com/jwh3times/magic-agenda/compare/v1.18.40...v1.18.41
 [1.18.40]: https://github.com/jwh3times/magic-agenda/compare/v1.18.39...v1.18.40
 [1.18.39]: https://github.com/jwh3times/magic-agenda/compare/v1.18.38...v1.18.39

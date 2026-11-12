@@ -126,6 +126,11 @@ Never hand-edit the generated trees — the script owns them, and the check fail
 missing, edited, or left over from a deleted source. See
 [Agents, skills, and docs automation](./docs/agents/tooling.md) for the mapping.
 
+The shared MCP servers are declared in `.mcp.json` (Claude Code asks you to approve them on first
+use) and `.codex/config.toml` (Codex loads it once you trust the project). Both are hand-written:
+change them together. See [MCP servers](./docs/agents/tooling.md#mcp-servers) for what is in them
+and what is deliberately left out.
+
 ## Standards
 
 - **Tests are required.** Pure logic (`src/data`, `src/dnd`, `src/theme`) is unit‑tested with Vitest;
