@@ -12,15 +12,15 @@ keep `AGENTS.md`, `README.md`, and `CHANGELOG.md` aligned when it affects projec
 architecture, or release notes. `ROADMAP.md` is a pointer to GitHub Issues and holds no item list to
 update.
 
-**Five workflow skills install from the shared `jwh3times/skills` repository:** `ship`,
-`end-session`, `docs-updater`, `handoff`, and `lets-go`. Their bodies are identical in every
-repository that installs them; what is particular to this one is in the settings files under
-`docs/agents/` — `workspace.md`, `issue-tracker.md`, `human-follow-up.md`, `docs.md`, `releases.md`,
-`ship.md`, and `handoffs.md` — which each skill's first step reads and, when one is missing,
-proposes. Change behavior here by editing a setting; fix a skill body upstream, then reinstall. The
-other skills come from one pinned `mattpocock/skills` snapshot, the same in every repository, and are
-never edited here either. The install commands for both are in the `shared-skills` block of
-`AGENTS.md`.
+**Six workflow skills install from the shared `jwh3times/skills` repository:** `ship`,
+`end-session`, `docs-updater`, `handoff`, `lets-go`, and `what-next`. Their bodies are identical in
+every repository that installs them; what is particular to this one is in the settings files under
+`docs/agents/` — `workspace.md`, `issue-tracker.md`, `triage-labels.md`, `human-follow-up.md`,
+`docs.md`, `releases.md`, `ship.md`, `dev-flow.md`, and `handoffs.md` — which each skill's first
+step reads and, when one is missing, proposes. Change behavior here by editing a setting; fix a
+skill body upstream, then reinstall. The other skills come from one pinned `mattpocock/skills`
+snapshot, the same in every repository, and are never edited here either. The install commands for
+both are in the `shared-skills` block of `AGENTS.md`.
 
 Never run `npx skills update`: it re-runs the install for every agent it detects, which links
 `.claude/skills/<name>` back to its authored source instead of copying it.
@@ -47,6 +47,11 @@ Never run `npx skills update`: it re-runs the install for every agent it detects
   through the `proton-drive` CLI — is that machine's config (`~/.config/handoffs/config`; see
   `.agents/skills/handoff/machine-config.md`), not this repository's. This `/handoff` is the machine
   handoff, not `mattpocock/skills`' portable-file one that `ask-matt` describes.
+- **`what-next`** (read-only, and an agent may run it unasked) reports what to work on next: work
+  already in flight, ready issues ranked by the `Priority order` in `docs/agents/issue-tracker.md`
+  (`Priority`, then the board's order), what needs the maintainer, what needs shaping first, and
+  blocks that have cleared — and names the one command to run. It changes no issue, label or board
+  field.
 
 ## Two authored trees, two generated trees — opposite directions on purpose
 

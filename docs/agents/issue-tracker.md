@@ -145,3 +145,9 @@ Any `Gate` other than `Nothing — ready to work` goes with the `blocked` label
 
 The default. An accepted risk also goes in the current security and operational register in
 `private/README.md`, with its revisit trigger.
+
+## Priority order
+
+- `Priority`: `P1` / `P2` / `P3`.
+- `board order`: the board's manual order, top first, which ranks items by importance within
+  each band.
