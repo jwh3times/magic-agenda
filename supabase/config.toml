@@ -224,9 +224,9 @@ minimum_password_length = 10
 # are: `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
 password_requirements = "lower_upper_letters_digits_symbols"
 # Leaked-password protection (Have I Been Pwned, a Pro-plan feature) is meant to be ON in production
-# and is deliberately undeclared here: Supabase CLI 3.0 has no config key for it, so `config push`
-# neither sets nor clears it. The operator changes it in the dashboard. Why, and how to verify it:
-# docs/agents/supabase-config.md. A breached password gets its own copy in the app (#276).
+# and is deliberately undeclared here: Supabase CLI 3.x (checked to 3.1.0) has no key for it, so
+# `config push` neither sets nor clears it. The operator changes it in the dashboard. Why, and how
+# to verify it: docs/agents/supabase-config.md. A breached password gets its own app copy (#276).
 
 # Configure passkey sign-ins.
 # [auth.passkey]
