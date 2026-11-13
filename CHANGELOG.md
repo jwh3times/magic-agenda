@@ -12,6 +12,15 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.45] - 2026-11-12
+
+### Internal
+
+- **`/what-next` puts an active handoff first.** When `handoff_map.json` names one for this
+  repository, the report leads with it and recommends `/lets-go`, and one whose document has not
+  reached this machine is shown as pending. It still changes nothing, and a machine without the
+  handoffs config skips the check.
+
 ## [1.18.44] - 2026-11-12
 
 ### Internal
@@ -6217,7 +6226,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.44...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.45...HEAD
+[1.18.45]: https://github.com/jwh3times/magic-agenda/compare/v1.18.44...v1.18.45
 [1.18.44]: https://github.com/jwh3times/magic-agenda/compare/v1.18.43...v1.18.44
 [1.18.43]: https://github.com/jwh3times/magic-agenda/compare/v1.18.42...v1.18.43
 [1.18.42]: https://github.com/jwh3times/magic-agenda/compare/v1.18.41...v1.18.42
