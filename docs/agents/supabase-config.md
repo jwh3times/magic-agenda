@@ -36,11 +36,14 @@ Production also has two settings the file leaves undeclared on purpose.
 **Leaked-password protection** (Pro, #276) has no `config.toml` key at all: Supabase CLI 3.0's
 config-to-API mapping covers `minimum_password_length` and `password_requirements` but not
 the Management API's `password_hibp_enabled`. So `config push` can neither set nor clear it, and it
-is changed in the dashboard by the operator. Verify it by reading `password_hibp_enabled` from the
-Management API's auth config. If a later CLI adds a key for it, declare it `true` and expect a
+is changed in the dashboard by the operator. Unlike image transformation below, `config diff` has
+nothing to compare it with either, so it never appears in the diff, not even as `remote-only`: an
+absent line says nothing about whether it is on. Verify it by reading `password_hibp_enabled` from
+the Management API's auth config. If a later CLI adds a key for it, declare it `true` and expect a
 `Config` diff of nothing.
 
-`storage.image_transformation.enabled = true` (a Pro-plan feature). `config push` pushes only
+**Image transformation**, `storage.image_transformation.enabled = true` (a Pro-plan feature), is
+declarable but left out. `config push` pushes only
 declared settings that differ (`update`) or that production lacks (`local-only`), never a
 `remote-only` one, so leaving it out keeps it as it is. Declaring it would cost either way: `true`
 turns image transformation on for a full local `supabase start` too, and `false` would turn it off
