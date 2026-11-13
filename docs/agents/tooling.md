@@ -47,11 +47,11 @@ Never run `npx skills update`: it re-runs the install for every agent it detects
   through the `proton-drive` CLI — is that machine's config (`~/.config/handoffs/config`; see
   `.agents/skills/handoff/machine-config.md`), not this repository's. This `/handoff` is the machine
   handoff, not `mattpocock/skills`' portable-file one that `ask-matt` describes.
-- **`what-next`** (read-only, and an agent may run it unasked) reports what to work on next: work
-  already in flight, ready issues ranked by the `Priority order` in `docs/agents/issue-tracker.md`
-  (`Priority`, then the board's order), what needs the maintainer, what needs shaping first, and
-  blocks that have cleared — and names the one command to run. It changes no issue, label or board
-  field.
+- **`what-next`** (read-only, and an agent may run it unasked) reports what to work on next: an
+  active handoff waiting for `/lets-go`, work already in flight, ready issues ranked by the
+  `Priority order` in `docs/agents/issue-tracker.md` (`Priority`, then the board's order), what
+  needs the maintainer, what needs shaping first, and blocks that have cleared — and names the one
+  command to run. It changes no issue, label or board field.
 
 ## Two authored trees, two generated trees — opposite directions on purpose
 
