@@ -31,7 +31,15 @@ runs `supabase config push --yes`). The `Config` CI job previews the pending pus
 those paths with the read-only `supabase config diff --exit-code` (exit 0: the remote matches the
 file; exit 2: the printed diff is pending).
 
-Production also has one setting the file leaves undeclared on purpose:
+Production also has two settings the file leaves undeclared on purpose.
+
+**Leaked-password protection** (Pro, #276) has no `config.toml` key at all: Supabase CLI 3.0's
+config-to-API mapping covers `minimum_password_length` and `password_requirements` but not
+the Management API's `password_hibp_enabled`. So `config push` can neither set nor clear it, and it
+is changed in the dashboard by the operator. Verify it by reading `password_hibp_enabled` from the
+Management API's auth config. If a later CLI adds a key for it, declare it `true` and expect a
+`Config` diff of nothing.
+
 `storage.image_transformation.enabled = true` (a Pro-plan feature). `config push` pushes only
 declared settings that differ (`update`) or that production lacks (`local-only`), never a
 `remote-only` one, so leaving it out keeps it as it is. Declaring it would cost either way: `true`

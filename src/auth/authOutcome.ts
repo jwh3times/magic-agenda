@@ -20,6 +20,7 @@ export type AuthFailureReason =
   | 'email-not-confirmed'
   | 'email-taken'
   | 'weak-password'
+  | 'leaked-password'
   | 'same-password'
   | 'expired-link'
   | 'rate-limited'
@@ -68,6 +69,8 @@ const MESSAGES: Record<Exclude<AuthFailureReason, 'unknown'>, string> = {
   'email-taken': 'An account already exists for that email. Try signing in instead.',
   'weak-password':
     'That password is too weak. Use at least 10 characters, including upper- and lower-case letters, a number, and a symbol.',
+  'leaked-password':
+    'That password has appeared in a known data breach. Choose one you don’t use anywhere else.',
   'same-password': 'That’s already your current password. Choose a different one.',
   'expired-link': 'This link is invalid or has expired.',
   'rate-limited': 'Too many attempts. Wait a minute and try again.',
@@ -122,10 +125,17 @@ export function authFailure(reason: Exclude<AuthFailureReason, 'unknown'>): Auth
  * `AuthWeakPasswordError` are **not** `AuthApiError`s — `isAuthApiError` returns false for both —
  * so the code-based lookup below would never see them. `AuthWeakPasswordError` even carries
  * `code: 'weak_password'`, which makes it look like the table would catch it. It would not.
+ *
+ * A breached password arrives as the same `AuthWeakPasswordError` as a short one, told apart only
+ * by `"pwned"` in its `reasons` (#276). It wins over any other reason given alongside it: the
+ * length-and-character advice is wrong for a password that already follows it, while "pick one
+ * that has not leaked" stays true whatever else the user changes.
  */
 export function classifyAuthError(e: unknown): AuthFailure {
   if (isAuthRetryableFetchError(e)) return authFailure('offline')
-  if (isAuthWeakPasswordError(e)) return authFailure('weak-password')
+  if (isAuthWeakPasswordError(e)) {
+    return authFailure(e.reasons.includes('pwned') ? 'leaked-password' : 'weak-password')
+  }
 
   if (isAuthApiError(e)) {
     const reason = e.code ? CODE_REASONS[e.code] : undefined

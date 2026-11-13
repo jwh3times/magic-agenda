@@ -46,6 +46,28 @@ test('classifies the two error classes that are not AuthApiErrors', () => {
   )
 })
 
+test('a breached password gets its own reason, even when it also breaks another rule (#276)', () => {
+  // With leaked-password protection on, GoTrue rejects `Summer2024!` with the same weak_password
+  // error as `abc`. Telling that user to add characters and a symbol is advice they already took.
+  for (const reasons of [['pwned'], ['length', 'pwned'], ['characters', 'pwned']] as const) {
+    const failure = classifyAuthError(new AuthWeakPasswordError('weak', 422, [...reasons]))
+    expect(failure.reason).toBe('leaked-password')
+    expect(failure.message).toBe(
+      'That password has appeared in a known data breach. Choose one you don’t use anywhere else.',
+    )
+  }
+})
+
+test('a weak password without a breach keeps the length-and-character advice', () => {
+  for (const reasons of [['length'], ['characters'], ['length', 'characters'], []] as const) {
+    const failure = classifyAuthError(new AuthWeakPasswordError('weak', 422, [...reasons]))
+    expect(failure.reason).toBe('weak-password')
+    expect(failure.message).toBe(
+      'That password is too weak. Use at least 10 characters, including upper- and lower-case letters, a number, and a symbol.',
+    )
+  }
+})
+
 test('a bare fetch TypeError is offline, not unknown', () => {
   // This is the #131 case: a rejected fetch carries no auth-js branding at all, and calling it
   // "expired" would send a user with a good link off to request another one.
