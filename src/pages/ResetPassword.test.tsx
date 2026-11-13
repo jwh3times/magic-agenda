@@ -2,8 +2,10 @@ import { StrictMode } from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
+import { AuthWeakPasswordError } from '@supabase/supabase-js'
 import { beforeEach, expect, test } from 'vitest'
 import { AuthProvider } from '../auth/AuthProvider'
+import { failed } from '../auth/authOutcome'
 import { fakeAuthGateway, fakeSession, type FakeAuth } from '../auth/fakeAuthGateway'
 import { loadCapturedAuthTokenUrl } from '../test/authTokenCapture'
 import { ResetPassword } from './ResetPassword'
@@ -76,6 +78,29 @@ test('a failed update surfaces the message, keeps the flag, and clears busy', as
   // The gate must stay up: a failed update means the password was NOT changed.
   expect(sessionStorage.getItem('ma-password-recovery')).toBe('1')
   expect(screen.getByRole('button', { name: 'Set new password' })).toBeEnabled()
+})
+
+test('a breached password is refused with the breach copy, not the length advice (#276)', async () => {
+  // This page is the only place a user chooses a password: sign-up sends a random one and routes
+  // here after confirmation. Run through the real classifier, so a page that substituted its own
+  // weak-password copy fails.
+  liveRecoverySession()
+  fake.next.setPassword = failed(
+    new AuthWeakPasswordError('Password is known to be weak', 422, ['pwned']),
+  )
+  render(tree())
+  await userEvent.type(await screen.findByPlaceholderText('New password'), 'Summer2024!x')
+  await userEvent.type(screen.getByPlaceholderText('Confirm new password'), 'Summer2024!x')
+  await userEvent.click(screen.getByRole('button', { name: 'Set new password' }))
+
+  expect(
+    await screen.findByText(
+      'That password has appeared in a known data breach. Choose one you don’t use anywhere else.',
+    ),
+  ).toBeInTheDocument()
+  expect(screen.queryByText(/at least 10 characters/)).not.toBeInTheDocument()
+  expect(screen.queryByText(/known to be weak/)).not.toBeInTheDocument()
+  expect(sessionStorage.getItem('ma-password-recovery')).toBe('1')
 })
 
 // ——— redemption ———

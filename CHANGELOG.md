@@ -12,6 +12,38 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.47] - 2026-11-13
+
+### Changed
+
+- **A breached password gets its own message (#276).** With leaked-password protection, the auth
+  server refuses a password found in a known data breach with the same error as a short one. The
+  app used to answer both by asking for at least 10 characters with mixed case, a number and a
+  symbol: advice a breached `Summer2024!`-style password already follows. A breach refusal now
+  says the password has appeared in a known data breach and to choose one not used elsewhere, and
+  it takes precedence when the server reports other problems with the same password. Length and
+  character refusals keep their message. The set-password page (password reset, and the step after
+  confirming a new account) is the only place a user meets either.
+
+### Internal
+
+- **Leaked-password protection is a production setting `config.toml` cannot hold.** The project is
+  now on Supabase Pro, which includes it, but Supabase CLI 3.x (checked on 3.0.0 and 3.1.0) maps
+  no config key to it, so `config push` can neither set nor clear it and `config diff` never shows
+  it. `supabase/config.toml` gains a comment saying so, `docs/agents/supabase-config.md` now lists
+  two settings undeclared on purpose, and `docs/agents/auth.md` gains a password-policy section.
+  The operator turns the setting on after this release deploys.
+
+## [1.18.46] - 2026-11-13
+
+### Internal
+
+- Dependabot: bumped the `npm-minor-and-patch` group (#662), all development dependencies —
+  `@testing-library/user-event` 14.6.8 → 14.6.9, `oxlint` 1.92.0 → 1.93.0, the Supabase CLI
+  (`supabase`) 3.0.0 → 3.1.0 and `vite` 8.3.6 → 8.3.7. The deploy workflows install the CLI
+  version `package.json` names, so v1.18.47 is the first config push through 3.1.0. Backfilled by
+  v1.18.47, per the changelog guard's Dependabot exemption.
+
 ## [1.18.45] - 2026-11-12
 
 ### Internal
@@ -6226,7 +6258,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.45...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.47...HEAD
+[1.18.47]: https://github.com/jwh3times/magic-agenda/compare/v1.18.46...v1.18.47
+[1.18.46]: https://github.com/jwh3times/magic-agenda/compare/v1.18.45...v1.18.46
 [1.18.45]: https://github.com/jwh3times/magic-agenda/compare/v1.18.44...v1.18.45
 [1.18.44]: https://github.com/jwh3times/magic-agenda/compare/v1.18.43...v1.18.44
 [1.18.43]: https://github.com/jwh3times/magic-agenda/compare/v1.18.42...v1.18.43

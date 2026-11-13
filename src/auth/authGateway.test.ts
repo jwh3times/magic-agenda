@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from 'vitest'
-import { AuthApiError } from '@supabase/supabase-js'
+import { AuthApiError, AuthWeakPasswordError } from '@supabase/supabase-js'
 
 const ok = { data: { session: null, user: null }, error: null }
 
@@ -143,6 +143,22 @@ test('a returned { error } becomes the same shape as a thrown one', async () => 
       message: 'That email and password don’t match an account.',
     },
   })
+})
+
+test('both password-setting actions report a breached password as leaked, not as weak (#276)', async () => {
+  // Leaked-password protection rejects through the same vendor class as a short password; only the
+  // `reasons` tell them apart. Sign-up and the reset page's setPassword are the two ways in.
+  const breached = new AuthWeakPasswordError('Password is known to be weak', 422, ['pwned'])
+  h.signUp.mockResolvedValue({ data: { session: null, user: null }, error: breached })
+  h.updateUser.mockResolvedValue({ data: { user: null }, error: breached })
+
+  for (const outcome of [
+    await gw.signUp('a@b.co', 'Summer2024!x', 'captcha'),
+    await gw.setPassword('Summer2024!x'),
+  ]) {
+    expect(outcome.ok).toBe(false)
+    if (!outcome.ok) expect(outcome.failure.reason).toBe('leaked-password')
+  }
 })
 
 test('signOut swallows a rejection rather than blocking the local sign-out cascade', async () => {

@@ -291,7 +291,8 @@ the same: merging a change to `supabase/config.toml` or `supabase/templates/` tr
 Config** (`supabase config push --yes`), so database TLS enforcement, the connection pooler's mode
 and sizes, Data API defaults, the auth redirect allow‑list and password policy, and the two auth
 email templates all live in the repo rather than the dashboard
-([what the file holds for production](./docs/agents/supabase-config.md)).
+([what the file holds for production](./docs/agents/supabase-config.md), and the two production
+settings it leaves out).
 
 `main` is **protected** — it's PR‑only (no direct pushes), and a PR must satisfy the
 [required checks and merge rules](./AGENTS.md#required-checks-and-releases) before merging.

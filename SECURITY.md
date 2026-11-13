@@ -78,6 +78,8 @@ This repository runs several automated checks (configured in `.github/`):
   policy, OTP and rate limits, MFA) live in `supabase/config.toml` and deploy from CI, so a weakening
   change is reviewable in a PR diff and previewed by the `Config` check rather than made silently in a
   dashboard. Secrets are `env()` references resolved from encrypted Actions secrets, never committed.
+  The one password rule outside the file is leaked-password protection, which the Supabase CLI
+  cannot declare and is set in the dashboard instead.
 
 ## Responsible disclosure
 

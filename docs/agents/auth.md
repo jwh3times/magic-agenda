@@ -77,6 +77,22 @@ The gate is per-tab. Someone who confirms and closes the tab before choosing a p
 signed in on that device with no password; "Forgot password?" is their way to set one. Google
 sign-in is unaffected: the auth server already discards an unconfirmed password on that path.
 
+## Password policy, and a breached password's own copy
+
+The auth server enforces the policy; the app only explains a refusal. `supabase/config.toml` sets
+`minimum_password_length = 10` and `password_requirements = "lower_upper_letters_digits_symbols"`.
+**Leaked-password protection** (Have I Been Pwned, a Pro feature) is a third rule, set only in
+production: the CLI has no `config.toml` key for it, so it is changed in the dashboard (Authentication
+→ Email, "Prevent use of leaked passwords") and read back as `password_hibp_enabled` from the
+Management API's auth config. See [When changing Supabase config](supabase-config.md).
+
+All three rules refuse with the same `AuthWeakPasswordError`; only its `reasons` (`length`,
+`characters`, `pwned`) tell them apart. `classifyAuthError()` maps `pwned` to the `leaked-password`
+reason, whose copy says the password appeared in a breach, and everything else to `weak-password`
+and its length-and-character advice (#276). A breach wins when both are reported, because the
+length advice is wrong for a password that already follows it. Since sign-up sends a throwaway
+password, `ResetPassword` is the only page where a user can meet either refusal.
+
 ## The auth seam: pages never touch `supabase.auth`
 
 **`src/auth/authGateway.ts` is the only module in `src/` that may call `supabase.auth.*`.** Until

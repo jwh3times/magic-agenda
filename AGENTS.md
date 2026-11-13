@@ -335,7 +335,7 @@ preview. **A green `Config` check means the diff ran, not that nothing is pendin
 before merging.
 
 The `Config` preview job's exact invocation and when it skips, which `[db.pooler]` keys reach
-production and the one setting left undeclared on purpose, the CLI-version and auth-secret wiring,
+production and the two settings left undeclared on purpose, the CLI-version and auth-secret wiring,
 Turnstile, the email templates' constraints, and why deleting an Edge Function directory does not
 delete the function:
 [When changing Supabase config](docs/agents/supabase-config.md).

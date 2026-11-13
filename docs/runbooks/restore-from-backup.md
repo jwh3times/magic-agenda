@@ -513,7 +513,9 @@ The project ref changes, so:
 3. Re-apply auth configuration: merge any change touching `supabase/config.toml` (or run the
    **Deploy Auth Config** workflow manually) so the redirect allow-list, password policy, SMTP, the
    connection pooler's mode and sizes, and the email templates land on the new project. A restored
-   database does **not** carry these.
+   database does **not** carry these. Neither does that deploy carry the production settings
+   `config.toml` leaves undeclared, leaked-password protection among them: set each one on the new
+   project by hand, as [When changing Supabase config](../agents/supabase-config.md) lists them.
 4. Recreate the Google OAuth client's redirect URI for the new `<ref>.supabase.co` host.
 
 ## 6. Delete the plaintext

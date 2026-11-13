@@ -31,13 +31,23 @@ runs `supabase config push --yes`). The `Config` CI job previews the pending pus
 those paths with the read-only `supabase config diff --exit-code` (exit 0: the remote matches the
 file; exit 2: the printed diff is pending).
 
-Production also has one setting the file leaves undeclared on purpose:
-`storage.image_transformation.enabled = true` (a Pro-plan feature). `config push` pushes only
-declared settings that differ (`update`) or that production lacks (`local-only`), never a
-`remote-only` one, so leaving it out keeps it as it is. Declaring it would cost either way: `true`
-turns image transformation on for a full local `supabase start` too, and `false` would turn it off
-in production on merge. Every `config diff` lists it as the one `remote-only` line, and that line
-is expected.
+Production also has two settings the file leaves undeclared on purpose.
+
+**Leaked-password protection** (Pro, #276) has no `config.toml` key at all: the config-to-API
+mapping of Supabase CLI 3.x (checked on 3.0.0 and 3.1.0) covers `minimum_password_length` and
+`password_requirements` but not the Management API's `password_hibp_enabled`. So `config push` can
+neither set nor clear it, and it is changed in the dashboard by the operator. Unlike image
+transformation below, `config diff` has nothing to compare it with either, so it never appears in
+the diff, not even as `remote-only`: an absent line says nothing about whether it is on. Verify it
+by reading `password_hibp_enabled` from the Management API's auth config. If a later CLI adds a key
+for it, declare it `true` and expect a `Config` diff of nothing.
+
+**Image transformation**, `storage.image_transformation.enabled = true` (a Pro-plan feature), is
+declarable but left out. `config push` pushes only declared settings that differ (`update`) or that
+production lacks (`local-only`), never a `remote-only` one, so leaving it out keeps it as it is.
+Declaring it would cost either way: `true` turns image transformation on for a full local
+`supabase start` too, and `false` would turn it off in production on merge. Every `config diff`
+lists it as the one `remote-only` line, and that line is expected.
 
 **A green `Config` check means the diff ran, not that nothing is pending.**
 `scripts/config-preview.sh` passes on exit 2 as well as on exit 0, because the printed diff is the
