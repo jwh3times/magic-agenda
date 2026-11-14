@@ -12,6 +12,20 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.49] - 2026-11-14
+
+### Internal
+
+- **The RLS baseline test and the testing guide call #283 an accepted risk (#665).** #283 was
+  closed as not planned on 2026-11-13, but the test that watches it was still named "which is why
+  #283 stays open", and its comments and `docs/agents/testing.md` still treated it as a finding
+  waiting to close. Both now say why it was accepted (every table here is created as `postgres`, so
+  nothing inherits the permissive `supabase_admin` defaults). Both list #283's three reopen
+  triggers and say how far anything watches each one. The `42501` assertion watches the first. A
+  platform-created table in `public` is caught only in part, by the schema-posture checks, and not
+  by the default-privileges baseline. A table created as another role is watched by nothing. The
+  SQL, the assertions and the pinned baseline are unchanged.
+
 ## [1.18.48] - 2026-11-14
 
 ### Internal
@@ -6280,7 +6294,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.48...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.49...HEAD
+[1.18.49]: https://github.com/jwh3times/magic-agenda/compare/v1.18.48...v1.18.49
 [1.18.48]: https://github.com/jwh3times/magic-agenda/compare/v1.18.47...v1.18.48
 [1.18.47]: https://github.com/jwh3times/magic-agenda/compare/v1.18.46...v1.18.47
 [1.18.46]: https://github.com/jwh3times/magic-agenda/compare/v1.18.45...v1.18.46

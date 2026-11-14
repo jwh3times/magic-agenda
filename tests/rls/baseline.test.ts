@@ -310,12 +310,26 @@ test('no policy applies to PUBLIC', async () => {
  * that migration is load-bearing in CI too, and `structure.test.ts`'s "a newly created table is NOT
  * reachable" test passes *because of it*, not because a fresh database is benign.
  *
- * **The `supabase_admin` rows are the open finding, and they are why this is a baseline rather than
- * a catch-all.** `postgres` is not a superuser and not a member of `supabase_admin`, so
- * `alter default privileges for role supabase_admin ...` fails with `42501` -- for us, everywhere,
- * not just in one environment. Nothing this repository can run will change those lines. What this
- * test buys is that they are now *watched*: it fails the day Supabase changes them, which is
- * realistically the only way we would find out.
+ * **The `supabase_admin` rows are an accepted risk (#283, closed 2026-11-13), and they are why this
+ * is a baseline rather than a catch-all.** `postgres` is not a superuser and not a member of
+ * `supabase_admin`, so `alter default privileges for role supabase_admin ...` fails with `42501` --
+ * for us, everywhere, not just in one environment. Nothing this repository can run will change
+ * those lines. The risk was accepted because exposure today is zero: every table here is created as
+ * `postgres`, by a migration or the Studio table editor, so none inherits these defaults. Asking
+ * Supabase support would change one project's platform role defaults, not close the gap.
+ *
+ * What this test buys is that they are *watched*: it fails the day Supabase changes them, which is
+ * realistically the only way we would find out, and a signal to re-read #283 rather than just
+ * commit the new set. #283 reopens on any of three triggers:
+ *
+ * 1. **The `42501` refusal stops.** `postgres` has gained the membership, and a migration could
+ *    revoke these defaults. Watched: the `42501` test below fails.
+ * 2. **Supabase starts creating platform tables in `public`.** Not watched here: creating a table
+ *    changes no default-ACL row. The schema-posture checks fail on a table in `public` without RLS
+ *    and a policy, which such a table would likely be (docs/agents/testing.md).
+ * 3. **This project needs a table in `public` created as a role other than `postgres`**, which
+ *    means anything but a migration or the Studio table editor. Not watched; nothing automated can
+ *    see it, so it is a rule for whoever adds such a table.
  *
  * Two residuals here are wider than #283's own summary, which talks only about tables:
  *
@@ -379,10 +393,11 @@ test('the default privileges future objects in public inherit are the reviewed o
   expect(rows.map((r) => r.line)).toEqual(DEFAULT_ACL)
 })
 
-test('postgres cannot alter supabase_admin default privileges, which is why #283 stays open', async () => {
+test('postgres cannot alter supabase_admin default privileges (#283, accepted risk)', async () => {
   // The refusal itself is the assertion. If this ever stops throwing, `postgres` has gained
   // membership or superuser and the migration's skipped second statement becomes runnable --
-  // at which point #283 is closable and this test is the thing that says so.
+  // #283's first reopen trigger: the defaults can then be revoked rather than accepted, and this
+  // test is the thing that says so.
   const outcome = await withPg(async (pg) => {
     await pg.query('begin')
     try {
