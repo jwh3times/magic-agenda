@@ -12,6 +12,28 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.48] - 2026-11-14
+
+### Internal
+
+- **The docs describe the Supabase Pro plan's two backups (#663).** Production moved to Pro on
+  2026-11-13, so the claim that Supabase keeps no backups had become false. `AGENTS.md`, the
+  README, the backup guide and the `Backup` workflow now present Supabase's daily backups (7 days,
+  on the platform, without the attached files) and the encrypted nightly bundle (90 days,
+  off-platform, the only copy of the files) as complementary. The nightly backup is kept. The
+  restore runbook opens with which route to take: the managed restore for a database broken within
+  the last 7 days, the bundle for anything older, for a lost project, for repairing a few rows, and
+  for the files.
+- **The 500 MB attachment warning is a budget, not half a quota.** Its value is unchanged. It caps
+  the nightly encrypted artifact and the backup job's download time, which Pro's larger storage
+  allowance does not move.
+- **`config.toml` declares `auth.email.require_current_password = true`**, which production already
+  had on, so every `Config` diff loses its second `remote-only` line and the local stack and E2E
+  run as production does. Users see no change: the app's only password write is the set-password
+  page, and the auth server skips the check for a recovery session and for an Account with no
+  password yet. The analytics and vector bucket comments now say both Pro features stay off on
+  purpose.
+
 ## [1.18.47] - 2026-11-13
 
 ### Changed
@@ -6258,7 +6280,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.47...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.48...HEAD
+[1.18.48]: https://github.com/jwh3times/magic-agenda/compare/v1.18.47...v1.18.48
 [1.18.47]: https://github.com/jwh3times/magic-agenda/compare/v1.18.46...v1.18.47
 [1.18.46]: https://github.com/jwh3times/magic-agenda/compare/v1.18.45...v1.18.46
 [1.18.45]: https://github.com/jwh3times/magic-agenda/compare/v1.18.44...v1.18.45
