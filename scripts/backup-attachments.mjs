@@ -32,7 +32,10 @@ import { pathToFileURL } from 'node:url'
 
 export const ATTACHMENTS_BUCKET = 'attachments'
 
-/** Half the free tier's 1 GB. Past it, #411's option 3 (separate object storage) is the plan. */
+/**
+ * A deliberate budget, not a share of a plan quota: it bounds the nightly encrypted artifact's size
+ * and the job's download time. Past it, #411's option 3 (separate object storage) is the plan.
+ */
 export const SIZE_WARNING_BYTES = 500 * 1024 * 1024
 
 /** Per download. A 10 MiB object needs far less; a stalled one should retry, not hang. */

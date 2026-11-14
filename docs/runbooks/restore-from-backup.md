@@ -3,6 +3,24 @@
 **Read this before you need it.** The first time you follow these steps should not be during an
 outage.
 
+## 0. Choose the route
+
+There are two backups, and they are not interchangeable (#663):
+
+- **Supabase's managed daily backups** (Pro plan, since 2026-11-13): kept **7 days**, point-in-time
+  recovery off. Restoring one in place from the dashboard (Database → Backups) replaces this
+  project's database: the project is down while it runs, and everything written since that backup
+  is lost on every Board. It restores the database only. Storage objects are not rolled back, so a
+  file deleted since the backup stays gone, and a file uploaded since stays in the bucket with no
+  row pointing at it. **First route when the database broke within the last 7 days and the project
+  itself is fine** (section 2's second case).
+- **The encrypted nightly bundle** this runbook restores: kept **90 days**, off-platform, and the
+  only copy of the attached files. **The route for anything older than 7 days, for a project that
+  is gone, for repairing a few damaged rows (section 2's first case), and for the files.** Its
+  files can also be put back after a managed restore: run 3.5 against this project.
+
+## The bundle route
+
 - **Produced by:** [`.github/workflows/backup.yml`](../../.github/workflows/backup.yml) — nightly at
   09:00 UTC, plus manual runs (Actions → Backup → Run workflow).
 - **Where backups live:** GitHub Actions artifacts on the `Backup` workflow runs, named
@@ -146,8 +164,10 @@ Be honest about the failure before touching production. The three cases are diff
   restore. Load the relevant dump into a **scratch project or a local `supabase start`**, extract
   just the affected rows, and apply them to production as targeted SQL. A full restore would revert
   every legitimate change made since the backup.
-- **The database is unusable but the project exists.** Restore into a fresh project (below), then
-  repoint the app. Restoring over a live database is a second outage on top of the first.
+- **The database is unusable but the project exists.** If it broke within the last 7 days,
+  Supabase's managed restore (section 0) is the quicker route, at the cost of everything written
+  since. Otherwise, restore the bundle into a fresh project (below), then repoint the app. Loading
+  a bundle over a live database by hand is a second outage on top of the first.
 - **The project is gone.** Create a new project, then restore into it.
 
 ## 3. Restore into a fresh project

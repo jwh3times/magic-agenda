@@ -2,9 +2,12 @@ name: Backup
 
 # Nightly encrypted logical backup of the production database.
 #
-# WHY THIS EXISTS: the project is on the Supabase free tier, which has **no automated backups at
-# all**. Without this, a dropped table or a bad migration loses every user's data with no restore
-# path — the app's export/import is per-user and manual, so it is not a backup.
+# WHY THIS EXISTS: since the move to the Supabase Pro plan (2026-11-13) Supabase keeps daily
+# backups of its own, but only for 7 days, on the same platform as the data, and without the
+# attached files. This bundle is the other route: off-platform, kept 90 days, and the only copy that
+# holds the files (#411). Without it, damage noticed after a week, or anything that takes the
+# Supabase project with it, has no restore path -- the app's export/import is per-user and manual,
+# so it is not a backup.
 #
 # WHY IT IS ENCRYPTED ON THE RUNNER: this repository is PUBLIC, and GitHub Actions artifacts on
 # public repositories can be downloaded by anyone (the "ArtiPACKED" research, Aug 2024; GitHub
