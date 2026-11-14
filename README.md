@@ -282,7 +282,7 @@ The database is backed up nightly by the **Backup** workflow — a logical dump 
 and accounts) plus the attachments bucket's configuration and object policies, GPG-encrypted on the
 runner and kept as a 90-day Actions artifact. Since v1.15.23 the bundle also carries every attached
 file, with a checksummed manifest that is verified after the encryption round trip. Supabase's own daily backups
-(Pro plan, kept 7 days) complement it: they are the quicker route for a recent incident, while the
+(Pro plan, kept 7 days) complement it: they are the first route for a recent incident, while the
 encrypted bundle covers anything older, recovery off the platform, and the attached files. To
 restore, follow
 [docs/runbooks/restore-from-backup.md](./docs/runbooks/restore-from-backup.md).

@@ -273,10 +273,9 @@ double_confirm_changes = true
 enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = true
-# If enabled, changing a password needs the current one. Production already has it on, so declaring
-# it changes nothing there and ends a `remote-only` line in every `config diff` (#663). It never
-# touches the app's only password write, `ResetPassword`: Supabase Auth skips the check for a
-# recovery session and for an Account with no password yet, the two cases that page serves.
+# If enabled, changing a password needs the current one. Production already has it on; declaring it
+# changes nothing there and ends a second `remote-only` line in every `config diff` (#663). Why it
+# never touches `ResetPassword`: docs/agents/supabase-config.md.
 require_current_password = true
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
 max_frequency = "1m0s"

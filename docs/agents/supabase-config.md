@@ -49,8 +49,9 @@ Declaring it would cost either way: `true` turns image transformation on for a f
 `supabase start` too, and `false` would turn it off in production on merge. Every `config diff`
 lists it as the one `remote-only` line, and that line is expected.
 
-**Requiring the current password**, `auth.email.require_current_password = true`, is declared even
-though production already had it on (#663). Supabase CLI 3.1.0 began comparing the key, and while
+A third production setting is declared even though declaring it changes nothing there.
+**Requiring the current password**, `auth.email.require_current_password = true`, was already on
+in production (#663). Supabase CLI 3.1.0 began comparing the key, and while
 the file left it at the default `false`, every diff carried it as a second `remote-only` line.
 Declaring it costs nothing the app can see: the only password write is `ResetPassword`, and
 Supabase Auth skips the check for a recovery session and for an Account that has no password yet,

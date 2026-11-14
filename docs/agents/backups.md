@@ -5,8 +5,11 @@ plan (2026-11-13), Supabase takes its own daily backups, kept 7 days, with point
 off. They are the first route for a recent incident, but they live on the same platform as the data
 and do not hold the attached files. So `.github/workflows/backup.yml` still takes its own nightly
 logical dump, encrypted and kept off-platform as a 90-day Actions artifact, which is the route for
-anything older, for recovery away from Supabase, and for the files. The dump holds: `schema.sql` (DDL for `public`), `storage.sql` (the attachments bucket and
-its object policies — see below), `attachments/` (the attached files themselves, since #411), plus
+anything older, for recovery away from Supabase, and for the files. Which to use when is the
+[restore runbook](../runbooks/restore-from-backup.md)'s first step.
+
+The dump holds: `schema.sql` (DDL for `public`), `storage.sql` (the attachments bucket and its
+object policies — see below), `attachments/` (the attached files themselves, since #411), plus
 `data.sql`, which carries **both** the
 `public` and `auth` rows — `supabase db dump --data-only` includes Supabase-managed schemas even
 though the schema dump excludes them. Do not "helpfully" add a separate `--schema auth` data dump;

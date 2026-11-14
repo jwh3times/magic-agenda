@@ -377,10 +377,9 @@ Setup, and the servers deliberately left out:
 
 Supabase's own daily backups (Pro plan, kept 7 days) are the first route for a recent incident, but
 they stay on the platform and hold no attached files. So `.github/workflows/backup.yml` also takes
-a nightly logical dump with the files, GPG-encrypted on the runner before upload and kept off-platform
-for 90 days. **Treat every artifact this repo
-uploads as public**: never add a step that uploads anything unencrypted, and never echo dump
-contents to the log.
+a nightly logical dump with the files, GPG-encrypted on the runner before upload and kept
+off-platform for 90 days. **Treat every artifact this repo uploads as public**: never add a step
+that uploads anything unencrypted, and never echo dump contents to the log.
 
 What the bundle must contain, why each verification assertion exists, and what restoring actually
 requires: [Backups](docs/agents/backups.md).
