@@ -152,6 +152,9 @@ enabled = false
 
 # Store analytical data in S3 for running ETL jobs over Iceberg Catalog
 # This feature is only available on the hosted platform.
+# Off on purpose, and this one does reach production. Analytics Buckets is a Pro feature, and the
+# move to Pro (2026-11-13) left it ON in production; nothing here uses it, so v1.18.47's Deploy
+# Auth Config pushed this `false` back (#663). Keep it off until a feature needs it.
 [storage.analytics]
 enabled = false
 max_namespaces = 5
@@ -164,10 +167,9 @@ max_catalogs = 2
 # Store vector embeddings in S3 for large and durable datasets
 # Off for local consistency only -- this one does not reach production. The CLI's pending diff for
 # this project's storage config contains `file_size_limit`, `s3_protocol` and `analytics` and **no
-# vector section at all**, so there is nothing remote for this flag to change. That fits the note
-# below: Vector Buckets is a Pro feature and this project is on Free. `[storage.analytics]` carries
-# the same note and was already false, so the file disagreed with itself about which Pro-only
-# defaults to leave on; this settles it.
+# vector section at all**, so there is nothing remote for this flag to change. Vector Buckets is a
+# Pro feature, like `[storage.analytics]` above, and the project is on Pro now (2026-11-13), but
+# nothing here uses it either, so both Pro-only defaults stay off on purpose (#663).
 [storage.vector]
 enabled = false
 max_buckets = 10
@@ -271,6 +273,10 @@ double_confirm_changes = true
 enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = true
+# If enabled, changing a password needs the current one. Production already has it on; declaring it
+# changes nothing there and ends a second `remote-only` line in every `config diff` (#663). Why it
+# never touches `ResetPassword`: docs/agents/supabase-config.md.
+require_current_password = true
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
 max_frequency = "1m0s"
 # Number of characters used in the email OTP.
@@ -278,7 +284,7 @@ otp_length = 8
 # Number of seconds before the email OTP expires (defaults to 1 hour).
 otp_expiry = 3600
 
-# Production email goes through Resend (configured 2026-07-25; free tier).
+# Production email goes through Resend (configured 2026-07-25; Resend's free tier).
 # The API key is a GitHub Actions secret; env() resolves it in the deploy workflows.
 [auth.email.smtp]
 enabled = true
