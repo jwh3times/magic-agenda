@@ -375,8 +375,10 @@ Setup, and the servers deliberately left out:
 
 ## Backups
 
-The free Supabase tier has **no automated backups**, so `.github/workflows/backup.yml` takes a
-nightly logical dump, GPG-encrypted on the runner before upload. **Treat every artifact this repo
+Supabase's own daily backups (Pro plan, kept 7 days) are the first route for a recent incident, but
+they stay on the platform and hold no attached files. So `.github/workflows/backup.yml` also takes
+a nightly logical dump with the files, GPG-encrypted on the runner before upload and kept off-platform
+for 90 days. **Treat every artifact this repo
 uploads as public**: never add a step that uploads anything unencrypted, and never echo dump
 contents to the log.
 

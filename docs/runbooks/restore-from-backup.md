@@ -3,6 +3,23 @@
 **Read this before you need it.** The first time you follow these steps should not be during an
 outage.
 
+## 0. Choose the route
+
+There are two backups, and they are not interchangeable (#663):
+
+- **Supabase's managed daily backups** (Pro plan, since 2026-11-13): kept **7 days**, point-in-time
+  recovery off. Restored from the dashboard (Database → Backups) onto the same project, so the
+  project is unavailable while it runs and everything written after that backup is lost. It does
+  **not** bring back the attached files: Supabase's database backups hold Storage metadata, not the
+  objects. **First route for a recent incident** where the project itself still exists. Weigh
+  section 2's first case before using it: it rolls back every Board, not just the damaged rows.
+- **The encrypted nightly bundle** this runbook restores: kept **90 days**, off-platform, and the
+  only copy of the attached files. **The route for anything older than 7 days, for a project that
+  is gone or untrustworthy, for a targeted row repair, and for the files** (3.5 restores them
+  behind either route).
+
+The rest of this runbook is the bundle route.
+
 - **Produced by:** [`.github/workflows/backup.yml`](../../.github/workflows/backup.yml) — nightly at
   09:00 UTC, plus manual runs (Actions → Backup → Run workflow).
 - **Where backups live:** GitHub Actions artifacts on the `Backup` workflow runs, named

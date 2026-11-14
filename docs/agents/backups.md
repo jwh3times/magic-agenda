@@ -1,7 +1,11 @@
 # Backups
 
-The free Supabase tier has **no automated backups**, so `.github/workflows/backup.yml` takes a
-nightly logical dump: `schema.sql` (DDL for `public`), `storage.sql` (the attachments bucket and
+Production has two recovery routes, and neither replaces the other. Since the move to the **Pro**
+plan (2026-11-13), Supabase takes its own daily backups, kept 7 days, with point-in-time recovery
+off. They are the first route for a recent incident, but they live on the same platform as the data
+and do not hold the attached files. So `.github/workflows/backup.yml` still takes its own nightly
+logical dump, encrypted and kept off-platform as a 90-day Actions artifact, which is the route for
+anything older, for recovery away from Supabase, and for the files. The dump holds: `schema.sql` (DDL for `public`), `storage.sql` (the attachments bucket and
 its object policies — see below), `attachments/` (the attached files themselves, since #411), plus
 `data.sql`, which carries **both** the
 `public` and `auth` rows — `supabase db dump --data-only` includes Supabase-managed schemas even
@@ -66,7 +70,7 @@ cleanly. The generator itself refuses to write a file with no bucket row or no p
 "attachments are backed up" cannot be recorded for a bundle that restores nothing.
 
 **The attached files are the fourth part (#411).** #401 deferred them — they are unbounded in size,
-cost egress on the free tier, and must stay inside the encrypted bundle — until one of its named
+cost egress on every nightly run, and must stay inside the encrypted bundle — until one of its named
 triggers fired. Shared Boards (#279) was that trigger: losing files someone else uploaded to your
 Board is not a personal problem. `scripts/backup-attachments.mjs` lists the bucket's objects through
 the Management API's read-only query, derives the service key from the access token (held in memory and never printed —
@@ -96,8 +100,10 @@ hypothetical: an attachment deleted during the run would have failed the whole b
   could not be detected.
 - **`task_attachments` rows with no object** are counted: an upload reservation in flight at dump
   time is legitimate, because the row is reserved before the bytes land.
-- **A bucket past 500 MB**, half the free tier, warns that #411's option 3 is now due: separate
-  object storage, off the nightly artifact.
+- **A bucket past 500 MB** warns that #411's option 3 is now due: separate object storage, off the
+  nightly artifact. The figure is a deliberate budget, not a share of a plan quota: it bounds the
+  size of the encrypted artifact every night uploads and the time the job spends downloading it,
+  and the Pro plan's far larger storage allowance does not move it.
 
 The job carries `timeout-minutes: 60`. The log shows counts and byte totals only, because object
 paths are Board and Task ids.
