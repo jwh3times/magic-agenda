@@ -140,8 +140,8 @@ test('a newly created table is NOT reachable by the Data API roles by default', 
   // 20260729190000 cannot revoke them -- `postgres` is not a member of that role, so the
   // statement raises insufficient_privilege and is skipped by design, with a notice. Tables the
   // Supabase platform itself creates in `public` as `supabase_admin` therefore remain
-  // auto-granted. That gap is real, narrow, documented in the migration and ROADMAP.md, and not
-  // closeable from a migration.
+  // auto-granted. That gap is real, narrow, not closeable from a migration, and an accepted risk
+  // (#283); docs/agents/testing.md says what would reopen it.
   const { anon, authenticated } = await withPg(async (pg) => {
     await pg.query('begin')
     try {

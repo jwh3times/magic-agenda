@@ -527,11 +527,28 @@ sequences and functions are permissive too, so a platform-created function in `p
 `EXECUTE`-able by `anon` by default. Nothing this repository can run will change that; the refusal
 is structural rather than environmental.
 
-**It is now watched, which is the part that changed.** `baseline.test.ts` pins the whole
+**It is an accepted risk, and it is watched.** #283 was closed as not planned on 2026-11-13:
+exposure today is zero, because every table here is created as `postgres`, by a migration or the
+Studio table editor, so none inherits the `supabase_admin` defaults. Asking Supabase support would
+change one project's platform role defaults, not close the gap. `baseline.test.ts` pins the whole
 `pg_default_acl` picture for `public` by strict equality, and separately asserts that the
-`supabase_admin` alter still fails with `42501`. The first fails the day Supabase tightens or
-loosens anything; the second fails the day `postgres` gains the membership that would make #283
-closable. The fifth structural test still connects as `postgres` and still cannot create a table as
+`supabase_admin` alter still fails with `42501`. #283 reopens on any of three triggers:
+
+1. **The `42501` refusal stops**, because `postgres` has gained the membership and a migration could
+   revoke the defaults. Watched: the `42501` assertion fails.
+2. **Supabase starts creating platform tables in `public`.** Not watched by the baseline, because
+   creating a table changes no `pg_default_acl` row. It is caught only in part: a table in `public`
+   without RLS and a policy fails `production_posture.test.ts` locally and
+   `verify-schema-posture.mjs` after each migration deploy, and a platform-created table would
+   likely be one.
+3. **This project needs a table in `public` created as a role other than `postgres`**, which means
+   anything but a migration or the Studio table editor. Not watched; nothing automated can see it,
+   so it is a rule for whoever adds such a table.
+
+The strict-equality baseline still fails the day Supabase tightens or loosens the defaults
+themselves; that is a signal to re-read #283, not just to commit the new set.
+
+The fifth structural test still connects as `postgres` and still cannot create a table as
 `supabase_admin` — that has not changed, and is why the baseline reads the ACL directly instead.
 
 One residual is wider than #283's own summary and worth knowing before adding a sequence:
