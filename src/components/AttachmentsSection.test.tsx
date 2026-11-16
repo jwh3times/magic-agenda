@@ -116,7 +116,7 @@ test('an oversized file is refused without an upload', async () => {
   renderSection()
   await screen.findByText('No attachments yet.')
 
-  const input = screen.getByTestId('attachment-input') as HTMLInputElement
+  const input = screen.getByTestId<HTMLInputElement>('attachment-input')
   const big = new File(['x'], 'huge.png', { type: 'image/png' })
   Object.defineProperty(big, 'size', { value: 10_485_761 })
   await userEvent.upload(input, big)
@@ -132,7 +132,7 @@ test('a disallowed type is refused even if it gets past the picker', async () =>
   renderSection()
   await screen.findByText('No attachments yet.')
 
-  const input = screen.getByTestId('attachment-input') as HTMLInputElement
+  const input = screen.getByTestId<HTMLInputElement>('attachment-input')
   const bad = new File(['<html>'], 'page.html', { type: 'text/html' })
   // `applyAccept: false` belongs on `setup()` in user-event v14, not on the call.
   const user = userEvent.setup({ applyAccept: false })
@@ -147,7 +147,7 @@ test('a valid file uploads and the list reloads', async () => {
   await screen.findByText('No attachments yet.')
   h.listAttachments.mockResolvedValue([attachment()])
 
-  const input = screen.getByTestId('attachment-input') as HTMLInputElement
+  const input = screen.getByTestId<HTMLInputElement>('attachment-input')
   await userEvent.upload(input, new File(['x'], 'diagram.png', { type: 'image/png' }))
 
   await waitFor(() => expect(h.uploadAttachment).toHaveBeenCalledOnce())
@@ -161,7 +161,7 @@ test('a failed upload surfaces the reason and leaves the list alone', async () =
   renderSection()
   await screen.findByText('No attachments yet.')
 
-  const input = screen.getByTestId('attachment-input') as HTMLInputElement
+  const input = screen.getByTestId<HTMLInputElement>('attachment-input')
   await userEvent.upload(input, new File(['x'], 'diagram.png', { type: 'image/png' }))
 
   expect(await screen.findByRole('alert')).toHaveTextContent('storage unavailable')
@@ -213,7 +213,7 @@ test('a recovered load clears the previous error', async () => {
   h.listAttachments.mockResolvedValue([attachment()])
   // Any successful reload does it; removing is the cheapest trigger available here.
   await userEvent.click(screen.getByRole('button', { name: 'Add attachment' }))
-  const input = screen.getByTestId('attachment-input') as HTMLInputElement
+  const input = screen.getByTestId<HTMLInputElement>('attachment-input')
   await userEvent.upload(input, new File(['x'], 'diagram.png', { type: 'image/png' }))
 
   await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())

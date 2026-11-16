@@ -217,7 +217,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 function importFile(json: string) {
-  const input = screen.getByLabelText('Import file') as HTMLInputElement
+  const input = screen.getByLabelText<HTMLInputElement>('Import file')
   const file = new File([json], 'export.json', { type: 'application/json' })
   fireEvent.change(input, { target: { files: [file] } })
 }
