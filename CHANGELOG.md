@@ -12,6 +12,18 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.52] - 2026-11-18
+
+### Internal
+
+- **Claude Code asks permission less often for read-only commands in this repository.** The
+  project allowlist in `.claude/settings.json` gains eight rules, chosen from the tool calls in the
+  50 most recent agent sessions. They cover reading project-board items and fields
+  (`gh project item-list`, `gh project field-list`), `gh run watch`, `nslookup`, the exact
+  `npx tsc --noEmit` typecheck, and the Context7 and Cloudflare documentation lookups. Commands that
+  change state or could run arbitrary code stay off the list. That includes `git fetch`, whose
+  `--upload-pack` option runs any command.
+
 ## [1.18.51] - 2026-11-18
 
 ### Internal
