@@ -12,6 +12,24 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.53] - 2026-11-18
+
+### Internal
+
+- **Claude Code now asks before running most npm scripts and every package install in this
+  repository** (#674). The project allowlist in `.claude/settings.json` drops its `npm run:*` and
+  `npm install:*` wildcards. In their place are exact rules for the scripts agents run all the
+  time: `lint`, `format:check`, `format`, `build`, `sync:agents:check`, `sync:agents`,
+  `check:claude-md` and `lint:agents`, each plain and in its `npm run -s` form, plus `npm ci`.
+- Everything else under `npm run` or `npm install` now prompts. That covers `sync:main` (which
+  switches both checkouts' branches), `bootstrap:private`, the RLS and E2E scripts, `test:watch`,
+  `lint:fix`, `dev`, `preview`, any script added later, a bare `npm install` and installing a
+  named package. A form the rules don't name exactly, such as one with extra arguments, may
+  prompt too.
+- `npm test` and `npx vitest run` stay pre-approved.
+- This limits surprise side effects. It doesn't stop an agent running code it can edit, since an
+  allowed script still runs whatever is in the working tree.
+
 ## [1.18.52] - 2026-11-18
 
 ### Internal
