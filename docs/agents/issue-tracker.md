@@ -103,6 +103,33 @@ fix goes in neither tracker: it is a draft repository advisory (`Security findin
 Series, Recurrence Rule, Occurrence, Occurrence Date, Scheduled Day, Excluded Date. `template` and
 `instance` are implementation words; an issue title using them is drift.
 
+## `gh` and board traps
+
+Each of these answers quietly wrong rather than failing.
+
+- **`gh project item-list` returns 30 items by default.** Pass `--limit 300`, and filter on
+  `content.repository` as well as the number, since the board holds both trackers.
+- **`gh project item-list 5 --owner jwh3times` can fail with `unknown owner type`** while
+  `field-list` works. Don't retry it: read an item through GraphQL
+  (`repository.issue(number: N).projectItems`, filtered to project 5) and write with
+  `updateProjectV2ItemFieldValue`. A just-filed issue may not be on the board yet; add it with
+  `addProjectV2ItemById`, which is safe if auto-add also fires.
+- **A board-wide `projectV2(number: 5).items` query with `--paginate` can hang.** Answer "what's
+  next" by listing issues by label, then reading board fields per candidate issue.
+- **`gh api -f` sends every value as a string, and `-F` turns digit-only values into numbers.** The
+  dependencies endpoint needs `-F issue_id=…`; a GraphQL `singleSelectOptionId` is a string even
+  when it is all digits, so it needs `-f`.
+- **Issue dependencies are REST-only**, and `gh issue view` prints `blocked-by:` without the
+  blocker's state, so a blocker closed months ago still reads as live. Read
+  `GET /repos/{o}/{r}/issues/{n}/dependencies/blocked_by`, which carries `state`.
+- **A reopened issue keeps `Status: Done`.** Set it back by hand.
+- **When another session is active, re-list open issues right before filing**, not only at the
+  start: two sessions filed the same issue two minutes apart.
+- **A `ready-for-human` queue check must query both repositories.** Older public product decisions
+  carry the label too.
+- **The GraphQL budget is shared** with other sessions and routines; check `gh api rate_limit`
+  before waiting out a rate-limit error.
+
 ## Public repository
 
 jwh3times/magic-agenda
