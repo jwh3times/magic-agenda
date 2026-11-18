@@ -41,8 +41,9 @@ this file holds the traps, most of them on the maintainer's Windows machine.
 - **Run `deno test` from inside `supabase/functions/`.** Deno finds `deno.json` and `deno.lock` from
   the working directory upward, never from a path argument, and a root-invoked run fails on cold
   caches.
-- **`deno fmt` owns `supabase/`**, with its own line width; Prettier ignores it. Run `deno fmt` from
-  inside `supabase/functions/` before pushing.
+- **`deno fmt` owns `supabase/functions/`**, with its own line width. The `format` script's globs
+  leave `supabase/` out, but `.prettierignore` does not. Run `deno fmt` from inside
+  `supabase/functions/` before pushing: the `Functions` check runs `deno fmt --check` there.
 - **A stray `deno.lock` at the repository root**, or a change to `supabase/functions/deno.lock`, can
   appear after a Deno run. Delete or restore it before committing: the committed
   `supabase/functions/deno.lock` is the real one.
@@ -52,7 +53,8 @@ this file holds the traps, most of them on the maintainer's Windows machine.
 - **An untyped `createClient` infers rows as `never`.** Use `.returns<T[]>()`, and derive a parameter
   type from a factory (`type Admin = ReturnType<typeof adminClient>`).
 - **The planner graph loaded by `materialize-series`** (series, recurrence, dates, checklist steps,
-  field ownership, mappers) needs explicit `.ts` import specifiers, because Deno loads it.
+  field ownership, mappers) needs explicit `.ts` import specifiers, because Deno loads it
+  ([Recurrence](recurrence.md)).
 
 ## The local stack
 
@@ -62,7 +64,7 @@ attempt was made to access a socket in a way forbidden` on 54322, and
   `net stop winnat` then `net start winnat` in an administrator shell. Never move the ports: they
   live in `supabase/config.toml`, which is production config.
 - **`npm run test:rls:up` restores a cached stack and doesn't apply new migrations.**
-  `npx supabase db reset --local` does.
+  `npx supabase db reset` does; it targets the local stack by default since Supabase CLI v3.
 - **Stopping a background `vite preview` can leave its child listening on 4173**, so the next
   `--strictPort` preview fails while the old process serves whatever `dist/` now holds. Find it with
   `netstat -ano | grep ":4173 .*LISTENING"` and stop it by PID.

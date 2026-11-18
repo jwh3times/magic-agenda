@@ -12,6 +12,32 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.51] - 2026-11-18
+
+### Internal
+
+- **Lessons kept in one machine's agent memory now live in the repository.** Three new area
+  guides hold what no script or test enforces. `docs/agents/merging.md` covers reading CI, merging,
+  what "complete all follow ups" covers, shipping several PRs at once, and dependency PRs.
+  `docs/agents/local-runs.md` covers judging a local lint or test result, formatting, Edge
+  Functions, the local stack and the Windows machine's shell traps. `docs/agents/verification.md`
+  covers tests that pass for the wrong reason and checking specs, records and claims before
+  reporting them. `docs/agents/issue-tracker.md` gains the `gh` and project-board traps that answer
+  quietly wrong. `AGENTS.md` states that adding or dropping a column the client writes takes more
+  than one release, because `Deploy Migrations` races the Pages build. `AGENTS.md` and the
+  docs-updater Doc map list the new guides. Every agent and every machine now reads the same rules.
+
+## [1.18.50] - 2026-11-16
+
+### Internal
+
+- Dependabot: bumped the `npm-minor-and-patch` group (#668), all development dependencies —
+  `@testing-library/user-event` 14.6.9 → 14.6.10, `jsdom` 31.0.0 → 31.0.1, `oxlint-tsgolint`
+  7.0.2006 → 7.0.2007, `prettier` 3.9.10 → 3.10.1 and `vite` 8.3.7 → 8.3.8. The newer type-aware
+  linter flags `screen.getBy*(...) as HTMLInputElement`, so two component tests now pass the
+  element type as the query's generic instead. Backfilled by v1.18.51, per the changelog guard's
+  Dependabot exemption.
+
 ## [1.18.49] - 2026-11-14
 
 ### Internal
@@ -6294,7 +6320,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.49...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.51...HEAD
+[1.18.51]: https://github.com/jwh3times/magic-agenda/compare/v1.18.50...v1.18.51
+[1.18.50]: https://github.com/jwh3times/magic-agenda/compare/v1.18.49...v1.18.50
 [1.18.49]: https://github.com/jwh3times/magic-agenda/compare/v1.18.48...v1.18.49
 [1.18.48]: https://github.com/jwh3times/magic-agenda/compare/v1.18.47...v1.18.48
 [1.18.47]: https://github.com/jwh3times/magic-agenda/compare/v1.18.46...v1.18.47

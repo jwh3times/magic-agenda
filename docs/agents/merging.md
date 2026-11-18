@@ -15,9 +15,10 @@ ups". What gates a merge and how a version is minted are in
   `toomanyrequests` and the `address already in use` on ports 54322 or 54324 that follows a
   half-started stack both pass on `gh run rerun <id> --failed`. Recognize it by the step: no test
   ran.
-- **`E2E` has a known upstream crash**: `Received signal 11 SEGV_MAPERR` in
-  `chrome-headless-shell`, caused by the test runner's trace recording (#141). Check for it before
-  assuming a red `E2E` is yours.
+- **`E2E` has a known upstream crash signature**: `Received signal 11 SEGV_MAPERR` from Chromium,
+  triggered by the test runner's trace recording on the legacy `chrome-headless-shell` (#141).
+  Switching to `channel: 'chromium'` in `playwright.config.ts` mitigated it and #141 is closed; if
+  the signature recurs it is that bug, not the PR, and #141 is the issue to reopen.
 - **A required check that fails on code the PR can't reach isn't the PR's fault**, however many
   times it fails. A control branch (`main` plus only this PR's changelog section) settles it; more
   reruns don't. A test seeded relative to today can behave differently by weekday.
