@@ -22,6 +22,10 @@ Settings the shared `docs-updater`, `end-session` and `ship` skills read (instal
   `src/dnd/`: `drag-and-drop.md`; `src/theme/`: `ui.md`; a workflow or required check:
   `releases.md` and `testing.md`; `.agents/`, `.claude/`, `.codex/`, `.mcp.json` or
   `scripts/sync-agents.mjs`: `tooling.md`.
+- `docs/agents/merging.md`, `docs/agents/local-runs.md`, `docs/agents/verification.md` — from open
+  PR to finished merge and its follow-ups; running suites, lint and the local stack without a false
+  result; proving a test, fix or claim. **When:** a lesson is learned that no script or test
+  enforces, or a command, check or workflow they quote changes.
 - `docs/agents/` settings and conventions (`workspace`, `issue-tracker`, `human-follow-up`, `docs`,
   `releases`, `ship`, `handoffs`, `triage-labels`, `domain`) — what the skills read. **When:** a
   convention, route or setting changes.

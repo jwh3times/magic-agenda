@@ -199,6 +199,12 @@ the area it covers; do not rely on this page's summaries for it.
 - [**Development flow**](docs/agents/dev-flow.md) — what this repository adds to the shared flow.
 - [**Backups**](docs/agents/backups.md) — the nightly encrypted dump, what the bundle must contain,
   and what a restore actually requires.
+- [**Merging**](docs/agents/merging.md) — reading CI, merging, everything "complete all follow ups"
+  covers, several PRs at once, and dependency PRs.
+- [**Local runs**](docs/agents/local-runs.md) — judging a local result, formatting, Edge Functions,
+  the local stack, and the Windows machine's traps.
+- [**Verification**](docs/agents/verification.md) — tests that pass for the wrong reason, and
+  checking specs, records and claims before reporting them.
 
 ### Required human follow-up
 
@@ -261,6 +267,13 @@ regenerating types. Regenerate `src/types/database.types.ts` with `supabase gen 
 schema is applied (`gen types --remote` reads the linked project; bare `gen types` reads the local
 stack). Keep the `mappers.ts` conventions above intact.
 Prefer test-first for pure logic in `src/data` and `src/dnd` (these have thorough unit tests).
+
+**Adding or dropping a column the client writes takes more than one release.** `Deploy Migrations`
+races the Cloudflare Pages build on every merge, and a client that sends a column the database lacks
+gets `400 PGRST204` on every write. Adding one is a migration first, then the client, with a default
+so the still-deployed client keeps writing valid rows. Dropping a `NOT NULL` column with no default
+is three: relax it, stop sending it, drop it. [Labels](docs/agents/labels.md) and
+[Client state](docs/agents/state-and-sync.md) record the cases that proved it.
 
 **A new function migration must revoke EXECUTE from `anon` and `service_role` explicitly, never
 only from `public` (#384).** `revoke ... from public` drops PostgreSQL's built-in PUBLIC grant and
