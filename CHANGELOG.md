@@ -12,6 +12,15 @@ only work that is on a branch but not yet merged.
 
 No unreleased changes.
 
+## [1.18.54] - 2026-11-18
+
+### Internal
+
+- **`docs/agents/merging.md` warns that the end of `gh pr checks --watch` doesn't mean CI
+  finished.** Run seconds after a PR opened, it returned while `E2E` and `RLS` were still pending.
+  The guide now says to re-read the checks, or poll until nothing but `Cloudflare Pages` is pending
+  or queued, and to confirm `mergeStateStatus` is `CLEAN` before merging.
+
 ## [1.18.53] - 2026-11-18
 
 ### Internal
