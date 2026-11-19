@@ -5,8 +5,9 @@ All notable changes to this project are documented here. The format is based on
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Every merge to `main` auto-releases (the `Version` workflow tags `v<major>.<minor>.<build>`), so each
-released build gets its own section below — named for the version the merge minted. `Unreleased` holds
-only work that is on a branch but not yet merged.
+released build gets its own section below — named for the version the merge minted. Branches never
+edit this file: each writes its entries to `changelog.d/`, and the workflow stamps them into the
+section for the version its merge mints. `Unreleased` stays empty.
 
 ## [Unreleased]
 
@@ -6359,7 +6360,10 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.51...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.54...HEAD
+[1.18.54]: https://github.com/jwh3times/magic-agenda/compare/v1.18.53...v1.18.54
+[1.18.53]: https://github.com/jwh3times/magic-agenda/compare/v1.18.52...v1.18.53
+[1.18.52]: https://github.com/jwh3times/magic-agenda/compare/v1.18.51...v1.18.52
 [1.18.51]: https://github.com/jwh3times/magic-agenda/compare/v1.18.50...v1.18.51
 [1.18.50]: https://github.com/jwh3times/magic-agenda/compare/v1.18.49...v1.18.50
 [1.18.49]: https://github.com/jwh3times/magic-agenda/compare/v1.18.48...v1.18.49

@@ -20,7 +20,7 @@ last (`fix/card-accessible-name-337`); new branches lead with it.
 - **Dependency bumps** are Dependabot PRs and `chore(deps)` / `chore(dev-deps)` / `chore(ci)` bumps:
   the manifest, the lockfile, and pinned action versions. Code edits a bump forces (an API that moved,
   a test that broke) are code here and need an issue or a waiver, unlike the shared default.
-- **Release prep** also covers a `CHANGELOG.md` backfill and a `package.json` major/minor line bump,
+- **Release prep** also covers a `package.json` major/minor line bump,
   including a standalone `chore/release-vX.Y.Z` branch. Inside a gated PR these ride on that PR's issue.
 
 ## Outside this flow

@@ -54,16 +54,17 @@ The lint policy, the three test layers, and what each CI check actually runs:
 
 ## Required checks and releases
 
-`main` is **protected: PR-only, no direct pushes** (no admin bypass). Land changes via a branch and
-a PR. Nine required status checks — `Format`, `Test`, `Build`, `Functions`, `Agents`, `Changelog`,
+`main` is **protected: PR-only, no direct pushes** (no admin bypass; the release GitHub App is the
+one bypass actor, for `Version`'s stamp commit). Land changes via a branch and a PR. Nine required status checks — `Format`, `Test`, `Build`, `Functions`, `Agents`, `Changelog`,
 `Config`, `RLS`, `E2E` — plus the CodeQL gate must pass and review threads must be resolved; 0
 approvals are required, so you can self-merge once green.
 
-**Every merge to `main` is a release**, so every PR adds a `## [x.y.z]` section to `CHANGELOG.md`
-naming the exact version its merge will mint (`node scripts/next-version.mjs`). The `ship` skill
-automates the whole flow.
+**Every merge to `main` is a release**, but no branch names its version: each PR writes its entries
+to its own `changelog.d/<branch-slug>.md` fragment and never edits `CHANGELOG.md`, and after the
+merge the `Version` workflow stamps the fragment into the merge's dated section and tags the merge
+commit (ADR 0005). The `ship` skill writes the fragment.
 
-Version computation, the `Changelog` backfill rule, the two-PRs-one-version clash, the protected
+Version computation, the stamp commit, what the `Changelog` check enforces, the protected
 `release/` branch namespace, and what each merge deploys:
 [Required checks and releases](docs/agents/releases.md).
 
@@ -429,8 +430,9 @@ node scripts/sync-agents.mjs
 ```
 
 `scripts/sync-agents.mjs`, `lint-agent-neutrality.mjs`, `check-docs.mjs`, `check-skills.mjs`, and
-`sync-main.mjs`, `next-version.mjs` and `check-changelog.mjs` where this repository carries them, are
-canonical in `jwh3times/skills` with their tests: fix them there, then copy them here.
+`sync-main.mjs`, `next-version.mjs`, `check-changelog.mjs` and `stamp-changelog.mjs` where this
+repository carries them, are canonical in `jwh3times/skills` with their tests: fix them there, then
+copy them here.
 `sync-agents.mjs` also writes the marked blocks in this file: change them in `jwh3times/skills`, not
 here.
 

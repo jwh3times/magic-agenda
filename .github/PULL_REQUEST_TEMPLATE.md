@@ -21,8 +21,8 @@ Closes #
 - [ ] `npm run format:check` and `npm run lint` pass
 - [ ] `npm test` passes
 - [ ] `npm run build` passes
-- [ ] `CHANGELOG.md` has a `## [x.y.z]` section naming the version this merge will mint
-      (`node scripts/next-version.mjs`), verified with `node scripts/check-changelog.mjs`
+- [ ] The branch's entries are in `changelog.d/<branch-slug>.md` (not `CHANGELOG.md`), verified
+      with `node scripts/check-changelog.mjs`
 - [ ] `npm run sync:agents:check` passes (only relevant if you touched `.claude/agents/` or `.agents/skills/`)
 - [ ] Followed the conventions in [CONTRIBUTING.md](../CONTRIBUTING.md)
 

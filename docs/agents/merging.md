@@ -71,7 +71,10 @@ That phrase covers all of this, without asking between steps:
 1. Confirm the PR's issue closed, and that every issue it only mentions is still open. If one closed
    by mistake, `gh issue reopen` it and set its board `Status` back by hand: reopening doesn't.
 2. Confirm the post-merge `Version`, CI and CodeQL runs and the Cloudflare Pages deploy succeeded,
-   and that the tag exists.
+   and that the tag exists on the merge commit, with `Version`'s
+   `chore(release): v<x.y.z> [skip ci]` stamp commit on top. A `Version` run that ends with "main
+   moved during this run" is benign: the next run releases both merges. Fast-forward local `main`
+   afterwards, since the stamp commit lands after the merge.
 3. Set the board item to Done.
 4. Tidy up: the branch, scratch files, a `vite preview` server on 4173, and the local stack if this
    session started it.
@@ -85,22 +88,20 @@ That phrase covers all of this, without asking between steps:
 
 ## Several PRs at once
 
-- **Prefer shipping one branch at a time.** Branches cut from the same commit all compute the same
-  version, so shipping N at once costs N−1 renumbering passes. For each survivor: merge
-  `origin/main`, keep `main`'s section in the lower position (it is what shipped), move your own
-  entry up to the new number, fix both compare links, push, and update the PR body. Never
-  pre-number branches by hand.
-- **Two dependent PRs ship with no renumbering when the second is stacked on the first's changelog
-  commit.** Give the second its own section above the first's, pointing `[Unreleased]` at it. After
-  the first merges, `git rebase origin/main` drops the merged commits and the second already names
-  the next version. Nothing in CI enforces the merge order, so the stacked PR's body must say
-  "merge #N first". This only fits genuinely dependent branches.
+- **Open PRs merge in any order.** No branch names a version: each carries only its own
+  `changelog.d/` fragment, so catching up with `main` (merge `origin/main`, or "Update branch")
+  never touches `CHANGELOG.md`, and `Version` numbers the merges in the order they land. A
+  `CHANGELOG.md` conflict means the branch edited it, which `Changelog` rejects; move the entries
+  into the branch's fragment.
+- **A stacked PR needs no changelog work either.** Its fragment sits beside the first PR's; after
+  the first merges, `Version` deletes the first's fragment on `main`, and merging `origin/main`
+  carries that deletion over. Nothing in CI enforces the merge order, so the stacked PR's body must
+  say "merge #N first". This only fits genuinely dependent branches.
 
 ## Dependency pull requests
 
-- **Each Dependabot merge leaves a debt the next human PR pays**: it mints a release with no
-  `CHANGELOG.md` section, and the `Changelog` check fails the next PR until it is backfilled. `ship`
-  reads the error and backfills from the tag.
+- **A Dependabot PR needs no changelog work.** It writes no fragment, `Changelog` passes it, and
+  `Version` gives its merge a one-bullet section from its PR title.
 - **A green Dependabot CLI bump proves nothing about deploys.** The deploy workflows install
   `package.json`'s CLI version, so a CLI major can break them after merge. Read the workflows against
   the new version's behavior.

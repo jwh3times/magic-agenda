@@ -36,8 +36,8 @@ npm run dev
                                             # see Agent configuration below)
    ```
 
-   Also add a `## [x.y.z]` changelog section for the version this merge will mint (see
-   [Versioning](#versioning)) and verify it with the same script CI runs:
+   Also write your changelog entries to `changelog.d/<branch-slug>.md` (see
+   [Changelog](#changelog)) and verify them with the same script CI runs:
 
    ```bash
    node scripts/check-changelog.mjs        # the "Changelog" check
@@ -73,8 +73,8 @@ npm run dev
 
 Releases use three-part SemVer tags `v<major>.<minor>.<build>`, where the patch component is an
 auto-incrementing build number. **Every merge to `main` is a release**: the `Version` workflow computes
-the next version with [`scripts/next-version.mjs`](./scripts/next-version.mjs), tags the merge commit,
-and creates a GitHub Release — and Cloudflare Pages deploys the same merge, so a tag and a production
+the next version with [`scripts/next-version.mjs`](./scripts/next-version.mjs)'s rule, stamps the
+merge's changelog section, tags the merge commit, and creates a GitHub Release — and Cloudflare Pages deploys the same merge, so a tag and a production
 deploy are one and the same.
 
 For normal merges, leave `package.json` on the current major/minor line and the build increments
@@ -85,30 +85,25 @@ workflow releases `v<x>.<y>.0` exactly and does not force it to `v<x>.<y>.1`.
 
 ### Changelog
 
-Because every merge ships, each PR must add a **`## [x.y.z]` section naming the version its merge will
-mint** to [CHANGELOG.md](./CHANGELOG.md). Compute that version with `node scripts/next-version.mjs` —
-the same script the `Version` workflow uses — then add the section (grouped under Keep a Changelog
-headings) and update the compare links at the bottom of the file. `## [Unreleased]` stays as a header
-holding only work on a branch that hasn't merged yet (`No unreleased changes.` at rest).
+A branch never edits [CHANGELOG.md](./CHANGELOG.md) and never names the version its merge will
+mint. It writes its entries to its own `changelog.d/<branch-slug>.md` fragment, grouped under
+category headings with no version or date (see [`changelog.d/README.md`](./changelog.d/README.md)).
+After the merge, the `Version` workflow stamps the fragment into the merge's dated section, adds its
+compare link, deletes the fragment, and tags the merge commit
+([ADR 0005](./docs/adr/0005-stamp-changelog-on-tag.md)). A PR with no fragment, such as Dependabot's,
+gets a one-bullet section from its PR title. Open PRs therefore merge in any order without
+renumbering.
 
 The required **`Changelog` check** runs [`scripts/check-changelog.mjs`](./scripts/check-changelog.mjs),
-which enforces two rules:
-
-1. **Your PR names the version its merge will mint.**
-2. **Every already-released build has a section.**
-
-Rule 2 is there because Dependabot PRs are **exempt** from rule 1 — a bot can't write a meaningful
-entry, so its merge ships undocumented and takes a build number with it. The next human PR is where
-that debt comes due: the check fails until you backfill the missing versions. Run the script locally
-to see exactly which ones:
+which fails when a fragment doesn't parse, or when the branch edits a released section, an
+`## [Unreleased]` entry or a fragment already on `main`:
 
 ```bash
 node scripts/check-changelog.mjs
 ```
 
-Read the release tag (`git show --stat v1.2.11`) to write each backfilled entry. Agents can do this
-whole flow — backfill, compute the version, write the entry, run the checks, open the PR — with the
-`ship` skill (see [AGENTS.md](./AGENTS.md)).
+Agents can do the whole flow — write the fragment, run the checks, open the PR — with the `ship`
+skill (see [AGENTS.md](./AGENTS.md)).
 
 ### Agent configuration
 

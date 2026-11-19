@@ -306,9 +306,9 @@ Every merge to `main` is a release: it creates a GitHub Release tagged `v<major>
 deploys to production. The build number auto-increments per major/minor line (new lines may start at
 `x.y.0`). Release level follows shipped impact: incompatible workflow or contract changes start a
 major line, backward-compatible user capabilities start a minor line, and compatible fixes or
-internal work stay on the current line. Every PR names the version its merge will mint in the
-[changelog](./CHANGELOG.md) — the `Changelog` check enforces that, and that no released build is left
-undocumented. See [Versioning](./CONTRIBUTING.md#versioning) for details.
+internal work stay on the current line. Each PR writes its entries to a `changelog.d/` fragment,
+and the `Version` workflow stamps them into that merge's section of the
+[changelog](./CHANGELOG.md) when it tags the release, so every release is documented. See [Versioning](./CONTRIBUTING.md#versioning) for details.
 
 ## Roadmap
 

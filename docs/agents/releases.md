@@ -4,6 +4,8 @@ How a change lands on `main` and becomes a release. Read before opening a PR, pi
 changing a workflow that gates a merge.
 
 `main` is **protected: PR-only, no direct pushes** (no admin bypass). Land changes via a branch + PR.
+The ruleset's one bypass actor is the release GitHub App, "Always allow", so `Version` can push its
+stamp commit; nothing else pushes to `main`.
 The nine required status checks are `Format`, `Test`, `Build`, `Functions`, `Agents`, `Changelog`,
 `Config`, `RLS`, and `E2E`. These checks and the CodeQL gate must pass, and review threads must be
 resolved before merge (0 approvals required, so you can self-merge once green). The
@@ -19,29 +21,30 @@ are applied to production on the same merge by the `Deploy Migrations` workflow 
 under `supabase/migrations/**`). `VITE_*` vars are inlined at **build time**, so they must be set in the
 Pages project, not just locally. Every merge to `main` is also a release: the `Version` workflow
 (`.github/workflows/version.yml`) tags `v<major>.<minor>.<build>` and creates a GitHub Release. The
-next version is computed by `scripts/next-version.mjs` — the single source of truth, also called by the
-CI guard below: for an existing major/minor line the build auto-increments from the highest existing
-`v<major>.<minor>.*` tag; for a new major/minor line the `package.json` build is used as-is, so `x.y.0`
-is valid and does not auto-bump to `x.y.1`. Because every merge ships, **`CHANGELOG.md` names the exact
-version each merge will mint**: a PR adds a `## [x.y.z]` section for its target version (from that
-script). The required `Changelog` job runs `scripts/check-changelog.mjs`, which enforces both that the
-PR names its target version **and** that every already-released 3-part tag has a section. Dependabot
-PRs are exempt from the first (a bot can't write an entry) — so their merges ship undocumented, and
-the second rule fails the next human PR until those builds are backfilled. That job must keep
-reporting a status on **every** PR including Dependabot's (the exemption lives inside the step, not in
-a job-level `if:`) — a required check that never runs leaves a PR unmergeable forever. The `ship`
-skill automates the whole flow, backfill included. `next-version.mjs`, `check-changelog.mjs`,
-`check-docs.mjs`, `check-skills.mjs` and `sync-main.mjs`, with their `node:test` suites, are canonical in
-`jwh3times/skills`: fix them there, then copy them here.
+version is computed by `scripts/next-version.mjs`'s rule: for an existing major/minor line the build
+auto-increments from the highest existing `v<major>.<minor>.*` tag; for a new major/minor line the
+`package.json` build is used as-is, so `x.y.0` is valid and does not auto-bump to `x.y.1`.
 
-**Two PRs open at once both name the same version, and that is the design rather than a bug**
-(#223). The next build is computed from the highest existing tag, so branches cut from the same
-commit _must_ compute the same number; nothing reserves it. Whichever merges second then fails the
-required `Changelog` check for naming an already-minted version, and conflicts on `CHANGELOG.md`
-besides, since both inserted a section at the same offset under `## [Unreleased]`. Both go green
-before either merges, so the failure always lands after review. The fix is mechanical — renumber the
-section, fix its two compare links, resolve the conflict — and `ship` now checks for a competing
-claim before writing, so it is reported up front instead of discovered from a red check.
+**No branch names a version** (`Scheme: stamp-on-tag`, [ADR 0005](../adr/0005-stamp-changelog-on-tag.md)).
+A branch writes its entries to its own `changelog.d/<branch-slug>.md` fragment and never edits
+`CHANGELOG.md`; the `ship` skill does this. After the merge, `Version` runs
+`scripts/stamp-changelog.mjs`, which turns that merge's fragments (or, with none, its PR title) into
+its dated section with its compare link, deletes them, pushes one `chore(release): v<x.y.z> [skip ci]`
+commit through the release App, tags the merge commit, and creates the Release from the section.
+So open PRs merge in any order, and a Dependabot merge gets a section without a backfill. The
+required `Changelog` job runs `scripts/check-changelog.mjs`, which checks that the branch's
+fragments parse and that it edits no released section, no `## [Unreleased]` entry and no fragment
+already on `main`. It has no Dependabot exemption, and it runs on every PR, as a required check
+must: one that never reports leaves a PR unmergeable forever. A fragment may use this changelog's
+own `### Internal` and `### Docs` categories; the stamp sorts them after Keep a Changelog's six.
+`next-version.mjs`, `check-changelog.mjs`, `stamp-changelog.mjs`, `check-docs.mjs`, `check-skills.mjs`
+and `sync-main.mjs`, with their `node:test` suites, are canonical in `jwh3times/skills`: fix them
+there, then copy them here.
+
+**The stamp commit is the tip of `main` but carries no tag**, and Cloudflare Pages skips it, as it
+skips every `[skip ci]` commit; production is the merge commit's build. A Pages build of the stamp
+commit (a manual retry, say) would show the _next_ release's number under the rule below, since it
+is an untagged tip of `main`.
 
 **The app shows its own release, resolved at build time** (Settings footer, for example
 `v1.17.22 · a37c862`). The version is in no source file: `package.json` carries only the
@@ -73,8 +76,10 @@ live site, or the `{version,commit}` object in the deployed bundle.
 
 ## Scheme
 
-per-merge — `.github/workflows/version.yml` tags every merge to `main` `v<major>.<minor>.<build>`,
-and each merge's dated changelog section names the version it mints.
+stamp-on-tag — `.github/workflows/version.yml` tags every merge to `main`
+`v<major>.<minor>.<build>`. Each branch's entries live in its own `changelog.d/<branch-slug>.md`
+fragment; the workflow stamps them into the merge's dated section and tags the merge commit
+(ADR 0005).
 
 ## Ask before bumping
 

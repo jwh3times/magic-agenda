@@ -53,7 +53,10 @@ Settings the shared `docs-updater`, `end-session` and `ship` skills read (instal
   linking rule changes.
 - `.claude/agents/code-reviewer.md` — the reviewer subagent's correctness rules. **When:** the
   app/DB boundary, RLS, recurrence or drag-and-drop rules it reviews against change.
-- `CHANGELOG.md` — release notes, one dated section per merge. `ship-owned`.
+- `CHANGELOG.md` — release notes, one dated section per merge, stamped by `version.yml` after each
+  merge. `frozen`: a branch edits only the policy text at the top.
+- `changelog.d/*.md` — the branch's changelog fragment, one per branch (`changelog.d/README.md`).
+  `ship-owned`.
 - `CLAUDE.md` — only an `@AGENTS.md` import; `npm run check:claude-md` fails without it. `frozen`.
 - `CONTEXT.md` — the domain glossary, maintained through `domain-modeling` (`docs/agents/domain.md`).
   `frozen` for this skill: report a term the code contradicts instead of editing it.

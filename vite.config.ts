@@ -71,6 +71,7 @@ export default defineConfig({
       'scripts/sync-main.test.mjs',
       'scripts/next-version.test.mjs',
       'scripts/check-changelog.test.mjs',
+      'scripts/stamp-changelog.test.mjs',
       'scripts/check-docs.test.mjs',
       'scripts/check-skills.test.mjs',
     ],
