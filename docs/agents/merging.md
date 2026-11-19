@@ -26,6 +26,11 @@ ups". What gates a merge and how a version is minted are in
   before treating it as a regression; `gh run list --branch main` maps runs to commits.
 - **Poll `state` or `mergedAt`, never `mergeable`.** `mergeable` is computed lazily and can stay
   `UNKNOWN` forever, even on a merged PR, so a loop waiting on it never ends.
+- **The end of `gh pr checks --watch` doesn't mean CI finished.** Run seconds after the PR opened,
+  `gh pr checks 673 --watch --required --interval 30` returned with `E2E` and `RLS` still
+  `pending`; its exit status went unread, so whether it errored is unknown. Re-read
+  `gh pr checks <n>` afterward, or poll until no row other than `Cloudflare Pages` is `pending` or
+  `queued`, then confirm `mergeStateStatus` is `CLEAN` before merging.
 - **A step with `continue-on-error` reports success when its command failed.** Read the raw log or
   the uploaded artifact for such a step, not its conclusion.
 
