@@ -20,7 +20,7 @@ ups". What gates a merge and how a version is minted are in
   Switching to `channel: 'chromium'` in `playwright.config.ts` mitigated it and #141 is closed; if
   the signature recurs it is that bug, not the PR, and #141 is the issue to reopen.
 - **A required check that fails on code the PR can't reach isn't the PR's fault**, however many
-  times it fails. A control branch (`main` plus only this PR's changelog section) settles it; more
+  times it fails. A control branch (`main` plus only this PR's changelog fragment) settles it; more
   reruns don't. A test seeded relative to today can behave differently by weekday.
 - **Post-merge CI on `main` can go red from a flake the PR's run passed.** Check which job and test
   before treating it as a regression; `gh run list --branch main` maps runs to commits.
