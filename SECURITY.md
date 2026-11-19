@@ -71,7 +71,8 @@ This repository runs several automated checks (configured in `.github/`):
   merging on medium‑or‑higher severity.
 - **Secret scanning + push protection** — blocks commits containing known secret formats.
 - **Dependabot** — daily dependency + GitHub Actions update PRs, plus security alerts and updates.
-- **Branch protection** — `main` is PR-only. See the
+- **Branch protection** — `main` is PR-only. The one exception is the release GitHub App, which
+  the `Version` workflow uses to push its changelog stamp commit after each merge. See the
   [required checks and merge rules](AGENTS.md#required-checks-and-releases), which link to the
   authoritative GitHub ruleset for scanning thresholds and review-thread resolution.
 - **Auth configuration as code** — the production `[auth]` settings (redirect allow‑list, password

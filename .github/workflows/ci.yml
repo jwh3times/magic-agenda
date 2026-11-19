@@ -88,7 +88,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .nvmrc
-      - run: node --test scripts/sync-agents.test.mjs scripts/lint-agent-neutrality.test.mjs scripts/sync-main.test.mjs scripts/next-version.test.mjs scripts/check-changelog.test.mjs scripts/check-docs.test.mjs scripts/check-skills.test.mjs
+      - run: node --test scripts/sync-agents.test.mjs scripts/lint-agent-neutrality.test.mjs scripts/sync-main.test.mjs scripts/next-version.test.mjs scripts/check-changelog.test.mjs scripts/stamp-changelog.test.mjs scripts/check-docs.test.mjs scripts/check-skills.test.mjs
       - run: npm run sync:agents:check
       - run: node scripts/check-skills.mjs
       - run: npm run check:claude-md
@@ -96,36 +96,24 @@ jobs:
       # Local links and anchors resolve, and the doc map lists every document.
       - run: node scripts/check-docs.mjs
 
-  # Every merge to main auto-releases (see version.yml), so each PR must document
-  # the version its merge will mint, and every already-released build must have an
-  # entry. Only skipped on push-to-main, where "the next version" isn't documented
-  # yet by definition.
+  # PRs only (`Scheme: stamp-on-tag`, ADR 0005): a branch's entries are its changelog.d/
+  # fragment, which version.yml stamps after the merge. The check verifies the fragments parse
+  # and that the branch edits no released section, no `## [Unreleased]` entry and no fragment
+  # already on main. A Dependabot PR touches none of them and passes, with no exemption;
+  # version.yml gives its merge a section from its PR title. The job has no step-level skip, so
+  # it reports a status on every PR, as a required check must.
   Changelog:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          fetch-depth: 0 # full tags, needed to compute the next build number
+          fetch-depth: 0 # origin/main and the tags, the base the branch's changelog changes are compared with
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .nvmrc
-      - name: Verify CHANGELOG covers this merge and every released build
-        # The Dependabot exemption lives in the step, not the job's `if:`, so the
-        # job always reports a status — this is a required check, and one that
-        # never runs leaves a PR unmergeable forever. Keyed off the PR author
-        # rather than github.actor, which becomes a human's name when someone
-        # re-runs a Dependabot PR's workflow and would drop the exemption.
-        env:
-          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
-        run: |
-          if [[ "$PR_AUTHOR" == "dependabot[bot]" ]]; then
-            echo "Dependabot PR: exempt (a bot can't write a changelog entry)."
-            echo "The version this merge mints gets backfilled by the next human PR,"
-            echo "which this same check enforces."
-            exit 0
-          fi
-          node scripts/check-changelog.mjs
+      - name: Verify the changelog fragments and that no released section changed
+        run: node scripts/check-changelog.mjs
 
   # Previews what `supabase config push` would change, WITHOUT applying it, using the
   # read-only `supabase config diff --exit-code` (Supabase CLI v3, #640): exit 0 = the

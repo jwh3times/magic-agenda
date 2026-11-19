@@ -26,8 +26,8 @@ Never run `npx skills update`: it re-runs the install for every agent it detects
 `.claude/skills/<name>` back to its authored source instead of copying it.
 
 - **`ship`** takes a finished branch to an open PR: it evaluates the release level, writes the
-  changelog section for the version the merge will mint (backfilling builds that shipped without
-  one), runs `docs-updater` on the branch's diff, runs the `Fast checks`, pushes, and opens or
+  branch's `changelog.d/` fragment (`version.yml` stamps it into `CHANGELOG.md` after the merge),
+  runs `docs-updater` on the branch's diff, runs the `Fast checks`, pushes, and opens or
   updates the PR. It stops at "PR open"; the maintainer merges.
 - **`end-session`** closes a work session: issues and the board brought up to date, human
   follow-ups recorded, `docs-updater` run, `private/` reconciled, memory updated, and the local
