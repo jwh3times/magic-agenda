@@ -71,9 +71,9 @@ Settings the shared `docs-updater`, `end-session` and `ship` skills read (instal
 - `docs/plans/`, `docs/specs/`, `docs/superpowers/` — dated historical records. `frozen`.
 - `docs/research/*.md` — dated investigations, superseded by later work. `amend-only`.
 - `design/` — the reference-only prototype. `frozen`.
-- `.agents/skills/*/**` — skills, mirrored to `.claude/skills/`: the `mattpocock/skills` set and
-  `end-session`, `handoff`, `lets-go`, `ship`, `docs-updater` and `what-next` from
-  `jwh3times/skills`, all vendored (`skills-lock.json`). `frozen`. **When:** a skill is added, removed or replaced:
+- `.agents/skills/*/**` — skills, mirrored to `.claude/skills/`: the `mattpocock/skills` set and the
+  skills from `jwh3times/skills` that the `shared-skills` block in `AGENTS.md` installs, all
+  vendored (`skills-lock.json`). `frozen`. **When:** a skill is added, removed or replaced:
   `docs/agents/tooling.md` and `AGENTS.md`.
 - `private/README.md` — the companion's index: `Last reconciled`, the `Repository state` line, where
   work is tracked, the current security and operational register, and its document map. **When:**
