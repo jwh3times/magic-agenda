@@ -29,6 +29,11 @@ Settings the shared `docs-updater`, `end-session` and `ship` skills read (instal
 - `docs/agents/` settings and conventions (`workspace`, `issue-tracker`, `human-follow-up`, `docs`,
   `releases`, `ship`, `handoffs`, `triage-labels`, `domain`) — what the skills read. **When:** a
   convention, route or setting changes.
+- `docs/agents/dependabot.md` — the settings the `dependabot` skill reads: the bumps reviewed in
+  full, the install to reproduce, where each dependency is used, the stack facts a review must not
+  get wrong, and the known fix for each kind of bump that has broken before. **When:**
+  `.github/dependabot.yml`, a workflow's actions or `with:` inputs, a toolchain pin (`.nvmrc`) or a
+  dependency family changes, or a fix to a Dependabot PR is confirmed.
 - `README.md` — human developers: overview, the feature list, the tech stack, setup, the commands
   table, the project structure tree, architecture notes, deploy notes. **When:** a setup step, npm
   script or deployment step changes; a user-visible feature changes (the feature list); a core
