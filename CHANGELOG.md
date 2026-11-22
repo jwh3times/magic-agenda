@@ -13,6 +13,20 @@ section for the version its merge mints. `Unreleased` stays empty.
 
 No unreleased changes.
 
+## [1.18.63] - 2026-11-22
+
+### Docs
+
+- **`docs/agents/dependabot.md` holds what the shared `/dependabot` skill needs to review a
+  Dependabot pull request here.** It records the install to reproduce, where each dependency is
+  used, and the facts about this stack a review must not get wrong: the deploy workflows and the
+  backup take their Supabase CLI from the `supabase` pin and run only after a merge, so any bump
+  of it is reviewed in full; `vite-plugin-pwa` hard-peers Vite 8 at most; and the Edge Functions
+  pin their own `@supabase/supabase-js`. It also records the gates and the known fixes for each
+  kind of bump that has broken before: Oxlint and `oxlint-tsgolint` rules (#668, #652), jsdom 31's
+  CSS serialization (#653), axe-core rules (#546) and Supabase CLI 3.0 (#639). The Doc map lists
+  it.
+
 ## [1.18.62] - 2026-11-22
 
 ### Changed
@@ -6424,7 +6438,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.62...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.63...HEAD
+[1.18.63]: https://github.com/jwh3times/magic-agenda/compare/v1.18.62...v1.18.63
 [1.18.62]: https://github.com/jwh3times/magic-agenda/compare/v1.18.61...v1.18.62
 [1.18.61]: https://github.com/jwh3times/magic-agenda/compare/v1.18.60...v1.18.61
 [1.18.60]: https://github.com/jwh3times/magic-agenda/compare/v1.18.59...v1.18.60
