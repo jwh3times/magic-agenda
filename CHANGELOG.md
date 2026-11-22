@@ -13,6 +13,14 @@ section for the version its merge mints. `Unreleased` stays empty.
 
 No unreleased changes.
 
+## [1.18.64] - 2026-11-22
+
+### Docs
+
+- **The Doc map no longer lists the `jwh3times/skills` skills by hand.** The list had gone stale
+  and missed `land` and `dependabot`; the `.agents/skills/*/**` item in `docs/agents/docs.md` now
+  points at the `shared-skills` block in `AGENTS.md`, which the install command keeps current.
+
 ## [1.18.63] - 2026-11-22
 
 ### Docs
@@ -6438,7 +6446,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.63...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.64...HEAD
+[1.18.64]: https://github.com/jwh3times/magic-agenda/compare/v1.18.63...v1.18.64
 [1.18.63]: https://github.com/jwh3times/magic-agenda/compare/v1.18.62...v1.18.63
 [1.18.62]: https://github.com/jwh3times/magic-agenda/compare/v1.18.61...v1.18.62
 [1.18.61]: https://github.com/jwh3times/magic-agenda/compare/v1.18.60...v1.18.61
