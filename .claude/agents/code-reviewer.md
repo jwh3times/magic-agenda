@@ -1,6 +1,7 @@
 ---
 name: code-reviewer
 description: Reviews Magic Agenda diffs for the app/DB boundary, RLS, recurrence, and drag-and-drop correctness rules before merging.
+model: inherit
 tools: Read, Grep, Glob, Bash
 ---
 
