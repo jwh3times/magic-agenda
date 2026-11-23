@@ -34,6 +34,9 @@ Settings the shared `docs-updater`, `end-session` and `ship` skills read (instal
   get wrong, and the known fix for each kind of bump that has broken before. **When:**
   `.github/dependabot.yml`, a workflow's actions or `with:` inputs, a toolchain pin (`.nvmrc`) or a
   dependency family changes, or a fix to a Dependabot PR is confirmed.
+- `docs/agents/guard.md` — the commands `scripts/guard.mjs` denies or asks about here, and the paths
+  it protects, on top of its universal rules. **When:** a **Never run** command or a never-remove
+  path in `workspace.md` changes, or a documented command starts or stops reaching production.
 - `README.md` — human developers: overview, the feature list, the tech stack, setup, the commands
   table, the project structure tree, architecture notes, deploy notes. **When:** a setup step, npm
   script or deployment step changes; a user-visible feature changes (the feature list); a core
