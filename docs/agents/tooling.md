@@ -12,12 +12,12 @@ keep `AGENTS.md`, `README.md`, and `CHANGELOG.md` aligned when it affects projec
 architecture, or release notes. `ROADMAP.md` is a pointer to GitHub Issues and holds no item list to
 update.
 
-**Six workflow skills install from the shared `jwh3times/skills` repository:** `ship`,
-`end-session`, `docs-updater`, `handoff`, `lets-go`, and `what-next`. Their bodies are identical in
-every repository that installs them; what is particular to this one is in the settings files under
-`docs/agents/` — `workspace.md`, `issue-tracker.md`, `triage-labels.md`, `human-follow-up.md`,
-`docs.md`, `releases.md`, `ship.md`, `dev-flow.md`, and `handoffs.md` — which each skill's first
-step reads and, when one is missing, proposes. Change behavior here by editing a setting; fix a
+**The workflow skills the `shared-skills` block of `AGENTS.md` lists install from the shared
+`jwh3times/skills` repository.** Their bodies are identical in every repository that installs
+them; what is particular to this one is in the settings files under `docs/agents/` —
+`workspace.md`, `issue-tracker.md`, `triage-labels.md`, `human-follow-up.md`, `docs.md`,
+`releases.md`, `ship.md`, `dev-flow.md`, `handoffs.md`, `merging.md` and `dependabot.md` — which
+each skill's first step reads and, when one is missing, proposes. Change behavior here by editing a setting; fix a
 skill body upstream, then reinstall. The other skills come from one pinned `mattpocock/skills`
 snapshot, the same in every repository, and are never edited here either. The install commands for
 both are in the `shared-skills` block of `AGENTS.md`.
@@ -52,6 +52,12 @@ Never run `npx skills update`: it re-runs the install for every agent it detects
   `Priority order` in `docs/agents/issue-tracker.md` (`Priority`, then the board's order), what
   needs the maintainer, what needs shaping first, and blocks that have cleared — and names the one
   command to run. It changes no issue, label or board field.
+- **`land`** (user-invoked) merges a pull request the maintainer has named: it catches the branch
+  up, waits for its checks on the current head, merges with the command `docs/agents/merging.md`
+  names, then confirms the version tag, the deploys and the issues the merge closed.
+- **`dependabot`** reviews the open Dependabot pull requests against `docs/agents/dependabot.md`
+  and reports a verdict for each, with its evidence; it posts a verdict, pushes a known fix or
+  hands a PR to `land` only on the maintainer's word. Nothing merges a Dependabot PR on its own.
 
 ## Two authored trees, two generated trees — opposite directions on purpose
 
