@@ -13,6 +13,14 @@ section for the version its merge mints. `Unreleased` stays empty.
 
 No unreleased changes.
 
+## [1.18.70] - 2026-11-23
+
+### Internal
+
+- The `code-reviewer` agent definition now sets `model: inherit`, so it runs on the model of the
+  session that launched it. The Codex mirror is unchanged, because the generator drops `model:`.
+  No app behavior changes.
+
 ## [1.18.69] - 2026-11-23
 
 ### Docs
@@ -6487,7 +6495,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.69...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.70...HEAD
+[1.18.70]: https://github.com/jwh3times/magic-agenda/compare/v1.18.69...v1.18.70
 [1.18.69]: https://github.com/jwh3times/magic-agenda/compare/v1.18.68...v1.18.69
 [1.18.68]: https://github.com/jwh3times/magic-agenda/compare/v1.18.67...v1.18.68
 [1.18.67]: https://github.com/jwh3times/magic-agenda/compare/v1.18.66...v1.18.67
