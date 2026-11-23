@@ -13,6 +13,19 @@ section for the version its merge mints. `Unreleased` stays empty.
 
 No unreleased changes.
 
+## [1.18.69] - 2026-11-23
+
+### Docs
+
+- **`docs/agents/guard.md` holds this repository's own rules for the shared PreToolUse guard,
+  `scripts/guard.mjs`, on top of the ones it applies everywhere.** It denies the Supabase commands
+  that reach production outside a deploy workflow (`config push`, `functions deploy`, an
+  undocumented `--remote` write, `--yes` or `SUPABASE_YES` against a hosted target) and
+  `npx skills update`; asks before `supabase db push --remote` and `supabase functions delete`; and
+  protects `.env.local`, `private/`, the E2E storage state, the Supabase CLI link state,
+  `node_modules/` and `.superpowers/`. The Doc map in `docs/agents/docs.md` names it and when it
+  changes, and `docs/agents/tooling.md` lists it with the other settings files.
+
 ## [1.18.68] - 2026-11-23
 
 ### Changed
@@ -6474,7 +6487,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.68...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.69...HEAD
+[1.18.69]: https://github.com/jwh3times/magic-agenda/compare/v1.18.68...v1.18.69
 [1.18.68]: https://github.com/jwh3times/magic-agenda/compare/v1.18.67...v1.18.68
 [1.18.67]: https://github.com/jwh3times/magic-agenda/compare/v1.18.66...v1.18.67
 [1.18.66]: https://github.com/jwh3times/magic-agenda/compare/v1.18.65...v1.18.66
