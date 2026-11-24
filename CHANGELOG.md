@@ -13,6 +13,12 @@ section for the version its merge mints. `Unreleased` stays empty.
 
 No unreleased changes.
 
+## [1.18.77] - 2026-11-24
+
+### Changed
+
+- chore(ci): bump `actions/create-github-app-token` from `3.3.0` to `3.4.0` in the actions-minor-and-patch group across 1 directory (#693)
+
 ## [1.18.76] - 2026-11-24
 
 ### Changed
@@ -6535,7 +6541,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.76...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.77...HEAD
+[1.18.77]: https://github.com/jwh3times/magic-agenda/compare/v1.18.76...v1.18.77
 [1.18.76]: https://github.com/jwh3times/magic-agenda/compare/v1.18.75...v1.18.76
 [1.18.75]: https://github.com/jwh3times/magic-agenda/compare/v1.18.74...v1.18.75
 [1.18.74]: https://github.com/jwh3times/magic-agenda/compare/v1.18.73...v1.18.74
