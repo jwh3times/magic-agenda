@@ -150,6 +150,8 @@ jwh3times 5 — private, and holds both repositories' issues. A public issue is 
 - `Size`: `S` / `M` / `L` / `XL`.
 - `Gate`: `Nothing — ready to work` / `Owner decision` / `Operator action` / `Upstream capability` /
   `Depends on another item` / `Evidence needed` / `Prerequisite of scheduled work`.
+- `Due` (date): set only when the action has a real deadline (an expiry, a renewal, an offer's end,
+  a date someone else set), never an aspirational one; empty otherwise.
 
 No workflow sets `Phase`, `Priority`, `Size` or `Gate`: set them on every new item.
 
