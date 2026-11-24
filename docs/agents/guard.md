@@ -1,7 +1,7 @@
 # Guard
 
 The commands and paths `scripts/guard.mjs` stops here, on top of the rules it applies everywhere.
-Each `##` heading is one setting, defined in `.agents/skills/ship/settings/guard.md`.
+Each `##` heading is one setting, defined in `.agents/skills/open-pr/settings/guard.md`.
 
 ## Deny commands
 

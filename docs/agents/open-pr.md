@@ -1,6 +1,6 @@
-# Ship
+# Open PR
 
-Settings the shared `ship` skill reads (installed from `jwh3times/skills`). Each `##` heading is one
+Settings the shared `open-pr` skill reads (installed from `jwh3times/skills`). Each `##` heading is one
 setting.
 
 ## Fast checks

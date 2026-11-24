@@ -1,6 +1,6 @@
 # Docs
 
-Settings the shared `docs-updater`, `end-session` and `ship` skills read (installed from
+Settings the shared `docs-updater`, `end-session` and `open-pr` skills read (installed from
 `jwh3times/skills`). Each `##` heading is one setting.
 
 ## Doc map
@@ -27,7 +27,7 @@ Settings the shared `docs-updater`, `end-session` and `ship` skills read (instal
   result; proving a test, fix or claim. **When:** a lesson is learned that no script or test
   enforces, or a command, check or workflow they quote changes.
 - `docs/agents/` settings and conventions (`workspace`, `issue-tracker`, `human-follow-up`, `docs`,
-  `releases`, `ship`, `handoffs`, `triage-labels`, `domain`, `test-proof`) — what the skills read.
+  `releases`, `open-pr`, `handoffs`, `triage-labels`, `domain`, `test-proof`) — what the skills read.
   **When:** a convention, route or setting changes; for `test-proof`, a test runner, a `test` script
   or a test folder.
 - `docs/agents/dependabot.md` — the settings the `dependabot` skill reads: the bumps reviewed in
