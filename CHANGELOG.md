@@ -13,6 +13,12 @@ section for the version its merge mints. `Unreleased` stays empty.
 
 No unreleased changes.
 
+## [1.18.78] - 2026-11-24
+
+### Changed
+
+- chore(dev-deps): bump `@testing-library/jest-dom` from `7.0.1` to `8.0.0` in the testing-library group across 1 directory (#694)
+
 ## [1.18.77] - 2026-11-24
 
 ### Changed
@@ -6541,7 +6547,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.77...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.78...HEAD
+[1.18.78]: https://github.com/jwh3times/magic-agenda/compare/v1.18.77...v1.18.78
 [1.18.77]: https://github.com/jwh3times/magic-agenda/compare/v1.18.76...v1.18.77
 [1.18.76]: https://github.com/jwh3times/magic-agenda/compare/v1.18.75...v1.18.76
 [1.18.75]: https://github.com/jwh3times/magic-agenda/compare/v1.18.74...v1.18.75
