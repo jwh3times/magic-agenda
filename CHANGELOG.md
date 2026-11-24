@@ -13,6 +13,12 @@ section for the version its merge mints. `Unreleased` stays empty.
 
 No unreleased changes.
 
+## [1.18.73] - 2026-11-23
+
+### Changed
+
+- Take the latest shared skills and scripts from `jwh3times/skills` (#703)
+
 ## [1.18.72] - 2026-11-23
 
 ### Changed
@@ -6507,7 +6513,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.72...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.73...HEAD
+[1.18.73]: https://github.com/jwh3times/magic-agenda/compare/v1.18.72...v1.18.73
 [1.18.72]: https://github.com/jwh3times/magic-agenda/compare/v1.18.71...v1.18.72
 [1.18.71]: https://github.com/jwh3times/magic-agenda/compare/v1.18.70...v1.18.71
 [1.18.70]: https://github.com/jwh3times/magic-agenda/compare/v1.18.69...v1.18.70
