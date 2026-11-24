@@ -16,8 +16,8 @@ update.
 `jwh3times/skills` repository.** Their bodies are identical in every repository that installs
 them; what is particular to this one is in the settings files under `docs/agents/` —
 `workspace.md`, `issue-tracker.md`, `triage-labels.md`, `human-follow-up.md`, `docs.md`,
-`releases.md`, `ship.md`, `dev-flow.md`, `handoffs.md`, `merging.md`, `dependabot.md` and
-`guard.md` — which
+`releases.md`, `ship.md`, `dev-flow.md`, `handoffs.md`, `merging.md`, `dependabot.md`,
+`guard.md` and `test-proof.md` — which
 each skill's first step reads and, when one is missing, proposes. Change behavior here by editing a setting; fix a
 skill body upstream, then reinstall. The other skills come from one pinned `mattpocock/skills`
 snapshot, the same in every repository, and are never edited here either. The install commands for
