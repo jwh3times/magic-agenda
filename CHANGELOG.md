@@ -13,6 +13,12 @@ section for the version its merge mints. `Unreleased` stays empty.
 
 No unreleased changes.
 
+## [1.18.80] - 2026-11-24
+
+### Changed
+
+- chore(deps): bump the `npm-minor-and-patch` group across 1 directory with 5 updates (#709)
+
 ## [1.18.79] - 2026-11-24
 
 ### Changed
@@ -6554,7 +6560,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.79...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.80...HEAD
+[1.18.80]: https://github.com/jwh3times/magic-agenda/compare/v1.18.79...v1.18.80
 [1.18.79]: https://github.com/jwh3times/magic-agenda/compare/v1.18.78...v1.18.79
 [1.18.78]: https://github.com/jwh3times/magic-agenda/compare/v1.18.77...v1.18.78
 [1.18.77]: https://github.com/jwh3times/magic-agenda/compare/v1.18.76...v1.18.77
