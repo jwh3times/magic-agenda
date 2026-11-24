@@ -122,3 +122,20 @@ That phrase covers all of this, without asking between steps:
 - **To edit the ruleset**, GET it whole, change one entry and PUT the full rules array back
   (`gh api -X PUT repos/jwh3times/magic-agenda/rulesets/18273908`). The legacy branch-protection API
   answers 404.
+
+## Dependabot catch-up
+
+`gh pr update-branch <n> --rebase` — `@dependabot rebase` has been silently ignored for 15 minutes
+and more ("Before merging"). A rebase can also make Dependabot close a group PR as "updatable in
+another way" without a replacement (PR #695); its next daily run opens a new one.
+
+## Deploys
+
+- `ci.yml` — the post-merge CI run on `main`, which "complete all follow ups" confirms.
+- `check: Cloudflare Pages` — the production Pages deploy of the merge.
+- `check: Analyze (javascript-typescript)` — CodeQL's default setup, which has no workflow file.
+- `check: Analyze (actions)` — the same, for the workflows.
+- `deploy-migrations.yml`, `deploy-functions.yml`, `deploy-auth-config.yml` — each runs only when
+  the merge touches its paths (`supabase/migrations/**`; `supabase/functions/**`;
+  `supabase/config.toml` and `supabase/templates/**`). No run on a merge that touches none of them
+  is expected, not a failure.
