@@ -13,6 +13,13 @@ section for the version its merge mints. `Unreleased` stays empty.
 
 No unreleased changes.
 
+## [1.18.79] - 2026-11-24
+
+### Changed
+
+- Record how the `land` skill catches up a Dependabot pull request (`gh pr update-branch --rebase`)
+  and which post-merge runs and checks it watches, in `docs/agents/merging.md`
+
 ## [1.18.78] - 2026-11-24
 
 ### Changed
@@ -6547,7 +6554,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.78...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.79...HEAD
+[1.18.79]: https://github.com/jwh3times/magic-agenda/compare/v1.18.78...v1.18.79
 [1.18.78]: https://github.com/jwh3times/magic-agenda/compare/v1.18.77...v1.18.78
 [1.18.77]: https://github.com/jwh3times/magic-agenda/compare/v1.18.76...v1.18.77
 [1.18.76]: https://github.com/jwh3times/magic-agenda/compare/v1.18.75...v1.18.76
