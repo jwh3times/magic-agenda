@@ -1,6 +1,6 @@
 # Merging
 
-Everything from an open pull request to a finished merge. `ship` stops when the PR opens; the
+Everything from an open pull request to a finished merge. `open-pr` stops when the PR opens; the
 maintainer says when to merge, usually as "ship it and merge" or "merge it and complete all follow
 ups". What gates a merge and how a version is minted are in
 [Required checks and releases](releases.md); this file holds what to do, and what has gone wrong.

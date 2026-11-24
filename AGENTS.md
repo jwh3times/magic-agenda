@@ -62,7 +62,7 @@ approvals are required, so you can self-merge once green.
 **Every merge to `main` is a release**, but no branch names its version: each PR writes its entries
 to its own `changelog.d/<branch-slug>.md` fragment and never edits `CHANGELOG.md`, and after the
 merge the `Version` workflow stamps the fragment into the merge's dated section and tags the merge
-commit (ADR 0005). The `ship` skill writes the fragment.
+commit (ADR 0005). The `open-pr` skill writes the fragment.
 
 Version computation, the stamp commit, what the `Changelog` check enforces, the protected
 `release/` branch namespace, and what each merge deploys:

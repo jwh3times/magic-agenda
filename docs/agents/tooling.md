@@ -16,7 +16,7 @@ update.
 `jwh3times/skills` repository.** Their bodies are identical in every repository that installs
 them; what is particular to this one is in the settings files under `docs/agents/` —
 `workspace.md`, `issue-tracker.md`, `triage-labels.md`, `human-follow-up.md`, `docs.md`,
-`releases.md`, `ship.md`, `dev-flow.md`, `handoffs.md`, `merging.md`, `dependabot.md`,
+`releases.md`, `open-pr.md`, `dev-flow.md`, `handoffs.md`, `merging.md`, `dependabot.md`,
 `guard.md` and `test-proof.md` — which
 each skill's first step reads and, when one is missing, proposes. Change behavior here by editing a setting; fix a
 skill body upstream, then reinstall. The other skills come from one pinned `mattpocock/skills`
@@ -26,7 +26,7 @@ both are in the `shared-skills` block of `AGENTS.md`.
 Never run `npx skills update`: it re-runs the install for every agent it detects, which links
 `.claude/skills/<name>` back to its authored source instead of copying it.
 
-- **`ship`** takes a finished branch to an open PR: it evaluates the release level, writes the
+- **`open-pr`** takes a finished branch to an open PR: it evaluates the release level, writes the
   branch's `changelog.d/` fragment (`version.yml` stamps it into `CHANGELOG.md` after the merge),
   runs `docs-updater` on the branch's diff, runs the `Fast checks`, pushes, and opens or
   updates the PR. It stops at "PR open"; the maintainer merges.

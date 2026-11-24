@@ -27,7 +27,7 @@ auto-increments from the highest existing `v<major>.<minor>.*` tag; for a new ma
 
 **No branch names a version** (`Scheme: stamp-on-tag`, [ADR 0005](../adr/0005-stamp-changelog-on-tag.md)).
 A branch writes its entries to its own `changelog.d/<branch-slug>.md` fragment and never edits
-`CHANGELOG.md`; the `ship` skill does this. After the merge, `Version` runs
+`CHANGELOG.md`; the `open-pr` skill does this. After the merge, `Version` runs
 `scripts/stamp-changelog.mjs`, which turns that merge's fragments (or, with none, its PR title) into
 its dated section with its compare link, deletes them, pushes one `chore(release): v<x.y.z> [skip ci]`
 commit through the release App, tags the merge commit, and creates the Release from the section.

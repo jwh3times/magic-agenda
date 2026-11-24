@@ -102,7 +102,7 @@ which fails when a fragment doesn't parse, or when the branch edits a released s
 node scripts/check-changelog.mjs
 ```
 
-Agents can do the whole flow — write the fragment, run the checks, open the PR — with the `ship`
+Agents can do the whole flow — write the fragment, run the checks, open the PR — with the `open-pr`
 skill (see [AGENTS.md](./AGENTS.md)).
 
 ### Agent configuration
