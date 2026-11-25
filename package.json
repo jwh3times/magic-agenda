@@ -20,6 +20,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:scripts": "node scripts/node-test-suites.ts",
     "test:rls": "vitest run --config vitest.rls.config.ts",
     "test:rls:up": "node scripts/rls-up.mjs",
     "test:rls:down": "npx supabase stop",

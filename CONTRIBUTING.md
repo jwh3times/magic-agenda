@@ -34,6 +34,7 @@ npm run dev
                                             # inside supabase/functions — see below)
    npm run sync:agents:check                # the "Agents" check (agent and skill source changes;
                                             # see Agent configuration below)
+   npm run test:scripts                     # also "Agents": the canonical scripts' node:test suites
    ```
 
    Also write your changelog entries to `changelog.d/<branch-slug>.md` (see

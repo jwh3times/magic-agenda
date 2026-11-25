@@ -10,11 +10,11 @@ setting. The test layers themselves are in [Testing layers and lint policy](test
   in `scripts/` (`scripts/*.test.ts`, and each `scripts/*.test.mjs` that imports `vitest`). One
   file: `npx vitest run <file>`; one test: `npx vitest run <file> -t "<name>"`. Worktree: link
   `node_modules`.
-- repo root, the canonical scripts' tests that `vite.config.ts` excludes and CI's `Agents` job runs
-  (`scripts/sync-agents.test.mjs`, `lint-agent-neutrality`, `sync-main`, `next-version`,
-  `check-changelog`, `stamp-changelog`, `check-docs`, `check-skills`, `guard`): node's runner. One
-  file: `node --test <file>`; one test: `node --test --test-name-pattern="<name>" <file>`.
-  Worktree: link `node_modules`.
+- repo root, the canonical scripts' `node:test` suites, listed once in
+  `scripts/node-test-suites.ts`, which `vite.config.ts` excludes and `npm run test:scripts` runs
+  (as CI's `Agents` job does): node's runner. All of them: `npm run test:scripts`; one file:
+  `node --test <file>`; one test: `node --test --test-name-pattern="<name>" <file>`. Worktree: link
+  `node_modules`.
 - `supabase/functions/`, the Edge Function tests (`Functions`): `*/*.test.ts`. One file:
   `deno test <file>`, with `<file>` relative to `supabase/functions/`; one test:
   `deno test <file> --filter "<name>"`. Count: Deno's closing `ok | N passed | N failed` line,

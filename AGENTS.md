@@ -24,6 +24,7 @@ npm run dev            # Vite dev server at http://localhost:5173
 npm run build          # tsc -b (typecheck) && vite build -> dist/
 npm test               # vitest run (all tests once)
 npm run test:watch     # vitest watch mode
+npm run test:scripts   # the canonical scripts' node:test suites (scripts/node-test-suites.ts)
 npm run lint           # Oxlint, including TypeScript 7 type-aware linting
 npm run lint:fix       # apply Oxlint's safe fixes
 npm run format         # prettier --write (src, tests, scripts, and all .md; see .prettierignore)
