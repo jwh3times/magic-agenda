@@ -20,8 +20,9 @@ Settings the shared `docs-updater`, `end-session` and `open-pr` skills read (ins
   **When:** the area changes, in the same PR — a migration's policies, grants or lifecycle
   functions: `boards.md`; `src/data/recurrence.ts` or `src/data/series.ts`: `recurrence.md`;
   `src/dnd/`: `drag-and-drop.md`; `src/theme/`: `ui.md`; a workflow or required check:
-  `releases.md` and `testing.md`; `.agents/`, `.claude/`, `.codex/`, `.mcp.json` or
-  `scripts/sync-agents.mjs`: `tooling.md`.
+  `releases.md` and `testing.md`; `.agents/`, `.claude/`, `.codex/`, `.mcp.json`,
+  `scripts/sync-agents.mjs`, `scripts/node-test-suites.ts` or the `Agents` job in
+  `.github/workflows/ci.yml`: `tooling.md`.
 - `docs/agents/merging.md`, `docs/agents/local-runs.md`, `docs/agents/verification.md` — from open
   PR to finished merge and its follow-ups; running suites, lint and the local stack without a false
   result; proving a test, fix or claim. **When:** a lesson is learned that no script or test
