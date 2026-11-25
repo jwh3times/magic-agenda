@@ -13,6 +13,18 @@ section for the version its merge mints. `Unreleased` stays empty.
 
 No unreleased changes.
 
+## [1.18.83] - 2026-11-25
+
+### Docs
+
+- **The documented fast checks now run `scripts/guard.test.mjs`, as CI's `Agents` job does.**
+  The `node --test` line in `docs/agents/open-pr.md` listed eight of the nine suites the job runs,
+  and Vitest excludes the ninth. A branch that changed `scripts/guard.mjs` could therefore pass
+  every documented local check and still fail `Agents`. (#705)
+- **`AGENTS.md`'s one-test example names the file the test lives in.** The bare
+  `npx vitest run -t "<name>"` form loads all 151 test files to run one test, which takes about
+  41 seconds instead of one. (#705)
+
 ## [1.18.82] - 2026-11-25
 
 ### Changed
@@ -6572,7 +6584,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.82...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.83...HEAD
+[1.18.83]: https://github.com/jwh3times/magic-agenda/compare/v1.18.82...v1.18.83
 [1.18.82]: https://github.com/jwh3times/magic-agenda/compare/v1.18.81...v1.18.82
 [1.18.81]: https://github.com/jwh3times/magic-agenda/compare/v1.18.80...v1.18.81
 [1.18.80]: https://github.com/jwh3times/magic-agenda/compare/v1.18.79...v1.18.80
