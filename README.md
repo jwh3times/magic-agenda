@@ -192,6 +192,7 @@ npm run dev      # start the dev server at http://localhost:5173
 | `npm run preview`           | Preview the production build locally                              |
 | `npm test`                  | Run the test suite once                                           |
 | `npm run test:watch`        | Run tests in watch mode                                           |
+| `npm run test:scripts`      | Run the shared scripts' `node:test` suites (the "Agents" check)   |
 | `npm run test:rls:up`       | Start a local Supabase stack for the RLS tests (Docker)           |
 | `npm run test:rls`          | Run the RLS integration tests against that stack                  |
 | `npm run test:rls:down`     | Stop the local stack                                              |

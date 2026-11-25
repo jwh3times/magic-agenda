@@ -18,7 +18,7 @@ All from the repository root, in order; together they cover the required `Format
 - `node scripts/check-docs.mjs`
 - `node scripts/check-skills.mjs`
 - only when `scripts/` changed:
-  `node --test scripts/sync-agents.test.mjs scripts/lint-agent-neutrality.test.mjs scripts/sync-main.test.mjs scripts/next-version.test.mjs scripts/check-changelog.test.mjs scripts/stamp-changelog.test.mjs scripts/check-docs.test.mjs scripts/check-skills.test.mjs scripts/guard.test.mjs`
+  `npm run test:scripts` (the canonical scripts' `node:test` suites, as the `Agents` job runs them)
 - only when `src/`, `tests/`, `scripts/`, `vite.config.ts` or `package.json` changed: `npm test`
   (the required `Test` check; about 16 seconds locally)
 

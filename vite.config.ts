@@ -2,6 +2,7 @@ import { configDefaults, defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import { readBuildFacts, resolveBuildInfo, type BuildInfo } from './scripts/build-info'
+import { nodeTestSuites } from './scripts/node-test-suites'
 
 // Tests get a fixed value: a suite that read the real checkout would change with every commit.
 const buildInfo: BuildInfo = process.env.VITEST
@@ -60,22 +61,9 @@ export default defineConfig({
     // Vitest's default `include` matches the whole repo, so without this the RLS integration
     // tests -- and the Playwright specs under tests/e2e/ -- would be swept into `npm test`,
     // which must never need Docker, a database, or a browser.
-    // The canonical scripts' tests are shared verbatim across repositories and use node:test, so CI runs them with `node --test` in the `Agents` job
-    // instead.
-    exclude: [
-      ...configDefaults.exclude,
-      'supabase/functions/**',
-      'tests/**',
-      'scripts/sync-agents.test.mjs',
-      'scripts/lint-agent-neutrality.test.mjs',
-      'scripts/sync-main.test.mjs',
-      'scripts/next-version.test.mjs',
-      'scripts/check-changelog.test.mjs',
-      'scripts/stamp-changelog.test.mjs',
-      'scripts/check-docs.test.mjs',
-      'scripts/check-skills.test.mjs',
-      'scripts/guard.test.mjs',
-    ],
+    // The canonical scripts' tests are shared verbatim across repositories and use node:test, so
+    // `npm run test:scripts` runs them instead, from the one list in scripts/node-test-suites.ts.
+    exclude: [...configDefaults.exclude, 'supabase/functions/**', 'tests/**', ...nodeTestSuites],
     // Hermetic: tests never touch a real project (getSession is local-only anyway).
     // Port 1 is privileged (root can bind it) but nothing listens there, so an unmocked call
     // gets ECONNREFUSED and fails loudly. Do NOT use 54321 here -- that is the local Supabase

@@ -129,8 +129,10 @@ Rules for this pipeline:
   authored _and_ vendored, and the vendoring wins. `private/` is ignored for a different reason —
   git-ignored and local-only, so CI never sees it and formatting only rewrites security-review
   evidence in the maintainer's checkout.
-- The required **`Agents` CI job** runs `node --test` over the shared scripts' own `node:test`
-  suites (excluded from Vitest); `npm run sync:agents:check`, which fails on any missing,
+- The required **`Agents` CI job** runs `npm run test:scripts`, the shared scripts' own `node:test`
+  suites (listed once in `scripts/node-test-suites.ts`, which `vite.config.ts` also excludes from
+  Vitest, so a new canonical suite left off the list fails `npm test` with "No test suite found in
+  file"); `npm run sync:agents:check`, which fails on any missing,
   hand-edited, or orphaned generated file; `node scripts/check-skills.mjs`, which fails when an
   installed skill differs from `skills-lock.json`, or the lock from the install commands; `npm run check:claude-md`
   (`scripts/check-claude-md.mjs`), which asserts `CLAUDE.md` still contains its `@AGENTS.md`
