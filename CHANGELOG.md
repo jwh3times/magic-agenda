@@ -13,6 +13,17 @@ section for the version its merge mints. `Unreleased` stays empty.
 
 No unreleased changes.
 
+## [1.18.84] - 2026-11-25
+
+### Internal
+
+- **The shared scripts' `node:test` suites are listed in one place, `scripts/node-test-suites.ts`,
+  and run with `npm run test:scripts`.** The list used to be kept by hand in four places: CI's
+  `Agents` job, the documented fast checks, Vitest's exclude list and `docs/agents/test-proof.md`.
+  Nothing checked that they agreed (#705 was one drifting). `Agents` and the fast checks now call
+  the script, and `vite.config.ts` excludes the same list, so a new suite left off it fails
+  `npm test` with "No test suite found in file" instead of going unrun. (#714)
+
 ## [1.18.83] - 2026-11-25
 
 ### Docs
@@ -6584,7 +6595,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.83...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.84...HEAD
+[1.18.84]: https://github.com/jwh3times/magic-agenda/compare/v1.18.83...v1.18.84
 [1.18.83]: https://github.com/jwh3times/magic-agenda/compare/v1.18.82...v1.18.83
 [1.18.82]: https://github.com/jwh3times/magic-agenda/compare/v1.18.81...v1.18.82
 [1.18.81]: https://github.com/jwh3times/magic-agenda/compare/v1.18.80...v1.18.81
