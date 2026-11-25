@@ -33,9 +33,9 @@ npm run sync:agents:check  # verify they are in sync (the CI "Agents" job runs t
 npm run lint:agents        # agent and skill sources stay tool-neutral (the "Agents" job runs this too)
 npm run sync:main      # move public + private repos to main and fast-forward origin/main
 
-# Run one test file or one test by name:
+# Run one test file, or one test by name in its file (a bare -t loads every file):
 npx vitest run src/dnd/reorder.test.ts
-npx vitest run -t "persists a cross-lane move"
+npx vitest run src/dnd/useBoardDnd.test.ts -t "persists a cross-lane move"
 
 # Database (Supabase CLI v3; project is linked). Bare commands target the LOCAL stack;
 # --remote targets the linked (production) project:
