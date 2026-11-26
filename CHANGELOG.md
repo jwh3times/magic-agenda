@@ -13,6 +13,22 @@ section for the version its merge mints. `Unreleased` stays empty.
 
 No unreleased changes.
 
+## [1.18.88] - 2026-11-26
+
+### Docs
+
+- **`CONTRIBUTING.md`'s local checklist now runs everything the `Functions` and `Agents` checks
+  run.** It gave only `deno test` for `Functions`, which also runs `deno fmt --check` and
+  `deno check */index.ts`, and presented `npm run sync:agents:check` as the whole of `Agents`, which
+  runs six steps. A contributor could pass every listed command and still fail either required
+  check. The Functions commands now run in a subshell, so a pasted block no longer stays inside
+  `supabase/functions` for the lines after it. (#670)
+- **The other descriptions of those checks are complete, or say they're partial.**
+  `docs/agents/tooling.md`'s account of the `Agents` job names its last step, `check-docs.mjs`;
+  `README.md`'s `test:scripts` row and the Agent configuration note in `CONTRIBUTING.md` no longer
+  read as the whole check; and the `vite.config.ts` comment gives the in-directory
+  `cd supabase/functions && deno test` form. (#670)
+
 ## [1.18.87] - 2026-11-26
 
 ### Changed
@@ -6617,7 +6633,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.87...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.88...HEAD
+[1.18.88]: https://github.com/jwh3times/magic-agenda/compare/v1.18.87...v1.18.88
 [1.18.87]: https://github.com/jwh3times/magic-agenda/compare/v1.18.86...v1.18.87
 [1.18.86]: https://github.com/jwh3times/magic-agenda/compare/v1.18.85...v1.18.86
 [1.18.85]: https://github.com/jwh3times/magic-agenda/compare/v1.18.84...v1.18.85
