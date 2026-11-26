@@ -13,6 +13,16 @@ section for the version its merge mints. `Unreleased` stays empty.
 
 No unreleased changes.
 
+## [1.18.86] - 2026-11-26
+
+### Internal
+
+- **The Settings install-steps arrival test no longer fails about 1 run in 100 with focus on
+  `<body>`.** It checked focus the moment `findByRole` found the heading, but the page moves focus
+  in an effect that React runs in a later task, so the check sometimes ran first. It now waits for
+  focus. `docs/agents/merging.md` lists the failure's signature and remedy among the reds that
+  aren't the PR's code. (#706)
+
 ## [1.18.85] - 2026-11-25
 
 ### Changed
@@ -6601,7 +6611,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.85...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.86...HEAD
+[1.18.86]: https://github.com/jwh3times/magic-agenda/compare/v1.18.85...v1.18.86
 [1.18.85]: https://github.com/jwh3times/magic-agenda/compare/v1.18.84...v1.18.85
 [1.18.84]: https://github.com/jwh3times/magic-agenda/compare/v1.18.83...v1.18.84
 [1.18.83]: https://github.com/jwh3times/magic-agenda/compare/v1.18.82...v1.18.83
