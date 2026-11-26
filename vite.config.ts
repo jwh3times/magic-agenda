@@ -57,7 +57,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
     css: false,
-    // Deno tests, not Vitest tests — run with `deno test supabase/functions`.
+    // Deno tests, not Vitest tests — run with `cd supabase/functions && deno test`.
     // Vitest's default `include` matches the whole repo, so without this the RLS integration
     // tests -- and the Playwright specs under tests/e2e/ -- would be swept into `npm test`,
     // which must never need Docker, a database, or a browser.
