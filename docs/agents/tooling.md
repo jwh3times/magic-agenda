@@ -136,10 +136,12 @@ Rules for this pipeline:
   hand-edited, or orphaned generated file; `node scripts/check-skills.mjs`, which fails when an
   installed skill differs from `skills-lock.json`, or the lock from the install commands; `npm run check:claude-md`
   (`scripts/check-claude-md.mjs`), which asserts `CLAUDE.md` still contains its `@AGENTS.md`
-  import line; and `npm run lint:agents` (`scripts/lint-agent-neutrality.mjs`, shared verbatim like
+  import line; `npm run lint:agents` (`scripts/lint-agent-neutrality.mjs`, shared verbatim like
   `sync-agents.mjs`), which fails on wording one tool cannot follow and on links that break once a
-  file is mirrored. The `CLAUDE.md` check is repository-specific, so it lives outside the shared
-  scripts; its Vitest test is `scripts/check-claude-md.test.mjs`.
+  file is mirrored; and `node scripts/check-docs.mjs`, which fails when a local link or anchor
+  doesn't resolve, or when the Doc map in [docs.md](docs.md) leaves out a document. The
+  `CLAUDE.md` check is repository-specific, so it lives outside the shared scripts; its Vitest test
+  is `scripts/check-claude-md.test.mjs`.
 - `skills-lock.json` at the repo root is the skills-sync tool's own lockfile (source repo + commit
   hash per installed skill) — committed as installer metadata, untouched by `sync-agents.mjs` and read by `check-skills.mjs`.
 

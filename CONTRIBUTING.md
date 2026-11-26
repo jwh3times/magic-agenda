@@ -30,11 +30,12 @@ npm run dev
    npm run format:check && npm run lint     # the "Format" check
    npm test                                 # the "Test" check
    npm run build                            # the "Build" check
-   cd supabase/functions && deno test       # the "Functions" check (edge functions; must run from
-                                            # inside supabase/functions — see below)
-   npm run sync:agents:check                # the "Agents" check (agent and skill source changes;
-                                            # see Agent configuration below)
-   npm run test:scripts                     # also "Agents": the canonical scripts' node:test suites
+   # The "Functions" check: edge functions, run from inside supabase/functions (see below). The
+   # parentheses keep the cd from leaking into the lines after it.
+   (cd supabase/functions && deno fmt --check && deno check */index.ts && deno test)
+   # The "Agents" check, every step in the job's order (see Agent configuration below):
+   npm run test:scripts && npm run sync:agents:check && node scripts/check-skills.mjs
+   npm run check:claude-md && npm run lint:agents && node scripts/check-docs.mjs
    ```
 
    Also write your changelog entries to `changelog.d/<branch-slug>.md` (see
@@ -115,7 +116,7 @@ editing either authored tree, run:
 
 ```bash
 npm run sync:agents        # regenerate; commit the result
-npm run sync:agents:check  # what the required "Agents" check runs
+npm run sync:agents:check  # one step of the "Agents" check (the checklist above lists all)
 ```
 
 Never hand-edit the generated trees — the script owns them, and the check fails on any file that is
