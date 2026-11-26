@@ -22,6 +22,12 @@ ups". What gates a merge and how a version is minted are in
 - **A required check that fails on code the PR can't reach isn't the PR's fault**, however many
   times it fails. A control branch (`main` plus only this PR's changelog fragment) settles it; more
   reruns don't. A test seeded relative to today can behave differently by weekday.
+- **`expect(element).toHaveFocus()` failing with `Received element with focus: <body>` right after
+  a `findBy*` is a race in the test, not the PR.** `findBy*` resolves once the element is in the
+  DOM, but focus usually moves in a passive effect, which React flushes in a later task. It hit
+  about 1 run in 100 in `SettingsPage.test.tsx` (#706). The remedy is in the test: keep the found
+  element and `await waitFor(() => expect(el).toHaveFocus())`. Change the component only if the
+  element is replaced after it's focused, since a user would lose focus too.
 - **Post-merge CI on `main` can go red from a flake the PR's run passed.** Check which job and test
   before treating it as a regression; `gh run list --branch main` maps runs to commits.
 - **Poll `state` or `mergedAt`, never `mergeable`.** `mergeable` is computed lazily and can stay

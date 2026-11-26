@@ -97,7 +97,11 @@ test('arriving from the Board for the install steps lands on that section, once'
     </SettingsProvider>,
   )
 
-  expect(await screen.findByRole('heading', { name: 'Install the app' })).toHaveFocus()
+  // Wait for focus, not just the heading. Focus moves in a passive effect, which React flushes in
+  // a later task than the commit that puts the heading in the DOM. findByRole can resolve in
+  // between: about 1 run in 100, and the flake in #706.
+  const heading = await screen.findByRole('heading', { name: 'Install the app' })
+  await waitFor(() => expect(heading).toHaveFocus())
   // Left in history, a reload or a Back to this entry would jump here again and take focus.
   await waitFor(() =>
     expect(screen.getByRole('status', { name: 'history state' })).toHaveTextContent('null'),
