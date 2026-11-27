@@ -89,8 +89,8 @@ jobs:
       - run: npm run test:scripts
       # What scripts/sync-agents.mjs writes is current: .codex/agents (from .claude/agents/),
       # .claude/skills (from .agents/skills/), the shared blocks in AGENTS.md and the guard hooks
-      # in .claude/settings.json. Fails on any missing, hand-edited or orphaned file (see
-      # docs/agents/tooling.md).
+      # in .claude/settings.json. Fails on any missing, hand-edited or orphaned file, and when
+      # the guard can't parse docs/agents/guard.md (see docs/agents/tooling.md).
       - run: npm run sync:agents:check
       # The installed skills match skills-lock.json, and the lock matches the shared install
       # commands, so an edit to an installed copy fails here rather than being undone later.
