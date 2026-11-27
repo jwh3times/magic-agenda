@@ -8,9 +8,10 @@ loads the same content. Edit `AGENTS.md` — never duplicate content into `CLAUD
 
 The project subagent `code-reviewer` lives in `.claude/agents/`: it reviews diffs against the
 app/DB boundary, RLS, recurrence, and DnD correctness rules before merging. Whatever runs the change,
-keep `AGENTS.md`, `README.md`, and `CHANGELOG.md` aligned when it affects project behavior, commands,
-architecture, or release notes. `ROADMAP.md` is a pointer to GitHub Issues and holds no item list to
-update.
+keep `AGENTS.md` and `README.md` aligned when it affects project behavior, commands, or
+architecture, and put its release notes in the branch's `changelog.d/<branch-slug>.md` fragment,
+never in `CHANGELOG.md` ([Required checks and releases](releases.md)). `ROADMAP.md` is a pointer to
+GitHub Issues and holds no item list to update.
 
 **The workflow skills the `shared-skills` block of `AGENTS.md` lists install from the shared
 `jwh3times/skills` repository.** Their bodies are identical in every repository that installs
