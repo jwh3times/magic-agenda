@@ -13,6 +13,19 @@ section for the version its merge mints. `Unreleased` stays empty.
 
 No unreleased changes.
 
+## [1.18.95] - 2026-11-27
+
+### Internal
+
+- **The docs say a branch's entries never go in `CHANGELOG.md`, rather than that a branch never
+  edits it.** `AGENTS.md`, `docs/agents/releases.md`, `CONTRIBUTING.md`, `changelog.d/README.md`
+  and the policy text at the top of `CHANGELOG.md` said a branch never edits the file, though the
+  `Changelog` check accepts emptying `Unreleased`, a change to prose such as the policy text, and a
+  backfill section for a version already tagged with none. `releases.md` now names those edits,
+  and the Doc map points at it. `docs/agents/merging.md` said a `CHANGELOG.md` conflict means the
+  branch edited the file; it now says the branch most likely added entries under `Unreleased` or a
+  version section of its own, both of which the check rejects. (#728)
+
 ## [1.18.94] - 2026-11-27
 
 ### Internal
@@ -6706,7 +6719,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.94...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.95...HEAD
+[1.18.95]: https://github.com/jwh3times/magic-agenda/compare/v1.18.94...v1.18.95
 [1.18.94]: https://github.com/jwh3times/magic-agenda/compare/v1.18.93...v1.18.94
 [1.18.93]: https://github.com/jwh3times/magic-agenda/compare/v1.18.92...v1.18.93
 [1.18.92]: https://github.com/jwh3times/magic-agenda/compare/v1.18.91...v1.18.92
