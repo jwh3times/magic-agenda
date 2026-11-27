@@ -76,11 +76,8 @@ jobs:
       - run: deno check */index.ts
       - run: deno test
 
-  # Two generated trees, opposite directions: .codex/agents is generated from
-  # .claude/agents/, and .claude/skills is generated from .agents/skills/ (see AGENTS.md).
-  # This fails a PR that edits an authored tree without regenerating the other side, asserts
-  # CLAUDE.md still imports AGENTS.md, and checks agent and skill sources are tool-neutral. No
-  # `npm ci` — the scripts have no deps.
+  # The agent configuration, the installed skills, the shared scripts and the docs; each step is
+  # described above it. No `npm ci` — the scripts have no deps.
   Agents:
     runs-on: ubuntu-latest
     steps:
@@ -90,9 +87,17 @@ jobs:
           node-version-file: .nvmrc
       # The canonical scripts' node:test suites, listed once in scripts/node-test-suites.ts.
       - run: npm run test:scripts
+      # What scripts/sync-agents.mjs writes is current: .codex/agents (from .claude/agents/),
+      # .claude/skills (from .agents/skills/), the shared blocks in AGENTS.md and the guard hooks
+      # in .claude/settings.json. Fails on any missing, hand-edited or orphaned file (see
+      # docs/agents/tooling.md).
       - run: npm run sync:agents:check
+      # The installed skills match skills-lock.json, and the lock matches the shared install
+      # commands, so an edit to an installed copy fails here rather than being undone later.
       - run: node scripts/check-skills.mjs
+      # CLAUDE.md still imports AGENTS.md.
       - run: npm run check:claude-md
+      # Agent and skill sources are tool-neutral.
       - run: npm run lint:agents
       # Local links and anchors resolve, and the doc map lists every document.
       - run: node scripts/check-docs.mjs
