@@ -369,9 +369,10 @@ delete the function:
 
 `AGENTS.md` is the **canonical agent guide**; `CLAUDE.md` is only an `@AGENTS.md` import so Claude
 Code loads the same content. Edit `AGENTS.md` — never duplicate content into `CLAUDE.md` — and put
-area detail in `docs/agents/` rather than growing this page. Keep `AGENTS.md`, `README.md`, and
-`CHANGELOG.md` aligned when a change affects project behavior, commands, architecture, or release
-notes.
+area detail in `docs/agents/` rather than growing this page. Keep `AGENTS.md` and `README.md`
+aligned when a change affects project behavior, commands, or architecture. A change's release notes
+go in the branch's `changelog.d/<branch-slug>.md` fragment, which `open-pr` writes, never in
+`CHANGELOG.md` ([Required checks and releases](docs/agents/releases.md)).
 
 The `code-reviewer` subagent; the [shared skills](#shared-skills); and the two authored trees whose
 generated mirrors (`.codex/agents/`, `.claude/skills/`) must never be hand-edited:
