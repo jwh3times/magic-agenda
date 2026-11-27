@@ -87,14 +87,14 @@ workflow releases `v<x>.<y>.0` exactly and does not force it to `v<x>.<y>.1`.
 
 ### Changelog
 
-A branch never edits [CHANGELOG.md](./CHANGELOG.md) and never names the version its merge will
-mint. It writes its entries to its own `changelog.d/<branch-slug>.md` fragment, grouped under
-category headings with no version or date (see [`changelog.d/README.md`](./changelog.d/README.md)).
-After the merge, the `Version` workflow stamps the fragment into the merge's dated section, adds its
-compare link, deletes the fragment, and tags the merge commit
-([ADR 0005](./docs/adr/0005-stamp-changelog-on-tag.md)). A PR with no fragment, such as Dependabot's,
-gets a one-bullet section from its PR title. Open PRs therefore merge in any order without
-renumbering.
+A branch never writes its entries into [CHANGELOG.md](./CHANGELOG.md) and never names the version
+its merge will mint. It writes them to its own `changelog.d/<branch-slug>.md` fragment, grouped
+under category headings with no version or date (see
+[`changelog.d/README.md`](./changelog.d/README.md)). After the merge, the `Version` workflow stamps
+the fragment into the merge's dated section, adds its compare link, deletes the fragment, and tags
+the merge commit ([ADR 0005](./docs/adr/0005-stamp-changelog-on-tag.md)). A PR with no fragment,
+such as Dependabot's, gets a one-bullet section from its PR title. Open PRs therefore merge in any
+order without renumbering.
 
 The required **`Changelog` check** runs [`scripts/check-changelog.mjs`](./scripts/check-changelog.mjs),
 which fails when a fragment doesn't parse, or when the branch edits a released section, an
