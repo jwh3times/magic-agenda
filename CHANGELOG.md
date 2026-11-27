@@ -13,6 +13,12 @@ section for the version its merge mints. `Unreleased` stays empty.
 
 No unreleased changes.
 
+## [1.18.97] - 2026-11-27
+
+### Changed
+
+- chore(dev-deps): bump `oxlint` from `1.94.0` to `1.95.0` in the npm-minor-and-patch group (#729)
+
 ## [1.18.96] - 2026-11-27
 
 ### Internal
@@ -6734,7 +6740,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.96...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.97...HEAD
+[1.18.97]: https://github.com/jwh3times/magic-agenda/compare/v1.18.96...v1.18.97
 [1.18.96]: https://github.com/jwh3times/magic-agenda/compare/v1.18.95...v1.18.96
 [1.18.95]: https://github.com/jwh3times/magic-agenda/compare/v1.18.94...v1.18.95
 [1.18.94]: https://github.com/jwh3times/magic-agenda/compare/v1.18.93...v1.18.94
