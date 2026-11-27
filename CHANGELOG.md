@@ -13,6 +13,20 @@ section for the version its merge mints. `Unreleased` stays empty.
 
 No unreleased changes.
 
+## [1.18.98] - 2026-11-27
+
+### Internal
+
+- **The Dependabot guides record what PR #729 confirmed.** The Playbook's oxlint bullet in
+  `docs/agents/dependabot.md` said only new or sharper rules turn `Format` red; it now says a bump
+  can also loosen a rule and leave a suppression unused, which `reportUnusedDisableDirectives`
+  turns into a lint error, fixed by deleting the directive (`oxlint` 1.95.0 and `react/refs` in
+  `src/dnd/dndKitNext.prototype.tsx`). `docs/agents/merging.md` said every Dependabot PR catches up
+  with `gh pr update-branch <n> --rebase`. Its `Dependabot catch-up` now chooses by who has
+  committed to the branch: a branch with only Dependabot's commits still rebases, and one carrying
+  a pushed fix takes the plain `gh pr update-branch <n>`, which keeps the fix commit as it was
+  tested. "Before merging" now says why Dependabot PRs rebase and points to that rule. (#733)
+
 ## [1.18.97] - 2026-11-27
 
 ### Changed
@@ -6740,7 +6754,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.97...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.98...HEAD
+[1.18.98]: https://github.com/jwh3times/magic-agenda/compare/v1.18.97...v1.18.98
 [1.18.97]: https://github.com/jwh3times/magic-agenda/compare/v1.18.96...v1.18.97
 [1.18.96]: https://github.com/jwh3times/magic-agenda/compare/v1.18.95...v1.18.96
 [1.18.95]: https://github.com/jwh3times/magic-agenda/compare/v1.18.94...v1.18.95
