@@ -68,7 +68,8 @@ Settings the shared `docs-updater`, `end-session` and `open-pr` skills read (ins
 - `.claude/agents/code-reviewer.md` — the reviewer subagent's correctness rules. **When:** the
   app/DB boundary, RLS, recurrence or drag-and-drop rules it reviews against change.
 - `CHANGELOG.md` — release notes, one dated section per merge, stamped by `version.yml` after each
-  merge. `frozen`: a branch edits only the policy text at the top.
+  merge. `frozen`: a branch's own entries never go here; it edits only the policy text at the top,
+  or adds the backfill section `releases.md` describes.
 - `changelog.d/README.md` — how a branch writes its fragment, and what the stamp does with it after
   the merge. **When:** the fragment format, `scripts/stamp-changelog.mjs` or the stamp step in
   `.github/workflows/version.yml`, or the fragment rules in `scripts/check-changelog.mjs` change.

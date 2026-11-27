@@ -87,18 +87,21 @@ workflow releases `v<x>.<y>.0` exactly and does not force it to `v<x>.<y>.1`.
 
 ### Changelog
 
-A branch never edits [CHANGELOG.md](./CHANGELOG.md) and never names the version its merge will
-mint. It writes its entries to its own `changelog.d/<branch-slug>.md` fragment, grouped under
-category headings with no version or date (see [`changelog.d/README.md`](./changelog.d/README.md)).
-After the merge, the `Version` workflow stamps the fragment into the merge's dated section, adds its
-compare link, deletes the fragment, and tags the merge commit
-([ADR 0005](./docs/adr/0005-stamp-changelog-on-tag.md)). A PR with no fragment, such as Dependabot's,
-gets a one-bullet section from its PR title. Open PRs therefore merge in any order without
-renumbering.
+A branch never writes its entries into [CHANGELOG.md](./CHANGELOG.md) and never names the version
+its merge will mint. It writes them to its own `changelog.d/<branch-slug>.md` fragment, grouped
+under category headings with no version or date (see
+[`changelog.d/README.md`](./changelog.d/README.md)). After the merge, the `Version` workflow stamps
+the fragment into the merge's dated section, adds its compare link, deletes the fragment, and tags
+the merge commit ([ADR 0005](./docs/adr/0005-stamp-changelog-on-tag.md)). A PR with no fragment,
+such as Dependabot's, gets a one-bullet section from its PR title. Open PRs therefore merge in any
+order without renumbering.
 
 The required **`Changelog` check** runs [`scripts/check-changelog.mjs`](./scripts/check-changelog.mjs),
-which fails when a fragment doesn't parse, or when the branch edits a released section, an
-`## [Unreleased]` entry or a fragment already on `main`:
+which fails when a fragment doesn't parse, or when the branch adds a version section of its own,
+removes or renumbers one, adds entries to `## [Unreleased]`, or edits or deletes another merge's
+fragment. The check doesn't read the body of a released section, so a change there rewrites
+release history and only review catches it. The exceptions, such as a backfill section, are in
+[Required checks and releases](./docs/agents/releases.md). Run it with:
 
 ```bash
 node scripts/check-changelog.mjs

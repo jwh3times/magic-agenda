@@ -97,8 +97,8 @@ That phrase covers all of this, without asking between steps:
 - **Open PRs merge in any order.** No branch names a version: each carries only its own
   `changelog.d/` fragment, so catching up with `main` (merge `origin/main`, or "Update branch")
   never touches `CHANGELOG.md`, and `Version` numbers the merges in the order they land. A
-  `CHANGELOG.md` conflict means the branch edited it, which `Changelog` rejects; move the entries
-  into the branch's fragment.
+  `CHANGELOG.md` conflict most likely means the branch added entries under `Unreleased` or a
+  version section of its own, which `Changelog` rejects; move them into the branch's fragment.
 - **A stacked PR needs no changelog work either.** Its fragment sits beside the first PR's; after
   the first merges, `Version` deletes the first's fragment on `main`, and merging `origin/main`
   carries that deletion over. Nothing in CI enforces the merge order, so the stacked PR's body must

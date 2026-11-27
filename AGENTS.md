@@ -62,7 +62,7 @@ one bypass actor, for `Version`'s stamp commit). Land changes via a branch and a
 approvals are required, so you can self-merge once green.
 
 **Every merge to `main` is a release**, but no branch names its version: each PR writes its entries
-to its own `changelog.d/<branch-slug>.md` fragment and never edits `CHANGELOG.md`, and after the
+to its own `changelog.d/<branch-slug>.md` fragment, never to `CHANGELOG.md`, and after the
 merge the `Version` workflow stamps the fragment into the merge's dated section and tags the merge
 commit (ADR 0005). The `open-pr` skill writes the fragment.
 

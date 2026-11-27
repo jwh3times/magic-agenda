@@ -6,12 +6,40 @@ All notable changes to this project are documented here. The format is based on
 
 Every merge to `main` auto-releases (the `Version` workflow tags `v<major>.<minor>.<build>`), so each
 released build gets its own section below — named for the version the merge minted. Branches never
-edit this file: each writes its entries to `changelog.d/`, and the workflow stamps them into the
+write their entries here: each writes them to `changelog.d/`, and the workflow stamps them into the
 section for the version its merge mints. `Unreleased` stays empty.
 
 ## [Unreleased]
 
 No unreleased changes.
+
+## [1.18.96] - 2026-11-27
+
+### Internal
+
+- **The docs and the `Changelog` job say what the check enforces, and that it doesn't read a
+  released section.** `docs/agents/releases.md`, `CONTRIBUTING.md` and the comment above the
+  `Changelog` job in `.github/workflows/ci.yml` said the check rejects a branch that edits a
+  released section of `CHANGELOG.md`. It compares only the version headings and the bullets under
+  `Unreleased`, so a change inside a released section passes. All three now name what it rejects:
+  a fragment that doesn't parse, a version section removed, renumbered or added other than a
+  backfill, entries added to `Unreleased`, and an edit to or deletion of another merge's fragment.
+  They also say only review catches a change to a released section. The job's step is now "Verify
+  the changelog fragments and the version sections"; the required check's name is unchanged.
+  (#731)
+
+## [1.18.95] - 2026-11-27
+
+### Internal
+
+- **The docs say a branch's entries never go in `CHANGELOG.md`, rather than that a branch never
+  edits it.** `AGENTS.md`, `docs/agents/releases.md`, `CONTRIBUTING.md`, `changelog.d/README.md`
+  and the policy text at the top of `CHANGELOG.md` said a branch never edits the file, though the
+  `Changelog` check accepts emptying `Unreleased`, a change to prose such as the policy text, and a
+  backfill section for a version already tagged with none. `releases.md` now names those edits,
+  and the Doc map points at it. `docs/agents/merging.md` said a `CHANGELOG.md` conflict means the
+  branch edited the file; it now says the branch most likely added entries under `Unreleased` or a
+  version section of its own, both of which the check rejects. (#728)
 
 ## [1.18.94] - 2026-11-27
 
@@ -6706,7 +6734,9 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.94...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.96...HEAD
+[1.18.96]: https://github.com/jwh3times/magic-agenda/compare/v1.18.95...v1.18.96
+[1.18.95]: https://github.com/jwh3times/magic-agenda/compare/v1.18.94...v1.18.95
 [1.18.94]: https://github.com/jwh3times/magic-agenda/compare/v1.18.93...v1.18.94
 [1.18.93]: https://github.com/jwh3times/magic-agenda/compare/v1.18.92...v1.18.93
 [1.18.92]: https://github.com/jwh3times/magic-agenda/compare/v1.18.91...v1.18.92
