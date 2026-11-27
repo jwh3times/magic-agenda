@@ -19,12 +19,19 @@ this file holds the traps, most of them on the maintainer's Windows machine.
   rerun the failing file alone and rerun the whole suite; if both pass, it is load. One exception
   that is real: a test that fails in the suite but passes alone, in file order, is often an
   unconsumed `mockRejectedValueOnce` from the test before it.
-- **`vitest run src/` is not `npm test`.** The latter also runs `scripts/` under the node
-  environment, and `src/test/setup.ts` runs under both, so guard any DOM global there with
-  `typeof X !== 'undefined'`.
-- **A new `scripts/*.test.mjs` needs `// @vitest-environment node` on line 1.** Under the default
-  jsdom environment `new URL('../x', import.meta.url)` throws before any test runs, and the file
-  reports "no tests".
+- **`vitest run src/` is not `npm test`.** `npm test` also runs the Vitest tests under `scripts/`,
+  in jsdom (the `environment` default in `vite.config.ts`'s `test` block) unless a file opts into
+  node with `// @vitest-environment node` on line 1. `src/test/setup.ts` loads in both
+  environments, so guard any DOM global there with `typeof X !== 'undefined'`.
+- **`npm test` never runs the canonical scripts' `node:test` suites; `npm run test:scripts` does.**
+  They are listed once, in `scripts/node-test-suites.ts`, and `vite.config.ts` excludes the same
+  list from `npm test`. A new one needs no environment header, but it must go on that list: left
+  off, `npm test` picks it up and fails it with "No test suite found in file". Never run them as a
+  glob (`node --test scripts/*.test.mjs`): that sweeps in the Vitest-based files too, and node's
+  runner reports failures for them that aren't real.
+- **A new Vitest test under `scripts/` that builds a path from `import.meta.url` needs
+  `// @vitest-environment node` on line 1.** Under the configured jsdom environment
+  `new URL('../x', import.meta.url)` throws before any test runs, and the file reports "no tests".
 
 ## Formatting
 
