@@ -29,8 +29,9 @@ npm run lint           # Oxlint, including TypeScript 7 type-aware linting
 npm run lint:fix       # apply Oxlint's safe fixes
 npm run format         # prettier --write (src, tests, scripts, and all .md; see .prettierignore)
 npm run format:check   # prettier --check (the CI "Format" job runs this + lint)
-npm run sync:agents        # regenerate .codex/agents and .claude/skills from their authored trees
-npm run sync:agents:check  # verify they are in sync (the CI "Agents" job runs this)
+npm run sync:agents        # regenerate .codex/agents, .claude/skills, AGENTS.md's shared blocks
+                           # and the guard hooks in .claude/settings.json
+npm run sync:agents:check  # verify they're current and docs/agents/guard.md parses ("Agents" CI job)
 npm run lint:agents        # agent and skill sources stay tool-neutral (the "Agents" job runs this too)
 npm run sync:main      # move public + private repos to main and fast-forward origin/main
 
