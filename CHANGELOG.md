@@ -13,6 +13,18 @@ section for the version its merge mints. `Unreleased` stays empty.
 
 No unreleased changes.
 
+## [1.18.93] - 2026-11-26
+
+### Internal
+
+- **`docs/agents/local-runs.md` says which runner and environment each script test uses.** It
+  said `npm test` runs `scripts/` under the node environment. Vitest's configured default is jsdom,
+  and a script test runs under node only when its first line opts in. The canonical scripts'
+  `node:test` suites don't run in `npm test` at all: `npm run test:scripts` runs them, from
+  `scripts/node-test-suites.ts`. The guide now also warns against globbing them with
+  `node --test`, and says the environment header is for a Vitest test that builds a path from
+  `import.meta.url`. (#672)
+
 ## [1.18.92] - 2026-11-26
 
 ### Internal
@@ -6684,7 +6696,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.92...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.93...HEAD
+[1.18.93]: https://github.com/jwh3times/magic-agenda/compare/v1.18.92...v1.18.93
 [1.18.92]: https://github.com/jwh3times/magic-agenda/compare/v1.18.91...v1.18.92
 [1.18.91]: https://github.com/jwh3times/magic-agenda/compare/v1.18.90...v1.18.91
 [1.18.90]: https://github.com/jwh3times/magic-agenda/compare/v1.18.89...v1.18.90
