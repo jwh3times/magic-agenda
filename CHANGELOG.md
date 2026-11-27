@@ -13,6 +13,16 @@ section for the version its merge mints. `Unreleased` stays empty.
 
 No unreleased changes.
 
+## [1.18.94] - 2026-11-27
+
+### Internal
+
+- **`AGENTS.md` and `docs/agents/tooling.md` send a change's release notes to its changelog
+  fragment.** Both said to keep `CHANGELOG.md` aligned with `AGENTS.md` and `README.md`, a rule
+  left over from before `stamp-on-tag`. They now say the notes go in the branch's
+  `changelog.d/<branch-slug>.md` fragment, which `open-pr` writes, never in `CHANGELOG.md`, and
+  link to `docs/agents/releases.md`. (#681)
+
 ## [1.18.93] - 2026-11-26
 
 ### Internal
@@ -6696,7 +6706,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.93...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.94...HEAD
+[1.18.94]: https://github.com/jwh3times/magic-agenda/compare/v1.18.93...v1.18.94
 [1.18.93]: https://github.com/jwh3times/magic-agenda/compare/v1.18.92...v1.18.93
 [1.18.92]: https://github.com/jwh3times/magic-agenda/compare/v1.18.91...v1.18.92
 [1.18.91]: https://github.com/jwh3times/magic-agenda/compare/v1.18.90...v1.18.91
