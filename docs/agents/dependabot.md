@@ -91,13 +91,18 @@ never real keys.
 
 ## Playbook
 
-- `oxlint` or `oxlint-tsgolint`, any bump: new or sharper rules turn `Format` red at
+- `oxlint` or `oxlint-tsgolint`, any bump: a new, sharper or looser rule can turn `Format` red at
   `npm run lint` while `format:check` passes. Gate: `npm ci && npm run lint`, then
   `npm run build` and `npm test`. Known fixes: `oxlint-tsgolint` 7.0.2007's
   `no-unnecessary-type-assertion` flags `screen.getByTestId('x') as HTMLInputElement`; write
   `screen.getByTestId<HTMLInputElement>('x')` (PR #668, its review comment and the commit pushed
   to it). `oxlint` 1.91's `react/immutability` rejected effect- and callback-local `let`s that a
   closure reassigns; the sites were fixed on `main` (#655) and the bump then rebased (PR #652).
+  A bump can also loosen a rule and leave a suppression unused, which `.oxlintrc.json`'s
+  `"reportUnusedDisableDirectives": "error"` turns into a lint error ("Unused oxlint-disable
+  directive"); delete the directive. `oxlint` 1.95.0 stopped reporting `react/refs` in
+  `DndKitNextSortable` (`src/dnd/dndKitNext.prototype.tsx`), whose disable/enable pair was removed
+  by the commit pushed to PR #729.
   The rules' current guidance is in `docs/agents/testing.md`.
 - `jsdom` major: computed-style serialization can change. jsdom 31 serializes
   `minmax(0, 1fr)` as `minmax(0px, 1fr)`, which failed two assertions in
