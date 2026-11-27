@@ -45,9 +45,10 @@ ups". What gates a merge and how a version is minted are in
 - **A `BEHIND` branch can't merge**, even with every check green: the ruleset requires up-to-date
   branches. `gh pr view <n> --json mergeStateStatus` shows it; `gh pr update-branch <n>` fixes it and
   starts a fresh run.
-- **On a Dependabot PR, use `gh pr update-branch <n> --rebase`.** `@dependabot rebase` has been
-  silently ignored for 15 minutes and more. Pushing a commit of your own to a Dependabot branch ends
-  Dependabot's management of that PR.
+- **On a Dependabot PR, use `gh pr update-branch <n> --rebase`**, because a merge commit on its
+  branch can stop Dependabot rebasing it later. `@dependabot rebase` has been silently ignored for
+  15 minutes and more. Pushing a commit of your own to a Dependabot branch ends Dependabot's
+  management of that PR, which changes the catch-up: see "Dependabot catch-up" below.
 - **Dependabot regenerates a group PR by itself** when another PR merges, which can remove the
   errors a fix was written for. Before writing a fix for a red Dependabot PR, check
   `gh run list --branch <its branch>` for a regeneration.
@@ -131,9 +132,18 @@ That phrase covers all of this, without asking between steps:
 
 ## Dependabot catch-up
 
-`gh pr update-branch <n> --rebase` — `@dependabot rebase` has been silently ignored for 15 minutes
-and more ("Before merging"). A rebase can also make Dependabot close a group PR as "updatable in
-another way" without a replacement (PR #695); its next daily run opens a new one.
+Choose by who has committed to the branch. `land.mjs` reports `dependabot` from the PR's author
+alone, so read the commits:
+`gh pr view <n> --json commits --jq '[.commits[].authors[].login] | unique'`.
+
+- **Only `dependabot[bot]`:** `gh pr update-branch <n> --rebase` ("Before merging"). A rebase can
+  also make Dependabot close a group PR as "updatable in another way" without a replacement
+  (PR #695); its next daily run opens a new one.
+- **Anyone else too**, such as a pushed Playbook fix: `gh pr update-branch <n>`. Dependabot stopped
+  managing the PR when that commit landed, so there is no later rebase to protect, and the merge
+  keeps the pushed commit as it was tested (PR #729). It can't resolve a conflict: resolving one is
+  a change to the branch, which needs the user's word, and `@dependabot recreate` would drop the
+  fix.
 
 ## Deploys
 
