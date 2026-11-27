@@ -23,7 +23,7 @@ Closes #
 - [ ] `npm run build` passes
 - [ ] The branch's entries are in `changelog.d/<branch-slug>.md` (not `CHANGELOG.md`), verified
       with `node scripts/check-changelog.mjs`
-- [ ] `npm run sync:agents:check` passes (only relevant if you touched `.claude/agents/` or `.agents/skills/`)
+- [ ] `npm run sync:agents:check` passes (what it checks: [tooling.md](../docs/agents/tooling.md))
 - [ ] Followed the conventions in [CONTRIBUTING.md](../CONTRIBUTING.md)
 
 ## Notes for reviewers
