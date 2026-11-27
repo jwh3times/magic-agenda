@@ -13,6 +13,21 @@ section for the version its merge mints. `Unreleased` stays empty.
 
 No unreleased changes.
 
+## [1.18.90] - 2026-11-26
+
+### Internal
+
+- **`sync:agents` and its check are described as everything they cover.** `AGENTS.md`'s Commands
+  block, `CONTRIBUTING.md`'s Agent configuration section and the fast-check fix in
+  `docs/agents/open-pr.md` described the script as regenerating only `.codex/agents` and
+  `.claude/skills`. They now also name the shared blocks it writes in `AGENTS.md` and the guard hooks
+  it registers in `.claude/settings.json`. The Commands block adds that the check fails when
+  `docs/agents/guard.md` doesn't parse. (#723)
+- **The PR template's `sync:agents:check` box no longer says when the check matters.** It said
+  "only relevant if you touched `.claude/agents/` or `.agents/skills/`", which left out the other
+  inputs. It now links to `docs/agents/tooling.md`, which lists them, instead of copying a list
+  that would drift. (#723)
+
 ## [1.18.89] - 2026-11-26
 
 ### Internal
@@ -6646,7 +6661,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.89...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.90...HEAD
+[1.18.90]: https://github.com/jwh3times/magic-agenda/compare/v1.18.89...v1.18.90
 [1.18.89]: https://github.com/jwh3times/magic-agenda/compare/v1.18.88...v1.18.89
 [1.18.88]: https://github.com/jwh3times/magic-agenda/compare/v1.18.87...v1.18.88
 [1.18.87]: https://github.com/jwh3times/magic-agenda/compare/v1.18.86...v1.18.87
