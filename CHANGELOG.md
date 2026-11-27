@@ -13,6 +13,19 @@ section for the version its merge mints. `Unreleased` stays empty.
 
 No unreleased changes.
 
+## [1.18.89] - 2026-11-26
+
+### Internal
+
+- **Every step of the `Agents` CI job is described where it runs.** The comment above the job
+  read as a full account of it but covered three of its six steps, and `check-skills.mjs` was
+  described nowhere in the workflow. The header now introduces the job and each step has its own
+  comment. The steps themselves are unchanged. (#721)
+- **`sync:agents:check` is described as everything it checks.** The `ci.yml` comment and
+  `docs/agents/tooling.md` named only the generated trees. They now also name the shared blocks in
+  `AGENTS.md`, the guard hooks in `.claude/settings.json` and the parse of
+  `docs/agents/guard.md`. (#721)
+
 ## [1.18.88] - 2026-11-26
 
 ### Docs
@@ -6633,7 +6646,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.88...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.89...HEAD
+[1.18.89]: https://github.com/jwh3times/magic-agenda/compare/v1.18.88...v1.18.89
 [1.18.88]: https://github.com/jwh3times/magic-agenda/compare/v1.18.87...v1.18.88
 [1.18.87]: https://github.com/jwh3times/magic-agenda/compare/v1.18.86...v1.18.87
 [1.18.86]: https://github.com/jwh3times/magic-agenda/compare/v1.18.85...v1.18.86
