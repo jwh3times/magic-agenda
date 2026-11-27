@@ -111,8 +111,9 @@ skill (see [AGENTS.md](./AGENTS.md)).
 
 Claude Code and Codex read different files. Edit subagents in **`.claude/agents/`** and skills in
 **`.agents/skills/`**. [`scripts/sync-agents.mjs`](./scripts/sync-agents.mjs) generates
-`.codex/agents/` from the subagent sources and `.claude/skills/` from the skill sources. After
-editing either authored tree, run:
+`.codex/agents/` from the subagent sources and `.claude/skills/` from the skill sources. It also
+writes the shared blocks in `AGENTS.md` and registers the guard hooks in `.claude/settings.json`.
+After editing either authored tree, or any other source the script reads, run:
 
 ```bash
 npm run sync:agents        # regenerate; commit the result

@@ -11,8 +11,8 @@ All from the repository root, in order; together they cover the required `Format
 - `npm run format:check`, fixed by `npm run format`
 - `npm run lint`
 - `npx tsc -b`
-- `npm run sync:agents:check`, fixed by `npm run format` then `npm run sync:agents`, committing the
-  regenerated mirrors
+- `npm run sync:agents:check`, fixed by `npm run format` then `npm run sync:agents`, committing
+  everything it rewrites (the generated trees, `AGENTS.md`'s shared blocks, `.claude/settings.json`)
 - `npm run check:claude-md`
 - `npm run lint:agents`
 - `node scripts/check-docs.mjs`

@@ -132,9 +132,11 @@ Rules for this pipeline:
 - The required **`Agents` CI job** runs `npm run test:scripts`, the shared scripts' own `node:test`
   suites (listed once in `scripts/node-test-suites.ts`, which `vite.config.ts` also excludes from
   Vitest, so a new canonical suite left off the list fails `npm test` with "No test suite found in
-  file"); `npm run sync:agents:check`, which fails on any missing,
-  hand-edited, or orphaned generated file; `node scripts/check-skills.mjs`, which fails when an
-  installed skill differs from `skills-lock.json`, or the lock from the install commands; `npm run check:claude-md`
+  file"); `npm run sync:agents:check`, which fails on any missing, hand-edited, or orphaned file
+  that `sync-agents.mjs` writes (the two generated trees, the shared blocks in `AGENTS.md`, and
+  the guard hooks in `.claude/settings.json`), and when the guard's parser rejects
+  `docs/agents/guard.md`; `node scripts/check-skills.mjs`, which fails when an installed skill
+  differs from `skills-lock.json`, or the lock from the install commands; `npm run check:claude-md`
   (`scripts/check-claude-md.mjs`), which asserts `CLAUDE.md` still contains its `@AGENTS.md`
   import line; `npm run lint:agents` (`scripts/lint-agent-neutrality.mjs`, shared verbatim like
   `sync-agents.mjs`), which fails on wording one tool cannot follow and on links that break once a
