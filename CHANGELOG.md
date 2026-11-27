@@ -6,7 +6,7 @@ All notable changes to this project are documented here. The format is based on
 
 Every merge to `main` auto-releases (the `Version` workflow tags `v<major>.<minor>.<build>`), so each
 released build gets its own section below — named for the version the merge minted. Branches never
-edit this file: each writes its entries to `changelog.d/`, and the workflow stamps them into the
+write their entries here: each writes them to `changelog.d/`, and the workflow stamps them into the
 section for the version its merge mints. `Unreleased` stays empty.
 
 ## [Unreleased]

@@ -26,7 +26,7 @@ auto-increments from the highest existing `v<major>.<minor>.*` tag; for a new ma
 `package.json` build is used as-is, so `x.y.0` is valid and does not auto-bump to `x.y.1`.
 
 **No branch names a version** (`Scheme: stamp-on-tag`, [ADR 0005](../adr/0005-stamp-changelog-on-tag.md)).
-A branch writes its entries to its own `changelog.d/<branch-slug>.md` fragment and never edits
+A branch writes its entries to its own `changelog.d/<branch-slug>.md` fragment, never to
 `CHANGELOG.md`; the `open-pr` skill does this. After the merge, `Version` runs
 `scripts/stamp-changelog.mjs`, which turns that merge's fragments (or, with none, its PR title) into
 its dated section with its compare link, deletes them, pushes one `chore(release): v<x.y.z> [skip ci]`
@@ -34,9 +34,12 @@ commit through the release App, tags the merge commit, and creates the Release f
 So open PRs merge in any order, and a Dependabot merge gets a section without a backfill. The
 required `Changelog` job runs `scripts/check-changelog.mjs`, which checks that the branch's
 fragments parse and that it edits no released section, no `## [Unreleased]` entry and no fragment
-already on `main`. It has no Dependabot exemption, and it runs on every PR, as a required check
-must: one that never reports leaves a PR unmergeable forever. A fragment may use this changelog's
-own `### Internal` and `### Docs` categories; the stamp sorts them after Keep a Changelog's six.
+already on `main`. The branch may still empty `Unreleased`, change prose such as the policy text
+at the top of `CHANGELOG.md`, and add a backfill section for a version already tagged with none,
+which only a merge from before this scheme leaves. The check has no Dependabot exemption, and it
+runs on every PR, as a required check must: one that never reports leaves a PR unmergeable
+forever. A fragment may use this changelog's own `### Internal` and `### Docs` categories; the
+stamp sorts them after Keep a Changelog's six.
 `next-version.mjs`, `check-changelog.mjs`, `stamp-changelog.mjs`, `check-docs.mjs`, `check-skills.mjs`
 and `sync-main.mjs`, with their `node:test` suites, are canonical in `jwh3times/skills`: fix them
 there, then copy them here.
