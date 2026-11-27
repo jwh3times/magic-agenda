@@ -13,6 +13,23 @@ section for the version its merge mints. `Unreleased` stays empty.
 
 No unreleased changes.
 
+## [1.18.92] - 2026-11-26
+
+### Internal
+
+- **The Doc map puts more documents in scope when the files they depend on change.** Five triggers
+  in `docs/agents/docs.md` missed changes that make their document wrong. They now name:
+  - for `local-runs.md`: `.prettierignore`, the `format` globs, `supabase/functions/deno.json` and
+    `scripts/rls-up.mjs`;
+  - for `merging.md`: the Playwright browser channel and the `main` ruleset's merge rules;
+  - for `CONTRIBUTING.md`: the commands inside a required check's job;
+  - for `SECURITY.md`: branch protection and the ruleset's bypass actors.
+
+  `changelog.d/README.md` gets its own living entry, no longer skipped as a fragment. (#671)
+
+- **`changelog.d/README.md` states the fragment rules the `Changelog` check enforces.** Only `###`
+  headings, nothing before the first heading, and no heading without entries. (#671)
+
 ## [1.18.91] - 2026-11-26
 
 ### Changed
@@ -6667,7 +6684,8 @@ Initial public release — [magicagenda.app](https://magicagenda.app).
   after reload (instances don't yet record their origin date).
 - The Google consent screen shows the `…supabase.co` callback host on the free Supabase tier.
 
-[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.91...HEAD
+[Unreleased]: https://github.com/jwh3times/magic-agenda/compare/v1.18.92...HEAD
+[1.18.92]: https://github.com/jwh3times/magic-agenda/compare/v1.18.91...v1.18.92
 [1.18.91]: https://github.com/jwh3times/magic-agenda/compare/v1.18.90...v1.18.91
 [1.18.90]: https://github.com/jwh3times/magic-agenda/compare/v1.18.89...v1.18.90
 [1.18.89]: https://github.com/jwh3times/magic-agenda/compare/v1.18.88...v1.18.89
