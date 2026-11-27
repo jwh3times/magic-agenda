@@ -32,14 +32,16 @@ A branch writes its entries to its own `changelog.d/<branch-slug>.md` fragment, 
 its dated section with its compare link, deletes them, pushes one `chore(release): v<x.y.z> [skip ci]`
 commit through the release App, tags the merge commit, and creates the Release from the section.
 So open PRs merge in any order, and a Dependabot merge gets a section without a backfill. The
-required `Changelog` job runs `scripts/check-changelog.mjs`, which checks that the branch's
-fragments parse and that it edits no released section, no `## [Unreleased]` entry and no fragment
-already on `main`. The branch may still empty `Unreleased`, change prose such as the policy text
-at the top of `CHANGELOG.md`, and add a backfill section for a version already tagged with none,
-which only a merge from before this scheme leaves. The check has no Dependabot exemption, and it
-runs on every PR, as a required check must: one that never reports leaves a PR unmergeable
-forever. A fragment may use this changelog's own `### Internal` and `### Docs` categories; the
-stamp sorts them after Keep a Changelog's six.
+required `Changelog` job runs `scripts/check-changelog.mjs`, which fails when a fragment doesn't
+parse, or when the branch removes or renumbers a version section, adds one other than the backfill
+below, adds entries to `## [Unreleased]`, or edits or deletes another merge's fragment. The check
+doesn't read the body of a released section: a change there rewrites release history, and only
+review catches it. The branch may still empty `Unreleased`, change prose such as the
+policy text at the top of `CHANGELOG.md`, and add a backfill section for a version already tagged
+with none, which only a merge from before this scheme leaves. The check has no Dependabot
+exemption, and it runs on every PR, as a required check must: one that never reports leaves a PR
+unmergeable forever. A fragment may use this changelog's own `### Internal` and `### Docs`
+categories; the stamp sorts them after Keep a Changelog's six.
 `next-version.mjs`, `check-changelog.mjs`, `stamp-changelog.mjs`, `check-docs.mjs`, `check-skills.mjs`
 and `sync-main.mjs`, with their `node:test` suites, are canonical in `jwh3times/skills`: fix them
 there, then copy them here.
