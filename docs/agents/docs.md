@@ -26,7 +26,10 @@ Settings the shared `docs-updater`, `end-session` and `open-pr` skills read (ins
 - `docs/agents/merging.md`, `docs/agents/local-runs.md`, `docs/agents/verification.md` — from open
   PR to finished merge and its follow-ups; running suites, lint and the local stack without a false
   result; proving a test, fix or claim. **When:** a lesson is learned that no script or test
-  enforces, or a command, check or workflow they quote changes.
+  enforces, or a command, check or workflow they quote changes; `.prettierignore`, the `format`
+  globs in `package.json`, `supabase/functions/deno.json` or `scripts/rls-up.mjs` change:
+  `local-runs.md`; the browser channel in `playwright.config.ts` or ruleset 18273908 (its merge
+  method, up-to-date rule or required checks) changes: `merging.md`.
 - `docs/agents/` settings and conventions (`workspace`, `issue-tracker`, `human-follow-up`, `docs`,
   `releases`, `open-pr`, `handoffs`, `triage-labels`, `domain`, `test-proof`) — what the skills read.
   **When:** a convention, route or setting changes; for `test-proof`, a test runner, a `test` script
@@ -45,14 +48,15 @@ Settings the shared `docs-updater`, `end-session` and `open-pr` skills read (ins
   technology or host changes (the tech stack); a top-level `src/` folder, a page in `src/pages/` or
   an Edge Function is added, renamed or removed (the tree); an architecture fact it restates changes
   (the architecture notes).
-- `CONTRIBUTING.md` — the workflow and standards. **When:** the development flow or a required
-  check changes.
+- `CONTRIBUTING.md` — the workflow and standards. **When:** the development flow, a required
+  check, or the commands its job in `.github/workflows/ci.yml` runs change.
 - `SUPPORT.md` — where to ask for help. **When:** the issue templates or the support route change.
 - `CODE_OF_CONDUCT.md`, `LICENSE` — `owner-only`.
 - `THIRD_PARTY_NOTICES.md` — the license notices of third-party files kept here. `owner-only`: report
   the change when a skill's source changes.
 - `SECURITY.md` — the security model and the reporting route. **When:** a load-bearing boundary it
-  describes (RLS, response headers, auth, backups) or the reporting route changes.
+  describes (RLS, response headers, auth, backups, branch protection and the bypass actors of
+  `main`'s ruleset 18273908) or the reporting route changes.
 - `ROADMAP.md` — a pointer to GitHub Issues and the board; it lists nothing. **When:** where planned
   work lives changes.
 - `docs/README.md` — the docs index and each folder's lifecycle. **When:** a folder under `docs/` is
@@ -65,7 +69,10 @@ Settings the shared `docs-updater`, `end-session` and `open-pr` skills read (ins
   app/DB boundary, RLS, recurrence or drag-and-drop rules it reviews against change.
 - `CHANGELOG.md` — release notes, one dated section per merge, stamped by `version.yml` after each
   merge. `frozen`: a branch edits only the policy text at the top.
-- `changelog.d/*.md` — the branch's changelog fragment, one per branch (`changelog.d/README.md`).
+- `changelog.d/README.md` — how a branch writes its fragment, and what the stamp does with it after
+  the merge. **When:** the fragment format, `scripts/stamp-changelog.mjs` or the stamp step in
+  `.github/workflows/version.yml`, or the fragment rules in `scripts/check-changelog.mjs` change.
+- `changelog.d/*.md` other than `README.md` — the branch's changelog fragment, one per branch.
   `ship-owned`.
 - `CLAUDE.md` — only an `@AGENTS.md` import; `npm run check:claude-md` fails without it. `frozen`.
 - `CONTEXT.md` — the domain glossary, maintained through `domain-modeling` (`docs/agents/domain.md`).
