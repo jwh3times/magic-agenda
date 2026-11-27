@@ -97,8 +97,11 @@ such as Dependabot's, gets a one-bullet section from its PR title. Open PRs ther
 order without renumbering.
 
 The required **`Changelog` check** runs [`scripts/check-changelog.mjs`](./scripts/check-changelog.mjs),
-which fails when a fragment doesn't parse, or when the branch edits a released section, an
-`## [Unreleased]` entry or a fragment already on `main`:
+which fails when a fragment doesn't parse, or when the branch adds a version section of its own,
+removes or renumbers one, adds entries to `## [Unreleased]`, or edits or deletes another merge's
+fragment. The check doesn't read the body of a released section, so a change there rewrites
+release history and only review catches it. The exceptions, such as a backfill section, are in
+[Required checks and releases](./docs/agents/releases.md). Run it with:
 
 ```bash
 node scripts/check-changelog.mjs
