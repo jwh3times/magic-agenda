@@ -4,8 +4,9 @@ Each branch writes its changelog entries here, in one file named for the branch 
 replaced by `-` (`feat/512-board-colors` → `feat-512-board-colors.md`). `/open-pr` writes it; never
 edit `CHANGELOG.md` on a branch.
 
-A fragment holds only category headings and their bullets, with no version or date. Use Keep a
-Changelog's categories, or this changelog's own `### Internal` and `### Docs`:
+A fragment holds only `###` category headings and their bullets, with no version or date; the
+`Changelog` check rejects any other heading, a line before the first heading, and a heading with no
+entries. Use Keep a Changelog's categories, or this changelog's own `### Internal` and `### Docs`:
 
 ```markdown
 ### Added
