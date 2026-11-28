@@ -1,14 +1,16 @@
 ---
 name: open-pr
-description: Take the current branch to an open pull request — evaluate its SemVer release impact, refresh the docs, write the changelog entry for the version this merge will mint, file its human follow-ups, run the fast checks, push, and open or update the PR. Use when a feature branch is ready for review, or when the user says "ship it", "open a PR", or "push this".
+description: Take the current branch to an open pull request — evaluate its SemVer release impact, refresh the docs, write the branch's changelog entries for its release scheme, file its human follow-ups, run the fast checks, push, and open or update the PR. Use when a feature branch is ready for review, or when the user says "ship it", "open a PR", or "push this".
 metadata:
   settings: workspace issue-tracker human-follow-up releases open-pr dev-flow triage-labels agents-md guard
+  helpers: end-session/board.mjs
 ---
 
 # Open PR
 
-Take the current branch from "code is done" to "PR is open and green-able", with a changelog that
-names the version this merge will actually create.
+Take the current branch from "code is done" to "PR is open and green-able", with its changelog
+entries written the way its release scheme records them: under the exact version this merge will
+create with `per-merge` or a `cut-on-line` cut, and with no version otherwise.
 
 **Announce at start:** "I'm using the open-pr skill to open a PR for this branch."
 
@@ -190,8 +192,8 @@ range="$(git merge-base origin/main HEAD)..HEAD"
 
 Tell it what changed and why, that it was invoked by `open-pr` on an unmerged branch, and that this
 skill writes the changelog and the `Version file`. It leaves its edits uncommitted and returns the
-human actions it found for step 6, and any wiki search it owes after the merge (the
-`Follow-up wiki`, or a `Doc map` item in a wiki).
+human actions it found for step 6, its **drift fixed outside the change** list for step 9, and any
+wiki search it owes after the merge (the `Follow-up wiki`, or a `Doc map` item in a wiki).
 Companion edits are committed there as its own repository, never in this one: run the
 `## Procedure` in `.agents/skills/open-pr/settings/workspace.md`.
 
@@ -235,22 +237,24 @@ second. Entries this branch added to `Unreleased` are rewritten the same way.
   below the cut.
 - **`stamp-on-tag`** — write the entries to `changelog.d/<branch-slug>.md`, the branch name with
   each `/` replaced by `-`: only `### <Category>` headings and their bullets, with no version or
-  date heading. Never edit `CHANGELOG.md`: the tag workflow writes its sections, and
-  `Changelog check` rejects a branch that adds one or edits `Unreleased`. The one section it
-  accepts is a backfill for a version already tagged with none, which only the move to this scheme
-  writes; keep such a section. When the branch already made any other edit, stop and ask before
-  undoing it. Never edit or delete another merge's fragment: the stamp
-  releases that merge's own copy, so the check rejects it. A fragment from an earlier `open-pr` is
-  rewritten in place:
-  find it with `git diff --name-only origin/main...HEAD -- changelog.d/`.
+  date heading. Write no entry in `CHANGELOG.md`: the tag workflow writes its sections.
+  `Changelog check` reads only its version headings and the entries in `Unreleased`. It rejects a
+  branch that adds, removes, reorders or renumbers a version section, or that changes `Unreleased`
+  and leaves a list item in it. The one section it accepts is a backfill for a version already
+  tagged with none, which only the move to this scheme writes; keep such a section. Every other
+  edit passes, such as emptying `Unreleased` and rewriting the policy at the top, as the move to
+  this scheme does; keep those edits. When the branch already made an edit the check rejects, stop
+  and ask before undoing it. Never edit or delete another merge's fragment: the stamp releases that
+  merge's own copy, so the check rejects it. A fragment from an earlier `open-pr` is rewritten in
+  place: find it with `git diff --name-only origin/main...HEAD -- changelog.d/`.
 
 **Reference links.** When the file ends in a link footer, keep it consistent in the pattern its
 entries follow: `[Unreleased]` compares from the newest version to `HEAD`, and each new or
 renumbered section — backfilled ones too — gets its own link, newest first. With `stamp-on-tag`
 the tag workflow keeps the footer.
 
-Run `Changelog check`. A mismatch names the version the merge will really mint: redo this step with
-it.
+Run `Changelog check`. With `per-merge`, a mismatch names the version the merge will really mint:
+redo this step with it. Under the other schemes, its message names what to fix.
 
 ## 8. Fast checks — refuse to push if any fail
 
@@ -301,7 +305,10 @@ Write the body to a temporary file and pass `--body-file`. Fill the repository's
 changelog entries and the diff. Tick a checkbox only on evidence from the diff, the fast checks or
 `Hook: before PR`, and leave the rest unticked; where the template asks how the change was
 verified, name the fast checks actually run and the checks left to CI. Include the
-`Release level:` line from step 2 and, with `per-merge`, the version this merge will mint.
+`Release level:` line from step 2 and, with `per-merge`, the version this merge will mint. When
+step 5 returned a **drift fixed outside the change** list, the body gives it its own heading,
+`Drift fixed outside the change`, one line per fix, so a reviewer can tell those fixes from the
+branch's own change.
 
 **Issue link**, when the setting is not `none`. The body opens with the link line, in the slot the
 template leaves for it:
@@ -332,7 +339,8 @@ companion detail.
   new line (a `cut-on-line` cut), or that the next tag assigns the build (`cut-on-line`,
   `stamp-on-tag`), and the fragment written (`stamp-on-tag`). Name a competing PR
   claiming the same version, and say the section is renumbered on a re-run.
-- What the docs refresh changed, the changelog entries written, and any sections backfilled. When
+- What the docs refresh changed (its drift fixed outside the change listed apart), the changelog
+  entries written, and any sections backfilled. When
   docs-updater owes a wiki search after the merge, say so: the next `end-session` performs it.
 - Human follow-ups: verified issue and wiki links, what is unpublished and why, or that none remain.
 - Fast-check results, checks left to CI, the test proof's verdict and findings when it ran,
